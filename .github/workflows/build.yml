@@ -51,7 +51,7 @@ jobs:
         with:
           # snapcraft 9.x is the first line that understands base: core26.
           # The action's default channel may still be 8.x/stable.
-          snapcraft-channel: 9.x/stable
+          snapcraft-channel: 9.x/candidate
 
       - name: Upload snap artefact
         uses: actions/upload-artifact@v4
