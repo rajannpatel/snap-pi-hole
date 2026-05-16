@@ -39,9 +39,9 @@ jobs:
       fail-fast: false
       matrix:
         arch: [amd64]
-        # arm64 is covered by `snapcraft remote-build` once we wire up a
-        # Launchpad token; GH-hosted runners only have amd64. armhf is
-        # dropped on the core26 base — see snapcraft.yaml platforms:.
+        # arm64 and armhf are covered by `snapcraft remote-build` once
+        # we wire up a Launchpad token; GH-hosted runners only have
+        # amd64.
     steps:
       - uses: actions/checkout@v5
 
@@ -49,8 +49,9 @@ jobs:
         id: snapcraft
         uses: snapcore/action-build@v1
         with:
-          # snapcraft 9.x is the first line that understands base: core26.
-          # The action's default channel may still be 8.x/stable.
+          # snapcraft 9.x supports every base from core18 onwards; aligning
+          # the build and release workflows on the same channel keeps the
+          # behaviour reproducible across them.
           snapcraft-channel: 9.x/candidate
 
       - name: Upload snap artefact
