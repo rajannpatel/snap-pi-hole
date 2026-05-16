@@ -121,6 +121,8 @@ parts:
     override-pull: |
       craftctl default
       craftctl set version="$(git -C "${CRAFT_PART_SRC}" describe --tags --always)"
+      # Fix strstr redefinition error on newer glibc (Ubuntu 26.04)
+      sed -i 's/#define strstr(haystack, needle)/#undef strstr\n#define strstr(haystack, needle)/' "${CRAFT_PART_SRC}/src/FTL.h"
     cmake-parameters:
       - -DCMAKE_BUILD_TYPE=Release
       - -DCMAKE_INSTALL_PREFIX=/usr
@@ -141,6 +143,7 @@ parts:
       - libmbedtls-dev
       - libunistring-dev   # added in FTL v6.6.x for Unicode handling
       - python3
+      - xxd
     stage-packages:
       - libidn2-0
       - libuv1
