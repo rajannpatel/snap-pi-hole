@@ -124,6 +124,7 @@ parts:
       # Fix strstr redefinition error on newer glibc (Ubuntu 26.04)
       sed -i 's/#define strstr(haystack, needle)/#undef strstr\n#define strstr(haystack, needle)/' "${CRAFT_PART_SRC}/src/FTL.h"
     cmake-parameters:
+      - -DCMAKE_C_FLAGS="-Wno-error=discarded-qualifiers"
       - -DCMAKE_BUILD_TYPE=Release
       - -DCMAKE_INSTALL_PREFIX=/usr
       - -DSTATIC=false
