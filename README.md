@@ -3,11 +3,12 @@
 A [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net),
 the network-wide ad-blocking DNS sinkhole.
 
-> **Status: `grade: devel`.** The recipe builds, layouts cover every
-> path the v6.6.2 FTL source actually touches, the `pihole` CLI is
-> wrapped, the `configure` hook is wired up, and a basic CI smoke test
-> exercises the build. What's not yet proven: a long-running deployment
-> against real LAN clients. See [Remaining work](#remaining-work).
+> **Status: `grade: devel`.** The recipe is in place, layouts cover
+> every path the v6.6.2 FTL source actually touches, the `pihole` CLI
+> is wrapped, the `configure` hook is wired up, and a CI workflow
+> exercises lint / unit tests / build / smoke test. The first end-to-end
+> CI build is still in flight; a long-running deployment against real
+> LAN clients has not yet happened. See [Remaining work](#remaining-work).
 
 Pinned upstream: **FTL v6.6.2** · **pi-hole (core) v6.4.2** · **web v6.5**.
 
@@ -35,7 +36,9 @@ A snap fixes most of that:
 ## Repository layout
 
 ```
-.github/workflows/build.yml  # lint + build + smoke-test CI
+.github/workflows/
+├── build.yml                # lint + build + smoke-test CI (push, PR)
+└── release.yml              # tag-driven publish to the Snap Store
 snap/
 ├── snapcraft.yaml           # the recipe
 ├── gui/
