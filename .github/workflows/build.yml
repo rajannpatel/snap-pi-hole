@@ -9,7 +9,7 @@ on:
 jobs:
   lint:
     name: shellcheck + bats
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
 
@@ -31,13 +31,14 @@ jobs:
 
   build:
     name: build (${{ matrix.arch }})
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
         arch: [amd64]
-        # arm64/armhf are covered by `snapcraft remote-build` once we wire
-        # up a Launchpad token; GH-hosted runners only have amd64.
+        # arm64 is covered by `snapcraft remote-build` once we wire up a
+        # Launchpad token; GH-hosted runners only have amd64. armhf is
+        # dropped on the core26 base — see snapcraft.yaml platforms:.
     steps:
       - uses: actions/checkout@v4
 
@@ -55,7 +56,7 @@ jobs:
   smoke:
     name: smoke test
     needs: [build, lint]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Download snap
         uses: actions/download-artifact@v4

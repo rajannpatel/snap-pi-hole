@@ -43,13 +43,16 @@ description: |
 # traffic. See README.md for the open work list.
 grade: devel
 confinement: strict
-base: core24
+# core26 (Ubuntu 26.04 LTS) ships mbedtls 3.x; FTL v6.6.x uses the PSA
+# Crypto API and mbedtls_x509_time_gmtime, both of which require 3.x.
+# core24 (24.04) ships mbedtls 2.28 and the build fails at compile time.
+base: core26
 
-# Refuse to install on snapd older than core24's documented floor; the
+# Refuse to install on snapd older than core26's documented floor; the
 # error message is much better than the cryptic feature-not-supported
 # we'd otherwise hit at first refresh.
 assumes:
-  - snapd2.61
+  - snapd2.68
 
 # Document the current data-format baseline. Bump to `epoch: 1*` (note
 # the trailing asterisk) the first time we ship a revision that changes
@@ -58,10 +61,13 @@ assumes:
 # hold users on the old epoch until the migration code is in place.
 epoch: 0
 
+# armhf is intentionally dropped: Ubuntu 26.04 doesn't ship a full
+# 32-bit ARM archive, and contemporary Pi-hole hardware (Pi 3B+ and
+# later, generic SBCs) is arm64. Add back if a concrete armhf user
+# appears.
 platforms:
   amd64:
   arm64:
-  armhf:
 
 # Bind-mount the paths FTL and the bash scripts have hardcoded onto
 # writable snap data locations. Inside the snap's mount namespace
@@ -143,7 +149,13 @@ parts:
       - libsqlite3-0
       - libnettle8
       - libgmp10
-      - libmbedtls14
+      # mbedtls 3.x splits the runtime ABI into three separately-versioned
+      # libraries. SONAMEs are best guesses for noble+1 / 26.04 — if any
+      # of these doesn't resolve, snapcraft will print the correct name
+      # in its "no candidate found" error and we adjust.
+      - libmbedtls21
+      - libmbedcrypto16
+      - libmbedx509-7
       - libunistring5
       - ca-certificates
 

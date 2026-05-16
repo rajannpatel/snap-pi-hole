@@ -307,9 +307,11 @@ No decision required for the snap to function — just for it to be
       `version`, `status`, and the `-up` interception path. Extend it to
       cover `setpassword`, `-g` (gravity update), `-d`/`debug`, and
       `tricorder` once each one has a known-good expected output.
-- [ ] **`snapcraft remote-build` for arm64/armhf.** GH-hosted runners
-      only have amd64. Wire up a Launchpad credential and add a
-      separate workflow for cross-arch builds.
+- [ ] **`snapcraft remote-build` for arm64.** GH-hosted runners only
+      have amd64. Wire up a Launchpad credential and add a separate
+      workflow for cross-arch builds. (armhf is intentionally dropped
+      since core26 doesn't ship a full 32-bit ARM archive — modern
+      Pi-hole hardware is arm64.)
 - [ ] **Strict-confinement AppArmor pass.** CI now records denials but
       doesn't fail on them. Once the denial list is empty (or
       explainable), flip the warn-only grep to a hard fail and drop
