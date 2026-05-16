@@ -9,7 +9,7 @@ on:
 jobs:
   lint:
     name: shellcheck + bats
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -31,7 +31,7 @@ jobs:
 
   build:
     name: build (${{ matrix.arch }})
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -56,7 +56,7 @@ jobs:
   smoke:
     name: smoke test
     needs: [build, lint]
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-latest
     steps:
       - name: Download snap
         uses: actions/download-artifact@v4

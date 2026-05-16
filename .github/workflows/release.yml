@@ -21,7 +21,7 @@ env:
 jobs:
   release:
     name: build + publish
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
