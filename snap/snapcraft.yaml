@@ -47,7 +47,6 @@ confinement: strict
 # Crypto API and mbedtls_x509_time_gmtime, both of which require 3.x.
 # core24 (24.04) ships mbedtls 2.28 and the build fails at compile time.
 base: core26
-build-base: core26
 
 # Refuse to install on snapd older than core26's documented floor; the
 # error message is much better than the cryptic feature-not-supported
