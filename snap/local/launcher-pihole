@@ -1,16 +1,34 @@
 #!/bin/bash
 # CLI launcher: `snap run pihole.pihole <args>` → upstream `pihole` script.
 #
-# The upstream script hardcodes paths like /opt/pihole, /etc/pihole, etc.
-# We export the remapped paths and let the script honour them where it can;
-# subcommands that still bake in absolute paths are tracked in README.md
-# under "Open work".
+# Subcommands that depend on an unconfined install (self-update, repair,
+# uninstall, branch-switch) don't make sense inside a snap. Intercept
+# them here with a clear message pointing at the snap-native equivalent.
 set -eu
 
-. "${SNAP}/etc/pihole-paths.env"
+usage_snap_equivalent() {
+    case "$1" in
+        -up|updatePihole|updatechecker|checkout)
+            echo "  Use: sudo snap refresh pihole" >&2
+            ;;
+        -r|repair)
+            echo "  Use: sudo snap revert pihole   # then re-refresh if needed" >&2
+            ;;
+        uninstall)
+            echo "  Use: sudo snap remove pihole" >&2
+            ;;
+    esac
+}
 
-# Make the supporting scripts findable.
-PATH="${PIHOLE_INSTALL_DIR}:${PIHOLE_SCRIPT_DIR}:${PATH}"
-export PATH
+case "${1:-}" in
+    -up|updatePihole|-r|repair|uninstall|checkout|updatechecker)
+        echo "Error: 'pihole $1' is not supported in the snap." >&2
+        usage_snap_equivalent "$1"
+        exit 1
+        ;;
+esac
 
-exec "${PIHOLE_INSTALL_DIR}/pihole" "$@"
+export HOME="${SNAP_DATA}"
+export PATH="/opt/pihole:/opt/pihole/scripts:${PATH}"
+
+exec /opt/pihole/pihole "$@"

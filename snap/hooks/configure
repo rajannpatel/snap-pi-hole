@@ -1,16 +1,42 @@
 #!/bin/sh
-# Map a small set of `snap set pihole ...` keys to the FTL TOML config.
-# Kept intentionally minimal — full configuration is via `pihole.pihole`
-# or by editing $SNAP_DATA/etc/pihole/pihole.toml directly.
+# Translate `snap set pihole <key>=<value>` into edits of pihole.toml via
+# `pihole-FTL --config`, then restart the daemon if it's already running.
+#
+# Supported keys (everything else is set via `pihole.pihole` or by
+# editing /etc/pihole/pihole.toml directly):
+#
+#   web-port            -> webserver.port
+#   dns-port            -> dns.port
+#   dhcp-enabled        -> dhcp.active
+#   dhcp-start          -> dhcp.start
+#   dhcp-end            -> dhcp.end
+#   dhcp-router         -> dhcp.router
+#   dhcp-leasetime      -> dhcp.leaseTime
+#   dhcp-domain         -> dhcp.domain
 set -eu
 
-. "${SNAP}/etc/pihole-paths.env"
+applied=0
 
-# Currently a no-op stub. Wire-up plan:
-#   web-port      → webserver.port
-#   dns-port      → dns.port
-#   dhcp-enabled  → dhcp.active
-# Each will translate to an in-place TOML edit followed by a daemon restart
-# request (`snapctl restart pihole.pihole-ftl`).
+apply() {
+    snap_key="$1"; toml_key="$2"
+    val="$(snapctl get "$snap_key" 2>/dev/null || true)"
+    [ -n "${val}" ] || return 0
+    "${SNAP}/usr/bin/pihole-FTL" --config "$toml_key" "$val" >/dev/null
+    applied=1
+}
 
-exit 0
+apply web-port       webserver.port
+apply dns-port       dns.port
+apply dhcp-enabled   dhcp.active
+apply dhcp-start     dhcp.start
+apply dhcp-end       dhcp.end
+apply dhcp-router    dhcp.router
+apply dhcp-leasetime dhcp.leaseTime
+apply dhcp-domain    dhcp.domain
+
+# Only restart if we changed something AND the daemon is already running.
+# `snapctl restart` on a stopped service would start it, which would be
+# surprising right after the operator just `snap set`-ed something.
+if [ "$applied" = 1 ] && snapctl services pihole.pihole-ftl 2>/dev/null | awk 'NR>1 {print $3}' | grep -qx active; then
+    snapctl restart pihole.pihole-ftl
+fi

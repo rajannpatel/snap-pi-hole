@@ -1,13 +1,7 @@
 #!/bin/sh
-# Runs once at first install. We only create the data directories here;
-# the daemon launcher does the rest on first start.
+# Runs once at first install. The `layout:` block aliases these paths to
+# $SNAP_DATA / $SNAP_COMMON, so creating them here populates the right
+# writable backing directories.
 set -eu
 
-. "${SNAP}/etc/pihole-paths.env"
-
-mkdir -p \
-    "${PIHOLE_CONFIG_DIR}" \
-    "${PIHOLE_DNSMASQ_DIR}" \
-    "${PIHOLE_LOG_DIR}" \
-    "${PIHOLE_LONGTERM_DIR}" \
-    "${PIHOLE_RUN_DIR}"
+mkdir -p /etc/pihole /etc/dnsmasq.d /run/pihole /var/log/pihole

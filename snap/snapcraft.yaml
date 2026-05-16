@@ -2,6 +2,7 @@ name: pihole
 title: Pi-hole
 summary: Network-wide ad blocking via your own DNS server
 license: EUPL-1.2
+icon: snap/gui/pihole.png
 adopt-info: ftl
 
 description: |
@@ -21,8 +22,8 @@ description: |
        holds it. Disable its stub listener:
 
          sudo mkdir -p /etc/systemd/resolved.conf.d
-         echo -e "[Resolve]\nDNSStubListener=no" | \
-           sudo tee /etc/systemd/resolved.conf.d/pihole.conf
+         printf '[Resolve]\nDNSStubListener=no\n' \
+           | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
          sudo systemctl restart systemd-resolved
 
     2. Connect interfaces and enable the daemon:
@@ -34,12 +35,12 @@ description: |
 
     3. Point your router (or individual clients) at this host's IP for DNS.
 
-  The web admin interface listens on http://<host>:8080 by default; the
+  The web admin interface listens on http://<host>/admin by default; the
   password is printed to the daemon log on first start and can be reset
   with `sudo pihole.pihole setpassword`.
 
-# Stay in devel until we have a green end-to-end test against a real LAN.
-# See README.md for the open work list.
+# Stay in devel until we have a green end-to-end smoke test on real DNS
+# traffic. See README.md for the open work list.
 grade: devel
 confinement: strict
 base: core24
@@ -49,16 +50,54 @@ platforms:
   arm64:
   armhf:
 
+# Bind-mount the paths FTL and the bash scripts have hardcoded onto
+# writable snap data locations. Inside the snap's mount namespace
+# /etc/pihole *is* $SNAP_DATA/etc/pihole, transparently — no source
+# patching needed for path layout.
+#
+# Paths audited against pi-hole/FTL v6.6.2 and pi-hole/pi-hole v6.4.2
+# sources; see README.md "Architecture" for the cross-reference.
+layout:
+  # Primary config + state dir (pihole.toml, gravity.db, pihole-FTL.db,
+  # dhcp.leases, custom.list, cli_pw, tls.pem, …).
+  /etc/pihole:
+    bind: $SNAP_DATA/etc/pihole
+  # Optional dnsmasq drop-in dir, only consumed when
+  # misc.etc_dnsmasq_d=true in pihole.toml.
+  /etc/dnsmasq.d:
+    bind: $SNAP_DATA/etc/dnsmasq.d
+  # Civetweb document root: pi-hole/web v6.5 ships here and is served by
+  # the embedded HTTP server. Read-only from inside the snap.
+  /var/www/html:
+    bind: $SNAP/var/www/html
+  # Log files (FTL.log, pihole.log, webserver.log).
+  /var/log/pihole:
+    bind: $SNAP_COMMON/var/log/pihole
+  # Bash-script helper dir (`pihole`, gravity.sh, piholeDebug.sh, etc.).
+  # Read-only — these are part of the squashfs.
+  /opt/pihole:
+    bind: $SNAP/opt/pihole
+  # Catch-all for any runtime files FTL or its embedded dnsmasq may drop
+  # under /run/pihole/. Currently no source references found, kept as a
+  # safety net since this is a write-target FTL might add to in the future.
+  /run/pihole:
+    bind: $SNAP_DATA/run/pihole
+  # FTL's PID file location is hardcoded in src/config/config.h
+  # (GHSA-6w8x-p785-6pm4) and not honoured from the config file. Bind it
+  # explicitly into writable space.
+  /run/pihole-FTL.pid:
+    bind-file: $SNAP_DATA/run/pihole-FTL.pid
+
 parts:
   # ---------------------------------------------------------------------
   # pihole-FTL: the DNS/DHCP/API/web daemon. C, CMake build.
-  # Embeds a vendored dnsmasq and the web UI assets.
+  # Embeds a vendored dnsmasq.
   # ---------------------------------------------------------------------
   ftl:
     plugin: cmake
     source: https://github.com/pi-hole/FTL.git
     source-type: git
-    source-tag: v6.0.5
+    source-tag: v6.6.2
     source-depth: 1
     override-pull: |
       craftctl default
@@ -94,17 +133,43 @@ parts:
       - ca-certificates
 
   # ---------------------------------------------------------------------
-  # pi-hole core: the `pihole` CLI and supporting shell scripts
-  # (gravity.sh, piholeDebug.sh, etc.). These wrap pihole-FTL.
-  # Paths inside the scripts assume an unconfined install and will need
-  # to be patched — see snap/local/patches/ as we add fixes.
+  # pi-hole core: the `pihole` CLI and supporting shell scripts.
+  # Patched in-place to swap out `service`/`systemctl` calls for snapctl
+  # — the rest of the path remapping is handled by the layout block.
   # ---------------------------------------------------------------------
   core:
     plugin: dump
     source: https://github.com/pi-hole/pi-hole.git
     source-type: git
-    source-tag: v6.0.5
+    source-tag: v6.4.2
     source-depth: 1
+    override-pull: |
+      craftctl default
+      cd "${CRAFT_PART_SRC}"
+      # piholeLogFlush.sh stops/restarts the daemon via `service`; rewrite
+      # to use snapctl so it works inside the sandbox.
+      sed -i \
+        -e 's|service pihole-FTL stop|snapctl stop pihole.pihole-ftl|g' \
+        -e 's|service pihole-FTL restart|snapctl restart pihole.pihole-ftl|g' \
+        -e 's|service pihole-FTL start|snapctl start pihole.pihole-ftl|g' \
+        advanced/Scripts/piholeLogFlush.sh
+      # piholeDebug.sh probes `systemctl status pihole-FTL.service`, which
+      # is unreachable from confinement. Neutralise it.
+      sed -i 's|systemctl status pihole-FTL.service|true # patched: systemctl unavailable in snap|g' \
+        advanced/Scripts/piholeDebug.sh
+      # Patch-rot guard. If upstream renames a file the sed -i would have
+      # errored out and failed the build already; if upstream subtly
+      # rewords one of the target strings, the sed silently no-ops and
+      # the script ships broken. Fail loudly so we notice on the next
+      # version bump.
+      if grep -nF 'service pihole-FTL' advanced/Scripts/piholeLogFlush.sh; then
+        echo "ERROR: piholeLogFlush.sh still references 'service pihole-FTL' after patch" >&2
+        exit 1
+      fi
+      if grep -nF 'systemctl status pihole-FTL.service' advanced/Scripts/piholeDebug.sh; then
+        echo "ERROR: piholeDebug.sh still references 'systemctl status pihole-FTL.service' after patch" >&2
+        exit 1
+      fi
     organize:
       pihole: opt/pihole/pihole
       gravity.sh: opt/pihole/gravity.sh
@@ -116,6 +181,38 @@ parts:
       - usr/share/man-src
 
   # ---------------------------------------------------------------------
+  # Embedded web admin UI assets, served by FTL's civetweb instance.
+  # ---------------------------------------------------------------------
+  web:
+    plugin: dump
+    source: https://github.com/pi-hole/web.git
+    source-type: git
+    source-tag: v6.5
+    source-depth: 1
+    organize:
+      '*': var/www/html/admin/
+    stage:
+      - var/www/html
+    # Drop upstream-repo housekeeping that has no business inside the
+    # snap. Trims ~MB of bloat and shrinks the attack surface.
+    prime:
+      - -var/www/html/admin/.github
+      - -var/www/html/admin/.gitignore
+      - -var/www/html/admin/.gitattributes
+      - -var/www/html/admin/.editorconfig
+      - -var/www/html/admin/.eslintrc*
+      - -var/www/html/admin/.stylelintrc*
+      - -var/www/html/admin/test
+      - -var/www/html/admin/tests
+      - -var/www/html/admin/*.md
+      - -var/www/html/admin/CONTRIBUTING*
+      - -var/www/html/admin/CODE_OF_CONDUCT*
+      - -var/www/html/admin/package.json
+      - -var/www/html/admin/package-lock.json
+      - -var/www/html/admin/composer.*
+      - -var/www/html/admin/Gruntfile.js
+
+  # ---------------------------------------------------------------------
   # Launcher scripts and hook helpers that live in this repo.
   # ---------------------------------------------------------------------
   wrappers:
@@ -125,20 +222,25 @@ parts:
     organize:
       launcher-ftl: bin/launcher-ftl
       launcher-pihole: bin/launcher-pihole
-      pihole-paths.env: etc/pihole-paths.env
     stage:
       - bin/launcher-ftl
       - bin/launcher-pihole
-      - etc/pihole-paths.env
 
 apps:
-  # The daemon. Disabled on install so the operator can free port 53
-  # and review interface connections before it starts.
+  # The daemon. Disabled on install so the operator can free port 53 and
+  # review interface connections before it starts.
   pihole-ftl:
     command: bin/launcher-ftl
     daemon: simple
     install-mode: disable
     restart-condition: on-failure
+    # Give FTL time to flush its query DB and gravity state on shutdown.
+    stop-timeout: 60s
+    # If FTL hangs (e.g. wedged on a malformed DNS upstream) snapd will
+    # SIGKILL and respawn it after this timeout. FTL doesn't currently
+    # ping sd_notify, so this is a hard kill — adjust upward if you see
+    # spurious watchdog restarts under heavy load.
+    watchdog-timeout: 60s
     plugs:
       - network
       - network-bind
@@ -147,6 +249,9 @@ apps:
       - firewall-control   # required for DHCP server mode only
 
   # The `pihole` CLI: `pihole status`, `pihole -g`, `pihole setpassword`, etc.
+  # The launcher intercepts subcommands that don't make sense inside a
+  # snap (self-update, repair, uninstall, checkout, updatechecker) and
+  # prints the snap-native equivalent.
   pihole:
     command: bin/launcher-pihole
     plugs:
@@ -154,10 +259,6 @@ apps:
       - network-bind
       - network-observe
 
-hooks:
-  install:
-    plugs:
-      - network
-  configure:
-    plugs:
-      - network
+# No hook plugs declared — install only mkdir's directories (which the
+# layout bind-mounts already grant write access to) and configure only
+# calls snapctl + pihole-FTL --config locally. Neither needs network.

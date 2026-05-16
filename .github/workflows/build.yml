@@ -1,0 +1,144 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: shellcheck + bats
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck and bats
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck bats
+
+      - name: shellcheck launchers and hooks
+        run: |
+          shellcheck \
+            snap/local/launcher-ftl \
+            snap/local/launcher-pihole \
+            snap/hooks/install \
+            snap/hooks/configure
+
+      - name: bats unit tests
+        run: bats tests/unit/
+
+  build:
+    name: build (${{ matrix.arch }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64]
+        # arm64/armhf are covered by `snapcraft remote-build` once we wire
+        # up a Launchpad token; GH-hosted runners only have amd64.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build snap
+        id: snapcraft
+        uses: snapcore/action-build@v1
+
+      - name: Upload snap artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pihole-snap-${{ matrix.arch }}
+          path: ${{ steps.snapcraft.outputs.snap }}
+          if-no-files-found: error
+
+  smoke:
+    name: smoke test
+    needs: [build, lint]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download snap
+        uses: actions/download-artifact@v4
+        with:
+          name: pihole-snap-amd64
+
+      - name: Free port 53
+        run: |
+          sudo mkdir -p /etc/systemd/resolved.conf.d
+          printf '[Resolve]\nDNSStubListener=no\n' \
+            | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
+          sudo systemctl restart systemd-resolved
+
+      - name: Install snap
+        run: |
+          # `grade: devel` ⇒ --devmode; --dangerous because it's unsigned.
+          sudo snap install --dangerous --devmode ./pihole_*.snap
+
+      - name: CLI sanity
+        run: |
+          sudo pihole.pihole version
+          sudo pihole.pihole status || true   # daemon not started yet — expected
+
+      - name: Blocked subcommand returns error and points at snap refresh
+        run: |
+          set +e
+          out="$(sudo pihole.pihole -up 2>&1)"
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+              echo "expected non-zero exit from 'pihole.pihole -up'" >&2
+              exit 1
+          fi
+          echo "$out" | grep -q 'snap refresh pihole'
+
+      - name: Start daemon
+        run: |
+          sudo snap start --enable pihole.pihole-ftl
+          for i in $(seq 1 30); do
+              if sudo ss -lnup | grep -q ':53 '; then
+                  echo "FTL bound to port 53 after ${i}s"
+                  break
+              fi
+              sleep 1
+          done
+
+      - name: Resolve a name via FTL
+        run: |
+          dig +tries=2 +timeout=2 @127.0.0.1 example.com
+          # exit non-zero if dig fails outright; an answer of any kind
+          # (even NXDOMAIN before gravity is populated) proves FTL is alive.
+
+      - name: snap set round-trip
+        run: |
+          sudo snap set pihole web-port=8123
+          # Configure hook runs after `snap set`; give it a moment to apply
+          # and the daemon a moment to restart.
+          sleep 5
+          if ! sudo grep -E '8123' /var/snap/pihole/current/etc/pihole/pihole.toml; then
+              echo "snap set did not propagate to pihole.toml" >&2
+              sudo cat /var/snap/pihole/current/etc/pihole/pihole.toml || true
+              exit 1
+          fi
+
+      - name: Show recent daemon logs
+        if: always()
+        run: sudo snap logs pihole.pihole-ftl --no-color | tail -100
+
+      - name: Check for AppArmor denials (warn-only)
+        if: always()
+        run: |
+          # In --devmode these are recorded but not enforced. Surface them
+          # so we know what to handle before flipping to strict. Don't
+          # fail the build — some denials are expected noise from probing
+          # interfaces we haven't connected.
+          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole'; then
+              echo "::warning::AppArmor recorded denials against the pihole snap (see above)"
+          else
+              echo "No AppArmor denials recorded for snap.pihole."
+          fi
+
+      - name: Dump service status on failure
+        if: failure()
+        run: |
+          sudo snap services pihole || true
+          sudo journalctl -u snap.pihole.pihole-ftl.service --no-pager | tail -200 || true

@@ -1,23 +1,45 @@
-#!/bin/sh
+#!/bin/bash
 # Daemon launcher for pihole-FTL inside the snap sandbox.
+#
+# Path remapping is handled by the `layout:` block in snapcraft.yaml,
+# so /etc/pihole, /var/log/pihole, /run/pihole, etc. already point at
+# writable snap data dirs by the time this script runs.
 set -eu
 
-. "${SNAP}/etc/pihole-paths.env"
+# Detect the most common port-53 collision: systemd-resolved's stub
+# listener on 127.0.0.53. Fail fast with a clear message — otherwise
+# FTL itself would die later with a generic EADDRINUSE that's harder
+# to diagnose from `snap logs`.
+#
+# /dev/tcp is a bash builtin and uses ordinary socket(2); the `network`
+# plug is enough.
+if (exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null; then
+    exec 3<&- 3>&-
+    cat >&2 <<'EOF'
+ERROR: systemd-resolved is listening on 127.0.0.53:53 and will conflict
+with Pi-hole on port 53.
 
-mkdir -p \
-    "${PIHOLE_CONFIG_DIR}" \
-    "${PIHOLE_DNSMASQ_DIR}" \
-    "${PIHOLE_LOG_DIR}" \
-    "${PIHOLE_LONGTERM_DIR}" \
-    "${PIHOLE_RUN_DIR}"
+Disable its stub listener and try again:
 
-# Seed a default pihole.toml on first boot. FTL will self-populate any
-# missing keys with defaults, so we only need to ensure the file exists.
-if [ ! -f "${FTLCONFFILE}" ]; then
-    : > "${FTLCONFFILE}"
+    sudo mkdir -p /etc/systemd/resolved.conf.d
+    printf '[Resolve]\nDNSStubListener=no\n' \
+      | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
+    sudo systemctl restart systemd-resolved
+
+Then: sudo snap start pihole.pihole-ftl
+EOF
+    exit 1
 fi
 
-# FTL writes its pid file relative to cwd in some code paths.
-cd "${PIHOLE_RUN_DIR}"
+mkdir -p /etc/pihole /etc/dnsmasq.d /run/pihole /var/log/pihole
+
+# Seed an empty config on first boot; FTL fills in defaults for missing keys.
+[ -f /etc/pihole/pihole.toml ] || : > /etc/pihole/pihole.toml
+
+# Some scripts (and a few FTL code paths) assume $HOME is writable.
+export HOME="${SNAP_DATA}"
+
+# FTL writes its pid file relative to cwd in a couple of code paths.
+cd /run/pihole
 
 exec "${SNAP}/usr/bin/pihole-FTL" no-daemon
