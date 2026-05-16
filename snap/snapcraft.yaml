@@ -45,6 +45,19 @@ grade: devel
 confinement: strict
 base: core24
 
+# Refuse to install on snapd older than core24's documented floor; the
+# error message is much better than the cryptic feature-not-supported
+# we'd otherwise hit at first refresh.
+assumes:
+  - snapd2.61
+
+# Document the current data-format baseline. Bump to `epoch: 1*` (note
+# the trailing asterisk) the first time we ship a revision that changes
+# pihole.toml, the gravity.db schema, or a layout path in a way that
+# the new revision needs to migrate on first start — snapd will then
+# hold users on the old epoch until the migration code is in place.
+epoch: 0
+
 platforms:
   amd64:
   arm64:

@@ -1,0 +1,54 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: 'Snap Store channel to release to (e.g. latest/edge, 6/edge)'
+        required: true
+        default: 'latest/edge'
+
+# `grade: devel` snaps can only be published to the edge channel. Once we
+# flip `grade` to `stable` in snapcraft.yaml, promote to beta/candidate via
+# `snapcraft release pihole <rev> <channel>` or by re-running this workflow
+# with a different channel input.
+env:
+  DEFAULT_CHANNEL: latest/edge
+
+jobs:
+  release:
+    name: build + publish
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck bats
+
+      - name: Lint and unit tests
+        run: |
+          shellcheck \
+            snap/local/launcher-ftl \
+            snap/local/launcher-pihole \
+            snap/hooks/install \
+            snap/hooks/configure
+          bats tests/unit/
+
+      - name: Build snap
+        id: snapcraft
+        uses: snapcore/action-build@v1
+
+      - name: Publish to Snap Store
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.snapcraft.outputs.snap }}
+          release: ${{ inputs.channel || env.DEFAULT_CHANNEL }}

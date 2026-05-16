@@ -212,8 +212,89 @@ that asserts hook-driven TOML edits land, plus a (warn-only) sweep of
 Two `grep` guards in the `core` part's `override-pull` fail the build
 if upstream changes the `service`/`systemctl` strings we patch.
 
+## Publication and updates
+
+### Release pipeline
+
+`.github/workflows/release.yml` triggers on `v*` tag pushes (or manual
+`workflow_dispatch`) and runs the same lint/test/build as the PR
+workflow, then uploads to the Snap Store via `snapcore/action-publish`.
+
+One-time setup before the first release:
+
+1. **Reserve the name.** `snap login` from a host that has snapcraft
+   installed, then `snapcraft register pihole`. Pi-hole upstream may
+   eventually want this name; coordinate before going beyond personal
+   use.
+2. **Generate store credentials.**
+   ```sh
+   snapcraft export-login \
+     --snaps=pihole \
+     --channels=edge,beta,candidate \
+     --acls=package_access,package_push,package_update,package_release \
+     store-credentials
+   ```
+3. **Add the secret.** Paste the contents of `store-credentials` into a
+   GitHub Actions secret named `SNAPCRAFT_STORE_CREDENTIALS`.
+4. **Tag and push.** `git tag v0.1.0 && git push --tags` releases to
+   `latest/edge` by default.
+
+### Tracks and channels
+
+Until upstream Pi-hole branches diverge significantly, everything ships
+on the `latest` track:
+
+| Channel              | Purpose                                  |
+|----------------------|------------------------------------------|
+| `latest/edge`        | every tagged commit (CI auto-publish)    |
+| `latest/beta`        | manual promotion after a day on edge     |
+| `latest/candidate`   | manual promotion after smoke-test on LAN |
+| `latest/stable`      | manual promotion; requires `grade: stable` |
+
+When Pi-hole upstream cuts v7 we'll add `6/...` and `7/...` tracks so
+users can pin to a major: `sudo snap refresh pihole --channel=6/stable`.
+Track creation requires a Snap Store request (Snapcraft Forum); plan to
+file it before v7 ships.
+
+### Refresh strategy — open design question
+
+snapd auto-refreshes installed snaps roughly four times a day. The
+current `pihole-ftl` daemon uses the default `refresh-mode: restart`,
+which means every auto-refresh produces a few seconds of DNS downtime
+as snapd stops the old revision, swaps the `current` symlink, and
+starts the new one. Two refinements are worth considering before
+declaring the snap production-ready:
+
+**Option A — leave `refresh-mode` as `restart` (current).** Users
+always run the latest published revision. The tradeoff is brief DNS
+outages 0–4 times a day. Mitigations: schedule refreshes overnight
+(`snap set system refresh.timer=03:00~05:00`) or hold refreshes on
+the snap (`snap refresh --hold pihole`) and refresh manually.
+
+**Option B — set `refresh-mode: endure` on the daemon.** snapd skips
+the daemon restart during refresh; the old binary keeps serving DNS
+until the next manual restart or host reboot. Zero outage, but you no
+longer get security/bug fixes automatically — you'd want a separate
+`post-refresh` hook or operator habit to actually pick up the new
+revision.
+
+**Progressive rollout.** Independently of refresh-mode, every release
+should go to a fraction of installs first
+(`snapcraft release pihole <rev> latest/stable --progressive 10`).
+A bad refresh on a DNS server is a Bad Day: clients can't resolve
+`snapcraft.io` to revert, the home gets a complaint, the kid can't
+load Roblox. Catching a regression at 10 % beats catching it at 100 %.
+
+No decision required for the snap to function — just for it to be
+*nice* to run. Track decision in [Remaining work](#remaining-work).
+
 ## Remaining work
 
+- [ ] **Decide refresh strategy.** Pick `restart` vs `endure` (see
+      above) and document the rationale. Wire `refresh-mode: endure`
+      into `snapcraft.yaml` if going that way.
+- [ ] **Set up store name + credentials.** One-time tasks from the
+      Publication section above. Cannot proceed without these.
 - [ ] **End-to-end LAN verification.** CI proves the snap installs and
       the daemon binds port 53. It does *not* yet prove a full
       query-and-block flow against a populated gravity DB. Run the
@@ -226,9 +307,6 @@ if upstream changes the `service`/`systemctl` strings we patch.
 - [ ] **`snapcraft remote-build` for arm64/armhf.** GH-hosted runners
       only have amd64. Wire up a Launchpad credential and add a
       separate workflow for cross-arch builds.
-- [ ] **Store publication.** Reserve `pi-hole` (or a near-name) in the
-      Snap Store, set up the release tracks (edge / candidate /
-      stable), and configure a release-on-tag pipeline.
 - [ ] **Strict-confinement AppArmor pass.** CI now records denials but
       doesn't fail on them. Once the denial list is empty (or
       explainable), flip the warn-only grep to a hard fail and drop
