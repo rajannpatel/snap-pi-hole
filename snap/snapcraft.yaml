@@ -131,8 +131,6 @@ parts:
       - -DCMAKE_BUILD_TYPE=Release
       - -DCMAKE_INSTALL_PREFIX=/usr
       - -DSTATIC=false
-    build-snaps:
-      - cmake
     build-packages:
       - build-essential
       - git
