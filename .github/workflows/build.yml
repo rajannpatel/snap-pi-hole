@@ -6,12 +6,15 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   lint:
     name: shellcheck + bats
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install shellcheck and bats
         run: |
@@ -40,7 +43,7 @@ jobs:
         # Launchpad token; GH-hosted runners only have amd64. armhf is
         # dropped on the core26 base — see snapcraft.yaml platforms:.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build snap
         id: snapcraft
