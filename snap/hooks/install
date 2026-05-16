@@ -1,0 +1,13 @@
+#!/bin/sh
+# Runs once at first install. We only create the data directories here;
+# the daemon launcher does the rest on first start.
+set -eu
+
+. "${SNAP}/etc/pihole-paths.env"
+
+mkdir -p \
+    "${PIHOLE_CONFIG_DIR}" \
+    "${PIHOLE_DNSMASQ_DIR}" \
+    "${PIHOLE_LOG_DIR}" \
+    "${PIHOLE_LONGTERM_DIR}" \
+    "${PIHOLE_RUN_DIR}"

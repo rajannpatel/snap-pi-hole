@@ -1,0 +1,163 @@
+name: pihole
+title: Pi-hole
+summary: Network-wide ad blocking via your own DNS server
+license: EUPL-1.2
+adopt-info: ftl
+
+description: |
+  Pi-hole is a Linux network-level advertisement and Internet tracker
+  blocking application which acts as a DNS sinkhole, intended for use on
+  a private network. It is designed to be installed on embedded devices
+  with network capability, such as a Raspberry Pi, but it can be used on
+  other machines running Linux and cloud implementations.
+
+  This snap packages Pi-hole v6, which consolidates the DNS resolver
+  (a fork of dnsmasq), the DHCP server, the HTTP API, and the embedded
+  web admin interface into a single binary: pihole-FTL.
+
+  IMPORTANT — host setup before starting the daemon:
+
+    1. Port 53 must be free. On most Ubuntu systems systemd-resolved
+       holds it. Disable its stub listener:
+
+         sudo mkdir -p /etc/systemd/resolved.conf.d
+         echo -e "[Resolve]\nDNSStubListener=no" | \
+           sudo tee /etc/systemd/resolved.conf.d/pihole.conf
+         sudo systemctl restart systemd-resolved
+
+    2. Connect interfaces and enable the daemon:
+
+         sudo snap connect pihole:network-bind
+         sudo snap connect pihole:network-control     # only if using DHCP
+         sudo snap connect pihole:firewall-control    # only if using DHCP
+         sudo snap start --enable pihole.pihole-ftl
+
+    3. Point your router (or individual clients) at this host's IP for DNS.
+
+  The web admin interface listens on http://<host>:8080 by default; the
+  password is printed to the daemon log on first start and can be reset
+  with `sudo pihole.pihole setpassword`.
+
+# Stay in devel until we have a green end-to-end test against a real LAN.
+# See README.md for the open work list.
+grade: devel
+confinement: strict
+base: core24
+
+platforms:
+  amd64:
+  arm64:
+  armhf:
+
+parts:
+  # ---------------------------------------------------------------------
+  # pihole-FTL: the DNS/DHCP/API/web daemon. C, CMake build.
+  # Embeds a vendored dnsmasq and the web UI assets.
+  # ---------------------------------------------------------------------
+  ftl:
+    plugin: cmake
+    source: https://github.com/pi-hole/FTL.git
+    source-type: git
+    source-tag: v6.0.5
+    source-depth: 1
+    override-pull: |
+      craftctl default
+      craftctl set version="$(git -C "${CRAFT_PART_SRC}" describe --tags --always)"
+    cmake-parameters:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DCMAKE_INSTALL_PREFIX=/usr
+      - -DSTATIC=false
+    build-packages:
+      - build-essential
+      - cmake
+      - git
+      - libidn2-dev
+      - libnettle8
+      - nettle-dev
+      - libgmp-dev
+      - libuv1-dev
+      - libcap-dev
+      - libreadline-dev
+      - libsqlite3-dev
+      - libssl-dev
+      - libmbedtls-dev
+      - python3
+    stage-packages:
+      - libidn2-0
+      - libuv1
+      - libcap2
+      - libreadline8
+      - libsqlite3-0
+      - libnettle8
+      - libgmp10
+      - libmbedtls14
+      - ca-certificates
+
+  # ---------------------------------------------------------------------
+  # pi-hole core: the `pihole` CLI and supporting shell scripts
+  # (gravity.sh, piholeDebug.sh, etc.). These wrap pihole-FTL.
+  # Paths inside the scripts assume an unconfined install and will need
+  # to be patched — see snap/local/patches/ as we add fixes.
+  # ---------------------------------------------------------------------
+  core:
+    plugin: dump
+    source: https://github.com/pi-hole/pi-hole.git
+    source-type: git
+    source-tag: v6.0.5
+    source-depth: 1
+    organize:
+      pihole: opt/pihole/pihole
+      gravity.sh: opt/pihole/gravity.sh
+      advanced/Scripts: opt/pihole/scripts
+      advanced/Templates: opt/pihole/templates
+      manpages: usr/share/man-src
+    stage:
+      - opt/pihole
+      - usr/share/man-src
+
+  # ---------------------------------------------------------------------
+  # Launcher scripts and hook helpers that live in this repo.
+  # ---------------------------------------------------------------------
+  wrappers:
+    plugin: dump
+    source: snap/local/
+    source-type: local
+    organize:
+      launcher-ftl: bin/launcher-ftl
+      launcher-pihole: bin/launcher-pihole
+      pihole-paths.env: etc/pihole-paths.env
+    stage:
+      - bin/launcher-ftl
+      - bin/launcher-pihole
+      - etc/pihole-paths.env
+
+apps:
+  # The daemon. Disabled on install so the operator can free port 53
+  # and review interface connections before it starts.
+  pihole-ftl:
+    command: bin/launcher-ftl
+    daemon: simple
+    install-mode: disable
+    restart-condition: on-failure
+    plugs:
+      - network
+      - network-bind
+      - network-observe
+      - network-control    # required for DHCP server mode only
+      - firewall-control   # required for DHCP server mode only
+
+  # The `pihole` CLI: `pihole status`, `pihole -g`, `pihole setpassword`, etc.
+  pihole:
+    command: bin/launcher-pihole
+    plugs:
+      - network
+      - network-bind
+      - network-observe
+
+hooks:
+  install:
+    plugs:
+      - network
+  configure:
+    plugs:
+      - network

@@ -1,0 +1,15 @@
+# snapcraft build artifacts
+*.snap
+parts/
+prime/
+stage/
+.snapcraft/
+snap/.snapcraft/
+
+# editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store

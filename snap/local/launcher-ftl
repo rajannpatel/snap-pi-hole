@@ -1,0 +1,23 @@
+#!/bin/sh
+# Daemon launcher for pihole-FTL inside the snap sandbox.
+set -eu
+
+. "${SNAP}/etc/pihole-paths.env"
+
+mkdir -p \
+    "${PIHOLE_CONFIG_DIR}" \
+    "${PIHOLE_DNSMASQ_DIR}" \
+    "${PIHOLE_LOG_DIR}" \
+    "${PIHOLE_LONGTERM_DIR}" \
+    "${PIHOLE_RUN_DIR}"
+
+# Seed a default pihole.toml on first boot. FTL will self-populate any
+# missing keys with defaults, so we only need to ensure the file exists.
+if [ ! -f "${FTLCONFFILE}" ]; then
+    : > "${FTLCONFFILE}"
+fi
+
+# FTL writes its pid file relative to cwd in some code paths.
+cd "${PIHOLE_RUN_DIR}"
+
+exec "${SNAP}/usr/bin/pihole-FTL" no-daemon

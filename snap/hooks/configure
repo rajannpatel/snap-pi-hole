@@ -1,0 +1,16 @@
+#!/bin/sh
+# Map a small set of `snap set pihole ...` keys to the FTL TOML config.
+# Kept intentionally minimal — full configuration is via `pihole.pihole`
+# or by editing $SNAP_DATA/etc/pihole/pihole.toml directly.
+set -eu
+
+. "${SNAP}/etc/pihole-paths.env"
+
+# Currently a no-op stub. Wire-up plan:
+#   web-port      → webserver.port
+#   dns-port      → dns.port
+#   dhcp-enabled  → dhcp.active
+# Each will translate to an in-place TOML edit followed by a daemon restart
+# request (`snapctl restart pihole.pihole-ftl`).
+
+exit 0
