@@ -57,7 +57,7 @@ case "$1" in
         ;;
     services)
         printf 'Service         Startup  Current  Notes\n'
-        printf 'pihole-ftl      enabled  %s       -\n' "${SNAPCTL_SERVICE_STATUS:-inactive}"
+        printf 'pihole-ftl      enabled  %s        -\n' "${SNAPCTL_SERVICE_STATUS:-inactive}"
         ;;
     restart)
         echo "RESTART:$2" >> "$LOG"
@@ -110,6 +110,7 @@ _setup_scripts() {
             -e "s|/etc/dnsmasq.d|${TEST_TMPDIR}/etc/dnsmasq.d|g" \
             -e "s|/var/log/pihole|${TEST_TMPDIR}/var/log/pihole|g" \
             -e "s|/opt/pihole|${TEST_TMPDIR}/opt|g" \
+            -e "s|/run/snap.pihole|${TEST_TMPDIR}/run/snap.pihole|g" \
             "${src}" > "${dst}"
         chmod +x "${dst}"
     done
