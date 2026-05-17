@@ -185,6 +185,20 @@ parts:
       grep -rl '/run/pihole-FTL.pid' . | xargs -r sed -i 's|/run/pihole-FTL.pid|/run/snap.pihole/pihole-FTL.pid|g'
       # Strip readonly modifier from FTL_PID_FILE to prevent bash local variable scope collisions inside subshells
       grep -rl 'readonly FTL_PID_FILE' . | xargs -r sed -i 's/readonly FTL_PID_FILE/FTL_PID_FILE/g'
+      # Neutralize upstream git version tracking checks inside strict confinement where git binary is stripped
+      grep -rl 'git' advanced/Scripts/updatecheck.sh | xargs -r sed -i 's|git |true # git disabled inside snap|g'
+      
+      # Seed a static template mapping matching our pinned deployment components
+      mkdir -p advanced/Templates
+      cat > advanced/Templates/versions << 'EOF'
+CORE_VERSION=v6.4.2
+CORE_BRANCH=snap
+WEB_VERSION=v6.5
+WEB_BRANCH=snap
+FTL_VERSION=v6.6.2
+FTL_BRANCH=snap
+EOF
+
       # Patch-rot guard. If upstream renames a file the sed -i would have
       # errored out and failed the build already; if upstream subtly
       # rewords one of the target strings, the sed silently no-ops and
@@ -211,7 +225,8 @@ parts:
       # that flat directory. Mirror the layout the upstream installer uses:
       # everything under advanced/Scripts/ lands at /opt/pihole/<file>.
       advanced/Scripts/*: opt/pihole/
-      advanced/Templates: opt/pihole/templates
+      advanced/Templates/versions: opt/pihole/templates/versions
+      advanced/Templates/*: opt/pihole/templates
       manpages: usr/share/man-src
     stage:
       - opt/pihole
