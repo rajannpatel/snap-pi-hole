@@ -1,0 +1,99 @@
+# Pi-hole Snap Configuration Schema
+#
+# This file defines the structure, data types, and validation rules for
+# the `snap-pi-hole` configuration exposed via `snapctl`.
+# 
+# Usage: `snap set snap-pi-hole <key>=<value>`
+#
+# Note: This is currently a documentation and reference file.
+# Validation logic is implemented in `snap/hooks/lib/config-helper.sh`.
+
+dns:
+  upstream:
+    type: string
+    description: "Comma-separated upstream DNS servers (e.g. 8.8.8.8,1.1.1.1)"
+    ftl_key: dns.upstreams
+    validation: "regex:^([a-zA-Z0-9.:_-]+(,[a-zA-Z0-9.:_-]+)*)?$"
+  port:
+    type: integer
+    description: "DNS listener port"
+    default: 53
+    ftl_key: dns.port
+    validation: "range:1-65535"
+  dnssec:
+    type: boolean
+    description: "Enable/disable DNSSEC validation"
+    default: false
+    ftl_key: dns.dnssec
+  interface:
+    type: string
+    description: "Interface listening behavior (local, all, bind, etc in FTL v6 this maps differently, but we'll map to dns.listeningMode)"
+    default: "local"
+    ftl_key: dns.listeningMode
+    validation: "enum:local,all,bind"
+
+web:
+  port:
+    type: string # can be int or string like '80,[::]:80'
+    description: "Web interface listener port"
+    default: 80
+    ftl_key: webserver.port
+  password:
+    type: string
+    description: "Web interface admin password (raw, will be hashed securely, or provide hash directly)"
+    ftl_key: webserver.password
+
+dhcp:
+  enabled:
+    type: boolean
+    description: "Enable/disable Pi-hole DHCP server"
+    default: false
+    ftl_key: dhcp.active
+  range:
+    start:
+      type: string
+      description: "DHCP IPv4 range start"
+      ftl_key: dhcp.ipv4.start
+      validation: "ip"
+    end:
+      type: string
+      description: "DHCP IPv4 range end"
+      ftl_key: dhcp.ipv4.end
+      validation: "ip"
+  gateway:
+    type: string
+    description: "DHCP default gateway (router)"
+    ftl_key: dhcp.ipv4.router
+    validation: "ip"
+  lease_time:
+    type: string
+    description: "DHCP lease time (e.g., 24h, 168h)"
+    default: 24h
+    ftl_key: dhcp.leaseTime
+
+logging:
+  query:
+    type: boolean
+    description: "Enable/disable query logging"
+    default: true
+    ftl_key: database.DBimport
+  privacy_level:
+    type: integer
+    description: "Privacy level (0=Show everything, 1=Hide domains, 2=Hide domains/clients, 3=Anonymous)"
+    default: 0
+    ftl_key: misc.privacylevel
+    validation: "range:0-3"
+
+gravity:
+  update_interval:
+    type: string
+    description: "Gravity auto-update schedule (e.g. cron string or preset like 'weekly', 'monthly')"
+    default: "weekly"
+    # Note: Handled by snap/cron wrapper, not direct FTL config.
+
+system:
+  auto_start:
+    type: boolean
+    description: "Enable/disable daemon auto-start on boot"
+    default: true
+    # Note: Maps to `snapctl start/stop --enable/--disable pihole.pihole-ftl`

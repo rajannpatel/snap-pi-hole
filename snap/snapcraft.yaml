@@ -131,6 +131,7 @@ parts:
       - cmake/3.27/stable
     build-packages:
       - build-essential
+      - bind9-dnsutils
       - git
       - libidn2-dev
       - libnettle8
@@ -147,6 +148,7 @@ parts:
       - xxd
     stage-packages:
       - libidn2-0
+      - bind9-dnsutils
       - libuv1
       - libcap2
       - libreadline8
