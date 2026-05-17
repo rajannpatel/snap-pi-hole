@@ -2,7 +2,7 @@
 
 When configuring Pi-hole, many users choose to set up `unbound` as a recursive DNS resolver to improve privacy and security. While it might seem convenient to bundle `unbound` directly into the Pi-hole snap package, we have made the deliberate architectural decision to keep them entirely separate. 
 
-Instead, we recommend installing `unbound` via the host OS's native package manager (e.g., `apt install unbound` on Ubuntu) or running it as a completely independent snap, and configuring Pi-hole to point to `127.0.0.1#5335`.
+Instead, we recommend installing `unbound` via the host OS's native package manager (e.g., `apt install unbound` on Ubuntu), and configuring Pi-hole to point to `127.0.0.1#5335`.
 
 Here are the technical and security reasons driving this decision:
 
