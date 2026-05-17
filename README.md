@@ -5,9 +5,7 @@
 [![Build and Smoke Test](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/build.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/build.yml)
 [![Upstream Tracker](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-upstream.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-upstream.yml)
 
-**Status: `grade: devel`.** The recipe is in place, layouts cover every path the FTL source touches, the `pihole` CLI is wrapped, the `configure` hook is wired up, and the snap compiles flawlessly natively against `core26` (Ubuntu 26.04) with GCC 15 and mbedTLS 3.x. The snap is fully strict-confined. 
 
-> [!NOTE]
 > | Upstream Component | Current Version |
 > | :--- | :--- |
 > | **FTL** | v6.6.2 |
