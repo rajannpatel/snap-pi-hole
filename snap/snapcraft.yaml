@@ -92,6 +92,11 @@ layout:
   # Read-only  -  these are part of the squashfs.
   /opt/pihole:
     bind: $SNAP/opt/pihole
+  # Workarounds for strict confinement PID writes
+  /run/pihole-FTL.pid:
+    symlink: $SNAP_DATA/run/pihole-FTL.pid
+  /run/dnsmasq.pid:
+    symlink: $SNAP_DATA/run/dnsmasq.pid
 
 parts:
   # ---------------------------------------------------------------------
@@ -191,6 +196,11 @@ parts:
         echo "ERROR: piholeDebug.sh still references 'systemctl status pihole-FTL.service' after patch" >&2
         exit 1
       fi
+    override-build: |
+      craftctl default
+      # Workaround for core26 rust-coreutils AppArmor denial for `truncate`
+      mkdir -p "${CRAFT_PART_INSTALL}/usr/bin"
+      cp -L /usr/bin/truncate "${CRAFT_PART_INSTALL}/usr/bin/truncate"
     organize:
       pihole: opt/pihole/pihole
       gravity.sh: opt/pihole/gravity.sh
@@ -204,6 +214,7 @@ parts:
     stage:
       - opt/pihole
       - usr/share/man-src
+      - usr/bin/truncate
 
   # ---------------------------------------------------------------------
   # Embedded web admin UI assets, served by FTL's civetweb instance.
@@ -312,4 +323,4 @@ plugs:
   # paths "just work" without patching.
   ftl-shm:
     interface: shared-memory
-    private: true
+    private: 
