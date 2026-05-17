@@ -102,6 +102,7 @@ jobs:
           # always auto-connect; connecting explicitly is a no-op if
           # snapd already connected it.
           sudo snap connect pihole:shared-memory || true
+          sudo snap connect pihole:network-observe || true
 
       - name: CLI sanity
         run: |
@@ -126,7 +127,10 @@ jobs:
           bound=0
           echo "Waiting for pihole-FTL to bind to port 53 and respond..."
           for i in $(seq 1 60); do
-              if sudo ss -lnup | grep -q ':53 ' && dig +short +time=1 +tries=1 @127.0.0.1 localhost >/dev/null 2>&1; then
+              echo "--- ss output at ${i}s ---"
+              sudo ss -lnup | grep ':53' || true
+              
+              if sudo ss -lnup | grep -q ':53 ' && dig +short +time=1 +tries=1 @127.0.0.1 pi.hole >/dev/null 2>&1; then
                   echo "FTL bound to port 53 and verified active after ${i}s"
                   bound=1
                   break
@@ -199,5 +203,5 @@ jobs:
         run: |
           sudo snap services pihole || true
           sudo journalctl -u snap.pihole.pihole-ftl.service --no-pager | tail -200 || true
-          echo "--- FTL.log tail ---"
-          sudo cat /var/snap/pihole/common/var/log/pihole/FTL.log | tail -200 || true
+          echo "--- FTL.log ---"
+          sudo cat /var/snap/pihole/common/var/log/pihole/FTL.log || true
