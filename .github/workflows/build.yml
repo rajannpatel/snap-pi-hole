@@ -16,11 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Update snapd for core26
-        run: |
-          # ensure we have the latest snapd
-          sudo snap install snapd --latest/stable || sudo snap refresh snapd --latest/stable
-
       - name: Install shellcheck and bats
         run: |
           sudo apt-get update
@@ -39,19 +34,6 @@ jobs:
       - name: bats unit tests
         run: bats tests/unit/
 
-      - name: Cache Snapcraft dependencies
-        uses: actions/cache@v4
-        id: snapcraft-cache
-        with:
-          path: |
-            ~/.cache/snapcraft
-            ~/.local/share/snapcraft
-            # If building manually in a directory, you can also cache the parts/ folder
-            .snapcraft/
-          key: ${{ runner.os }}-snapcraft-${{ hashFiles('snap/snapcraft.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-snapcraft-
-        
   build:
     name: build (${{ matrix.arch }})
     runs-on: ubuntu-latest
@@ -101,9 +83,13 @@ jobs:
       - name: Install snap and connect plugs
         run: |
           # core26 is still a development base; the snapd on the runner image
-          # isn't always new enough to bring up its mount namespace. Refresh
-          # snapd and pre-stage the base before installing.
-          sudo snap refresh snapd --channel=latest/edge
+          # isn't always new enough to bring up its mount namespace. Get the
+          # snapd snap onto latest/edge and pre-stage core26 before installing.
+          # `snap refresh` only works once the snapd snap exists, which isn't
+          # guaranteed on a fresh ubuntu-latest runner (only the apt package
+          # is). Hence the install-or-refresh fallback.
+          sudo snap install snapd --channel=latest/edge \
+            || sudo snap refresh snapd --channel=latest/edge
           sudo snap install core26 --channel=latest/edge || true
           sudo snap install --dangerous ./pihole_*.snap
           sudo snap connect pihole:system-observe
