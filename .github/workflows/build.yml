@@ -89,17 +89,17 @@ jobs:
 
       - name: CLI sanity
         run: |
-          sudo pihole.pihole version
-          sudo pihole.pihole status || true   # daemon not started yet — expected
+          sudo pihole version
+          sudo pihole status || true   # daemon not started yet — expected
 
       - name: Blocked subcommand returns error and points at snap refresh
         run: |
           set +e
-          out="$(sudo pihole.pihole -up 2>&1)"
+          out="$(sudo pihole -up 2>&1)"
           rc=$?
           set -e
           if [ "$rc" -eq 0 ]; then
-              echo "expected non-zero exit from 'pihole.pihole -up'" >&2
+              echo "expected non-zero exit from 'pihole -up'" >&2
               exit 1
           fi
           echo "$out" | grep -q 'snap refresh pihole'

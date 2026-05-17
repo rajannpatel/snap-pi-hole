@@ -37,7 +37,7 @@ description: |
 
   The web admin interface listens on http://<host>/admin by default; the
   password is printed to the daemon log on first start and can be reset
-  with `sudo pihole.pihole setpassword`.
+  with `sudo pihole setpassword`.
 
 # Stay in devel until we have a green end-to-end smoke test on real DNS
 # traffic. See README.md for the open work list.

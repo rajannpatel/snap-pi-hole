@@ -137,7 +137,7 @@ restarts the daemon if it's running:
 | `dhcp-domain`    | `dhcp.domain`       |
 
 Everything else: edit `/var/snap/pihole/current/etc/pihole/pihole.toml`
-directly, or use `sudo pihole.pihole <subcommand>`.
+directly, or use `sudo pihole <subcommand>`.
 
 ### DHCP
 
