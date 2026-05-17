@@ -194,6 +194,13 @@ parts:
       # Neutralize upstream git version tracking checks inside strict confinement where git binary is stripped
       grep -rl 'git' advanced/Scripts/updatecheck.sh | xargs -r sed -i 's|git |true # git disabled inside snap|g'
       
+      # Redirect hardcoded /etc/.pihole paths to their corresponding snap paths
+      grep -rl '/etc/.pihole/advanced/Scripts' . | xargs -r sed -i 's|/etc/.pihole/advanced/Scripts|/opt/pihole|g'
+      grep -rl '${piholeGitDir}/advanced/Templates' . | xargs -r sed -i 's|${piholeGitDir}/advanced/Templates|/opt/pihole/templates|g'
+      
+      # Neuter chown commands since snap daemon runs as root and pihole user does not exist
+      grep -rl 'chown pihole:pihole' . | xargs -r sed -i 's|chown pihole:pihole|true # chown pihole:pihole|g'
+      
       # Seed a static template mapping matching our pinned deployment components
       mkdir -p advanced/Templates
       cat > advanced/Templates/versions << 'EOF'
@@ -220,9 +227,10 @@ parts:
       fi
     override-build: |
       craftctl default
-      # Workaround for core26 rust-coreutils AppArmor denial for `truncate`
+      # Workaround for core26 rust-coreutils AppArmor denial for `truncate` and `timeout`
       mkdir -p "${CRAFT_PART_INSTALL}/usr/bin"
       cp -L /usr/bin/truncate "${CRAFT_PART_INSTALL}/usr/bin/truncate"
+      cp -L /usr/bin/timeout "${CRAFT_PART_INSTALL}/usr/bin/timeout"
     organize:
       pihole: opt/pihole/pihole
       gravity.sh: opt/pihole/gravity.sh
@@ -238,6 +246,7 @@ parts:
       - opt/pihole
       - usr/share/man-src
       - usr/bin/truncate
+      - usr/bin/timeout
 
   # ---------------------------------------------------------------------
   # Embedded web admin UI assets, served by FTL's civetweb instance.
