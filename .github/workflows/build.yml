@@ -125,11 +125,11 @@ jobs:
           sudo snap start --enable pihole.pihole-ftl
           
           bound=0
-          echo "Waiting for pihole-FTL to serve DNS on port 53..."
+          echo "Waiting for pihole-FTL to bind to port 53 and respond..."
           for i in $(seq 1 30); do
-              # We don't care about the answer, just that the socket accepts the connection
-              if dig +short +time=1 +tries=1 @127.0.0.1 localhost >/dev/null 2>&1; then
-                  echo "FTL bound to port 53 and responding after ${i}s"
+              # Double check: Is the socket open AND is dig answering?
+              if sudo ss -lnup | grep -q ':53 ' && dig +short +time=1 +tries=1 @127.0.0.1 localhost >/dev/null 2>&1; then
+                  echo "FTL bound to port 53 and verified active after ${i}s"
                   bound=1
                   break
               fi
