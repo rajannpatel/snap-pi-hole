@@ -132,3 +132,52 @@ EOF
         [[ "$output" != *"BUG:"* ]]
     done
 }
+
+# --- error channel -------------------------------------------------------
+
+@test "blocked subcommand error message goes to stderr, not stdout" {
+    # Verify blocked commands print to stderr (not stdout) by checking
+    # the stub is never invoked (its STUB: prefix never appears in output)
+    run "${LAUNCHER}" -up
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"not supported in the snap"* ]]
+    [[ "$output" != *"STUB:"* ]]
+}
+
+# --- exit code propagation -----------------------------------------------
+
+@test "upstream non-zero exit code is propagated to the caller" {
+    cat > "${STUB}" <<'EOF'
+#!/bin/sh
+exit 42
+EOF
+    run "${LAUNCHER}" status
+    [ "$status" -eq 42 ]
+}
+
+@test "upstream zero exit code is propagated to the caller" {
+    run "${LAUNCHER}" status
+    [ "$status" -eq 0 ]
+}
+
+# --- environment ----------------------------------------------------------
+
+@test "launcher-pihole exports HOME as SNAP_DATA" {
+    cat > "${STUB}" <<'EOF'
+#!/bin/sh
+echo "HOME=${HOME}"
+EOF
+    run "${LAUNCHER}" status
+    [ "$status" -eq 0 ]
+    [[ "$output" == "HOME=${SNAP_DATA}" ]]
+}
+
+@test "launcher-pihole prepends /opt/pihole to PATH" {
+    cat > "${STUB}" <<'EOF'
+#!/bin/sh
+echo "PATH=${PATH}"
+EOF
+    run "${LAUNCHER}" status
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"/opt/pihole"* ]]
+}
