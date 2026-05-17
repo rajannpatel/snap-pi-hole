@@ -183,6 +183,8 @@ parts:
         advanced/Scripts/piholeDebug.sh
       # Redirect PID files to the strict confinement tmpfs directory allowed by AppArmor
       grep -rl '/run/pihole-FTL.pid' . | xargs -r sed -i 's|/run/pihole-FTL.pid|/run/snap.pihole/pihole-FTL.pid|g'
+      # Strip readonly modifier from FTL_PID_FILE to prevent bash local variable scope collisions inside subshells
+      grep -rl 'readonly FTL_PID_FILE' . | xargs -r sed -i 's/readonly FTL_PID_FILE/FTL_PID_FILE/g'
       # Patch-rot guard. If upstream renames a file the sed -i would have
       # errored out and failed the build already; if upstream subtly
       # rewords one of the target strings, the sed silently no-ops and
