@@ -88,6 +88,9 @@ layout:
   # Log files (FTL.log, pihole.log, webserver.log).
   /var/log/pihole:
     bind: $SNAP_COMMON/var/log/pihole
+  # Runtime state dir (FTL's pid file, sockets, working dir).
+  /run/pihole:
+    bind: $SNAP_DATA/run/pihole
   # Bash-script helper dir (`pihole`, gravity.sh, piholeDebug.sh, etc.).
   # Read-only  -  these are part of the squashfs.
   /opt/pihole:

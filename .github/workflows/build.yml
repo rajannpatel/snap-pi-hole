@@ -82,6 +82,11 @@ jobs:
 
       - name: Install snap and connect plugs
         run: |
+          # core26 is still a development base; the snapd on the runner image
+          # isn't always new enough to bring up its mount namespace. Refresh
+          # snapd and pre-stage the base before installing.
+          sudo snap refresh snapd --channel=latest/edge
+          sudo snap install core26 --channel=latest/edge || true
           sudo snap install --dangerous ./pihole_*.snap
           sudo snap connect pihole:system-observe
           sudo snap connect pihole:hardware-observe
