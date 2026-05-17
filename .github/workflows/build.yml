@@ -82,9 +82,6 @@ jobs:
 
       - name: Install snap and connect plugs
         run: |
-          # core26 is still a development base; the snapd on the runner image
-          # isn't always new enough to bring up its mount namespace. Get the
-          # snapd snap onto latest/edge and pre-stage core26 before installing.
           # `snap refresh` only works once the snapd snap exists, which isn't
           # guaranteed on a fresh ubuntu-latest runner (only the apt package
           # is). Hence the install-or-refresh fallback.
