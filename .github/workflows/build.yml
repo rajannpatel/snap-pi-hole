@@ -127,7 +127,6 @@ jobs:
           bound=0
           echo "Waiting for pihole-FTL to bind to port 53 and respond..."
           for i in $(seq 1 30); do
-              # Double check: Is the socket open AND is dig answering?
               if sudo ss -lnup | grep -q ':53 ' && dig +short +time=1 +tries=1 @127.0.0.1 localhost >/dev/null 2>&1; then
                   echo "FTL bound to port 53 and verified active after ${i}s"
                   bound=1
@@ -141,6 +140,12 @@ jobs:
               sudo snap logs pihole.pihole-ftl | tail -50 || true
               exit 1
           fi
+
+          # =================================================================
+          # NEW POST-START SANITY CHECK
+          # =================================================================
+          echo "Verifying live CLI status reporting..."
+          sudo pihole status
 
       - name: Resolve a name via FTL
         run: |
