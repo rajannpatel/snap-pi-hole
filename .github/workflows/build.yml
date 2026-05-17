@@ -94,6 +94,10 @@ jobs:
           sudo snap connect pihole:mount-observe
           sudo snap connect pihole:network-control
           sudo snap connect pihole:firewall-control
+          # Private /dev/shm for FTL locks. --dangerous installs don't
+          # always auto-connect; connecting explicitly is a no-op if
+          # snapd already connected it.
+          sudo snap connect pihole:ftl-shm || true
 
       - name: CLI sanity
         run: |
@@ -126,7 +130,7 @@ jobs:
           done
           if [ "$bound" -eq 0 ]; then
               echo "::error::FTL failed to bind port 53 within 30 seconds" >&2
-              sudo snap logs pihole.pihole-ftl --no-color | tail -50 || true
+              sudo snap logs pihole.pihole-ftl | tail -50 || true
               exit 1
           fi
 
@@ -163,7 +167,7 @@ jobs:
 
       - name: Show recent daemon logs
         if: always()
-        run: sudo snap logs pihole.pihole-ftl --no-color | tail -100
+        run: sudo snap logs pihole.pihole-ftl | tail -100
 
       - name: Check for AppArmor denials
         if: always()

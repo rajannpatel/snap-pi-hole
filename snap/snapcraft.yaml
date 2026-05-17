@@ -281,6 +281,11 @@ apps:
       - mount-observe
       - network-control    # required for DHCP server mode only
       - firewall-control   # required for DHCP server mode only
+      # FTL creates /dev/shm/FTL-<pid>-lock files for inter-process
+      # coordination. The default AppArmor template denies arbitrary
+      # writes under /dev/shm. `private: true` gives FTL its own
+      # /dev/shm/snap.pihole/ namespace mapped transparently as /dev/shm.
+      - ftl-shm
 
   # The `pihole` CLI: `pihole status`, `pihole -g`, `pihole setpassword`, etc.
   # The launcher intercepts subcommands that don't make sense inside a
@@ -299,3 +304,12 @@ apps:
 # No hook plugs declared  -  install only mkdir's directories (which the
 # layout bind-mounts already grant write access to) and configure only
 # calls snapctl + pihole-FTL --config locally. Neither needs network.
+
+plugs:
+  # Private /dev/shm namespace for FTL. snapd creates
+  # /dev/shm/snap.pihole/ on connect and bind-mounts it as /dev/shm
+  # inside the snap's namespace, so FTL's hardcoded /dev/shm/FTL-*
+  # paths "just work" without patching.
+  ftl-shm:
+    interface: shared-memory
+    private: true
