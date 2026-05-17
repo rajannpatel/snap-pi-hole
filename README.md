@@ -7,23 +7,38 @@ Pinned upstream versions: **FTL v6.6.2** · **pi-hole (core) v6.4.2** · **web v
 
 ---
 
-**What is the Pi-hole snap?** It is a strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole. It packages Pi-hole's DNS resolver, DHCP server, and web admin interface into a single, immutable package.
+**What is the Pi-hole snap?**
 
-**How does it work?** It bind-mounts Pi-hole's upstream-hardcoded paths into the snap's secure data directory and intercepts incompatible CLI commands, allowing the standard Pi-hole daemon to run out-of-the-box in strict AppArmor confinement.
+It is a strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole. It packages Pi-hole's DNS resolver, DHCP server, and web admin interface into a single, immutable package.
 
-**Who is it for?** It is built for homelab operators, system administrators, and privacy advocates who want a stable, network-wide ad blocker without mutating their host operating system.
+**How does it work?**
 
-**Where does it fit?** Use the Pi-hole snap to:
+It bind-mounts Pi-hole's upstream-hardcoded paths into the snap's secure data directory and intercepts incompatible CLI commands, allowing the standard Pi-hole daemon to run out-of-the-box in strict AppArmor confinement.
+
+**Who is it for?**
+
+It is built for homelab operators, system administrators, and privacy advocates who want a stable, network-wide ad blocker without mutating their host operating system.
+
+**Where does it fit?**
+
+Use the Pi-hole snap to:
 - Replace Pi-hole's manual `curl | bash` installation script.
 - Ensure atomic, one-click rollbacks if a DNS update breaks your network.
 - Explicitly audit network privileges rather than granting a script root access.
 
 ## In this documentation
 
-- **Tutorial**: [Getting Started with the Pi-hole Snap](docs/tutorial-getting-started.md)
-- **How-to guides**: [Configure DHCP](docs/howto-dhcp-setup.md) · [Migrate from a Script Install](docs/howto-migrate-from-script.md) · [Build and Test from Source](docs/howto-build-and-test.md)
-- **Reference**: [Configuration, CLI Wrapping, and Layout](docs/reference.md)
-- **Explanation**: [Architecture and Rationale](docs/explanation-architecture.md) · [Why Unbound is Not Bundled](docs/explanation-unbound.md)
+- **Tutorial**
+  - [Getting Started with the Pi-hole Snap](docs/tutorial-getting-started.md)
+- **How-to guides**
+  - [Configure DHCP](docs/howto-dhcp-setup.md)
+  - [Migrate from a Script Install](docs/howto-migrate-from-script.md)
+  - [Build and Test from Source](docs/howto-build-and-test.md)
+- **Reference**
+  - [Configuration, CLI Wrapping, and Layout](docs/reference.md)
+- **Explanation**
+  - [Architecture and Rationale](docs/explanation-architecture.md)
+  - [Why Unbound is Not Bundled](docs/explanation-unbound.md)
 
 ## Project and community
 
