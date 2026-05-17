@@ -287,6 +287,13 @@ apps:
     daemon: simple
     install-mode: disable
     restart-condition: on-failure
+    # Inject specific kernel capabilities so the daemon can safely manage 
+    # network interfaces and privileged sockets inside an unprivileged namespace.
+    capabilities:
+      - net-bind-service
+      - net-admin
+      - net-raw
+      - sys-nice
     # Keep the old FTL process running during `snap refresh` so DNS stays
     # up for all clients while snapd swaps in the new revision.  snapd
     # will send SIGTERM to the old process only after the new revision's
