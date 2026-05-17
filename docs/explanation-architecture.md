@@ -18,10 +18,10 @@ Pi-hole v6 collapsed its old multi-process architecture (FTL + lighttpd + PHP + 
 
 The snap consists of four build parts defined in `snapcraft.yaml`:
 
-1. **`ftl`** — clones the `pi-hole/FTL` repository and builds the core daemon natively using CMake.
-2. **`core`** — pulls the `pi-hole/pi-hole` repository (the `pihole` CLI and supporting bash scripts) and stages it under `/opt/pihole`. Two source-level `sed` patches applied during the build swap out `service`/`systemctl` calls in `piholeLogFlush.sh` and `piholeDebug.sh` for `snapctl` equivalents.
-3. **`web`** — pulls the `pi-hole/web` repository into `$SNAP/var/www/html/admin`, which is then served by FTL's embedded CivetWeb server instance.
-4. **`wrappers`** — copies our custom launcher scripts (`launcher-ftl` and `launcher-pihole`) into the snap.
+1. **`ftl`**  -  clones the `pi-hole/FTL` repository and builds the core daemon natively using CMake.
+2. **`core`**  -  pulls the `pi-hole/pi-hole` repository (the `pihole` CLI and supporting bash scripts) and stages it under `/opt/pihole`. Two source-level `sed` patches applied during the build swap out `service`/`systemctl` calls in `piholeLogFlush.sh` and `piholeDebug.sh` for `snapctl` equivalents.
+3. **`web`**  -  pulls the `pi-hole/web` repository into `$SNAP/var/www/html/admin`, which is then served by FTL's embedded CivetWeb server instance.
+4. **`wrappers`**  -  copies our custom launcher scripts (`launcher-ftl` and `launcher-pihole`) into the snap.
 
 ### Path Remapping
 

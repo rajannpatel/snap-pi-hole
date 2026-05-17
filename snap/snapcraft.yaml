@@ -16,7 +16,7 @@ description: |
   (a fork of dnsmasq), the DHCP server, the HTTP API, and the embedded
   web admin interface into a single binary: pihole-FTL.
 
-  IMPORTANT — host setup before starting the daemon:
+  IMPORTANT  -  host setup before starting the daemon:
 
     1. Port 53 must be free. On most Ubuntu systems systemd-resolved
        holds it. Disable its stub listener:
@@ -55,7 +55,7 @@ assumes:
 # Document the current data-format baseline. Bump to `epoch: 1*` (note
 # the trailing asterisk) the first time we ship a revision that changes
 # pihole.toml, the gravity.db schema, or a layout path in a way that
-# the new revision needs to migrate on first start — snapd will then
+# the new revision needs to migrate on first start  -  snapd will then
 # hold users on the old epoch until the migration code is in place.
 epoch: 0
 
@@ -67,7 +67,7 @@ platforms:
 
 # Bind-mount the paths FTL and the bash scripts have hardcoded onto
 # writable snap data locations. Inside the snap's mount namespace
-# /etc/pihole *is* $SNAP_DATA/etc/pihole, transparently — no source
+# /etc/pihole *is* $SNAP_DATA/etc/pihole, transparently  -  no source
 # patching needed for path layout.
 #
 # Paths audited against pi-hole/FTL v6.6.2 and pi-hole/pi-hole v6.4.2
@@ -89,7 +89,7 @@ layout:
   /var/log/pihole:
     bind: $SNAP_COMMON/var/log/pihole
   # Bash-script helper dir (`pihole`, gravity.sh, piholeDebug.sh, etc.).
-  # Read-only — these are part of the squashfs.
+  # Read-only  -  these are part of the squashfs.
   /opt/pihole:
     bind: $SNAP/opt/pihole
 
@@ -156,7 +156,7 @@ parts:
   # ---------------------------------------------------------------------
   # pi-hole core: the `pihole` CLI and supporting shell scripts.
   # Patched in-place to swap out `service`/`systemctl` calls for snapctl
-  # — the rest of the path remapping is handled by the layout block.
+  #  -  the rest of the path remapping is handled by the layout block.
   # ---------------------------------------------------------------------
   core:
     plugin: dump
@@ -259,7 +259,7 @@ apps:
     stop-timeout: 60s
     # If FTL hangs (e.g. wedged on a malformed DNS upstream) snapd will
     # SIGKILL and respawn it after this timeout. FTL doesn't currently
-    # ping sd_notify, so this is a hard kill — adjust upward if you see
+    # ping sd_notify, so this is a hard kill  -  adjust upward if you see
     # spurious watchdog restarts under heavy load.
     watchdog-timeout: 60s
     plugs:
@@ -286,6 +286,6 @@ apps:
       - hardware-observe
       - mount-observe
 
-# No hook plugs declared — install only mkdir's directories (which the
+# No hook plugs declared  -  install only mkdir's directories (which the
 # layout bind-mounts already grant write access to) and configure only
 # calls snapctl + pihole-FTL --config locally. Neither needs network.

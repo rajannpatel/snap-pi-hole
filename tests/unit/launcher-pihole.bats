@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 #
-# Unit tests for snap/local/launcher-pihole — the CLI wrapper that
+# Unit tests for snap/local/launcher-pihole  -  the CLI wrapper that
 # intercepts subcommands that don't make sense inside a snap and passes
 # everything else through to the upstream `pihole` bash script.
 #
@@ -19,7 +19,7 @@ setup() {
     STUB="${TMPDIR}/pihole-stub"
     LAUNCHER="${TMPDIR}/launcher-pihole"
 
-    # NB: substitution order matters — the longer path must be rewritten
+    # NB: substitution order matters  -  the longer path must be rewritten
     # first so the shorter substring rewrite doesn't shadow it.
     sed \
         -e "s|/opt/pihole/pihole|${STUB}|g" \

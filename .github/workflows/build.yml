@@ -90,7 +90,7 @@ jobs:
       - name: CLI sanity
         run: |
           sudo pihole version
-          sudo pihole status || true   # daemon not started yet — expected
+          sudo pihole status || true   # daemon not started yet  -  expected
 
       - name: Blocked subcommand returns error and points at snap refresh
         run: |

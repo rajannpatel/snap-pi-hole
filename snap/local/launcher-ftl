@@ -7,7 +7,7 @@
 set -eu
 
 # Detect the most common port-53 collision: systemd-resolved's stub
-# listener on 127.0.0.53. Fail fast with a clear message — otherwise
+# listener on 127.0.0.53. Fail fast with a clear message  -  otherwise
 # FTL itself would die later with a generic EADDRINUSE that's harder
 # to diagnose from `snap logs`.
 #
