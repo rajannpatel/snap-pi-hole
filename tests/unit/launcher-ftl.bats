@@ -27,14 +27,14 @@ setup() {
     chmod +x "${FTL_STUB}"
 
     # Build a patched copy of the launcher with paths rewritten to our tmpdir.
-    # The /etc/pihole, /etc/dnsmasq.d, /var/log/pihole paths get sed-rewritten
-    # to tmpdir equivalents so mkdir calls don't touch the real filesystem.
-    # The $SNAP_DATA/run/pihole path is already under our tmpdir via SNAP_DATA.
+    # The global filesystem paths get sed-rewritten to tmpdir equivalents so 
+    # mkdir calls don't touch or violate host-level write permissions.
     LAUNCHER="${TEST_TMPDIR}/launcher-ftl"
     sed \
         -e "s|/etc/pihole|${TEST_TMPDIR}/etc/pihole|g" \
         -e "s|/etc/dnsmasq.d|${TEST_TMPDIR}/etc/dnsmasq.d|g" \
         -e "s|/var/log/pihole|${TEST_TMPDIR}/var/log/pihole|g" \
+        -e "s|/run/snap.pihole|${TEST_TMPDIR}/run/snap.pihole|g" \
         "${REPO_ROOT}/snap/local/launcher-ftl" > "${LAUNCHER}"
     chmod +x "${LAUNCHER}"
 }
@@ -61,6 +61,7 @@ teardown() {
     [ -d "${TEST_TMPDIR}/etc/dnsmasq.d" ]
     [ -d "${SNAP_DATA}/run/pihole" ]
     [ -d "${TEST_TMPDIR}/var/log/pihole" ]
+    [ -d "${TEST_TMPDIR}/run/snap.pihole" ]
 }
 
 @test "launcher-ftl seeds an empty pihole.toml when none exists" {
