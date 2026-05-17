@@ -10,14 +10,14 @@ set -eu
 # we can just use the absolute path within $SNAP. Wait, layout and organize plugins 
 # might put them differently. If we put it in snap/hooks/lib/, it gets placed in $SNAP/meta/hooks/lib/.
 # Let's source it dynamically based on the script location.
-HOOK_DIR="$(dirname "$0")"
-CONFIG_HELPER="${HOOK_DIR}/lib/config-helper.sh"
+CONFIG_HELPER="${SNAP}/bin/config-helper.sh"
 
 if [ ! -f "$CONFIG_HELPER" ]; then
     echo "Error: config-helper.sh not found at $CONFIG_HELPER" >&2
     exit 1
 fi
 
+# shellcheck disable=SC1090
 . "$CONFIG_HELPER"
 
 applied=0

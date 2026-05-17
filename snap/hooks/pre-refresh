@@ -20,6 +20,7 @@ if [ -d /etc/pihole ]; then
     # Exclude large FTL databases which are ephemeral anyway.
     tar -czf "$SNAPSHOT_FILE" --exclude='pihole-FTL.db' -C /etc pihole >/dev/null 2>&1 || true
     # Keep only the last 3 snapshots to save space
+    # shellcheck disable=SC2012
     ls -1t "${SNAPSHOT_DIR}"/pihole-backup-*.tar.gz 2>/dev/null | tail -n +4 | xargs -I {} rm -f {} || true
 fi
 

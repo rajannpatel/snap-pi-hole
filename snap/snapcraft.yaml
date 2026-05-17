@@ -292,9 +292,11 @@ parts:
     organize:
       launcher-ftl: bin/launcher-ftl
       launcher-pihole: bin/launcher-pihole
+      config-helper.sh: bin/config-helper.sh
     stage:
       - bin/launcher-ftl
       - bin/launcher-pihole
+      - bin/config-helper.sh
 
 apps:
   # The daemon. Disabled on install so the operator can free port 53 and

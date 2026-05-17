@@ -28,7 +28,7 @@ export FTL_MOCK_LOG="${TEST_DIR}/ftl.log"
 touch "$FTL_MOCK_LOG"
 
 # Source our library
-. "$(dirname "$0")/../snap/hooks/lib/config-helper.sh"
+. "$(dirname "$0")/../snap/local/config-helper.sh"
 
 echo "Running tests..."
 fails=0

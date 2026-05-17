@@ -4,8 +4,7 @@
 # valid destination folders to bind-mount to.
 set -eu
 
-HOOK_DIR="$(dirname "$0")"
-CONFIG_HELPER="${HOOK_DIR}/lib/config-helper.sh"
+CONFIG_HELPER="${SNAP}/bin/config-helper.sh"
 
 # Create the physical log path in SNAP_COMMON first to prevent daemon initialization deadlocks
 mkdir -p "${SNAP_COMMON}/var/log/pihole"
@@ -20,6 +19,7 @@ fi
 
 # Attempt to migrate any existing legacy configuration into snapctl
 if [ -f "$CONFIG_HELPER" ]; then
+    # shellcheck disable=SC1090
     . "$CONFIG_HELPER"
     migrate_legacy_config
 fi
