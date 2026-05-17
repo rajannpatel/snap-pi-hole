@@ -8,6 +8,9 @@
 # lives directly under $SNAP_DATA.
 set -eu
 
+# Ensure the AppArmor-approved PID directory exists (wiped on every reboot)
+mkdir -p /run/snap.pihole
+
 # Detect the most common port-53 collision: systemd-resolved's stub
 # listener on 127.0.0.53. Fail fast with a clear message  -  otherwise
 # FTL itself would die later with a generic EADDRINUSE that's harder
