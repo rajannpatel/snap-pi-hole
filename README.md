@@ -11,8 +11,16 @@
 > | **[FTL](https://github.com/pi-hole/FTL)** | v6.6.2 |
 > | **[pi-hole (core)](https://github.com/pi-hole/pi-hole)** | v6.4.2 |
 > | **[web](https://github.com/pi-hole/web)** | v6.5 |
-> 
+>
 > These versions are automatically tracked and updated by a daily GitHub Actions bot
+
+> [!IMPORTANT]
+> **This snap is built on [Ubuntu Core26](https://snapcraft.io/core26).**
+>
+> Pi-hole FTL v6.6.x dropped support for mbedTLS 2.x and now strictly requires **mbedTLS ≥ 3.5.0** and **Nettle ≥ 3.9**. The Ubuntu Core 24 snap base (core24) ships older versions of both libraries, so the package is built on Ubuntu Core 26 (core26).
+>
+> Practical consequences:
+> - The snap is currently published with `grade: devel`; it will not install from the `stable` risk level until I have a green end-to-end smoke test on real DNS traffic.
 
 ---
 
@@ -51,4 +59,4 @@ Use the Pi-hole snap to:
 
 ## Project and community
 
-The contents of this repository (`snapcraft.yaml`, `launcher-ftl` scripts, and the GitHub Actions) are simply build instructions and wrapper scripts. They don't contain any of Pi-hole's source code. Licensing these under a permissive license like MIT is standard practice and highly encouraged.
+The contents of this repository (`snapcraft.yaml`, `launcher-ftl` scripts, and the GitHub Actions) are simply build instructions and wrapper scripts. They don't contain any of Pi-hole's source code. Therefore, this snap package is licensed under a permissive MIT license. This is a standard practice and highly encouraged.

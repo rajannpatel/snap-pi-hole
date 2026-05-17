@@ -29,6 +29,6 @@ case "${1:-}" in
 esac
 
 export HOME="${SNAP_DATA}"
-export PATH="/opt/pihole:/opt/pihole/scripts:${PATH}"
+export PATH="/opt/pihole:${PATH}"
 
 exec /opt/pihole/pihole "$@"

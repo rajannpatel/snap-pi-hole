@@ -194,7 +194,11 @@ parts:
     organize:
       pihole: opt/pihole/pihole
       gravity.sh: opt/pihole/gravity.sh
-      advanced/Scripts: opt/pihole/scripts
+      # Upstream `pihole` hardcodes PI_HOLE_SCRIPT_DIR="/opt/pihole" and
+      # sources COL_TABLE, utils.sh, api.sh, version.sh, etc. directly from
+      # that flat directory. Mirror the layout the upstream installer uses:
+      # everything under advanced/Scripts/ lands at /opt/pihole/<file>.
+      advanced/Scripts/*: opt/pihole/
       advanced/Templates: opt/pihole/templates
       manpages: usr/share/man-src
     stage:
