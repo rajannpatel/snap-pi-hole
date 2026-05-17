@@ -1,17 +1,16 @@
 #!/bin/sh
-# Runs once at first install. The `layout:` block aliases /etc/pihole,
-# /etc/dnsmasq.d, and /var/log/pihole to $SNAP_DATA / $SNAP_COMMON, so
-# creating them here populates the right writable backing directories.
-#
-# /run/pihole has no layout because snapd disallows layouts that introduce
-# a new top-level /run/* dir; we put the runtime state under $SNAP_DATA
-# instead, which is natively writable.
+# Runs once at first install. We must explicitly create the physical 
+# backing structures inside $SNAP_DATA and $SNAP_COMMON so that the 
+# layout engine has valid destination folders to bind-mount to.
 set -eu
 
-# Ensure backing directories are populated
-mkdir -p /etc/pihole /etc/dnsmasq.d /var/log/pihole "${SNAP_DATA}/run/pihole"
+# 1. Create the true physical backing directories on the host disk
+mkdir -p "${SNAP_DATA}/etc/pihole"
+mkdir -p "${SNAP_DATA}/etc/dnsmasq.d"
+mkdir -p "${SNAP_DATA}/run/pihole"
+mkdir -p "${SNAP_COMMON}/var/log/pihole"
 
-# Seed the static version profile template if it exists on disk
-if [ ! -f /etc/pihole/versions ] && [ -d "${SNAP}/opt/pihole/templates" ]; then
-    cp "${SNAP}/opt/pihole/templates/versions" /etc/pihole/versions
+# 2. Seed the static version profile template into the writable tree
+if [ ! -f "${SNAP_DATA}/etc/pihole/versions" ]; then
+    cp "${SNAP}/opt/pihole/templates/versions" "${SNAP_DATA}/etc/pihole/versions"
 fi
