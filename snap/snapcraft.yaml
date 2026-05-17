@@ -43,20 +43,10 @@ description: |
 # traffic. See README.md for the open work list.
 grade: devel
 confinement: strict
-# core22 (Ubuntu 22.04 LTS): mbedtls 2.28, gcc 11, glibc 2.35. This is
-# the natural fit for Pi-hole FTL v6.6.x — the upstream source is
-# written against mbedtls 2.x function signatures (e.g. the 3-arg
-# mbedtls_x509write_crt_pem), and gcc 11 doesn't apply the C23
-# discarded-qualifiers strictness that gcc 15 (core26) treats as a
-# hard error in webserver.c.
-#
-# core24 (mbedtls 2.28 / gcc 13) also has mbedtls 2.28 but trips on
-# PSA Crypto symbols FTL conditionally references; core26 (mbedtls
-# 3.x / gcc 15) needs three classes of source patch (mbedtls 3.x
-# signature adapters, glibc 2.42 strstr macro fix, C23 const-correct
-# string functions). Until upstream FTL stabilises against newer
-# distros, core22 is the path of least friction.
-base: core22
+# We use core26 because Pi-hole FTL v6.6.2 dropped support for mbedTLS 2.x
+# and now strictly requires mbedTLS >= 3.5.0, as well as Nettle >= 3.9.
+base: core26
+build-base: devel
 
 # Refuse to install on snapd older than core22's documented floor.
 assumes:
@@ -102,16 +92,6 @@ layout:
   # Read-only — these are part of the squashfs.
   /opt/pihole:
     bind: $SNAP/opt/pihole
-  # Catch-all for any runtime files FTL or its embedded dnsmasq may drop
-  # under /run/pihole/. Currently no source references found, kept as a
-  # safety net since this is a write-target FTL might add to in the future.
-  /run/pihole:
-    bind: $SNAP_DATA/run/pihole
-  # FTL's PID file location is hardcoded in src/config/config.h
-  # (GHSA-6w8x-p785-6pm4) and not honoured from the config file. Bind it
-  # explicitly into writable space.
-  /run/pihole-FTL.pid:
-    bind-file: $SNAP_DATA/run/pihole-FTL.pid
 
 parts:
   # ---------------------------------------------------------------------
@@ -127,10 +107,19 @@ parts:
     override-pull: |
       craftctl default
       craftctl set version="$(git -C "${CRAFT_PART_SRC}" describe --tags --always)"
+      # Fix strstr redefinition error on newer glibc (Ubuntu 26.04)
+      sed -i 's/#define strstr(haystack, needle)/#undef strstr\n#define strstr(haystack, needle)/' "${CRAFT_PART_SRC}/src/FTL.h"
+      # Patch x509.c for MbedTLS 3.x API compatibility
+      sed -i 's/mbedtls_x509write_crt_pem(&ca_cert, ca_buffer, sizeof(ca_buffer))/mbedtls_x509write_crt_pem(\&ca_cert, ca_buffer, sizeof(ca_buffer), NULL, NULL)/g' src/webserver/x509.c
+      sed -i 's/mbedtls_x509write_crt_pem(&server_cert, cert_buffer, sizeof(cert_buffer))/mbedtls_x509write_crt_pem(\&server_cert, cert_buffer, sizeof(cert_buffer), NULL, NULL)/g' src/webserver/x509.c
+      sed -i 's/mbedtls_pk_parse_keyfile(&key, certfile, NULL)/mbedtls_pk_parse_keyfile(\&key, certfile, NULL, NULL, NULL)/g' src/webserver/x509.c
     cmake-parameters:
       - -DCMAKE_BUILD_TYPE=Release
       - -DCMAKE_INSTALL_PREFIX=/usr
       - -DSTATIC=false
+      - -DCMAKE_C_FLAGS="-Wno-error=discarded-qualifiers"
+    build-snaps:
+      - cmake/3.27/stable
     build-packages:
       - build-essential
       - git
@@ -155,13 +144,13 @@ parts:
       - libsqlite3-0
       - libnettle8
       - libgmp10
-      # mbedtls 2.28 SONAMEs on jammy (core22). libmbedtls14 transitively
-      # pulls libmbedcrypto7 and libmbedx509-1; list explicitly so the
+      # mbedtls 3.6 SONAMEs on core26. libmbedtls21 transitively
+      # pulls libmbedcrypto16 and libmbedx509-7; list explicitly so the
       # link line is reproducible from this file alone.
-      - libmbedtls14
-      - libmbedcrypto7
-      - libmbedx509-1
-      - libunistring2
+      - libmbedtls21
+      - libmbedcrypto16
+      - libmbedx509-7
+      - libunistring5
       - ca-certificates
 
   # ---------------------------------------------------------------------
