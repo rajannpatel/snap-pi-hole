@@ -114,8 +114,8 @@ parts:
       sed -i 's/mbedtls_x509write_crt_pem(&server_cert, cert_buffer, sizeof(cert_buffer))/mbedtls_x509write_crt_pem(\&server_cert, cert_buffer, sizeof(cert_buffer), NULL, NULL)/g' src/webserver/x509.c
       sed -i 's/mbedtls_pk_parse_keyfile(&key, certfile, NULL)/mbedtls_pk_parse_keyfile(\&key, certfile, NULL, NULL, NULL)/g' src/webserver/x509.c
       # Redirect PID files to the strict confinement tmpfs directory allowed by AppArmor
-      grep -rl '/run/pihole-FTL.pid' "${CRAFT_PART_SRC}" | xargs -r sed -i 's|/run/pihole-FTL.pid|/run/snap.pihole/pihole-FTL.pid|g'
-      grep -rl '/run/dnsmasq.pid' "${CRAFT_PART_SRC}" | xargs -r sed -i 's|/run/dnsmasq.pid|/run/snap.pihole/dnsmasq.pid|g'
+      grep -rlZ '/run/pihole-FTL.pid' "${CRAFT_PART_SRC}" | xargs -0 -r sed -i 's|/run/pihole-FTL.pid|/run/snap.pihole/pihole-FTL.pid|g'
+      grep -rlZ '/run/dnsmasq.pid' "${CRAFT_PART_SRC}" | xargs -0 -r sed -i 's|/run/dnsmasq.pid|/run/snap.pihole/dnsmasq.pid|g'
       # Neutralize dnsmasq's attempt to drop supplementary groups.
       # In a strictly confined snap, daemons run as root without CAP_SETGID
       # by default. Since pihole-FTL passes `-u root` internally, dnsmasq
@@ -188,18 +188,18 @@ parts:
       sed -i 's|systemctl status pihole-FTL.service|true # patched: systemctl unavailable in snap|g' \
         advanced/Scripts/piholeDebug.sh
       # Redirect PID files to the strict confinement tmpfs directory allowed by AppArmor
-      grep -rl '/run/pihole-FTL.pid' . | xargs -r sed -i 's|/run/pihole-FTL.pid|/run/snap.pihole/pihole-FTL.pid|g'
+      grep -rlZ '/run/pihole-FTL.pid' . | xargs -0 -r sed -i 's|/run/pihole-FTL.pid|/run/snap.pihole/pihole-FTL.pid|g'
       # Strip readonly modifier from FTL_PID_FILE to prevent bash local variable scope collisions inside subshells
-      grep -rl 'readonly FTL_PID_FILE' . | xargs -r sed -i 's/readonly FTL_PID_FILE/FTL_PID_FILE/g'
+      grep -rlZ 'readonly FTL_PID_FILE' . | xargs -0 -r sed -i 's/readonly FTL_PID_FILE/FTL_PID_FILE/g'
       # Neutralize upstream git version tracking checks inside strict confinement where git binary is stripped
-      grep -rl 'git' advanced/Scripts/updatecheck.sh | xargs -r sed -i 's|git |true # git disabled inside snap|g'
+      grep -rlZ 'git' advanced/Scripts/updatecheck.sh | xargs -0 -r sed -i 's|git |true # git disabled inside snap|g'
       
       # Redirect hardcoded /etc/.pihole paths to their corresponding snap paths
-      grep -rl '/etc/.pihole/advanced/Scripts' . | xargs -r sed -i 's|/etc/.pihole/advanced/Scripts|/opt/pihole|g'
-      grep -rl '${piholeGitDir}/advanced/Templates' . | xargs -r sed -i 's|${piholeGitDir}/advanced/Templates|/opt/pihole/templates|g'
+      grep -rlZ '/etc/.pihole/advanced/Scripts' . | xargs -0 -r sed -i 's|/etc/.pihole/advanced/Scripts|/opt/pihole|g'
+      grep -rlZ '${piholeGitDir}/advanced/Templates' . | xargs -0 -r sed -i 's|${piholeGitDir}/advanced/Templates|/opt/pihole/templates|g'
       
       # Neuter chown commands since snap daemon runs as root and pihole user does not exist
-      grep -rl 'chown pihole:pihole' . | xargs -r sed -i 's|chown pihole:pihole|true # chown pihole:pihole|g'
+      grep -rlZ 'chown pihole:pihole' . | xargs -0 -r sed -i 's|chown pihole:pihole|true # chown pihole:pihole|g'
       
       # Seed a static template mapping matching our pinned deployment components
       mkdir -p advanced/Templates
