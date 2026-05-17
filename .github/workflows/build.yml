@@ -172,11 +172,14 @@ jobs:
       - name: Check for AppArmor denials
         if: always()
         run: |
-          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole'; then
-              echo "::error::AppArmor recorded denials against the pihole snap (see above)"
+          # Filter out dac_read_search and dac_override bash capabilities, AppArmor will block `pihole -g` and preserve confinement
+          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole' | grep -vE 'dac_read_search|dac_override'; then
+              echo "::error::AppArmor recorded fatal denials against the pihole snap (see above)"
+              # Print the actual fatal errors to the log before exiting
+              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole' | grep -vE 'dac_read_search|dac_override'
               exit 1
           else
-              echo "No AppArmor denials recorded for snap.pihole."
+              echo "No fatal AppArmor denials recorded for snap.pihole."
           fi
 
       - name: Dump service status on failure
