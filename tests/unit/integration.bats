@@ -25,7 +25,8 @@ setup() {
     export SNAP="${TEST_TMPDIR}/snap"
     export SNAP_DATA="${TEST_TMPDIR}/data"
     export SNAP_COMMON="${TEST_TMPDIR}/common"
-    mkdir -p "${SNAP}/usr/bin" "${SNAP_DATA}" "${SNAP_COMMON}"
+    mkdir -p "${SNAP}/usr/bin" "${SNAP_DATA}" "${SNAP_COMMON}" "${SNAP}/bin"
+    cp "${REPO_ROOT}/snap/local/config-helper.sh" "${SNAP}/bin/"
 
     # Create stubs for external commands
     _setup_stubs
@@ -52,7 +53,7 @@ echo "SNAPCTL:$*" >> "$LOG"
 case "$1" in
     get)
         key="$2"
-        var="SNAPCTL_GET_$(echo "$key" | tr '-' '_')"
+        var="SNAPCTL_GET_$(echo "$key" | tr '.-' '_')"
         echo "${!var:-}"
         ;;
     services)
