@@ -295,11 +295,6 @@ apps:
     refresh-mode: endure
     # Give FTL time to flush its query DB and gravity state on shutdown.
     stop-timeout: 60s
-    # If FTL hangs (e.g. wedged on a malformed DNS upstream) snapd will
-    # SIGKILL and respawn it after this timeout. FTL doesn't currently
-    # ping sd_notify, so this is a hard kill  -  adjust upward if you see
-    # spurious watchdog restarts under heavy load.
-    watchdog-timeout: 60s
     plugs:
       - network
       - network-bind
