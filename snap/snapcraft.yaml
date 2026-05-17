@@ -116,6 +116,12 @@ parts:
       # Redirect PID files to the strict confinement tmpfs directory allowed by AppArmor
       grep -rl '/run/pihole-FTL.pid' "${CRAFT_PART_SRC}" | xargs -r sed -i 's|/run/pihole-FTL.pid|/run/snap.pihole/pihole-FTL.pid|g'
       grep -rl '/run/dnsmasq.pid' "${CRAFT_PART_SRC}" | xargs -r sed -i 's|/run/dnsmasq.pid|/run/snap.pihole/dnsmasq.pid|g'
+      # Neutralize dnsmasq's attempt to drop supplementary groups.
+      # In a strictly confined snap, daemons run as root without CAP_SETGID
+      # by default. Since pihole-FTL passes `-u root` internally, dnsmasq
+      # looks up the root group and tries to call setgroups(0) which fails with EPERM.
+      sed -i 's/setgroups(0, \&dummy) == -1/0/g' src/dnsmasq/dnsmasq.c
+      sed -i 's/setgid(gp->gr_gid) == -1/0/g' src/dnsmasq/dnsmasq.c
     cmake-parameters:
       - -DCMAKE_BUILD_TYPE=Release
       - -DCMAKE_INSTALL_PREFIX=/usr
