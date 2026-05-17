@@ -16,6 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Update snapd for core26
+        run: |
+          # ensure we have the latest snapd
+          sudo snap install snapd --latest/stable || sudo snap refresh snapd --latest/stable
+
       - name: Install shellcheck and bats
         run: |
           sudo apt-get update
@@ -34,6 +39,19 @@ jobs:
       - name: bats unit tests
         run: bats tests/unit/
 
+      - name: Cache Snapcraft dependencies
+        uses: actions/cache@v4
+        id: snapcraft-cache
+        with:
+          path: |
+            ~/.cache/snapcraft
+            ~/.local/share/snapcraft
+            # If building manually in a directory, you can also cache the parts/ folder
+            .snapcraft/
+          key: ${{ runner.os }}-snapcraft-${{ hashFiles('snap/snapcraft.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-snapcraft-
+        
   build:
     name: build (${{ matrix.arch }})
     runs-on: ubuntu-latest
