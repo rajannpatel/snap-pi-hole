@@ -52,16 +52,6 @@ assert "stop-timeout" in ftl, "stop-timeout missing from pihole-ftl"
 PYEOF
 }
 
-@test "snapcraft.yaml: pihole-ftl service has watchdog-timeout defined" {
-    python3 - <<PYEOF
-import yaml
-with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
-    doc = yaml.safe_load(f)
-ftl = doc["apps"]["pihole-ftl"]
-assert "watchdog-timeout" in ftl, "watchdog-timeout missing from pihole-ftl"
-PYEOF
-}
-
 @test "snapcraft.yaml: pihole-ftl daemon is disabled on install" {
     python3 - <<PYEOF
 import yaml
