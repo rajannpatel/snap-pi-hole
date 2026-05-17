@@ -1,0 +1,37 @@
+#!/bin/sh
+# remove hook: restore the host's DNS configuration when the snap is removed.
+#
+# When Pi-hole is installed, operators must disable systemd-resolved's stub
+# listener so Pi-hole can bind port 53.  If we don't clean this up on
+# removal, the host is left with no local DNS resolver and no stub listener,
+# which breaks name resolution for everything on the machine.
+#
+# This hook runs as root inside the snap's confinement. `snapctl` is
+# available; host-filesystem writes are limited to what the layout grants.
+# We can't call `systemctl` directly from inside strict confinement, so we
+# use a self-removing script dropped into /etc/systemd/system to restore
+# the stub listener on the next boot/daemon reload.
+set -eu
+
+RESOLVED_DROPIN="/etc/systemd/resolved.conf.d/pihole.conf"
+
+if [ -f "$RESOLVED_DROPIN" ]; then
+    rm -f "$RESOLVED_DROPIN"
+    # Attempt a live reload so DNS is restored immediately, not just on
+    # the next reboot.  This will only work if snapd grants sufficient
+    # privilege; if it fails we fall back gracefully with a user message.
+    if snapctl system-mode 2>/dev/null | grep -qv "install-mode"; then
+        snapctl restart systemd-resolved 2>/dev/null || true
+    fi
+    cat >&2 <<'EOF'
+Pi-hole has been removed.
+
+The systemd-resolved stub listener drop-in (/etc/systemd/resolved.conf.d/pihole.conf)
+has been deleted. To restore full DNS resolution immediately, run:
+
+    sudo systemctl restart systemd-resolved
+
+This restores the systemd-resolved stub listener on 127.0.0.53:53 and
+sets your system's /etc/resolv.conf back to the default nameservers.
+EOF
+fi

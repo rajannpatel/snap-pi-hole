@@ -27,7 +27,9 @@ jobs:
             snap/local/launcher-ftl \
             snap/local/launcher-pihole \
             snap/hooks/install \
-            snap/hooks/configure
+            snap/hooks/configure \
+            snap/hooks/pre-refresh \
+            snap/hooks/remove
 
       - name: bats unit tests
         run: bats tests/unit/
@@ -107,13 +109,20 @@ jobs:
       - name: Start daemon
         run: |
           sudo snap start --enable pihole.pihole-ftl
+          bound=0
           for i in $(seq 1 30); do
               if sudo ss -lnup | grep -q ':53 '; then
                   echo "FTL bound to port 53 after ${i}s"
+                  bound=1
                   break
               fi
               sleep 1
           done
+          if [ "$bound" -eq 0 ]; then
+              echo "::error::FTL failed to bind port 53 within 30 seconds" >&2
+              sudo snap logs pihole.pihole-ftl --no-color | tail -50 || true
+              exit 1
+          fi
 
       - name: Resolve a name via FTL
         run: |
@@ -132,6 +141,19 @@ jobs:
               sudo cat /var/snap/pihole/current/etc/pihole/pihole.toml || true
               exit 1
           fi
+
+      - name: Gravity update (pihole -g) runs cleanly under confinement
+        run: |
+          # Run a full gravity update and assert it exits 0. This exercises
+          # network access from within strict confinement (fetching block lists)
+          # and write access to the gravity database path under $SNAP_DATA.
+          sudo pihole -g
+          # Confirm the gravity.db was written inside the snap data directory.
+          if [ ! -f /var/snap/pihole/current/etc/pihole/gravity.db ]; then
+              echo "gravity.db not found after 'pihole -g'" >&2
+              exit 1
+          fi
+          echo "gravity.db size: $(du -h /var/snap/pihole/current/etc/pihole/gravity.db | cut -f1)"
 
       - name: Show recent daemon logs
         if: always()

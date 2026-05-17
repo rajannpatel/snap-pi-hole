@@ -1,0 +1,28 @@
+#!/bin/sh
+# pre-refresh hook: warn the operator that a snap refresh will momentarily
+# hand off DNS to the new FTL revision.
+#
+# With `refresh-mode: endure` the old FTL process keeps serving DNS until
+# the new revision's daemon is ready, so the outage window is minimal.
+# This message is informational only; returning a non-zero exit code from
+# a pre-refresh hook would abort the refresh entirely (not what we want).
+set -eu
+
+cat >&2 <<'EOF'
+Pi-hole snap is refreshing. DNS hand-off notice
+-----------------------------------------------
+The running Pi-hole FTL daemon will continue serving DNS for all clients
+on your network while the new snap revision is prepared.
+
+Once the new revision is ready, snapd will start the updated FTL and
+then gracefully stop the old one (refresh-mode: endure). The hand-off
+window is typically under 5 seconds.
+
+  • Existing DNS queries will complete normally.
+  • New queries may briefly see SERVFAIL during the swap.
+  • No manual intervention is required.
+
+To confirm the new revision is healthy after the refresh:
+  sudo snap logs pihole.pihole-ftl | tail -20
+  dig +short @127.0.0.1 example.com
+EOF

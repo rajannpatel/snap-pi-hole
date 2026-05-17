@@ -55,7 +55,9 @@ snap/
 │   └── pihole.png           # store icon (upstream Vortex logo)
 ├── hooks/
 │   ├── install              # creates data dirs on first install
-│   └── configure            # maps `snap set` keys → pihole.toml
+│   ├── configure            # maps `snap set` keys → pihole.toml
+│   ├── pre-refresh          # warns operator about DNS hand-off before upgrade
+│   └── remove               # restores systemd-resolved stub on uninstall
 └── local/
     ├── launcher-ftl         # daemon launcher (port-53 check, exec FTL)
     └── launcher-pihole      # CLI launcher (intercepts unsupported subcommands)

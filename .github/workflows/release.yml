@@ -39,7 +39,9 @@ jobs:
             snap/local/launcher-ftl \
             snap/local/launcher-pihole \
             snap/hooks/install \
-            snap/hooks/configure
+            snap/hooks/configure \
+            snap/hooks/pre-refresh \
+            snap/hooks/remove
           bats tests/unit/
 
       - name: Build snap

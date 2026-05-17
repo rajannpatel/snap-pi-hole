@@ -255,6 +255,12 @@ apps:
     daemon: simple
     install-mode: disable
     restart-condition: on-failure
+    # Keep the old FTL process running during `snap refresh` so DNS stays
+    # up for all clients while snapd swaps in the new revision.  snapd
+    # will send SIGTERM to the old process only after the new revision's
+    # daemon has started successfully.  Without this, a mid-day refresh
+    # drops DNS for every device on the network for several seconds.
+    refresh-mode: endure
     # Give FTL time to flush its query DB and gravity state on shutdown.
     stop-timeout: 60s
     # If FTL hangs (e.g. wedged on a malformed DNS upstream) snapd will
