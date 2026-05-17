@@ -89,15 +89,19 @@ jobs:
             || sudo snap refresh snapd --channel=latest/edge
           sudo snap install core26 --channel=latest/edge || true
           sudo snap install --dangerous ./pihole_*.snap
+          
+          # Explicitly connect network interfaces and required system plugs
+          sudo snap connect pihole:network-bind
           sudo snap connect pihole:system-observe
           sudo snap connect pihole:hardware-observe
           sudo snap connect pihole:mount-observe
           sudo snap connect pihole:network-control
           sudo snap connect pihole:firewall-control
+          
           # Private /dev/shm for FTL locks. --dangerous installs don't
           # always auto-connect; connecting explicitly is a no-op if
           # snapd already connected it.
-          sudo snap connect pihole:ftl-shm || true
+          sudo snap connect pihole:shared-memory || true
 
       - name: CLI sanity
         run: |
@@ -116,56 +120,28 @@ jobs:
           fi
           echo "$out" | grep -q 'snap refresh pihole'
 
-      - name: Start daemon
+      - name: Start daemon and wait for DNS
         run: |
           sudo snap start --enable pihole.pihole-ftl
+          
           bound=0
+          echo "Waiting for pihole-FTL to serve DNS on port 53..."
           for i in $(seq 1 30); do
-              if sudo ss -lnup | grep -q ':53 '; then
-                  echo "FTL bound to port 53 after ${i}s"
+              # We don't care about the answer, just that the socket accepts the connection
+              if dig +short +time=1 +tries=1 @127.0.0.1 localhost >/dev/null 2>&1; then
+                  echo "FTL bound to port 53 and responding after ${i}s"
                   bound=1
                   break
               fi
               sleep 1
           done
+          
           if [ "$bound" -eq 0 ]; then
               echo "::error::FTL failed to bind port 53 within 30 seconds" >&2
               sudo snap logs pihole.pihole-ftl | tail -50 || true
               exit 1
           fi
 
-      - name: Prepare host and start pihole-FTL
-        run: |
-          # 1. Free port 53 from systemd-resolved
-          sudo mkdir -p /etc/systemd/resolved.conf.d
-          printf '[Resolve]\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
-          sudo systemctl restart systemd-resolved
-          
-          # 2. Connect required network interfaces 
-          sudo snap connect pihole:network-bind
-          
-          # 3. Enable and start the daemon
-          sudo snap start --enable pihole.pihole-ftl
-          
-          # 4. Actively poll for FTL readiness (Timeout after 30 seconds)
-          echo "Waiting for pihole-FTL to bind to port 53..."
-          for i in {1..30}; do
-            # Use a fast 1-second timeout per attempt. 
-            # We don't care about the answer, just that the socket accepts the connection.
-            if dig +short +time=1 +tries=1 @127.0.0.1 localhost >/dev/null 2>&1; then
-              echo "pihole-FTL is up and responding!"
-              break
-            fi
-            
-            # Fail the build immediately if we hit the 30-second ceiling
-            if [ "$i" -eq 30 ]; then
-              echo "::error::pihole-FTL failed to bind to port 53 within 30 seconds."
-              exit 1
-            fi
-            
-            sleep 1
-          done
-          
       - name: Resolve a name via FTL
         run: |
           dig +tries=2 +timeout=2 @127.0.0.1 example.com
