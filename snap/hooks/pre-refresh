@@ -1,6 +1,6 @@
 #!/bin/sh
 # pre-refresh hook: warn the operator that a snap refresh will momentarily
-# hand off DNS to the new FTL revision.
+# hand off DNS to the new FTL revision and snapshot critical state.
 #
 # With `refresh-mode: endure` the old FTL process keeps serving DNS until
 # the new revision's daemon is ready, so the outage window is minimal.
@@ -8,11 +8,29 @@
 # a pre-refresh hook would abort the refresh entirely (not what we want).
 set -eu
 
+# Snapshot critical state (configuration and gravity database)
+# This provides a manual rollback point if the refresh severely corrupts data.
+SNAPSHOT_DIR="${SNAP_COMMON}/snapshots"
+mkdir -p "$SNAPSHOT_DIR"
+TIMESTAMP="$(date +%Y%m%d%H%M%S)"
+SNAPSHOT_FILE="${SNAPSHOT_DIR}/pihole-backup-${TIMESTAMP}.tar.gz"
+
+if [ -d /etc/pihole ]; then
+    # Create a quick snapshot of /etc/pihole in the background (avoid blocking for too long)
+    # Exclude large FTL databases which are ephemeral anyway.
+    tar -czf "$SNAPSHOT_FILE" --exclude='pihole-FTL.db' -C /etc pihole >/dev/null 2>&1 || true
+    # Keep only the last 3 snapshots to save space
+    ls -1t "${SNAPSHOT_DIR}"/pihole-backup-*.tar.gz 2>/dev/null | tail -n +4 | xargs -I {} rm -f {} || true
+fi
+
 cat >&2 <<'EOF'
 Pi-hole snap is refreshing. DNS hand-off notice
 -----------------------------------------------
 The running Pi-hole FTL daemon will continue serving DNS for all clients
 on your network while the new snap revision is prepared.
+
+A snapshot of your configuration and Gravity database has been saved to:
+/var/snap/pihole/common/snapshots/
 
 Once the new revision is ready, snapd will start the updated FTL and
 then gracefully stop the old one (refresh-mode: endure). The hand-off

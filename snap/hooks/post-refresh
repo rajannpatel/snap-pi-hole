@@ -1,0 +1,34 @@
+#!/bin/sh
+# post-refresh hook: re-applies snapctl configuration to ensure any schema
+# migrations are processed, and validates DNS resolution.
+set -eu
+
+HOOK_DIR="$(dirname "$0")"
+
+# Re-apply configuration. We can just call the configure hook logic.
+if [ -x "${HOOK_DIR}/configure" ]; then
+    "${HOOK_DIR}/configure" || echo "Warning: configure hook returned non-zero during post-refresh" >&2
+else
+    echo "Warning: configure hook not found or not executable at ${HOOK_DIR}/configure" >&2
+fi
+
+# Give the daemon a moment to settle if it was restarted
+sleep 2
+
+# Validate DNS resolution
+# We use dig if available, otherwise fallback to ping or getent.
+# Note: we test against localhost since Pi-hole is local.
+DNS_TARGET="127.0.0.1"
+
+echo "Validating DNS resolution on $DNS_TARGET after refresh..."
+if command -v dig >/dev/null 2>&1; then
+    if ! dig +short @${DNS_TARGET} github.com >/dev/null 2>&1; then
+        echo "Warning: DNS validation failed using dig." >&2
+    fi
+else
+    # Fallback to getent if dig isn't staged
+    # We can't force getent to use a specific nameserver easily, but 
+    # if the snap runs in a namespace where resolv.conf is configured to 127.0.0.1, it works.
+    # We will log a warning if dig is missing.
+    echo "Warning: 'dig' not found, skipping deep DNS validation." >&2
+fi

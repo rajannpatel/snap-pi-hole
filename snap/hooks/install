@@ -4,6 +4,9 @@
 # valid destination folders to bind-mount to.
 set -eu
 
+HOOK_DIR="$(dirname "$0")"
+CONFIG_HELPER="${HOOK_DIR}/lib/config-helper.sh"
+
 # Create the physical log path in SNAP_COMMON first to prevent daemon initialization deadlocks
 mkdir -p "${SNAP_COMMON}/var/log/pihole"
 
@@ -13,4 +16,10 @@ mkdir -p /etc/pihole /etc/dnsmasq.d /var/log/pihole "${SNAP_DATA}/run/pihole"
 # Seed the static version profile template if it exists on disk
 if [ ! -f /etc/pihole/versions ] && [ -d "${SNAP}/opt/pihole/templates" ]; then
     cp "${SNAP}/opt/pihole/templates/versions" /etc/pihole/versions
+fi
+
+# Attempt to migrate any existing legacy configuration into snapctl
+if [ -f "$CONFIG_HELPER" ]; then
+    . "$CONFIG_HELPER"
+    migrate_legacy_config
 fi
