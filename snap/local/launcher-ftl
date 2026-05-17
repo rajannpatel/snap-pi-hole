@@ -2,8 +2,10 @@
 # Daemon launcher for pihole-FTL inside the snap sandbox.
 #
 # Path remapping is handled by the `layout:` block in snapcraft.yaml,
-# so /etc/pihole, /var/log/pihole, /run/pihole, etc. already point at
-# writable snap data dirs by the time this script runs.
+# so /etc/pihole and /var/log/pihole already point at writable snap data
+# dirs by the time this script runs. /run/* can't be a layout target
+# (snapd forbids new top-level /run dirs), so the runtime state dir
+# lives directly under $SNAP_DATA.
 set -eu
 
 # Detect the most common port-53 collision: systemd-resolved's stub
@@ -31,7 +33,7 @@ EOF
     exit 1
 fi
 
-mkdir -p /etc/pihole /etc/dnsmasq.d /run/pihole /var/log/pihole
+mkdir -p /etc/pihole /etc/dnsmasq.d /var/log/pihole "${SNAP_DATA}/run/pihole"
 
 # Seed an empty config on first boot; FTL fills in defaults for missing keys.
 [ -f /etc/pihole/pihole.toml ] || : > /etc/pihole/pihole.toml
@@ -40,6 +42,6 @@ mkdir -p /etc/pihole /etc/dnsmasq.d /run/pihole /var/log/pihole
 export HOME="${SNAP_DATA}"
 
 # FTL writes its pid file relative to cwd in a couple of code paths.
-cd /run/pihole
+cd "${SNAP_DATA}/run/pihole"
 
 exec "${SNAP}/usr/bin/pihole-FTL" no-daemon

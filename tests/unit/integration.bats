@@ -87,13 +87,14 @@ EOF
 
 _setup_scripts() {
     # Rewrite hooks and launchers to use tmpdir paths
+    # $SNAP_DATA/run/pihole resolves to ${TEST_TMPDIR}/data/run/pihole at
+    # runtime via the exported SNAP_DATA, so no sed rewrite is needed for it.
     for hook in install configure pre-refresh remove; do
         local src="${REPO_ROOT}/snap/hooks/${hook}"
         local dst="${TEST_TMPDIR}/hook-${hook}"
         sed \
             -e "s|/etc/pihole|${TEST_TMPDIR}/etc/pihole|g" \
             -e "s|/etc/dnsmasq.d|${TEST_TMPDIR}/etc/dnsmasq.d|g" \
-            -e "s|/run/pihole|${TEST_TMPDIR}/run/pihole|g" \
             -e "s|/var/log/pihole|${TEST_TMPDIR}/var/log/pihole|g" \
             -e "s|/etc/systemd/resolved.conf.d/pihole.conf|${TEST_TMPDIR}/resolved.conf|g" \
             "${src}" > "${dst}"
@@ -107,7 +108,6 @@ _setup_scripts() {
         sed \
             -e "s|/etc/pihole|${TEST_TMPDIR}/etc/pihole|g" \
             -e "s|/etc/dnsmasq.d|${TEST_TMPDIR}/etc/dnsmasq.d|g" \
-            -e "s|/run/pihole|${TEST_TMPDIR}/run/pihole|g" \
             -e "s|/var/log/pihole|${TEST_TMPDIR}/var/log/pihole|g" \
             -e "s|/opt/pihole|${TEST_TMPDIR}/opt|g" \
             "${src}" > "${dst}"
@@ -134,7 +134,7 @@ STUB
     [ "$status" -eq 0 ]
     [ -d "${TEST_TMPDIR}/etc/pihole" ]
     [ -d "${TEST_TMPDIR}/etc/dnsmasq.d" ]
-    [ -d "${TEST_TMPDIR}/run/pihole" ]
+    [ -d "${SNAP_DATA}/run/pihole" ]
     [ -d "${TEST_TMPDIR}/var/log/pihole" ]
 }
 
@@ -165,7 +165,7 @@ STUB
 
     # Directories should still exist
     [ -d "${TEST_TMPDIR}/etc/pihole" ]
-    [ -d "${TEST_TMPDIR}/run/pihole" ]
+    [ -d "${SNAP_DATA}/run/pihole" ]
 }
 
 @test "lifecycle: multiple configure calls accumulate settings" {
@@ -228,7 +228,7 @@ STUB
     run bash "${LAUNCHER_NO_PORT}" 2>/dev/null || true
     # Should have created pihole.toml and directories
     [ -f "${TEST_TMPDIR}/etc/pihole/pihole.toml" ]
-    [ -d "${TEST_TMPDIR}/run/pihole" ]
+    [ -d "${SNAP_DATA}/run/pihole" ]
 }
 
 @test "launchers: launcher-ftl seeds pihole.toml if missing" {
@@ -337,12 +337,12 @@ STUB
     [ "$status" -eq 0 ]
 
     # Simulate partial failure: delete one required directory
-    rm -rf "${TEST_TMPDIR}/run/pihole"
+    rm -rf "${SNAP_DATA}/run/pihole"
 
     # Re-running install should recreate it
     run "${TEST_TMPDIR}/hook-install"
     [ "$status" -eq 0 ]
-    [ -d "${TEST_TMPDIR}/run/pihole" ]
+    [ -d "${SNAP_DATA}/run/pihole" ]
 }
 
 @test "recovery: configure with no settings applied is idempotent" {
