@@ -86,6 +86,17 @@ EOF
 }
 
 _setup_scripts() {
+    # Create the expected template stub layout inside the test environment
+    mkdir -p "${SNAP}/opt/pihole/templates"
+    cat > "${SNAP}/opt/pihole/templates/versions" << 'EOF'
+CORE_VERSION=v6.4.2
+CORE_BRANCH=snap
+WEB_VERSION=v6.5
+WEB_BRANCH=snap
+FTL_VERSION=v6.6.2
+FTL_BRANCH=snap
+EOF
+
     # Rewrite hooks and launchers to use tmpdir paths
     # $SNAP_DATA/run/pihole resolves to ${TEST_TMPDIR}/data/run/pihole at
     # runtime via the exported SNAP_DATA, so no sed rewrite is needed for it.

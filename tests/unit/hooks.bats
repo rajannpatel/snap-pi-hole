@@ -18,6 +18,18 @@ setup() {
     export SNAP_COMMON="${TEST_TMPDIR}/common"
     mkdir -p "${SNAP}/usr/bin" "${SNAP_DATA}" "${SNAP_COMMON}"
 
+    # Seed the mock template layout directory and versions stub file 
+    # to satisfy the file copying phase of the install hook logic.
+    mkdir -p "${SNAP}/opt/pihole/templates"
+    cat > "${SNAP}/opt/pihole/templates/versions" << 'EOF'
+CORE_VERSION=v6.4.2
+CORE_BRANCH=snap
+WEB_VERSION=v6.5
+WEB_BRANCH=snap
+FTL_VERSION=v6.6.2
+FTL_BRANCH=snap
+EOF
+
     # Stub snapctl: records calls and returns per-key values from env vars.
     # e.g. SNAPCTL_GET_web_port=8080 will be returned for `snapctl get web-port`
     # (hyphens in key names are replaced with underscores for env var lookup).
@@ -34,7 +46,7 @@ case "\$1" in
         ;;
     services)
         printf 'Service         Startup  Current  Notes\n'
-        printf 'pihole-ftl      enabled  %s       -\n' "\${SNAPCTL_SERVICE_STATUS:-inactive}"
+        printf 'pihole-ftl      enabled  %s        -\n' "\${SNAPCTL_SERVICE_STATUS:-inactive}"
         ;;
     *) exit 0 ;;
 esac
@@ -78,6 +90,7 @@ teardown() {
     [ -d "${TEST_TMPDIR}/etc/dnsmasq.d" ]
     [ -d "${SNAP_DATA}/run/pihole" ]
     [ -d "${TEST_TMPDIR}/var/log/pihole" ]
+    [ -f "${TEST_TMPDIR}/etc/pihole/versions" ]
 }
 
 @test "install hook is idempotent (safe to run twice)" {

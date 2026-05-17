@@ -11,7 +11,7 @@ set -eu
 # Ensure backing directories are populated
 mkdir -p /etc/pihole /etc/dnsmasq.d /var/log/pihole "${SNAP_DATA}/run/pihole"
 
-# Seed the static version profile template into the writable snap layout data tree
-if [ ! -f /etc/pihole/versions ]; then
+# Seed the static version profile template if it exists on disk
+if [ ! -f /etc/pihole/versions ] && [ -d "${SNAP}/opt/pihole/templates" ]; then
     cp "${SNAP}/opt/pihole/templates/versions" /etc/pihole/versions
 fi
