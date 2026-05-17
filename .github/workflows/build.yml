@@ -78,10 +78,14 @@ jobs:
             | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
           sudo systemctl restart systemd-resolved
 
-      - name: Install snap
+      - name: Install snap and connect plugs
         run: |
-          # `grade: devel` ⇒ --devmode; --dangerous because it's unsigned.
-          sudo snap install --dangerous --devmode ./pihole_*.snap
+          sudo snap install --dangerous ./pihole_*.snap
+          sudo snap connect pihole:system-observe
+          sudo snap connect pihole:hardware-observe
+          sudo snap connect pihole:mount-observe
+          sudo snap connect pihole:network-control
+          sudo snap connect pihole:firewall-control
 
       - name: CLI sanity
         run: |
@@ -133,15 +137,12 @@ jobs:
         if: always()
         run: sudo snap logs pihole.pihole-ftl --no-color | tail -100
 
-      - name: Check for AppArmor denials (warn-only)
+      - name: Check for AppArmor denials
         if: always()
         run: |
-          # In --devmode these are recorded but not enforced. Surface them
-          # so we know what to handle before flipping to strict. Don't
-          # fail the build — some denials are expected noise from probing
-          # interfaces we haven't connected.
           if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole'; then
-              echo "::warning::AppArmor recorded denials against the pihole snap (see above)"
+              echo "::error::AppArmor recorded denials against the pihole snap (see above)"
+              exit 1
           else
               echo "No AppArmor denials recorded for snap.pihole."
           fi

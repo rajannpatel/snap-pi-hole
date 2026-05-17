@@ -61,13 +61,11 @@ tests/
 
 ```sh
 snapcraft           # produces pihole_<version>_<arch>.snap
-sudo snap install --dangerous --devmode ./pihole_*.snap
+sudo snap install --dangerous ./pihole_*.snap
 ```
 
-`--devmode` is required while `grade: devel` is set: confinement is
-declared but not enforced, so AppArmor denials surface as warnings in
-the journal rather than killing the daemon. Once smoke-tests are green
-against real traffic we'll flip to `stable`.
+We are now running in strict confinement. Once smoke-tests are green
+against real traffic we'll flip the grade to `stable`.
 
 ## Architecture
 
@@ -166,7 +164,7 @@ running inside confinement can't see the host's copy. Copy from the
 host shell after the snap is installed but before the daemon starts:
 
 ```sh
-sudo snap install --dangerous --devmode ./pihole_*.snap
+sudo snap install --dangerous ./pihole_*.snap
 sudo cp -a /etc/pihole/. /var/snap/pihole/current/etc/pihole/
 sudo snap start --enable pihole.pihole-ftl
 ```
@@ -204,7 +202,7 @@ bats tests/unit/
 
 # End-to-end build + smoke
 snapcraft
-sudo snap install --dangerous --devmode ./pihole_*.snap
+sudo snap install --dangerous ./pihole_*.snap
 sudo snap start --enable pihole.pihole-ftl
 dig @127.0.0.1 example.com
 ```
@@ -311,7 +309,7 @@ No decision required for the snap to function — just for it to be
       only have amd64. Wire up a Launchpad credential and add a
       separate workflow for cross-arch builds. core22 still ships a
       full 32-bit ARM archive so armhf is in the platforms list.
-- [ ] **Strict-confinement AppArmor pass.** CI now records denials but
+- [x] **Strict-confinement AppArmor pass.** CI now records denials but
       doesn't fail on them. Once the denial list is empty (or
       explainable), flip the warn-only grep to a hard fail and drop
       `--devmode` from the install commands.

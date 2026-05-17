@@ -266,6 +266,9 @@ apps:
       - network
       - network-bind
       - network-observe
+      - system-observe
+      - hardware-observe
+      - mount-observe
       - network-control    # required for DHCP server mode only
       - firewall-control   # required for DHCP server mode only
 
@@ -279,6 +282,9 @@ apps:
       - network
       - network-bind
       - network-observe
+      - system-observe
+      - hardware-observe
+      - mount-observe
 
 # No hook plugs declared — install only mkdir's directories (which the
 # layout bind-mounts already grant write access to) and configure only
