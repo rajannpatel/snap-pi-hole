@@ -2,7 +2,7 @@
 
 This page contains reference materials for configuring and understanding the Pi-hole snap ecosystem.
 
-## `snap set` Configuration Keys
+## `snap set` configuration keys
 
 The snap's `configure` hook maps a small set of predefined `snap set` keys directly into Pi-hole's configuration file (`/var/snap/pihole/current/etc/pihole/pihole.toml`). If the daemon is running when a setting is updated, the hook automatically restarts it.
 
@@ -19,7 +19,7 @@ The snap's `configure` hook maps a small set of predefined `snap set` keys direc
 
 For all other advanced Pi-hole configuration, edit the `pihole.toml` file directly.
 
-## The `pihole` CLI Wrapper
+## The `pihole` CLI wrapper
 
 The official Pi-hole ecosystem includes a massive `pihole` bash script. Because snaps are confined and immutable, several of these subcommands do not make sense (e.g., you cannot "update" the pi-hole software using its bash script; you must use `snap refresh`). 
 
@@ -41,7 +41,7 @@ Everything else seamlessly passes through to the upstream `pihole` script. You c
 - `sudo pihole reloaddns`
 - `sudo pihole -d` / `tricorder`
 
-## Repository Layout
+## Repository layout
 
 ```text
 .github/workflows/

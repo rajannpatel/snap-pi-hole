@@ -1,4 +1,4 @@
-# How-To: Build and Test from Source
+# How-To: build and test from source
 
 If you wish to contribute to this packaging repository, or if you simply want to build the snap locally yourself, follow these steps.
 
@@ -15,7 +15,7 @@ sudo apt update
 sudo apt install bats shellcheck
 ```
 
-## Running the Test Suite
+## Running the test suite
 
 Before building the full snap, it's highly recommended to run the linters and unit tests on the repository's launcher scripts.
 
@@ -30,7 +30,7 @@ Before building the full snap, it's highly recommended to run the linters and un
    bats tests/unit/
    ```
 
-## Compiling the Snap
+## Compiling the snap
 
 Once the tests pass, you can invoke `snapcraft` to compile the snap package natively on your architecture.
 
@@ -40,7 +40,7 @@ snapcraft
 
 This will produce a file matching `pihole_<version>_<arch>.snap` in your current directory.
 
-## Local End-to-End Smoke Test
+## Local end-to-end smoke test
 
 You can manually perform the end-to-end smoke test that runs in our GitHub Actions CI pipeline:
 

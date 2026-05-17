@@ -1,4 +1,4 @@
-# Explanation: Architecture and Rationale
+# Explanation: architecture and rationale
 
 This document explores the "why" and "how" behind the Pi-hole snap package.
 
@@ -23,17 +23,17 @@ The snap consists of four build parts defined in `snapcraft.yaml`:
 3. **`web`**  -  pulls the `pi-hole/web` repository into `$SNAP/var/www/html/admin`, which is then served by FTL's embedded CivetWeb server instance.
 4. **`wrappers`**  -  copies our custom launcher scripts (`launcher-ftl` and `launcher-pihole`) into the snap.
 
-### Path Remapping
+### Path remapping
 
 Rather than patching Pi-hole's C code and bash scripts to understand snap-specific paths, path remapping is handled entirely by snapd via a `layout:` block in `snapcraft.yaml`. This block seamlessly bind-mounts the upstream-hardcoded paths (like `/etc/pihole`) onto writable directories within the snap's mount namespace (`$SNAP_DATA/etc/pihole`). The C code and bash scripts keep their original paths and work out of the box without environment-variable plumbing.
 
-### The `launcher-ftl` Wrapper
+### The `launcher-ftl` wrapper
 
 Before executing the daemon, the `launcher-ftl` script performs two critical runtime tasks:
 1. **Conflict Detection:** It proactively detects if the host's `systemd-resolved` stub-listener is conflicting on port 53, printing a copy-pasteable fix if true.
 2. **Configuration Seeding:** It seeds an empty `pihole.toml` file into the data directory so FTL can populate it with safe defaults on its first start.
 
-## Remaining Work and Out of Scope
+## Remaining work and out of scope
 
 The following items are officially out of scope for this snap package:
 - **The Pi-hole installer script itself:** This snap is an alternative to the script, not a wrapper around it.
