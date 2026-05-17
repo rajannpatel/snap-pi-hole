@@ -50,16 +50,16 @@ jobs:
           # match the same pattern. Anchoring on the unique GitHub URL path
           # per component (/FTL, /pi-hole, /web) makes each substitution exact.
           python3 - "$FTL_LATEST" "$PIHOLE_LATEST" "$WEB_LATEST" <<'PYEOF'
-import re, sys
-ftl_ver, pihole_ver, web_ver = sys.argv[1:]
-with open('README.md') as f:
-    content = f.read()
-content = re.sub(r'(github\.com/pi-hole/FTL\)[*| "]+\| )v[\d.]+', rf'\g<1>{ftl_ver}', content)
-content = re.sub(r'(github\.com/pi-hole/pi-hole\)[*| "]+\| )v[\d.]+', rf'\g<1>{pihole_ver}', content)
-content = re.sub(r'(github\.com/pi-hole/web\)[*| "]+\| )v[\d.]+', rf'\g<1>{web_ver}', content)
-with open('README.md', 'w') as f:
-    f.write(content)
-PYEOF
+          import re, sys
+          ftl_ver, pihole_ver, web_ver = sys.argv[1:]
+          with open('README.md') as f:
+              content = f.read()
+          content = re.sub(r'(github\.com/pi-hole/FTL\)[*| "]+\| )v[\d.]+', rf'\g<1>{ftl_ver}', content)
+          content = re.sub(r'(github\.com/pi-hole/pi-hole\)[*| "]+\| )v[\d.]+', rf'\g<1>{pihole_ver}', content)
+          content = re.sub(r'(github\.com/pi-hole/web\)[*| "]+\| )v[\d.]+', rf'\g<1>{web_ver}', content)
+          with open('README.md', 'w') as f:
+              f.write(content)
+          PYEOF
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
