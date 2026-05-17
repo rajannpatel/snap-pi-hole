@@ -296,7 +296,7 @@ apps:
       # coordination. The default AppArmor template denies arbitrary
       # writes under /dev/shm. `private: true` gives FTL its own
       # /dev/shm/snap.pihole/ namespace mapped transparently as /dev/shm.
-      - ftl-shm
+      - shared-memory
 
   # The `pihole` CLI: `pihole status`, `pihole -g`, `pihole setpassword`, etc.
   # The launcher intercepts subcommands that don't make sense inside a
@@ -321,6 +321,5 @@ plugs:
   # /dev/shm/snap.pihole/ on connect and bind-mounts it as /dev/shm
   # inside the snap's namespace, so FTL's hardcoded /dev/shm/FTL-*
   # paths "just work" without patching.
-  ftl-shm:
-    interface: shared-memory
-    private: 
+  shared-memory:
+    private: true
