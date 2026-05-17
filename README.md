@@ -8,9 +8,9 @@
 
 > | Upstream Component | Current Version |
 > | :--- | :--- |
-> | **FTL** | v6.6.2 |
-> | **pi-hole (core)** | v6.4.2 |
-> | **web** | v6.5 |
+> | **[FTL](https://github.com/pi-hole/FTL)** | v6.6.2 |
+> | **[pi-hole (core)](https://github.com/pi-hole/pi-hole)** | v6.4.2 |
+> | **[web](https://github.com/pi-hole/web)** | v6.5 |
 > 
 > These versions are automatically tracked and updated by a daily GitHub Actions bot
 
