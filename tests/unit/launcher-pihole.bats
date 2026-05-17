@@ -179,5 +179,6 @@ echo "PATH=${PATH}"
 EOF
     run "${LAUNCHER}" status
     [ "$status" -eq 0 ]
-    [[ "$output" == *"/opt/pihole"* ]]
+    # After sed rewriting, /opt/pihole becomes ${TMPDIR}/opt, so check for that
+    [[ "$output" == *"${TMPDIR}/opt"* ]]
 }
