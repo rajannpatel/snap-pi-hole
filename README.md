@@ -1,9 +1,20 @@
 # Pi-hole Snap Package
 
+<img align="right" src="./snap/gui/pihole.png" width="120" alt="Pi-hole Logo">
+
+[![Build and Smoke Test](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/build.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/build.yml)
+[![Upstream Tracker](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-upstream.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-upstream.yml)
+
 **Status: `grade: devel`.** The recipe is in place, layouts cover every path the FTL source touches, the `pihole` CLI is wrapped, the `configure` hook is wired up, and the snap compiles flawlessly natively against `core26` (Ubuntu 26.04) with GCC 15 and mbedTLS 3.x. The snap is fully strict-confined. 
 
-Pinned upstream versions: **FTL v6.6.2** · **pi-hole (core) v6.4.2** · **web v6.5**.
-*(These versions are automatically tracked and updated by a daily GitHub Actions bot)*
+> [!NOTE]
+> | Upstream Component | Current Version |
+> | :--- | :--- |
+> | **FTL** | v6.6.2 |
+> | **pi-hole (core)** | v6.4.2 |
+> | **web** | v6.5 |
+> 
+> These versions are automatically tracked and updated by a daily GitHub Actions bot
 
 ---
 
@@ -28,21 +39,18 @@ Use the Pi-hole snap to:
 
 ## In this documentation
 
-- **Tutorial**
+- 🎓 **Tutorial**
   - [Getting Started with the Pi-hole Snap](docs/tutorial-getting-started.md)
-- **How-to guides**
+- 🛠️ **How-to guides**
   - [Configure DHCP](docs/howto-dhcp-setup.md)
   - [Migrate from a Script Install](docs/howto-migrate-from-script.md)
   - [Build and Test from Source](docs/howto-build-and-test.md)
-- **Reference**
+- 📚 **Reference**
   - [Configuration, CLI Wrapping, and Layout](docs/reference.md)
-- **Explanation**
+- 💡 **Explanation**
   - [Architecture and Rationale](docs/explanation-architecture.md)
   - [Why Unbound is Not Bundled](docs/explanation-unbound.md)
 
 ## Project and community
 
 The contents of this repository (`snapcraft.yaml`, `launcher-ftl` scripts, and the GitHub Actions) are simply build instructions and wrapper scripts. They don't contain any of Pi-hole's source code. Licensing these under a permissive license like MIT is standard practice and highly encouraged.
-
-- [Contribute code or report a bug on GitHub](https://github.com/)
-- [Learn more about the upstream Pi-hole project](https://pi-hole.net/)
