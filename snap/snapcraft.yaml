@@ -1,7 +1,7 @@
 name: pihole
 title: Pi-hole
 summary: Network-wide ad blocking via your own DNS server
-license: EUPL-1.2
+license: MIT
 icon: snap/gui/pihole.png
 adopt-info: ftl
 
