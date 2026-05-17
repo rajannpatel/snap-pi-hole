@@ -15,12 +15,11 @@
 > These versions are automatically tracked and updated by a daily GitHub Actions bot
 
 > [!IMPORTANT]
-> **This snap is built on [Ubuntu Core26](https://snapcraft.io/core26).**
+> **This snap is built on the Ubuntu [Core 26 base snap (core26)](https://snapcraft.io/core26).**
 >
 > Pi-hole FTL v6.6.x dropped support for mbedTLS 2.x and now strictly requires **mbedTLS ≥ 3.5.0** and **Nettle ≥ 3.9**. The Ubuntu Core 24 snap base (core24) ships older versions of both libraries, so the package is built on Ubuntu Core 26 (core26).
->
-> Practical consequences:
-> - The snap is currently published with `grade: devel`; it will not install from the `stable` risk level until I have a green end-to-end smoke test on real DNS traffic.
+
+This snap is currently published with `grade: devel`; it will not install from the `stable` risk level until I have a green end-to-end smoke test on real DNS traffic.
 
 ---
 
