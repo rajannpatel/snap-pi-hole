@@ -329,5 +329,4 @@ No decision required for the snap to function — just for it to be
 
 ## License
 
-The packaging code in this repository is licensed under
-[EUPL-1.2](https://eupl.eu/1.2/en/), matching upstream Pi-hole.
+The contents of this repository ([snapcraft.yaml](snapcraft.yaml), [launcher-ftl](snap/local/launcher-ftl) scripts, and the GitHub Actions) are simply build instructions and wrapper scripts. They don't contain any of Pi-hole's source code. Licensing these under a permissive license like MIT is standard practice and highly encouraged, as it allows other developers to freely learn from and adapt your snapcraft recipes for their own projects without being bound by copyleft restrictions.
