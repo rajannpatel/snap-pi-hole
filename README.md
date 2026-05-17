@@ -5,12 +5,14 @@ the network-wide ad-blocking DNS sinkhole.
 
 > **Status: `grade: devel`.** The recipe is in place, layouts cover
 > every path the v6.6.2 FTL source actually touches, the `pihole` CLI
-> is wrapped, the `configure` hook is wired up, and a CI workflow
-> exercises lint / unit tests / build / smoke test. The first end-to-end
+> is wrapped, the `configure` hook is wired up, and the snap now successfully
+> compiles natively against `core26` (Ubuntu 26.04) with GCC 15 and mbedTLS 3.x.
+> A CI workflow exercises lint / unit tests / build / smoke test. The first end-to-end
 > CI build is still in flight; a long-running deployment against real
 > LAN clients has not yet happened. See [Remaining work](#remaining-work).
 
 Pinned upstream: **FTL v6.6.2** · **pi-hole (core) v6.4.2** · **web v6.5**.
+*(These versions are automatically tracked and updated by a daily GitHub Actions bot)*
 
 ## Why a snap?
 
@@ -38,7 +40,8 @@ A snap fixes most of that:
 ```
 .github/workflows/
 ├── build.yml                # lint + build + smoke-test CI (push, PR)
-└── release.yml              # tag-driven publish to the Snap Store
+├── release.yml              # tag-driven publish to the Snap Store
+└── update-upstream.yml      # daily cron to bump upstream version tags
 snap/
 ├── snapcraft.yaml           # the recipe
 ├── gui/
@@ -88,11 +91,8 @@ The snap has four build parts:
 Path remapping is done in `snapcraft.yaml` via a `layout:` block that
 bind-mounts the upstream-hardcoded paths onto `$SNAP_DATA` / `$SNAP_COMMON`
 / `$SNAP` inside the snap's mount namespace. The C code in FTL and the
-bash scripts both keep their original paths and Just Work — no source
-patching for paths, no environment-variable plumbing. Note in particular
-that `/run/pihole-FTL.pid` is a `bind-file` (not `bind:`) because FTL
-treats its PID-file path as security-sensitive and reads it from a
-compile-time constant rather than from `pihole.toml`.
+bash scripts both keep their original paths and work out of the box: no source
+patching for paths, and no environment-variable plumbing.
 
 `launcher-ftl` does two things before `exec`-ing the daemon: detects
 the systemd-resolved stub-listener conflict on port 53 (and prints a
