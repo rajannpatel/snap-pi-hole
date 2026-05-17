@@ -6,16 +6,21 @@ This page contains reference materials for configuring and understanding the Pi-
 
 The snap's `configure` hook maps a small set of predefined `snap set` keys directly into Pi-hole's configuration file (`/var/snap/pihole/current/etc/pihole/pihole.toml`). If the daemon is running when a setting is updated, the hook automatically restarts it.
 
-| `snap set` key   | TOML key            | Description                                  |
-|------------------|---------------------|----------------------------------------------|
-| `web-port`       | `webserver.port`    | The HTTP port the web admin UI listens on.   |
-| `dns-port`       | `dns.port`          | The DNS port the daemon binds to.            |
-| `dhcp-enabled`   | `dhcp.active`       | Enable (`true`) or disable the DHCP server.  |
-| `dhcp-start`     | `dhcp.start`        | The start of the DHCP IP address pool.       |
-| `dhcp-end`       | `dhcp.end`          | The end of the DHCP IP address pool.         |
-| `dhcp-router`    | `dhcp.router`       | The default gateway assigned to clients.     |
-| `dhcp-leasetime` | `dhcp.leaseTime`    | The DHCP lease duration (in hours).          |
-| `dhcp-domain`    | `dhcp.domain`       | The local domain name assigned to clients.   |
+| `snap set` key           | TOML key               | Description                                  |
+|--------------------------|------------------------|----------------------------------------------|
+| `web.port`               | `webserver.port`       | The HTTP port the web admin UI listens on.   |
+| `web.password`           | `webserver.password`   | Web admin password (raw or hashed).          |
+| `dns.port`               | `dns.port`             | The DNS port the daemon binds to.            |
+| `dns.upstream`           | `dns.upstreams`        | Comma-separated upstream DNS servers.        |
+| `dns.dnssec`             | `dns.dnssec`           | Enable/disable DNSSEC validation.            |
+| `dns.interface`          | `dns.listeningMode`    | Interface listening behavior (local, all).   |
+| `dhcp.enabled`           | `dhcp.active`          | Enable (`true`) or disable the DHCP server.  |
+| `dhcp.range.start`       | `dhcp.ipv4.start`      | The start of the DHCP IPv4 address pool.     |
+| `dhcp.range.end`         | `dhcp.ipv4.end`        | The end of the DHCP IPv4 address pool.       |
+| `dhcp.gateway`           | `dhcp.ipv4.router`     | The default gateway assigned to clients.     |
+| `dhcp.lease_time`        | `dhcp.leaseTime`       | The DHCP lease duration (e.g., 24h).         |
+| `logging.query`          | `database.DBimport`    | Enable/disable query logging.                |
+| `logging.privacy_level`  | `misc.privacylevel`    | Privacy level (0=Show all, 3=Anonymous).     |
 
 For all other advanced Pi-hole configuration, edit the `pihole.toml` file directly.
 

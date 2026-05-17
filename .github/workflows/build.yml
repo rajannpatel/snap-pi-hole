@@ -158,7 +158,7 @@ jobs:
 
       - name: snap set round-trip
         run: |
-          sudo snap set pihole web-port=8123
+          sudo snap set pihole web.port=8123
           # Configure hook runs after `snap set`; give it a moment to apply
           # and the daemon a moment to restart.
           sleep 5
