@@ -13,7 +13,6 @@
 >
 > These versions are automatically tracked and updated by a daily GitHub Actions bot
 
-This snap is currently published with `grade: devel`; it will not install from the `stable` risk level until a green end-to-end smoke test on real DNS traffic is completed.
 
 ---
 A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole.
