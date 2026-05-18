@@ -11,6 +11,9 @@ on:
         required: true
         default: 'latest/candidate'
 
+env:
+  SNAP_NAME: pihole-by-rajannpatel
+
 jobs:
   promote:
     name: promote snap revision
@@ -23,4 +26,4 @@ jobs:
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         run: |
-          snapcraft release pihole-by-rajannpatel ${{ github.event.inputs.revision }} ${{ github.event.inputs.target_channel }}
+          snapcraft release ${{ env.SNAP_NAME }} ${{ github.event.inputs.revision }} ${{ github.event.inputs.target_channel }}

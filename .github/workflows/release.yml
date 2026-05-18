@@ -8,6 +8,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  SNAP_NAME: pihole-by-rajannpatel
 
 jobs:
   lint:
@@ -49,7 +50,7 @@ jobs:
 
       - name: Prepare Store Namespace
         run: |
-          sed -i 's/^name: pihole/name: pihole-by-rajannpatel/' snap/snapcraft.yaml
+          sed -i 's/^name: pihole/name: ${{ env.SNAP_NAME }}/' snap/snapcraft.yaml
 
       - name: Build snap
         id: snapcraft
@@ -92,30 +93,30 @@ jobs:
           sudo snap install snapd --channel=latest/edge \
             || sudo snap refresh snapd --channel=latest/edge
           sudo snap install core26 --channel=latest/edge || true
-          sudo snap install --dangerous ./pihole-by-rajannpatel_*.snap
+          sudo snap install --dangerous ./${{ env.SNAP_NAME }}_*.snap
           
           # Explicitly connect network interfaces and required system plugs
-          sudo snap connect pihole-by-rajannpatel:network-bind
-          sudo snap connect pihole-by-rajannpatel:system-observe
-          sudo snap connect pihole-by-rajannpatel:hardware-observe
-          sudo snap connect pihole-by-rajannpatel:mount-observe
-          sudo snap connect pihole-by-rajannpatel:network-control
-          sudo snap connect pihole-by-rajannpatel:firewall-control
+          sudo snap connect ${{ env.SNAP_NAME }}:network-bind
+          sudo snap connect ${{ env.SNAP_NAME }}:system-observe
+          sudo snap connect ${{ env.SNAP_NAME }}:hardware-observe
+          sudo snap connect ${{ env.SNAP_NAME }}:mount-observe
+          sudo snap connect ${{ env.SNAP_NAME }}:network-control
+          sudo snap connect ${{ env.SNAP_NAME }}:firewall-control
           
           # Private /dev/shm for FTL locks. --dangerous installs don't
           # always auto-connect; connecting explicitly is a no-op if
           # snapd already connected it.
-          sudo snap connect pihole-by-rajannpatel:shared-memory || true
-          sudo snap connect pihole-by-rajannpatel:network-observe || true
+          sudo snap connect ${{ env.SNAP_NAME }}:shared-memory || true
+          sudo snap connect ${{ env.SNAP_NAME }}:network-observe || true
 
       - name: CLI sanity
         run: |
-          sudo pihole-by-rajannpatel.pihole version
+          sudo ${{ env.SNAP_NAME }}.pihole version
 
       - name: Blocked subcommand returns error and points at snap refresh
         run: |
           set +e
-          out="$(sudo pihole-by-rajannpatel.pihole -up 2>&1)"
+          out="$(sudo ${{ env.SNAP_NAME }}.pihole -up 2>&1)"
           rc=$?
           set -e
           if [ "$rc" -eq 0 ]; then
@@ -126,7 +127,7 @@ jobs:
 
       - name: Start daemon and wait for DNS
         run: |
-          sudo snap start --enable pihole-by-rajannpatel.pihole-ftl
+          sudo snap start --enable ${{ env.SNAP_NAME }}.pihole-ftl
           
           bound=0
           echo "Waiting for pihole-FTL to bind to port 53 and respond..."
@@ -144,7 +145,7 @@ jobs:
           
           if [ "$bound" -eq 0 ]; then
               echo "::error::FTL failed to bind port 53 within 60 seconds" >&2
-              sudo snap logs pihole-by-rajannpatel.pihole-ftl | tail -50 || true
+              sudo snap logs ${{ env.SNAP_NAME }}.pihole-ftl | tail -50 || true
               exit 1
           fi
 
@@ -152,7 +153,7 @@ jobs:
           # NEW POST-START SANITY CHECK
           # =================================================================
           echo "Verifying live CLI status reporting..."
-          sudo pihole-by-rajannpatel.pihole status
+          sudo ${{ env.SNAP_NAME }}.pihole status
 
       - name: Resolve a name via FTL
         run: |
@@ -162,13 +163,13 @@ jobs:
 
       - name: snap set round-trip
         run: |
-          sudo snap set pihole-by-rajannpatel ftl.webserver.port=8123
+          sudo snap set ${{ env.SNAP_NAME }} ftl.webserver.port=8123
           # Configure hook runs after `snap set`; give it a moment to apply
           # and the daemon a moment to restart.
           sleep 5
-          if ! sudo grep -E '8123' /var/snap/pihole-by-rajannpatel/current/etc/pihole/pihole.toml; then
+          if ! sudo grep -E '8123' /var/snap/${{ env.SNAP_NAME }}/current/etc/pihole/pihole.toml; then
               echo "snap set did not propagate to pihole.toml" >&2
-              sudo cat /var/snap/pihole-by-rajannpatel/current/etc/pihole/pihole.toml || true
+              sudo cat /var/snap/${{ env.SNAP_NAME }}/current/etc/pihole/pihole.toml || true
               exit 1
           fi
 
@@ -189,39 +190,39 @@ jobs:
           # Run a full gravity update and assert it exits 0. This exercises
           # network access from within strict confinement (fetching block lists)
           # and write access to the gravity database path under $SNAP_DATA.
-          sudo pihole-by-rajannpatel.pihole -g
+          sudo ${{ env.SNAP_NAME }}.pihole -g
           # Confirm the gravity.db was written inside the snap data directory.
-          if [ ! -f /var/snap/pihole-by-rajannpatel/current/etc/pihole/gravity.db ]; then
+          if [ ! -f /var/snap/${{ env.SNAP_NAME }}/current/etc/pihole/gravity.db ]; then
               echo "gravity.db not found after 'pihole -g'" >&2
               exit 1
           fi
-          echo "gravity.db size: $(du -h /var/snap/pihole-by-rajannpatel/current/etc/pihole/gravity.db | cut -f1)"
+          echo "gravity.db size: $(du -h /var/snap/${{ env.SNAP_NAME }}/current/etc/pihole/gravity.db | cut -f1)"
 
       - name: Refresh and migration test
         run: |
           echo "Simulating an over-the-top snap refresh..."
           # Re-installing an existing local snap triggers the refresh pathway
-          sudo snap install --dangerous ./pihole-by-rajannpatel_*.snap
+          sudo snap install --dangerous ./${{ env.SNAP_NAME }}_*.snap
           
           echo "Verifying pre-refresh snapshot generation..."
-          if ! sudo ls /var/snap/pihole-by-rajannpatel/common/snapshots/pihole-backup-*.tar.gz >/dev/null 2>&1; then
+          if ! sudo ls /var/snap/${{ env.SNAP_NAME }}/common/snapshots/pihole-backup-*.tar.gz >/dev/null 2>&1; then
               echo "::error::pre-refresh snapshot was not generated!" >&2
               exit 1
           fi
           
           echo "Verifying post-refresh data persistence..."
-          if ! sudo grep -E '8123' /var/snap/pihole-by-rajannpatel/current/etc/pihole/pihole.toml; then
+          if ! sudo grep -E '8123' /var/snap/${{ env.SNAP_NAME }}/current/etc/pihole/pihole.toml; then
               echo "::error::Data migration failed! web.port=8123 did not persist across refresh." >&2
               exit 1
           fi
           
           echo "Verifying daemon health after refresh..."
-          sudo pihole-by-rajannpatel.pihole status
+          sudo ${{ env.SNAP_NAME }}.pihole status
           dig +short +time=1 +tries=1 @127.0.0.1 pi.hole >/dev/null 2>&1
 
       - name: Show recent daemon logs
         if: always()
-        run: sudo snap logs pihole-by-rajannpatel.pihole-ftl | tail -100
+        run: sudo snap logs ${{ env.SNAP_NAME }}.pihole-ftl | tail -100
 
       - name: Check for AppArmor denials
         if: always()
@@ -249,10 +250,10 @@ jobs:
           #            polling which is sufficient for `pihole status` to verify
           #            that port 53 is bound.
           # ---------------------------------------------------------------------
-          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole-by-rajannpatel' | grep -vE 'dac_read_search|dac_override|net_admin'; then
+          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin'; then
               echo "::error::AppArmor recorded fatal denials against the pihole snap (see above)"
               # Print the actual fatal errors to the log before exiting
-              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole-by-rajannpatel' | grep -vE 'dac_read_search|dac_override|net_admin'
+              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin'
               exit 1
           else
               echo "No fatal AppArmor denials recorded for snap.pihole."
@@ -261,10 +262,10 @@ jobs:
       - name: Dump service status on failure
         if: failure()
         run: |
-          sudo snap services pihole-by-rajannpatel || true
-          sudo journalctl -u snap.pihole-by-rajannpatel.pihole-ftl.service --no-pager | tail -200 || true
+          sudo snap services ${{ env.SNAP_NAME }} || true
+          sudo journalctl -u snap.${{ env.SNAP_NAME }}.pihole-ftl.service --no-pager | tail -200 || true
           echo "--- FTL.log ---"
-          sudo cat /var/snap/pihole-by-rajannpatel/common/var/log/pihole/FTL.log || true
+          sudo cat /var/snap/${{ env.SNAP_NAME }}/common/var/log/pihole/FTL.log || true
 
   publish:
     name: publish to beta
@@ -285,5 +286,5 @@ jobs:
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
-          snap: pihole-by-rajannpatel_*.snap
+          snap: ${{ env.SNAP_NAME }}_*.snap
           release: latest/beta
