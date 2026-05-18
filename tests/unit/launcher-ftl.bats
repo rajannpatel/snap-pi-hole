@@ -103,7 +103,8 @@ teardown() {
     [ "$status" -eq 1 ]
     [[ "$output" == *"systemd-resolved"* ]]
     [[ "$output" == *"DNSStubListener=no"* ]]
-    [[ "$output" == *"snap start pihole.pihole-ftl"* ]]
+    echo "$output"
+    [[ "$output" == *"snap start ${SNAP_NAME}.pihole-ftl"* ]]
 }
 
 @test "launcher-ftl does not print conflict error when port 53 is free" {
