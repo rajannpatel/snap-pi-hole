@@ -95,7 +95,7 @@ teardown() {
     [[ "$output" != *"secret_password_here"* ]]
 }
 
-@test "snapdebug detects disconnected interfaces" {
+@test "snapdebug detects disconnected required interfaces" {
     cat > "${MOCK_BIN}/snapctl" <<'EOF'
 #!/bin/bash
 if [ "$1" = "is-connected" ]; then
@@ -107,25 +107,57 @@ fi
 EOF
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"[FAIL] network-bind (Disconnected)"* ]]
-    [[ "$output" == *"[OK] network-control (Connected)"* ]]
+    [[ "$output" == *"[FAIL] network-bind (disconnected - core functionality affected)"* ]]
+    [[ "$output" == *"[OK]   network"* ]]
 }
 
-@test "snapdebug flags apparmor denials if system-observe is connected" {
+@test "snapdebug shows INFO for disconnected optional interfaces" {
+    cat > "${MOCK_BIN}/snapctl" <<'EOF'
+#!/bin/bash
+if [ "$1" = "is-connected" ]; then
+    if [ "$2" = "system-observe" ]; then exit 1; fi
+    exit 0
+fi
+if [ "$1" = "services" ]; then echo "pihole.pihole-ftl is active"; fi
+EOF
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[INFO] system-observe (disconnected - optional:"* ]]
+}
+
+@test "snapdebug flags unexpected apparmor denials if system-observe is connected" {
     cat > "${MOCK_BIN}/snapctl" <<'EOF'
 #!/bin/bash
 if [ "$1" = "is-connected" ]; then
     exit 0 # system-observe connected
 fi
+if [ "$1" = "services" ]; then echo "pihole.pihole-ftl is active"; fi
 EOF
     cat > "${MOCK_BIN}/dmesg" <<'EOF'
 #!/bin/bash
-echo "apparmor=\"DENIED\" operation=\"open\" profile=\"snap.pihole.pihole-ftl\""
+echo "apparmor=\"DENIED\" operation=\"open\" profile=\"snap.pihole.pihole-ftl\" name=\"/some/unexpected/path\""
 EOF
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"[WARN] AppArmor denials detected in dmesg:"* ]]
+    [[ "$output" == *"[WARN] Unexpected AppArmor denials"* ]]
     [[ "$output" == *"apparmor=\"DENIED\""* ]]
+}
+
+@test "snapdebug filters benign dmi and proc denials as non-fatal" {
+    cat > "${MOCK_BIN}/snapctl" <<'EOF'
+#!/bin/bash
+if [ "$1" = "is-connected" ]; then exit 0; fi
+if [ "$1" = "services" ]; then echo "pihole.pihole-ftl is active"; fi
+EOF
+    cat > "${MOCK_BIN}/dmesg" <<'EOF'
+#!/bin/bash
+echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/sys/devices/virtual/dmi/id/bios_vendor\""
+echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/proc/123/comm\""
+EOF
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[OK] No unexpected AppArmor denials"* ]]
+    [[ "$output" != *"[WARN] Unexpected AppArmor denials"* ]]
 }
 
 @test "snapdebug skips dmesg check if system-observe is disconnected" {
@@ -135,6 +167,7 @@ if [ "$1" = "is-connected" ]; then
     if [ "$2" = "system-observe" ]; then exit 1; fi
     exit 0
 fi
+if [ "$1" = "services" ]; then echo "pihole.pihole-ftl is active"; fi
 EOF
     cat > "${MOCK_BIN}/dmesg" <<'EOF'
 #!/bin/bash
@@ -142,7 +175,8 @@ echo "apparmor=\"DENIED\" operation=\"open\" profile=\"snap.pihole.pihole-ftl\""
 EOF
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"'system-observe' is disconnected. Cannot check dmesg"* ]]
+    [[ "$output" == *"system-observe not connected; AppArmor denial check skipped"* ]]
+    [[ "$output" == *"system-observe is optional"* ]]
     [[ "$output" != *"apparmor=\"DENIED\""* ]]
 }
 

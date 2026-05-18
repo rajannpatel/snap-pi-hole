@@ -21,19 +21,33 @@ echo ""
 
 # --- INTERFACE CONNECTION STATE ---
 echo "--- INTERFACES ---"
-check_interface() {
+# Required for core DNS and web UI functionality:
+
+check_required_interface() {
     local plug=$1
     if snapctl is-connected "$plug"; then
-        echo "  [OK] $plug (Connected)"
+        echo "  [OK]   $plug"
     else
-        echo "  [FAIL] $plug (Disconnected)"
+        echo "  [FAIL] $plug (disconnected - core functionality affected)"
     fi
 }
-check_interface "network-bind"
-check_interface "network-control"
-check_interface "system-observe"
-check_interface "hardware-observe"
-check_interface "mount-observe"
+# Optional: enable non-core features; snap operates correctly without them.
+check_optional_interface() {
+    local plug=$1
+    local desc=$2
+    if snapctl is-connected "$plug"; then
+        echo "  [OK]   $plug"
+    else
+        echo "  [INFO] $plug (disconnected - optional: $desc)"
+    fi
+}
+check_required_interface "network"
+check_required_interface "network-bind"
+check_optional_interface "network-control"  "DHCP server mode only"
+check_optional_interface "network-observe"  "pihole status port check"
+check_optional_interface "system-observe"   "per-process DNS attribution in network table"
+check_optional_interface "hardware-observe" "hardware info in Pi-hole diagnosis page"
+check_optional_interface "mount-observe"    "filesystem info in Pi-hole diagnosis page"
 echo ""
 
 # --- PORT CONFLICTS ---
@@ -108,16 +122,32 @@ fi
 echo ""
 
 # --- CONFINEMENT FAILURES ---
+# Only denials that break core functionality are flagged as warnings.
+# The following are EXPECTED and non-fatal in LXC/VM environments and are
+# always filtered out:
+#   /sys/devices/virtual/dmi/id/*  – DMI hardware info; absent in containers;
+#                                    civetweb probes this for system detection
+#                                    but degrades gracefully.
+#   /proc/<pid>/comm               – per-process names for the network table;
+#                                    requires system-observe (optional plug);
+#                                    FTL falls back to IP-only attribution.
 echo "--- CONFINEMENT ---"
 if snapctl is-connected "system-observe"; then
-    if dmesg 2>/dev/null | grep -i "apparmor=\"DENIED\"" | grep -q "snap.${SNAP_NAME}"; then
-        echo "  [WARN] AppArmor denials detected in dmesg:"
-        dmesg 2>/dev/null | grep -i "apparmor=\"DENIED\"" | grep "snap.${SNAP_NAME}" | tail -n 5 | sed 's/^/         /'
+    FATAL=$(dmesg 2>/dev/null \
+        | grep -F 'apparmor="DENIED"' \
+        | grep "snap.${SNAP_NAME}" \
+        | grep -vE '/sys/devices/virtual/dmi/id/|/proc/[0-9]+/comm' \
+        || true)
+    if [ -n "$FATAL" ]; then
+        echo "  [WARN] Unexpected AppArmor denials (may affect functionality):"
+        echo "$FATAL" | tail -n 5 | sed 's/^/         /'
     else
-        echo "  [OK] No recent AppArmor denials detected."
+        echo "  [OK] No unexpected AppArmor denials (benign DMI/proc denials filtered)."
     fi
 else
-    echo "  [INFO] 'system-observe' is disconnected. Cannot check dmesg for AppArmor denials."
+    echo "  [INFO] system-observe not connected; AppArmor denial check skipped."
+    echo "         This is fine — system-observe is optional and only enables"
+    echo "         per-process DNS attribution in Pi-hole's network table."
 fi
 echo ""
 
