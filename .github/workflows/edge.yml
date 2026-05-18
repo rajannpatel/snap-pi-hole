@@ -58,6 +58,7 @@ jobs:
           # the build and release workflows on the same channel keeps the
           # behaviour reproducible across them.
           snapcraft-channel: 9.x/candidate
+          snapcraft-args: --build-for ${{ matrix.arch }}
 
       - name: Upload snap artefact
         uses: actions/upload-artifact@v4
@@ -86,7 +87,7 @@ jobs:
       - name: Remote Build
         env:
           LP_CREDENTIALS: ${{ secrets.LP_CREDENTIALS }}
-        run: snapcraft remote-build --build-on ${{ matrix.arch }} --yes
+        run: snapcraft remote-build --build-on ${{ matrix.arch }} --build-for ${{ matrix.arch }} --yes
 
       - name: Upload snap artefact
         uses: actions/upload-artifact@v4

@@ -64,6 +64,8 @@ epoch: 0
 platforms:
   amd64:
   amd64_v3:
+    build-on: [amd64]
+    build-for: [amd64_v3]
   arm64:
   armhf:
   ppc64el:
