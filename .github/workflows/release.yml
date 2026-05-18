@@ -201,7 +201,7 @@ jobs:
         run: |
           echo "Simulating an over-the-top snap refresh..."
           # Re-installing an existing local snap triggers the refresh pathway
-          sudo snap install --dangerous ./pihole_*.snap
+          sudo snap install --dangerous ./pihole-by-rajannpatel_*.snap
           
           echo "Verifying pre-refresh snapshot generation..."
           if ! sudo ls /var/snap/pihole-by-rajannpatel/common/snapshots/pihole-backup-*.tar.gz >/dev/null 2>&1; then
