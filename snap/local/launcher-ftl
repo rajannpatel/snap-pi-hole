@@ -80,7 +80,25 @@ cd "${SNAP_DATA}/run/pihole"
 if [ ! -s "/etc/pihole/gravity.db" ]; then
     echo "gravity.db is missing. Seeding default adlist and building gravity..."
     (
-        sleep 10
+        # Wait until FTL's DNS resolver is accepting queries (up to 90 s).
+        # A fixed sleep is unreliable: gravity.sh uses curl which resolves
+        # raw.githubusercontent.com via the system resolver; if FTL hasn't
+        # started serving yet the download fails and the list is marked
+        # inaccessible. dig is available via the staged bind9-dnsutils package.
+        _ftl_ready=0
+        for _i in $(seq 1 90); do
+            if "${SNAP}/usr/bin/dig" +short +time=1 +tries=1 \
+                    @127.0.0.1 . NS >/dev/null 2>&1; then
+                _ftl_ready=1
+                break
+            fi
+            sleep 1
+        done
+        if [ "${_ftl_ready}" -eq 0 ]; then
+            echo "FTL DNS did not become ready within 90 s; skipping gravity seed." >&2
+            exit 0
+        fi
+
         # Pass 1: initialise schema (no adlists configured yet, downloads nothing)
         "${SNAP}/opt/pihole/pihole" -g > /var/log/pihole/gravity-init.log 2>&1 || true
         # Insert Steven Black's unified hosts list now that the schema exists
