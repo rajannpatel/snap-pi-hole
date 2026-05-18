@@ -161,13 +161,13 @@ jobs:
 
       - name: snap set round-trip
         run: |
-          sudo snap set pihole ftl.webserver.port=8123
+          sudo snap set pihole-by-rajannpatel ftl.webserver.port=8123
           # Configure hook runs after `snap set`; give it a moment to apply
           # and the daemon a moment to restart.
           sleep 5
-          if ! sudo grep -E '8123' /var/snap/pihole/current/etc/pihole/pihole.toml; then
+          if ! sudo grep -E '8123' /var/snap/pihole-by-rajannpatel/current/etc/pihole/pihole.toml; then
               echo "snap set did not propagate to pihole.toml" >&2
-              sudo cat /var/snap/pihole/current/etc/pihole/pihole.toml || true
+              sudo cat /var/snap/pihole-by-rajannpatel/current/etc/pihole/pihole.toml || true
               exit 1
           fi
 
@@ -190,11 +190,11 @@ jobs:
           # and write access to the gravity database path under $SNAP_DATA.
           sudo pihole-by-rajannpatel.pihole -g
           # Confirm the gravity.db was written inside the snap data directory.
-          if [ ! -f /var/snap/pihole/current/etc/pihole/gravity.db ]; then
+          if [ ! -f /var/snap/pihole-by-rajannpatel/current/etc/pihole/gravity.db ]; then
               echo "gravity.db not found after 'pihole -g'" >&2
               exit 1
           fi
-          echo "gravity.db size: $(du -h /var/snap/pihole/current/etc/pihole/gravity.db | cut -f1)"
+          echo "gravity.db size: $(du -h /var/snap/pihole-by-rajannpatel/current/etc/pihole/gravity.db | cut -f1)"
 
       - name: Refresh and migration test
         run: |
@@ -203,13 +203,13 @@ jobs:
           sudo snap install --dangerous ./pihole_*.snap
           
           echo "Verifying pre-refresh snapshot generation..."
-          if ! sudo ls /var/snap/pihole/common/snapshots/pihole-backup-*.tar.gz >/dev/null 2>&1; then
+          if ! sudo ls /var/snap/pihole-by-rajannpatel/common/snapshots/pihole-backup-*.tar.gz >/dev/null 2>&1; then
               echo "::error::pre-refresh snapshot was not generated!" >&2
               exit 1
           fi
           
           echo "Verifying post-refresh data persistence..."
-          if ! sudo grep -E '8123' /var/snap/pihole/current/etc/pihole/pihole.toml; then
+          if ! sudo grep -E '8123' /var/snap/pihole-by-rajannpatel/current/etc/pihole/pihole.toml; then
               echo "::error::Data migration failed! web.port=8123 did not persist across refresh." >&2
               exit 1
           fi
