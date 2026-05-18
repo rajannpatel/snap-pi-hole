@@ -117,8 +117,15 @@ parts:
       # Redirect PID files to /etc/pihole/ which is layout-mounted to
       # $SNAP_DATA/etc/pihole/ and is visible to ALL snap apps regardless
       # of the snap's store name (avoids CRAFT_PROJECT_NAME vs SNAP_NAME mismatch).
-      grep -rlZ '/run/pihole-FTL.pid' "${CRAFT_PART_SRC}" | xargs -0 -r sed -i "s|/run/pihole-FTL.pid|/etc/pihole/pihole-FTL.pid|g"
-      grep -rlZ '/run/dnsmasq.pid' "${CRAFT_PART_SRC}" | xargs -0 -r sed -i "s|/run/dnsmasq.pid|/etc/pihole/dnsmasq.pid|g"
+      # Handle /var/run/ before /run/ to avoid partial-match corruption
+      # (dnsmasq defaults to /var/run/dnsmasq.pid; a naive s|/run/…| would
+      # turn that into /var/etc/pihole/dnsmasq.pid).
+      grep -rlZ '/run/pihole-FTL.pid' "${CRAFT_PART_SRC}" | xargs -0 -r sed -i \
+        -e "s|/var/run/pihole-FTL.pid|/etc/pihole/pihole-FTL.pid|g" \
+        -e "s|/run/pihole-FTL.pid|/etc/pihole/pihole-FTL.pid|g"
+      grep -rlZ '/run/dnsmasq.pid' "${CRAFT_PART_SRC}" | xargs -0 -r sed -i \
+        -e "s|/var/run/dnsmasq.pid|/etc/pihole/dnsmasq.pid|g" \
+        -e "s|/run/dnsmasq.pid|/etc/pihole/dnsmasq.pid|g"
       # Neutralize dnsmasq's attempt to drop supplementary groups.
       # In a strictly confined snap, daemons run as root without CAP_SETGID
       # by default. Since pihole-FTL passes `-u root` internally, dnsmasq

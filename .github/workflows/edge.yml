@@ -134,7 +134,10 @@ jobs:
               echo "--- ss output at ${i}s ---"
               sudo ss -lnup | grep ':53' || true
               
-              if sudo ss -lnup | grep -q ':53 ' && dig +short +time=1 +tries=1 @127.0.0.1 pi.hole >/dev/null 2>&1; then
+              # Check port is bound AND resolver answers any query (even SERVFAIL
+              # means FTL is alive; pi.hole may not resolve until fully booted).
+              if sudo ss -lnup | grep -q ':53 ' && \
+                 dig +short +time=1 +tries=1 @127.0.0.1 . NS 2>/dev/null | grep -q '.' ; then
                   echo "FTL bound to port 53 and verified active after ${i}s"
                   bound=1
                   break
@@ -217,7 +220,7 @@ jobs:
           
           echo "Verifying daemon health after refresh..."
           sudo ${{ env.SNAP_NAME }}.pihole status
-          dig +short +time=1 +tries=1 @127.0.0.1 pi.hole >/dev/null 2>&1
+          dig +short +time=1 +tries=1 @127.0.0.1 . NS 2>/dev/null | grep -q '.'
 
       - name: Show recent daemon logs
         if: always()
