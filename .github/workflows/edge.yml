@@ -63,30 +63,6 @@ jobs:
           path: ${{ steps.snapcraft.outputs.snap }}
           if-no-files-found: error
 
-  build-launchpad:
-    name: build-launchpad (${{ matrix.arch }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [armhf, ppc64el, s390x, riscv64]
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Install Snapcraft
-        run: sudo snap install snapcraft --classic --channel=9.x/candidate
-
-      - name: Remote Build
-        env:
-          LP_CREDENTIALS: ${{ secrets.LP_CREDENTIALS }}
-        run: snapcraft remote-build --build-for ${{ matrix.arch }} --launchpad-accept-public-upload
-
-      - name: Upload snap artefact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pihole-snap-${{ matrix.arch }}
-          path: ./*.snap
-          if-no-files-found: error
 
   smoke:
     name: smoke test (${{ matrix.arch }})
@@ -301,12 +277,12 @@ jobs:
 
   publish:
     name: publish to edge (${{ matrix.arch }})
-    needs: [smoke, build-launchpad]
+    needs: [smoke]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
       matrix:
-        arch: [amd64, arm64, armhf, ppc64el, s390x, riscv64]
+        arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v5
 
