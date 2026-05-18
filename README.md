@@ -32,6 +32,8 @@ For a detailed explanation of what this snap is, how it works, and why it's the 
   - [Getting Started with the Pi-hole Snap](https://github.com/rajannpatel/snap-pi-hole/wiki/Tutorial:-Getting-Started)
 - 🛠️ **How-to guides**
   - [Migrate from an Existing Install](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Migrate-from-an-Existing-Install)
+  - [Supported Deployment Patterns](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Supported-Deployment-Patterns)
+  - [Operator Runbook](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Operator-Runbook)
   - [Configure DHCP](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Configure-DHCP)
   - [Backups and Restores](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Backups-and-Restores)
   - [Build and Test from Source](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Build-and-Test-from-Source)
@@ -43,6 +45,8 @@ For a detailed explanation of what this snap is, how it works, and why it's the 
   - [Supported Systems](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-Supported-Systems)
 - 💡 **Explanation**
   - [Architecture and Rationale](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Architecture-and-Rationale)
+  - [Topology and Architecture](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Topology-and-Architecture)
+  - [Security Model](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Security-Model)
   - [Why Unbound is Not Bundled](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Why-Unbound-is-Not-Bundled)
   - [Refresh Behavior and Updates](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Refresh-Behavior-and-Updates)
 
