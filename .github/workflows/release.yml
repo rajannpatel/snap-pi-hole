@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [amd64, arm64]
+        arch: [amd64, amd64_v3, arm64]
         # armhf, ppc64el, and s390x must be built via Launchpad or remote-build
         # because GitHub-hosted runners only support amd64 and arm64.
     steps:
@@ -67,6 +67,35 @@ jobs:
           path: ${{ steps.snapcraft.outputs.snap }}
           if-no-files-found: error
 
+  build-launchpad:
+    name: build-launchpad (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [armhf, ppc64el, s390x, riscv64]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Prepare Store Namespace
+        run: |
+          sed -i 's/^name: pihole/name: ${{ env.SNAP_NAME }}/' snap/snapcraft.yaml
+
+      - name: Install Snapcraft
+        run: sudo snap install snapcraft --classic --channel=9.x/candidate
+
+      - name: Remote Build
+        env:
+          LP_CREDENTIALS: ${{ secrets.LP_CREDENTIALS }}
+        run: snapcraft remote-build --build-on ${{ matrix.arch }} --yes
+
+      - name: Upload snap artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pihole-snap-${{ matrix.arch }}
+          path: ./*.snap
+          if-no-files-found: error
+
   smoke:
     name: smoke test (${{ matrix.arch }})
     needs: [build, lint]
@@ -74,7 +103,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [amd64, arm64]
+        arch: [amd64, amd64_v3, arm64]
     steps:
       - name: Download snap
         uses: actions/download-artifact@v4
@@ -275,12 +304,12 @@ jobs:
 
   publish:
     name: publish to beta (${{ matrix.arch }})
-    needs: [smoke]
+    needs: [smoke, build-launchpad]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     strategy:
       matrix:
-        arch: [amd64, arm64]
+        arch: [amd64, amd64_v3, arm64, armhf, ppc64el, s390x, riscv64]
     steps:
       - uses: actions/checkout@v5
 

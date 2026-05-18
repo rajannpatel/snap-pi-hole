@@ -1,4 +1,4 @@
-name: pihole
+name: pihole-by-rajannpatel
 title: Pi-hole
 summary: Network-wide ad blocking via your own DNS server
 license: MIT
@@ -60,11 +60,15 @@ assumes:
 # hold users on the old epoch until the migration code is in place.
 epoch: 0
 
-# core22 still ships a full 32-bit ARM archive, so armhf is supported.
+# core22+ supports all major Ubuntu OS architectures natively.
 platforms:
   amd64:
+  amd64_v3:
   arm64:
   armhf:
+  ppc64el:
+  s390x:
+  riscv64:
 
 # Bind-mount the paths FTL and the bash scripts have hardcoded onto
 # writable snap data locations. Inside the snap's mount namespace
