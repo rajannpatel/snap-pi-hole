@@ -11,11 +11,14 @@ setup() {
     mkdir -p "${SNAP_DATA}/etc/pihole"
     mkdir -p "${SNAP_COMMON}/var/log/pihole"
 
-    # Create fake pihole.toml and pihole-FTL.log
+    # Create fake pihole.toml, logs, and database files
     echo 'password = "secret_password_here"' > "${SNAP_DATA}/etc/pihole/pihole.toml"
     echo 'some_setting = "value"' >> "${SNAP_DATA}/etc/pihole/pihole.toml"
     
     echo "Log line 1" > "${SNAP_COMMON}/var/log/pihole/pihole-FTL.log"
+
+    echo "fake db data" > "${SNAP_DATA}/etc/pihole/gravity.db"
+    echo "fake db data" > "${SNAP_DATA}/etc/pihole/pihole-FTL.db"
 
     # Setup a mock bin directory to intercept snapctl, timeout, dmesg
     export MOCK_BIN="${TMPDIR}/bin"
@@ -63,6 +66,7 @@ teardown() {
     [[ "$output" == *"Snap Version: 1.2.3"* ]]
     [[ "$output" == *"--- INTERFACES ---"* ]]
     [[ "$output" == *"--- PORTS ---"* ]]
+    [[ "$output" == *"--- DATABASES ---"* ]]
     [[ "$output" == *"--- CONFINEMENT ---"* ]]
     [[ "$output" == *"--- PIHOLE.TOML CONFIGURATION ---"* ]]
     [[ "$output" == *"--- TAIL OF FTL LOG ---"* ]]
@@ -163,4 +167,31 @@ EOF
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Log line 1"* ]]
+}
+
+@test "snapdebug detects missing gravity.db" {
+    rm "${SNAP_DATA}/etc/pihole/gravity.db"
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[FAIL] gravity.db is missing"* ]]
+}
+
+@test "snapdebug detects 0-byte gravity.db" {
+    > "${SNAP_DATA}/etc/pihole/gravity.db" # truncate to 0 bytes
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[FAIL] gravity.db exists but is 0 bytes"* ]]
+}
+
+@test "snapdebug detects valid gravity.db" {
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[OK] gravity.db is present and populated"* ]]
+}
+
+@test "snapdebug detects missing pihole-FTL.db as WARN" {
+    rm "${SNAP_DATA}/etc/pihole/pihole-FTL.db"
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[WARN] pihole-FTL.db is missing or empty"* ]]
 }

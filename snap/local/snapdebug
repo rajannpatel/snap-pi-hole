@@ -78,6 +78,27 @@ else
 fi
 echo ""
 
+# --- DATABASES ---
+echo "--- DATABASES ---"
+GRAVITY_DB="$SNAP_DATA/etc/pihole/gravity.db"
+if [ -s "$GRAVITY_DB" ]; then
+    echo "  [OK] gravity.db is present and populated ($(stat -c%s "$GRAVITY_DB") bytes)."
+elif [ -e "$GRAVITY_DB" ]; then
+    echo "  [FAIL] gravity.db exists but is 0 bytes."
+    echo "    -> Remediation: Run 'sudo pihole -g' to build the adlist database."
+else
+    echo "  [FAIL] gravity.db is missing. The web interface will show 'Database not available' errors."
+    echo "    -> Remediation: Run 'sudo pihole -g' to build the adlist database."
+fi
+
+FTL_DB="$SNAP_DATA/etc/pihole/pihole-FTL.db"
+if [ -s "$FTL_DB" ]; then
+    echo "  [OK] pihole-FTL.db is present and populated ($(stat -c%s "$FTL_DB") bytes)."
+else
+    echo "  [WARN] pihole-FTL.db is missing or empty (normal on fresh installs)."
+fi
+echo ""
+
 # --- CONFINEMENT FAILURES ---
 echo "--- CONFINEMENT ---"
 if snapctl is-connected "system-observe"; then
