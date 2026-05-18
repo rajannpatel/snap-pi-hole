@@ -1,4 +1,4 @@
-# Pi-hole Snap Package
+# Pi-hole snap package
 
 <img align="right" src="./snap/gui/pihole.png" width="120" alt="Pi-hole Logo">
 
