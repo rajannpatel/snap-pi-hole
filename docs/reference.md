@@ -24,6 +24,14 @@ The snap's `configure` hook maps a small set of predefined `snap set` keys direc
 
 For all other advanced Pi-hole configuration, edit the `pihole.toml` file directly.
 
+### ConfDB Implementation Architecture
+
+The snap implements a ConfDB-style architecture to provide robust, type-safe configuration management:
+
+1. **Schema Definition (`snap/config-schema.yaml`)**: Acts as the single source of truth. It defines the hierarchical structure of all exposed `snap set` keys, mapping them to the underlying FTL keys. It also defines types (integer, boolean, string), default values, and strict validation rules (like regex, IP, port ranges, and enums).
+2. **Validation Engine (`snap/local/config-helper.sh`)**: An independent bash-based engine that parses the schema and automatically translates user input (from `snapctl get`) into validated arguments for `pihole-FTL --config`.
+3. **Atomic Transactions**: The `configure` hook processes all keys as a unified transaction. If any key fails schema validation (e.g., providing an invalid IP address), the operation is rejected gracefully with an error in the snap logs, preventing malformed configuration from reaching the daemon.
+
 ## The `pihole` CLI wrapper
 
 The official Pi-hole ecosystem includes a massive `pihole` bash script. Because snaps are confined and immutable, several of these subcommands do not make sense (e.g., you cannot "update" the pi-hole software using its bash script; you must use `snap refresh`). 
