@@ -37,6 +37,18 @@ For a full diagnostic readout of port conflicts, run:
     sudo pihole.check-system
 EOF
     exit 1
+elif (exec 3<>/dev/tcp/127.0.0.1/53) 2>/dev/null || (exec 3<>/dev/tcp/0.0.0.0/53) 2>/dev/null; then
+    exec 3<&- 3>&-
+    cat >&2 <<'EOF'
+ERROR: Port 53 is already in use by another service on this host.
+Pi-hole requires port 53 to function.
+
+Run 'sudo ss -tulpn | grep :53' on the host to identify the conflicting service.
+
+For a full diagnostic readout of port conflicts, run:
+    sudo pihole.check-system
+EOF
+    exit 1
 fi
 
 mkdir -p /etc/pihole /etc/dnsmasq.d /var/log/pihole "${SNAP_DATA}/run/pihole"
