@@ -153,6 +153,7 @@ EOF
 #!/bin/bash
 echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/sys/devices/virtual/dmi/id/bios_vendor\""
 echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/proc/123/comm\""
+echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/etc/ldap/ldap.conf\""
 EOF
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]

@@ -131,12 +131,15 @@ echo ""
 #   /proc/<pid>/comm               – per-process names for the network table;
 #                                    requires system-observe (optional plug);
 #                                    FTL falls back to IP-only attribution.
+#   /etc/ldap/ldap.conf            – curl probes this for SASL/LDAP plugin
+#                                    discovery on every invocation; non-fatal,
+#                                    HTTPS downloads work normally without it.
 echo "--- CONFINEMENT ---"
 if snapctl is-connected "system-observe"; then
     FATAL=$(dmesg 2>/dev/null \
         | grep -F 'apparmor="DENIED"' \
         | grep "snap.${SNAP_NAME}" \
-        | grep -vE '/sys/devices/virtual/dmi/id/|/proc/[0-9]+/comm' \
+        | grep -vE '/sys/devices/virtual/dmi/id/|/proc/[0-9]+/comm|/etc/ldap/ldap\.conf' \
         || true)
     if [ -n "$FATAL" ]; then
         echo "  [WARN] Unexpected AppArmor denials (may affect functionality):"

@@ -251,11 +251,16 @@ jobs:
           #            denied, it successfully falls back to standard unprivileged
           #            polling which is sufficient for `pihole status` to verify
           #            that port 53 is bound.
+          # EXCEPTION 3: /etc/ldap/ldap.conf
+          #   Context: curl probes this during SASL/LDAP plugin discovery on
+          #            every invocation, even for plain HTTPS requests.
+          #   Reason:  Non-fatal. curl gracefully continues without LDAP
+          #            configuration; all HTTP/HTTPS downloads work normally.
           # ---------------------------------------------------------------------
-          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin'; then
+          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin|ldap\.conf'; then
               echo "::error::AppArmor recorded fatal denials against the pihole snap (see above)"
               # Print the actual fatal errors to the log before exiting
-              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin'
+              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin|ldap\.conf'
               exit 1
           else
               echo "No fatal AppArmor denials recorded for snap.pihole."
