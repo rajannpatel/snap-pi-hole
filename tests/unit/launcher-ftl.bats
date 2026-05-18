@@ -129,9 +129,7 @@ teardown() {
 
 @test "launcher-ftl changes cwd to run/pihole before exec" {
     LAUNCHER_CWD="${TEST_TMPDIR}/launcher-cwd"
-    sed \
-        's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
-        "${LAUNCHER}" > "${LAUNCHER_CWD}"
+    cp "${LAUNCHER}" "${LAUNCHER_CWD}"
     chmod +x "${LAUNCHER_CWD}"
 
     # Replace FTL stub with one that records cwd
@@ -142,20 +140,4 @@ teardown() {
     [ "$status" -eq 0 ]
     # The cwd should be the /run/pihole equivalent in our tmpdir
     [[ "$output" == *"run/pihole"* ]]
-}
-
-@test "launcher-ftl conflict error message goes to stderr" {
-    LAUNCHER_OCCUPIED="${TEST_TMPDIR}/launcher-occupied2"
-    sed 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|true|' \
-        "${LAUNCHER}" > "${LAUNCHER_OCCUPIED}"
-    chmod +x "${LAUNCHER_OCCUPIED}"
-
-    # Run capturing stderr separately
-    stdout_out="$("${LAUNCHER_OCCUPIED}" 2>/dev/null)" || true
-    stderr_out="$("${LAUNCHER_OCCUPIED}" 2>&1 >/dev/null)" || true
-
-    # Error message must appear in stderr
-    [[ "$stderr_out" == *"systemd-resolved"* ]]
-    # stdout must be empty
-    [ -z "$stdout_out" ]
 }
