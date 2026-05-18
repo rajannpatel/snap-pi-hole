@@ -1,0 +1,13 @@
+extends: existence
+message: "Avoid using first-person or group pronouns like '%s'. Use neutral, passive voice or direct instructional tone instead."
+level: error
+ignorecase: true
+tokens:
+  - '\bI\b'
+  - '\bme\b'
+  - '\bmy\b'
+  - '\bmine\b'
+  - '\bwe\b'
+  - '\bus\b'
+  - '\bour\b'
+  - '\bours\b'
