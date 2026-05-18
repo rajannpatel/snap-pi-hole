@@ -25,8 +25,7 @@ setup() {
     export SNAP="${TEST_TMPDIR}/snap"
     export SNAP_DATA="${TEST_TMPDIR}/data"
     export SNAP_COMMON="${TEST_TMPDIR}/common"
-    mkdir -p "${SNAP}/usr/bin" "${SNAP_DATA}" "${SNAP_COMMON}" "${SNAP}/bin"
-    cp "${REPO_ROOT}/snap/local/config-helper.sh" "${SNAP}/bin/"
+    mkdir -p "${SNAP}/usr/bin" "${SNAP_DATA}" "${SNAP_COMMON}" "${SNAP}/meta/hooks" "${SNAP}/bin"
 
     # Create stubs for external commands
     _setup_stubs
@@ -52,7 +51,17 @@ LOG="${TEST_TMPDIR}/snapctl.log"
 echo "SNAPCTL:$*" >> "$LOG"
 case "$1" in
     get)
-        key="$2"
+        if [ "$2" = "-d" ] && [ "$3" = "ftl" ]; then
+            if [ -n "${SNAPCTL_GET_D_FTL:-}" ]; then
+                echo "${SNAPCTL_GET_D_FTL}"
+            else
+                echo "{}"
+            fi
+            exit 0
+        fi
+        key="${2:-}"
+        if [ "$key" = "-q" ]; then key="${3:-}"; fi
+        if [ -z "$key" ]; then exit 0; fi
         var="SNAPCTL_GET_$(echo "$key" | tr '.-' '_')"
         echo "${!var:-}"
         ;;
@@ -157,7 +166,7 @@ STUB
     [ "$status" -eq 0 ]
 
     # Configure with a setting
-    export SNAPCTL_GET_web_port="8080"
+    export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
     run "${TEST_TMPDIR}/hook-configure"
     [ "$status" -eq 0 ]
     # FTL should have been called with the config
@@ -185,15 +194,13 @@ STUB
     "${TEST_TMPDIR}/hook-install"
 
     # First configure: set web-port
-    export SNAPCTL_GET_web_port="8080"
-    export SNAPCTL_GET_dns_port=""
+    export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
     run "${TEST_TMPDIR}/hook-configure"
     [ "$status" -eq 0 ]
     grep -q "FTL:--config webserver.port 8080" "${TEST_TMPDIR}/ftl.log"
 
-    # Second configure: set dns-port (first setting should still be applied)
-    export SNAPCTL_GET_web_port=""
-    export SNAPCTL_GET_dns_port="5353"
+    # Second configure: set dns-port
+    export SNAPCTL_GET_D_FTL='{"dns": {"port": 5353}, "webserver": {"port": 8080}}'
     run "${TEST_TMPDIR}/hook-configure"
     [ "$status" -eq 0 ]
     grep -q "FTL:--config dns.port 5353" "${TEST_TMPDIR}/ftl.log"
@@ -295,7 +302,7 @@ STUB
     "${TEST_TMPDIR}/hook-install"
 
     # Configure applies a setting (via FTL stub)
-    export SNAPCTL_GET_web_port="8080"
+    export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
     "${TEST_TMPDIR}/hook-configure"
 
     # Verify FTL was called
@@ -316,7 +323,7 @@ STUB
     echo "existing_setting=42" > "${TEST_TMPDIR}/etc/pihole/pihole.toml"
 
     # Run configure
-    export SNAPCTL_GET_web_port="8080"
+    export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
     run "${TEST_TMPDIR}/hook-configure"
     [ "$status" -eq 0 ]
 
@@ -330,7 +337,7 @@ STUB
 
     # Daemon is inactive
     export SNAPCTL_SERVICE_STATUS="inactive"
-    export SNAPCTL_GET_web_port="8080"
+    export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
 
     # Configure should succeed without restarting
     run "${TEST_TMPDIR}/hook-configure"

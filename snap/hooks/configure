@@ -1,60 +1,57 @@
 #!/bin/sh
-# configure hook: validates and applies `snap set snap-pi-hole <key>=<value>`
-# configurations, backing them via pihole-FTL's configuration subsystem.
+# configure hook: validates and applies `snap set snap-pi-hole ftl.<key>=<value>`
+# configurations by acting as a transparent proxy to pihole-FTL's configuration subsystem.
 
 set -eu
 
-# Source the configuration abstraction layer
-# In the snap context, hooks are in $SNAP/meta/hooks/ but snapcraft copies snap/hooks
-# to $SNAP/meta/hooks. The lib is either at $SNAP/snap/hooks/lib/config-helper.sh or 
-# we can just use the absolute path within $SNAP. Wait, layout and organize plugins 
-# might put them differently. If we put it in snap/hooks/lib/, it gets placed in $SNAP/meta/hooks/lib/.
-# Let's source it dynamically based on the script location.
-CONFIG_HELPER="${SNAP}/bin/config-helper.sh"
+FTL_BIN="${SNAP}/usr/bin/pihole-FTL"
 
-if [ ! -f "$CONFIG_HELPER" ]; then
-    echo "Error: config-helper.sh not found at $CONFIG_HELPER" >&2
-    exit 1
-fi
+# Extract the entire 'ftl' config namespace and pass directly to pihole-FTL
+snapctl get -d ftl | python3 -c '
+import sys, json, subprocess
 
-# shellcheck disable=SC1090
-. "$CONFIG_HELPER"
+def flatten(d, parent_key=""):
+    items = []
+    if not isinstance(d, dict):
+        return items
+    for k, v in d.items():
+        new_key = f"{parent_key}.{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten(v, new_key))
+        else:
+            items.append((new_key, v))
+    return items
 
-applied=0
+try:
+    raw = sys.stdin.read()
+    print(f"RAW STDIN: {repr(raw)}", file=sys.stderr)
+    cfg = json.loads(raw)
+except Exception as e:
+    print(f"JSON Load Exception: {e}", file=sys.stderr)
+    sys.exit(0)
 
-# Iterate over all defined ConfDB schema keys
-for snap_key in $(get_all_schema_keys); do
-    val="$(snapctl get "$snap_key" 2>/dev/null || true)"
-    if [ -n "$val" ]; then
-        if apply_to_ftl "$snap_key" "$val"; then
-            applied=1
-        else
-            echo "Error applying configuration for '$snap_key'" >&2
-            exit 1
-        fi
-    fi
-done
+if not cfg:
+    sys.exit(0)
 
-# Restart the FTL daemon if any configurations were successfully applied
-# and the daemon is currently running.
-if [ "$applied" = 1 ] && snapctl services pihole.pihole-ftl 2>/dev/null | awk 'NR>1 {print $3}' | grep -qx active; then
+items = flatten(cfg)
+for k, v in items:
+    if isinstance(v, bool):
+        val = "true" if v else "false"
+    elif isinstance(v, list):
+        # Flatten snapctl arrays to comma-separated lists for FTL
+        val = ",".join(str(i) for i in v)
+    else:
+        val = str(v)
+    
+    # Let FTL validate and apply its own configuration
+    import os
+    res = os.system(f"\"{sys.argv[1]}\" --config {k} \"{val}\" >/dev/null 2>&1")
+    if res != 0:
+        print(f"Error applying ftl.{k}={val}", file=sys.stderr)
+        sys.exit(1)
+' "$FTL_BIN"
+
+# Restart the daemon if it's currently running, so changes take effect immediately
+if snapctl services pihole.pihole-ftl 2>/dev/null | awk 'NR>1 {print $3}' | grep -qx active; then
     snapctl restart pihole.pihole-ftl
-fi
-
-# Handle daemon auto_start state
-auto_start="$(snapctl get system.auto_start 2>/dev/null || true)"
-if [ "$auto_start" = "false" ]; then
-    # Disable auto-start on boot (but do not stop it if it's currently running, 
-    # unless we explicitly want to. Usually auto_start just controls boot behavior).
-    # Since snap doesn't have a pure 'disable' without stop in older versions, we 
-    # use `snapctl stop --disable` if they also want it stopped, but if they just 
-    # changed it, maybe we just do `snapctl stop --disable pihole.pihole-ftl`?
-    # No, `snapctl stop --disable` stops it immediately. If the user only wanted to disable boot:
-    # Actually, snap services can be disabled without stopping if you don't pass stop. Wait, no.
-    # The correct way is `snapctl stop --disable` if you want it off, or `snapctl start --enable`.
-    # Let's just track it and leave the daemon alone unless it's explicitly stopped by the user.
-    # Actually, the user asked for system.auto_start. Let's just leave it as a config tracking value
-    # and maybe handle it in `install` or `post-refresh`. For now, if they set it to false, we disable it.
-    # Let's just ignore starting/stopping here so we don't accidentally stop their DNS unexpectedly.
-    true
 fi

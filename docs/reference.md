@@ -4,33 +4,32 @@ This page contains reference materials for configuring and understanding the Pi-
 
 ## `snap set` configuration keys
 
-The snap's `configure` hook maps a small set of predefined `snap set` keys directly into Pi-hole's configuration file (`/var/snap/pihole/current/etc/pihole/pihole.toml`). If the daemon is running when a setting is updated, the hook automatically restarts it.
+The Pi-hole snap acts as a transparent configuration proxy for the underlying `pihole-FTL` daemon. You can manage **any** configuration key available in upstream Pi-hole natively using `snap set` by prefixing the key with `ftl.`.
 
-| `snap set` key           | TOML key               | Description                                  |
-|--------------------------|------------------------|----------------------------------------------|
-| `web.port`               | `webserver.port`       | The HTTP port the web admin UI listens on.   |
-| `web.password`           | `webserver.password`   | Web admin password (raw or hashed).          |
-| `dns.port`               | `dns.port`             | The DNS port the daemon binds to.            |
-| `dns.upstream`           | `dns.upstreams`        | Comma-separated upstream DNS servers.        |
-| `dns.dnssec`             | `dns.dnssec`           | Enable/disable DNSSEC validation.            |
-| `dns.interface`          | `dns.listeningMode`    | Interface listening behavior (local, all).   |
-| `dhcp.enabled`           | `dhcp.active`          | Enable (`true`) or disable the DHCP server.  |
-| `dhcp.range.start`       | `dhcp.ipv4.start`      | The start of the DHCP IPv4 address pool.     |
-| `dhcp.range.end`         | `dhcp.ipv4.end`        | The end of the DHCP IPv4 address pool.       |
-| `dhcp.gateway`           | `dhcp.ipv4.router`     | The default gateway assigned to clients.     |
-| `dhcp.lease_time`        | `dhcp.leaseTime`       | The DHCP lease duration (e.g., 24h).         |
-| `logging.query`          | `database.DBimport`    | Enable/disable query logging.                |
-| `logging.privacy_level`  | `misc.privacylevel`    | Privacy level (0=Show all, 3=Anonymous).     |
+The snap's `configure` hook dynamically translates `snap set` keys into FTL's configuration syntax (`/var/snap/pihole/current/etc/pihole/pihole.toml`) and delegates all validation to the daemon itself. If the daemon is running when a setting is updated, the hook automatically restarts it.
 
-For all other advanced Pi-hole configuration, edit the `pihole.toml` file directly.
+### Examples
 
-### ConfDB Implementation Architecture
+To set the web server port to 8123 (maps to `webserver.port` in FTL):
+```bash
+sudo snap set pihole ftl.webserver.port=8123
+```
 
-The snap implements a ConfDB-style architecture to provide robust, type-safe configuration management:
+To configure multiple upstream DNS servers (maps to `dns.upstreams` in FTL):
+```bash
+sudo snap set pihole ftl.dns.upstreams="8.8.8.8,1.1.1.1"
+```
 
-1. **Schema Definition (`snap/config-schema.yaml`)**: Acts as the single source of truth. It defines the hierarchical structure of all exposed `snap set` keys, mapping them to the underlying FTL keys. It also defines types (integer, boolean, string), default values, and strict validation rules (like regex, IP, port ranges, and enums).
-2. **Validation Engine (`snap/local/config-helper.sh`)**: An independent bash-based engine that parses the schema and automatically translates user input (from `snapctl get`) into validated arguments for `pihole-FTL --config`.
-3. **Atomic Transactions**: The `configure` hook processes all keys as a unified transaction. If any key fails schema validation (e.g., providing an invalid IP address), the operation is rejected gracefully with an error in the snap logs, preventing malformed configuration from reaching the daemon.
+To configure DNS interface binding behavior (maps to `dns.listeningMode` in FTL):
+```bash
+sudo snap set pihole ftl.dns.listeningMode=all
+```
+
+For a comprehensive list of all available configuration keys, consult the [upstream Pi-hole configuration documentation](https://docs.pi-hole.net/ftldns/configfile/).
+
+### Validation and Type Safety
+
+Because the snap leverages `pihole-FTL --config` internally to apply these settings, FTL will strictly validate your inputs. If you attempt to set an invalid value (e.g., passing a string to an integer field), FTL will reject the value, the hook transaction will fail gracefully, and the invalid configuration will be blocked.
 
 ### Automated Gravity Updates
 

@@ -17,7 +17,6 @@ setup() {
     export SNAP_DATA="${TEST_TMPDIR}/data"
     export SNAP_COMMON="${TEST_TMPDIR}/common"
     mkdir -p "${SNAP}/usr/bin" "${SNAP_DATA}" "${SNAP_COMMON}" "${SNAP}/bin"
-    cp "${REPO_ROOT}/snap/local/config-helper.sh" "${SNAP}/bin/"
 
     # Seed the mock template layout directory and versions stub file 
     # to satisfy the file copying phase of the install hook logic.
@@ -41,7 +40,17 @@ LOG="${TEST_TMPDIR}/snapctl.log"
 echo "SNAPCTL:\$*" >> "\$LOG"
 case "\$1" in
     get)
-        key="\$2"
+        if [ "\$2" = "-d" ] && [ "\$3" = "ftl" ]; then
+            if [ -n "\${SNAPCTL_GET_D_FTL:-}" ]; then
+                echo "\${SNAPCTL_GET_D_FTL}"
+            else
+                echo "{}"
+            fi
+            exit 0
+        fi
+        key="\${2:-}"
+        if [ "\$key" = "-q" ]; then key="\${3:-}"; fi
+        if [ -z "\$key" ]; then exit 0; fi
         var="SNAPCTL_GET_\$(echo "\$key" | tr '.-' '_')"
         echo "\${!var:-}"
         ;;
@@ -179,8 +188,8 @@ teardown() {
 # ---------------------------------------------------------------------------
 
 @test "configure hook calls pihole-FTL --config for a set key" {
-    # Only set web-port; all other keys return empty from the stub
-    export SNAPCTL_GET_web_port="8080"
+    # Only set webserver.port via JSON
+    export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
     HOOK="${TEST_TMPDIR}/configure"
     sed \
         -e "s|snapctl get|${SNAPCTL} get|g" \
@@ -210,7 +219,7 @@ teardown() {
 }
 
 @test "configure hook does not restart daemon when it is not running" {
-    export SNAPCTL_GET_web_port="8080"
+    export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
     export SNAPCTL_SERVICE_STATUS="inactive"
     HOOK="${TEST_TMPDIR}/configure"
     sed \
@@ -226,7 +235,7 @@ teardown() {
 }
 
 @test "configure hook maps dns-port to dns.port correctly" {
-    export SNAPCTL_GET_dns_port="5353"
+    export SNAPCTL_GET_D_FTL='{"dns": {"port": 5353}}'
     HOOK="${TEST_TMPDIR}/configure"
     sed \
         -e "s|snapctl get|${SNAPCTL} get|g" \
@@ -241,7 +250,7 @@ teardown() {
 }
 
 @test "configure hook maps dhcp-enabled to dhcp.active correctly" {
-    export SNAPCTL_GET_dhcp_enabled="true"
+    export SNAPCTL_GET_D_FTL='{"dhcp": {"active": true}}'
     HOOK="${TEST_TMPDIR}/configure"
     sed \
         -e "s|snapctl get|${SNAPCTL} get|g" \
@@ -256,7 +265,7 @@ teardown() {
 }
 
 @test "configure hook restarts daemon when it is active and a key is set" {
-    export SNAPCTL_GET_web_port="9090"
+    export SNAPCTL_GET_D_FTL='{"webserver": {"port": 9090}}'
     export SNAPCTL_SERVICE_STATUS="active"
     HOOK="${TEST_TMPDIR}/configure"
     sed \

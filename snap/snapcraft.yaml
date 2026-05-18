@@ -292,12 +292,10 @@ parts:
     organize:
       launcher-ftl: bin/launcher-ftl
       launcher-pihole: bin/launcher-pihole
-      config-helper.sh: bin/config-helper.sh
       check-system: bin/check-system
     stage:
       - bin/launcher-ftl
       - bin/launcher-pihole
-      - bin/config-helper.sh
       - bin/check-system
 
 apps:
