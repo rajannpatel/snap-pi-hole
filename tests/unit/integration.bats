@@ -108,9 +108,10 @@ FTL_VERSION=v6.6.2
 FTL_BRANCH=snap
 EOF
 
-    # Rewrite hooks and launchers to use tmpdir paths
-    # $SNAP_DATA/run/pihole resolves to ${TEST_TMPDIR}/data/run/pihole at
-    # runtime via the exported SNAP_DATA, so no sed rewrite is needed for it.
+    # Rewrite hooks and launchers to use tmpdir paths.
+    # "${SNAP_DATA}/run/pihole" in the launcher resolves to
+    # ${TEST_TMPDIR}/data/run/pihole at runtime via the exported SNAP_DATA,
+    # so no sed rewrite is needed for that path.
     for hook in install configure pre-refresh remove; do
         local src="${REPO_ROOT}/snap/hooks/${hook}"
         local dst="${TEST_TMPDIR}/hook-${hook}"
@@ -132,7 +133,6 @@ EOF
             -e "s|/etc/dnsmasq.d|${TEST_TMPDIR}/etc/dnsmasq.d|g" \
             -e "s|/var/log/pihole|${TEST_TMPDIR}/var/log/pihole|g" \
             -e "s|/opt/pihole|${TEST_TMPDIR}/opt|g" \
-            -e "s|/run/snap.\"\${SNAP_NAME}\"|${TEST_TMPDIR}/run/snap.pihole|g" \
             "${src}" > "${dst}"
         chmod +x "${dst}"
     done

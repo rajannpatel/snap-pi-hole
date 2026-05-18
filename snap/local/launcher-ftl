@@ -49,7 +49,7 @@ EOF
     exit 1
 fi
 
-mkdir -p /etc/pihole /etc/dnsmasq.d /var/log/pihole /run/pihole
+mkdir -p /etc/pihole /etc/dnsmasq.d /var/log/pihole "${SNAP_DATA}/run/pihole"
 
 # Seed a default config on first boot. FTL requires upstream servers to be configured
 # in order to resolve adlist domains during the initial background gravity sync.
@@ -67,7 +67,7 @@ fi
 export HOME="${SNAP_DATA}"
 
 # FTL sometimes behaves better when started from a writable directory.
-cd /run/pihole
+cd "${SNAP_DATA}/run/pihole"
 
 # If gravity.db is missing (e.g. on first install), build it in the background.
 # We sleep for 10 seconds to ensure the FTL daemon has fully initialized

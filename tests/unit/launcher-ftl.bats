@@ -35,7 +35,6 @@ setup() {
         -e "s|/etc/pihole|${TEST_TMPDIR}/etc/pihole|g" \
         -e "s|/etc/dnsmasq.d|${TEST_TMPDIR}/etc/dnsmasq.d|g" \
         -e "s|/var/log/pihole|${TEST_TMPDIR}/var/log/pihole|g" \
-        -e "s|/run/pihole|${TEST_TMPDIR}/run/pihole|g" \
         "${REPO_ROOT}/snap/local/launcher-ftl" > "${LAUNCHER}"
     chmod +x "${LAUNCHER}"
 
@@ -65,7 +64,7 @@ teardown() {
 
     [ -d "${TEST_TMPDIR}/etc/pihole" ]
     [ -d "${TEST_TMPDIR}/etc/dnsmasq.d" ]
-    [ -d "${TEST_TMPDIR}/run/pihole" ]
+    [ -d "${SNAP_DATA}/run/pihole" ]
     [ -d "${TEST_TMPDIR}/var/log/pihole" ]
 }
 
