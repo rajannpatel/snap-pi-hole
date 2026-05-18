@@ -132,6 +132,9 @@ parts:
       # looks up the root group and tries to call setgroups(0) which fails with EPERM.
       sed -i 's/setgroups(0, \&dummy) == -1/0/g' src/dnsmasq/dnsmasq.c
       sed -i 's/setgid(gp->gr_gid) == -1/0/g' src/dnsmasq/dnsmasq.c
+      # Suppress harmless chown_pihole warning in strictly confined snaps
+      # where the pihole user does not exist. Daemons run as root anyway.
+      sed -i 's/log_warn("chown_pihole(): Failed to get pihole user.*/return true;/g' src/files.c
     cmake-parameters:
       - -DCMAKE_BUILD_TYPE=Release
       - -DCMAKE_INSTALL_PREFIX=/usr
@@ -349,6 +352,8 @@ apps:
       - mount-observe
       - network-control    # required for DHCP server mode only
       - firewall-control   # required for DHCP server mode only
+      - process-control
+      - time-control
       # FTL creates /dev/shm/FTL-<pid>-lock files for inter-process
       # coordination. The default AppArmor template denies arbitrary
       # writes under /dev/shm. `private: true` gives FTL its own
