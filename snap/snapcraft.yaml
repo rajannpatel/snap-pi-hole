@@ -343,6 +343,20 @@ apps:
       - hardware-observe
       - mount-observe
 
+  # Automated gravity sync. Runs weekly. Users can customize the schedule using:
+  # snap set pihole timer.gravity-sync.schedule="mon,02:00"
+  gravity-sync:
+    command: bin/launcher-pihole -g
+    daemon: oneshot
+    timer: sun,03:00~05:00
+    plugs:
+      - network
+      - network-bind
+      - network-observe
+      - system-observe
+      - hardware-observe
+      - mount-observe
+
 # No hook plugs declared  -  install only mkdir's directories (which the
 # layout bind-mounts already grant write access to) and configure only
 # calls snapctl + pihole-FTL --config locally. Neither needs network.

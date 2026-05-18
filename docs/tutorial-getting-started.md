@@ -56,3 +56,12 @@ sudo snap logs pihole.pihole-ftl | grep -i password
 ## 6. Access the dashboard
 
 You're done! Navigate to `http://<your-machine-ip>/admin` in your browser. You can log in using the password you retrieved in the previous step, and you should now point your router (or your individual clients) to this machine's IP address for DNS resolution!
+
+## 7. Automated Gravity Updates
+
+Out of the box, the snap will automatically update your adlists (the gravity database) once a week, every Sunday between 3:00 AM and 5:00 AM. You do not need to set up any cron jobs manually.
+
+If you ever want to run a gravity update manually, you can use the wrapper script:
+```bash
+sudo pihole -g
+```

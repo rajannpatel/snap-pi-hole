@@ -89,7 +89,8 @@ gravity:
     type: string
     description: "Gravity auto-update schedule (e.g. cron string or preset like 'weekly', 'monthly')"
     default: "weekly"
-    # Note: Handled by snap/cron wrapper, not direct FTL config.
+    # Note: Handled natively by snapd timers, not by direct FTL config.
+    # Use: snap set pihole timer.gravity-sync.schedule="mon,02:00"
 
 system:
   auto_start:

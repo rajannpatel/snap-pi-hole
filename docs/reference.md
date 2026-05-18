@@ -32,6 +32,17 @@ The snap implements a ConfDB-style architecture to provide robust, type-safe con
 2. **Validation Engine (`snap/local/config-helper.sh`)**: An independent bash-based engine that parses the schema and automatically translates user input (from `snapctl get`) into validated arguments for `pihole-FTL --config`.
 3. **Atomic Transactions**: The `configure` hook processes all keys as a unified transaction. If any key fails schema validation (e.g., providing an invalid IP address), the operation is rejected gracefully with an error in the snap logs, preventing malformed configuration from reaching the daemon.
 
+### Automated Gravity Updates
+
+In a traditional Pi-hole installation, the gravity database is updated weekly via a cron job. The snap mimics this behavior natively using a snapd timer service (`gravity-sync`).
+
+By default, the snap automatically updates gravity every Sunday between 3:00 AM and 5:00 AM. 
+
+You can completely customize this schedule natively through snapd using `snap set`. For example, to change the update schedule to Mondays at 2:00 AM:
+```bash
+sudo snap set pihole timer.gravity-sync.schedule="mon,02:00"
+```
+
 While ConfDB is available in `snapd` that runs alongside `core26`, it is still an experimental feature. 
 
 To use native ConfDB today, you have to:

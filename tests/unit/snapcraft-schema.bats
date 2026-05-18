@@ -241,3 +241,21 @@ assert any("snapd2" in str(a) for a in assumes), \
     f"no snapd2.x assumption found: {assumes}"
 PYEOF
 }
+
+@test "snapcraft.yaml: gravity-sync app exists with correct timer schedule" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+apps = doc.get("apps", {})
+assert "gravity-sync" in apps, "gravity-sync app missing from apps"
+app = apps["gravity-sync"]
+assert app.get("command") == "bin/launcher-pihole -g", \
+    f"gravity-sync command wrong: {app.get('command')}"
+assert app.get("daemon") == "oneshot", \
+    f"gravity-sync daemon wrong: {app.get('daemon')}"
+assert app.get("timer") == "sun,03:00~05:00", \
+    f"gravity-sync timer wrong: {app.get('timer')}"
+PYEOF
+}
+
