@@ -41,8 +41,8 @@ sudo snap connect pihole-by-rajannpatel:network-bind
 sudo snap connect pihole-by-rajannpatel:network-control
 sudo snap connect pihole-by-rajannpatel:firewall-control
 
-# 3. Start and Configure
-# Enable the daemon and set your secure web admin password:
+**3. Start and Configure**
+Enable the daemon and set your secure web admin password:
 ```bash
 sudo snap start --enable pihole-by-rajannpatel.pihole-ftl
 echo "YourSecurePasswordHere" | sudo pihole setpassword
