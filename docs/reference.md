@@ -32,6 +32,18 @@ The snap implements a ConfDB-style architecture to provide robust, type-safe con
 2. **Validation Engine (`snap/local/config-helper.sh`)**: An independent bash-based engine that parses the schema and automatically translates user input (from `snapctl get`) into validated arguments for `pihole-FTL --config`.
 3. **Atomic Transactions**: The `configure` hook processes all keys as a unified transaction. If any key fails schema validation (e.g., providing an invalid IP address), the operation is rejected gracefully with an error in the snap logs, preventing malformed configuration from reaching the daemon.
 
+While ConfDB is available in `snapd` that runs alongside `core26`, it is still an experimental feature. 
+
+To use native ConfDB today, you have to:
+1. Explicitly enable it on the host system via `sudo snap set system experimental.confdb=true`.
+2. Provide a `confdb-schema` assertion to `snapd`.
+
+Furthermore, native ConfDB is currently heavily geared toward the **Custodian-Observer pattern**, which is designed for securely sharing configuration data *between* different snaps, rather than just managing internal configuration for a standalone app like Pi-hole. 
+
+Because it requires users to opt into experimental features at the system level, I opted not to rely on native ConfDB for this production-readiness at this point in time. It will be trivial to transfer over to native ConfDB once it is stable. 
+
+By building our own schema validator, we essentially backported the "flavor" and strictness of ConfDB into a mechanism that works out-of-the-box on every system without requiring experimental flags!
+
 ## The `pihole` CLI wrapper
 
 The official Pi-hole ecosystem includes a massive `pihole` bash script. Because snaps are confined and immutable, several of these subcommands do not make sense (e.g., you cannot "update" the pi-hole software using its bash script; you must use `snap refresh`). 

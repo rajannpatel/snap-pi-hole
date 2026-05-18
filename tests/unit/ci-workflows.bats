@@ -106,7 +106,7 @@ PYEOF
     ! grep "pi-hole/pi-hole" "${TMPDIR}/README.md" | grep -q "v1.0.0"
 }
 
-@test "README bump: idempotent — running twice produces the same result" {
+@test "README bump: idempotent - running twice produces the same result" {
     _bump_readme "v9.1.0" "v9.2.0" "v9.3"
     local first
     first="$(cat "${TMPDIR}/README.md")"
@@ -150,7 +150,7 @@ _bump_snapcraft() {
     grep -A5 "^  web:"  "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v3.0.0"
 }
 
-@test "snapcraft.yaml bump: idempotent — running twice produces the same result" {
+@test "snapcraft.yaml bump: idempotent - running twice produces the same result" {
     _bump_snapcraft "v9.1.0" "v9.2.0" "v9.3.0"
     local first
     first="$(cat "${TMPDIR}/snapcraft.yaml")"

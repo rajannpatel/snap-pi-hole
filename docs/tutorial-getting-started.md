@@ -3,7 +3,7 @@
 This tutorial will guide you through the process of taking a fresh Ubuntu machine and turning it into a network-wide ad blocker using the Pi-hole snap.
 
 > [!NOTE]
-> **Pre-release status.** This snap is not yet published to the Snap Store; the steps below assume a future `sudo snap install pihole` install path. If you want to try the snap today, see [How-To: Build and Test from Source](howto-build-and-test.md) — that guide covers building locally and installing the resulting unsigned `.snap` file with `--dangerous`. **Do not use `--dangerous` to install snaps you did not build yourself**; it bypasses signature verification.
+> **Pre-release status.** This snap is not yet published to the Snap Store; the steps below assume a future `sudo snap install pihole` install path. If you want to try the snap today, see [How-To: Build and Test from Source](howto-build-and-test.md). That guide covers building locally and installing the resulting unsigned `.snap` file with `--dangerous`. **Do not use `--dangerous` to install snaps you did not build yourself**; it bypasses signature verification.
 
 ## 1. Install the snap
 
