@@ -1,0 +1,59 @@
+name: Promotion Request
+description: Request that a tested snap revision be promoted to a higher channel (e.g., edge -> beta)
+title: "Promote Revision [XX] to [CHANNEL]"
+labels: ["promotion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping test the Pi-hole snap! Please ensure you have thoroughly verified the build in your environment before requesting a promotion.
+
+  - type: input
+    id: revision
+    attributes:
+      label: Snap Revision
+      description: The exact snap revision you tested (e.g., Revision 42, v6.6.2-1)
+      placeholder: "42"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: target_channel
+    attributes:
+      label: Target Promotion
+      description: Which channel should this revision be promoted to?
+      options:
+        - latest/beta
+        - latest/candidate
+        - latest/stable
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Testing Environment
+      description: What OS and architecture did you test this on?
+      placeholder: "Ubuntu 24.04 (arm64) on Raspberry Pi 4"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: verification
+    attributes:
+      label: Verification Checklist
+      description: Please confirm that you have actively verified the following functionality on this revision.
+      options:
+        - label: DNS Resolution is functioning correctly for clients.
+          required: true
+        - label: The Web UI is accessible and displays correct data.
+          required: true
+        - label: No fatal AppArmor denials were detected (`sudo dmesg | grep DENIED`).
+          required: true
+        - label: DHCP leases (if enabled) are working.
+
+  - type: textarea
+    id: additional_notes
+    attributes:
+      label: Additional Notes
+      description: Any other observations or performance metrics?
