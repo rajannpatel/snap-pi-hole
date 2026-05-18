@@ -45,16 +45,22 @@ Use the Pi-hole snap to:
 ## In this documentation
 
 - 🎓 **Tutorial**
-  - [Getting Started with the Pi-hole Snap](docs/tutorial-getting-started.md)
+  - [Getting Started with the Pi-hole Snap](docs/tutorials/getting-started.md)
 - 🛠️ **How-to guides**
-  - [Configure DHCP](docs/howto-dhcp-setup.md)
-  - [Migrate from a Script Install](docs/howto-migrate-from-script.md)
-  - [Build and Test from Source](docs/howto-build-and-test.md)
+  - [Migrate from an Existing Install](docs/how-to/migrate-existing.md)
+  - [Configure DHCP](docs/how-to/dhcp-setup.md)
+  - [Backups and Restores](docs/how-to/backups.md)
+  - [Build and Test from Source](docs/how-to/build-and-test.md)
 - 📚 **Reference**
-  - [Configuration, CLI Wrapping, and Layout](docs/reference.md)
+  - [Native Configuration](docs/reference/configuration.md)
+  - [CLI Wrapper Commands](docs/reference/cli-commands.md)
+  - [Networking Compatibility](docs/reference/networking-compatibility.md)
+  - [Ports and Firewall](docs/reference/ports-and-firewall.md)
+  - [Supported Systems](docs/reference/supported-systems.md)
 - 💡 **Explanation**
-  - [Architecture and Rationale](docs/explanation-architecture.md)
-  - [Why Unbound is Not Bundled](docs/explanation-unbound.md)
+  - [Architecture and Rationale](docs/explanation/architecture.md)
+  - [Why Unbound is Not Bundled](docs/explanation/unbound.md)
+  - [Refresh Behavior and Updates](docs/explanation/refresh-behavior.md)
 
 ## Project and community
 
