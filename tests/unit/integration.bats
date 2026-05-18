@@ -241,7 +241,8 @@ STUB
 
     # launcher-ftl should not fail due to missing directories
     LAUNCHER_NO_PORT="${TEST_TMPDIR}/launcher-ftl-noport"
-    sed 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
+    sed -e 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
+        -e 's|elif (exec 3<>/dev/tcp/127.0.0.1/53).*|elif false; then|' \
         "${TEST_TMPDIR}/launcher-ftl" > "${LAUNCHER_NO_PORT}"
     chmod +x "${LAUNCHER_NO_PORT}"
 
@@ -260,7 +261,8 @@ STUB
 
     # launcher-ftl should seed it
     LAUNCHER_NO_PORT="${TEST_TMPDIR}/launcher-ftl-noport"
-    sed 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
+    sed -e 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
+        -e 's|elif (exec 3<>/dev/tcp/127.0.0.1/53).*|elif false; then|' \
         "${TEST_TMPDIR}/launcher-ftl" > "${LAUNCHER_NO_PORT}"
     chmod +x "${LAUNCHER_NO_PORT}"
 
@@ -285,6 +287,7 @@ STUB
     LAUNCHER_HOME="${TEST_TMPDIR}/launcher-ftl-home"
     sed \
         -e 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
+        -e 's|elif (exec 3<>/dev/tcp/127.0.0.1/53).*|elif false; then|' \
         -e 's|exec .*|echo HOME=${HOME}|' \
         "${TEST_TMPDIR}/launcher-ftl" > "${LAUNCHER_HOME}"
     chmod +x "${LAUNCHER_HOME}"
