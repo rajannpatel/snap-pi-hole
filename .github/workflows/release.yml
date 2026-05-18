@@ -1,39 +1,27 @@
-name: release
+name: Release Pipeline
 
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      channel:
-        description: 'Snap Store channel to release to (e.g. latest/edge, 6/edge)'
-        required: true
-        default: 'latest/edge'
 
-# `grade: devel` snaps can only be published to the edge channel. Once we
-# flip `grade` to `stable` in snapcraft.yaml, promote to beta/candidate via
-# `snapcraft release pihole <rev> <channel>` or by re-running this workflow
-# with a different channel input.
 env:
-  DEFAULT_CHANNEL: latest/edge
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  release:
-    name: build + publish
+  lint:
+    name: shellcheck + bats
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install test dependencies
+      - name: Install shellcheck and bats
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck bats python3-yaml
 
-      - name: Lint and unit tests
+      - name: shellcheck launchers and hooks
         run: |
           shellcheck \
             snap/local/launcher-ftl \
@@ -42,18 +30,256 @@ jobs:
             snap/hooks/configure \
             snap/hooks/pre-refresh \
             snap/hooks/remove
-          bats tests/unit/
+
+      - name: bats unit tests
+        run: bats tests/unit/
+
+  build:
+    name: build (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64]
+        # arm64 and armhf are covered by `snapcraft remote-build` once
+        # we wire up a Launchpad token; GH-hosted runners only have
+        # amd64.
+    steps:
+      - uses: actions/checkout@v5
 
       - name: Build snap
         id: snapcraft
         uses: snapcore/action-build@v1
         with:
+          # snapcraft 9.x supports every base from core18 onwards; aligning
+          # the build and release workflows on the same channel keeps the
+          # behaviour reproducible across them.
           snapcraft-channel: 9.x/candidate
+
+      - name: Upload snap artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pihole-snap-${{ matrix.arch }}
+          path: ${{ steps.snapcraft.outputs.snap }}
+          if-no-files-found: error
+
+  smoke:
+    name: smoke test
+    needs: [build, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download snap
+        uses: actions/download-artifact@v4
+        with:
+          name: pihole-snap-amd64
+
+      - name: Free port 53
+        run: |
+          sudo mkdir -p /etc/systemd/resolved.conf.d
+          printf '[Resolve]\nDNSStubListener=no\n' \
+            | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
+          sudo systemctl restart systemd-resolved
+
+      - name: Install snap and connect plugs
+        run: |
+          # `snap refresh` only works once the snapd snap exists, which isn't
+          # guaranteed on a fresh ubuntu-latest runner (only the apt package
+          # is). Hence the install-or-refresh fallback.
+          sudo snap install snapd --channel=latest/edge \
+            || sudo snap refresh snapd --channel=latest/edge
+          sudo snap install core26 --channel=latest/edge || true
+          sudo snap install --dangerous ./pihole_*.snap
+          
+          # Explicitly connect network interfaces and required system plugs
+          sudo snap connect pihole:network-bind
+          sudo snap connect pihole:system-observe
+          sudo snap connect pihole:hardware-observe
+          sudo snap connect pihole:mount-observe
+          sudo snap connect pihole:network-control
+          sudo snap connect pihole:firewall-control
+          
+          # Private /dev/shm for FTL locks. --dangerous installs don't
+          # always auto-connect; connecting explicitly is a no-op if
+          # snapd already connected it.
+          sudo snap connect pihole:shared-memory || true
+          sudo snap connect pihole:network-observe || true
+
+      - name: CLI sanity
+        run: |
+          sudo pihole version
+
+      - name: Blocked subcommand returns error and points at snap refresh
+        run: |
+          set +e
+          out="$(sudo pihole -up 2>&1)"
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+              echo "expected non-zero exit from 'pihole -up'" >&2
+              exit 1
+          fi
+          echo "$out" | grep -q 'snap refresh pihole'
+
+      - name: Start daemon and wait for DNS
+        run: |
+          sudo snap start --enable pihole.pihole-ftl
+          
+          bound=0
+          echo "Waiting for pihole-FTL to bind to port 53 and respond..."
+          for i in $(seq 1 60); do
+              echo "--- ss output at ${i}s ---"
+              sudo ss -lnup | grep ':53' || true
+              
+              if sudo ss -lnup | grep -q ':53 ' && dig +short +time=1 +tries=1 @127.0.0.1 pi.hole >/dev/null 2>&1; then
+                  echo "FTL bound to port 53 and verified active after ${i}s"
+                  bound=1
+                  break
+              fi
+              sleep 1
+          done
+          
+          if [ "$bound" -eq 0 ]; then
+              echo "::error::FTL failed to bind port 53 within 60 seconds" >&2
+              sudo snap logs pihole.pihole-ftl | tail -50 || true
+              exit 1
+          fi
+
+          # =================================================================
+          # NEW POST-START SANITY CHECK
+          # =================================================================
+          echo "Verifying live CLI status reporting..."
+          sudo pihole status
+
+      - name: Resolve a name via FTL
+        run: |
+          dig +tries=2 +timeout=2 @127.0.0.1 example.com
+          # exit non-zero if dig fails outright; an answer of any kind
+          # (even NXDOMAIN before gravity is populated) proves FTL is alive.
+
+      - name: snap set round-trip
+        run: |
+          sudo snap set pihole ftl.webserver.port=8123
+          # Configure hook runs after `snap set`; give it a moment to apply
+          # and the daemon a moment to restart.
+          sleep 5
+          if ! sudo grep -E '8123' /var/snap/pihole/current/etc/pihole/pihole.toml; then
+              echo "snap set did not propagate to pihole.toml" >&2
+              sudo cat /var/snap/pihole/current/etc/pihole/pihole.toml || true
+              exit 1
+          fi
+
+      - name: Web UI health check
+        run: |
+          echo "Testing embedded Civetweb HTTP server on port 8123..."
+          # Fetch the dashboard and assert HTTP 200 OK.
+          # The dashboard redirects /admin to /admin/, so we request /admin/ directly.
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8123/admin/")
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+              echo "::error::Web UI health check failed! HTTP status: $HTTP_STATUS" >&2
+              exit 1
+          fi
+          echo "Web UI is healthy."
+
+      - name: Gravity update (pihole -g) runs cleanly under confinement
+        run: |
+          # Run a full gravity update and assert it exits 0. This exercises
+          # network access from within strict confinement (fetching block lists)
+          # and write access to the gravity database path under $SNAP_DATA.
+          sudo pihole -g
+          # Confirm the gravity.db was written inside the snap data directory.
+          if [ ! -f /var/snap/pihole/current/etc/pihole/gravity.db ]; then
+              echo "gravity.db not found after 'pihole -g'" >&2
+              exit 1
+          fi
+          echo "gravity.db size: $(du -h /var/snap/pihole/current/etc/pihole/gravity.db | cut -f1)"
+
+      - name: Refresh and migration test
+        run: |
+          echo "Simulating an over-the-top snap refresh..."
+          # Re-installing an existing local snap triggers the refresh pathway
+          sudo snap install --dangerous ./pihole_*.snap
+          
+          echo "Verifying pre-refresh snapshot generation..."
+          if ! sudo ls /var/snap/pihole/common/snapshots/pihole-backup-*.tar.gz >/dev/null 2>&1; then
+              echo "::error::pre-refresh snapshot was not generated!" >&2
+              exit 1
+          fi
+          
+          echo "Verifying post-refresh data persistence..."
+          if ! sudo grep -E '8123' /var/snap/pihole/current/etc/pihole/pihole.toml; then
+              echo "::error::Data migration failed! web.port=8123 did not persist across refresh." >&2
+              exit 1
+          fi
+          
+          echo "Verifying daemon health after refresh..."
+          sudo pihole status
+          dig +short +time=1 +tries=1 @127.0.0.1 pi.hole >/dev/null 2>&1
+
+      - name: Show recent daemon logs
+        if: always()
+        run: sudo snap logs pihole.pihole-ftl | tail -100
+
+      - name: Check for AppArmor denials
+        if: always()
+        run: |
+          # ---------------------------------------------------------------------
+          # AppArmor Verification Exceptions
+          # ---------------------------------------------------------------------
+          # This smoke test enforces strict zero-tolerance for unexpected AppArmor
+          # denials to ensure confinement doesn't silently break core functionality.
+          # However, certain utilities inherently probe for elevated capabilities 
+          # that they do not strictly require for basic operation. We explicitly
+          # filter these benign, non-fatal requests to prevent false test failures.
+          #
+          # EXCEPTION 1: dac_read_search & dac_override
+          #   Context: Requested broadly by bash and common coreutils when scanning
+          #            directories or reading files owned by root.
+          #   Reason:  Non-fatal. The shell and utilities gracefully fall back to
+          #            standard DAC permissions when denied.
+          #
+          # EXCEPTION 2: net_admin
+          #   Context: Requested by `ss` (socket statistics) during `pihole status`.
+          #   Reason:  Non-fatal. `ss` tries to drop into `net_admin` to fetch deep
+          #            kernel packet queues and process-level socket ownership. When
+          #            denied, it successfully falls back to standard unprivileged
+          #            polling which is sufficient for `pihole status` to verify
+          #            that port 53 is bound.
+          # ---------------------------------------------------------------------
+          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole' | grep -vE 'dac_read_search|dac_override|net_admin'; then
+              echo "::error::AppArmor recorded fatal denials against the pihole snap (see above)"
+              # Print the actual fatal errors to the log before exiting
+              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole' | grep -vE 'dac_read_search|dac_override|net_admin'
+              exit 1
+          else
+              echo "No fatal AppArmor denials recorded for snap.pihole."
+          fi
+
+      - name: Dump service status on failure
+        if: failure()
+        run: |
+          sudo snap services pihole || true
+          sudo journalctl -u snap.pihole.pihole-ftl.service --no-pager | tail -200 || true
+          echo "--- FTL.log ---"
+          sudo cat /var/snap/pihole/common/var/log/pihole/FTL.log || true
+
+  publish:
+    name: publish to beta
+    needs: [smoke]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download snap
+        uses: actions/download-artifact@v4
+        with:
+          name: pihole-snap-amd64
+          path: .
 
       - name: Publish to Snap Store
         uses: snapcore/action-publish@v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
-          snap: ${{ steps.snapcraft.outputs.snap }}
-          release: ${{ inputs.channel || env.DEFAULT_CHANNEL }}
+          snap: pihole_*.snap
+          release: latest/beta

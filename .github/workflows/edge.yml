@@ -1,9 +1,8 @@
-name: build
+name: Edge Pipeline
 
 on:
   push:
     branches: [main]
-  pull_request:
   workflow_dispatch:
 
 env:
@@ -261,3 +260,25 @@ jobs:
           sudo journalctl -u snap.pihole.pihole-ftl.service --no-pager | tail -200 || true
           echo "--- FTL.log ---"
           sudo cat /var/snap/pihole/common/var/log/pihole/FTL.log || true
+
+  publish:
+    name: publish to edge
+    needs: [smoke]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download snap
+        uses: actions/download-artifact@v4
+        with:
+          name: pihole-snap-amd64
+          path: .
+
+      - name: Publish to Snap Store
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: pihole_*.snap
+          release: latest/edge

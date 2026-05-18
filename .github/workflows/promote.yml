@@ -1,0 +1,26 @@
+name: Promote Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'Snap revision to promote'
+        required: true
+      target_channel:
+        description: 'Target channel (e.g., latest/candidate, latest/stable)'
+        required: true
+        default: 'latest/candidate'
+
+jobs:
+  promote:
+    name: promote snap revision
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Snapcraft
+        run: sudo snap install snapcraft --classic
+
+      - name: Promote Revision
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          snapcraft release pihole ${{ github.event.inputs.revision }} ${{ github.event.inputs.target_channel }}
