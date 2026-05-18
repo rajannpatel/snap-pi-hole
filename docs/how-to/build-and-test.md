@@ -62,3 +62,12 @@ dig @127.0.0.1 example.com
 ```
 
 If the `dig` command successfully resolves a name against the `127.0.0.1` interface, the snap's DNS stack has correctly bound to the port and is serving queries.
+
+### AppArmor Confinement Verification
+
+Our CI pipeline aggressively enforces strict zero-tolerance for unexpected AppArmor denials. During the end-to-end smoke test, it actively scans `dmesg` to ensure that confinement doesn't silently break core functionality.
+
+However, certain underlying utilities inherently probe for elevated capabilities that they do not strictly require for basic operation. The CI explicitly filters these benign, non-fatal requests to prevent false test failures:
+
+- **`dac_read_search` and `dac_override`**: Requested broadly by bash and common coreutils when scanning directories or reading files owned by `root`. The shell and utilities gracefully fall back to standard DAC permissions when denied.
+- **`net_admin`**: Requested by `ss` (socket statistics) during `pihole status`. `ss` tries to drop into `net_admin` to fetch deep kernel packet queues and process-level socket ownership. When denied, it successfully falls back to standard unprivileged polling which is sufficient for `pihole status` to verify that port 53 is bound.

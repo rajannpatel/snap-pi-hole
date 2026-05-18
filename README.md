@@ -14,7 +14,7 @@
 >
 > These versions are automatically tracked and updated by a daily GitHub Actions bot
 
-> [!IMPORTANT]
+> [!NOTE]
 > **This snap is built on the Ubuntu [Core 26 base snap (core26)](https://snapcraft.io/core26).**
 >
 > Pi-hole FTL v6.6.x dropped support for mbedTLS 2.x and now strictly requires **mbedTLS ≥ 3.5.0** and **Nettle ≥ 3.9**. The Ubuntu Core 24 snap base (core24) ships older versions of both libraries, so the package is built on Ubuntu Core 26 (core26).
@@ -35,12 +35,15 @@ It bind-mounts Pi-hole's upstream-hardcoded paths into the snap's secure data di
 
 It is built for homelab operators, system administrators, and privacy advocates who want a stable, network-wide ad blocker without mutating their host operating system.
 
-**Where does it fit?**
+## Why choose the Pi-hole Snap?
 
-Use the Pi-hole snap to:
-- Replace Pi-hole's manual `curl | bash` installation script.
-- Ensure atomic, one-click rollbacks if a DNS update breaks your network.
-- Explicitly audit network privileges rather than granting a script root access.
+Snaps provide a comprehensive, multi-layered approach to software distribution that extends from basic application delivery to full system management. The Pi-hole snap leverages these capabilities to provide a superior deployment experience:
+
+- **System Integrity**: The snap is a tamper-proof, GPG-signed, and compressed read-only filesystem image. Unlike traditional packages, it is mounted rather than unpacked on disk, preventing accidental mutations to the core binaries.
+- **Safe & Reliable Updates**: Updates are fully transactional. If a Pi-hole update breaks your network's DNS, you have clear rollback capabilities to safely return to the previous stable state (`snap revert pihole`).
+- **Security by Design**: The snap security model follows a "deny by default" principle. Pi-hole runs in an isolated AppArmor sandbox, with system access mediated through pre-defined interfaces explicitly controlled by the administrator.
+- **Long-Term Maintainability**: Snapping Pi-hole decouples it from your underlying OS library versions, effectively solving dependency conflicts "forever in the future" and keeping your host operating system clean.
+- **Built-in Data Protection**: Snaps include a native backup and restore mechanism (`snap save pihole`). Pre-refresh hooks also automatically back up your Pi-hole configuration and blocklists to ensure your user state is perfectly preserved during updates or rollbacks.
 
 ## In this documentation
 

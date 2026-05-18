@@ -222,11 +222,33 @@ jobs:
       - name: Check for AppArmor denials
         if: always()
         run: |
-          # Filter out dac_read_search and dac_override bash capabilities, AppArmor will block `pihole -g` and preserve confinement
-          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole' | grep -vE 'dac_read_search|dac_override'; then
+          # ---------------------------------------------------------------------
+          # AppArmor Verification Exceptions
+          # ---------------------------------------------------------------------
+          # This smoke test enforces strict zero-tolerance for unexpected AppArmor
+          # denials to ensure confinement doesn't silently break core functionality.
+          # However, certain utilities inherently probe for elevated capabilities 
+          # that they do not strictly require for basic operation. We explicitly
+          # filter these benign, non-fatal requests to prevent false test failures.
+          #
+          # EXCEPTION 1: dac_read_search & dac_override
+          #   Context: Requested broadly by bash and common coreutils when scanning
+          #            directories or reading files owned by root.
+          #   Reason:  Non-fatal. The shell and utilities gracefully fall back to
+          #            standard DAC permissions when denied.
+          #
+          # EXCEPTION 2: net_admin
+          #   Context: Requested by `ss` (socket statistics) during `pihole status`.
+          #   Reason:  Non-fatal. `ss` tries to drop into `net_admin` to fetch deep
+          #            kernel packet queues and process-level socket ownership. When
+          #            denied, it successfully falls back to standard unprivileged
+          #            polling which is sufficient for `pihole status` to verify
+          #            that port 53 is bound.
+          # ---------------------------------------------------------------------
+          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole' | grep -vE 'dac_read_search|dac_override|net_admin'; then
               echo "::error::AppArmor recorded fatal denials against the pihole snap (see above)"
               # Print the actual fatal errors to the log before exiting
-              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole' | grep -vE 'dac_read_search|dac_override'
+              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole' | grep -vE 'dac_read_search|dac_override|net_admin'
               exit 1
           else
               echo "No fatal AppArmor denials recorded for snap.pihole."
