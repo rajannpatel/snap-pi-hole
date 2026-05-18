@@ -35,7 +35,7 @@ setup() {
         -e "s|/etc/pihole|${TEST_TMPDIR}/etc/pihole|g" \
         -e "s|/etc/dnsmasq.d|${TEST_TMPDIR}/etc/dnsmasq.d|g" \
         -e "s|/var/log/pihole|${TEST_TMPDIR}/var/log/pihole|g" \
-        -e "s|/run/snap.\"\${SNAP_NAME}\"|${TEST_TMPDIR}/run/snap.pihole|g" \
+        -e "s|/run/pihole|${TEST_TMPDIR}/run/pihole|g" \
         "${REPO_ROOT}/snap/local/launcher-ftl" > "${LAUNCHER}"
     chmod +x "${LAUNCHER}"
 
@@ -65,9 +65,8 @@ teardown() {
 
     [ -d "${TEST_TMPDIR}/etc/pihole" ]
     [ -d "${TEST_TMPDIR}/etc/dnsmasq.d" ]
-    [ -d "${SNAP_DATA}/run/pihole" ]
+    [ -d "${TEST_TMPDIR}/run/pihole" ]
     [ -d "${TEST_TMPDIR}/var/log/pihole" ]
-    [ -d "${TEST_TMPDIR}/run/snap.pihole" ]
 }
 
 @test "launcher-ftl seeds pihole.toml with default upstreams when none exists" {
@@ -158,21 +157,6 @@ teardown() {
 
     run bash "${LAUNCHER_ENV}"
     [[ "$output" == *"HOME=${SNAP_DATA}"* ]]
-}
-
-@test "launcher-ftl exports FTLCONF_files_pid for IPC" {
-    LAUNCHER_ENV="${TEST_TMPDIR}/launcher-env2"
-    sed \
-        's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
-        "${LAUNCHER}" > "${LAUNCHER_ENV}"
-    chmod +x "${LAUNCHER_ENV}"
-
-    # Replace FTL stub with one that records the env variable
-    printf '#!/bin/sh\necho "FTLCONF_files_pid=${FTLCONF_files_pid}"\n' > "${SNAP}/usr/bin/pihole-FTL"
-    chmod +x "${SNAP}/usr/bin/pihole-FTL"
-
-    run bash "${LAUNCHER_ENV}"
-    [[ "$output" == *"FTLCONF_files_pid=/run/snap.pihole/pihole-FTL.pid"* ]]
 }
 
 @test "launcher-ftl changes cwd to run/pihole before exec" {

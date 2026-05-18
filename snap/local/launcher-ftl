@@ -2,14 +2,10 @@
 # Daemon launcher for pihole-FTL inside the snap sandbox.
 #
 # Path remapping is handled by the `layout:` block in snapcraft.yaml,
-# so /etc/pihole and /var/log/pihole already point at writable snap data
-# dirs by the time this script runs. /run/* can't be a layout target
-# (snapd forbids new top-level /run dirs), so the runtime state dir
-# lives directly under $SNAP_DATA.
+# so /etc/pihole, /var/log/pihole, and /run/pihole already point at writable
+# snap data dirs by the time this script runs.
 set -eu
 
-# Ensure the AppArmor-approved PID directory exists (wiped on every reboot)
-mkdir -p /run/snap."${SNAP_NAME}"
 
 # Detect the most common port-53 collision: systemd-resolved's stub
 # listener on 127.0.0.53. Fail fast with a clear message  -  otherwise
@@ -51,7 +47,7 @@ EOF
     exit 1
 fi
 
-mkdir -p /etc/pihole /etc/dnsmasq.d /var/log/pihole "${SNAP_DATA}/run/pihole"
+mkdir -p /etc/pihole /etc/dnsmasq.d /var/log/pihole /run/pihole
 
 # Seed a default config on first boot. FTL requires upstream servers to be configured
 # in order to resolve adlist domains during the initial background gravity sync.
@@ -68,12 +64,8 @@ fi
 # Some scripts (and a few FTL code paths) assume $HOME is writable.
 export HOME="${SNAP_DATA}"
 
-# Force FTL to use an absolute path for its PID file, regardless of CWD.
-# This ensures that CLI commands (like `pihole -g`) can locate the daemon for IPC.
-export FTLCONF_files_pid="/run/snap.${SNAP_NAME}/pihole-FTL.pid"
-
 # FTL sometimes behaves better when started from a writable directory.
-cd "${SNAP_DATA}/run/pihole"
+cd /run/pihole
 
 # If gravity.db is missing (e.g. on first install), build it in the background.
 # We sleep for 10 seconds to ensure the FTL daemon has fully initialized
