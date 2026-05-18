@@ -53,8 +53,17 @@ fi
 
 mkdir -p /etc/pihole /etc/dnsmasq.d /var/log/pihole "${SNAP_DATA}/run/pihole"
 
-# Seed an empty config on first boot; FTL fills in defaults for missing keys.
-[ -f /etc/pihole/pihole.toml ] || : > /etc/pihole/pihole.toml
+# Seed a default config on first boot. FTL requires upstream servers to be configured
+# in order to resolve adlist domains during the initial background gravity sync.
+if [ ! -f /etc/pihole/pihole.toml ]; then
+    cat > /etc/pihole/pihole.toml <<EOF
+[dns]
+  upstreams = [
+    "8.8.8.8",
+    "8.8.4.4"
+  ]
+EOF
+fi
 
 # Some scripts (and a few FTL code paths) assume $HOME is writable.
 export HOME="${SNAP_DATA}"

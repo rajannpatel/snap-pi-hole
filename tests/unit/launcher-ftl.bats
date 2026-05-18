@@ -70,15 +70,23 @@ teardown() {
     [ -d "${TEST_TMPDIR}/run/snap.pihole" ]
 }
 
-@test "launcher-ftl seeds an empty pihole.toml when none exists" {
+@test "launcher-ftl seeds pihole.toml with default upstreams when none exists" {
     mkdir -p "${TEST_TMPDIR}/etc/pihole"
     TOML="${TEST_TMPDIR}/etc/pihole/pihole.toml"
     [ ! -f "${TOML}" ]  # pre-condition: does not exist yet
 
-    # Run only the seeding line in isolation
-    bash -c "[ -f '${TOML}' ] || : > '${TOML}'"
+    # Run the launcher bypassing port checks to trigger seeding
+    LAUNCHER_SEED="${TEST_TMPDIR}/launcher-seed"
+    sed 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
+        "${LAUNCHER}" > "${LAUNCHER_SEED}"
+    chmod +x "${LAUNCHER_SEED}"
+
+    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" bash "${LAUNCHER_SEED}" 2>/dev/null || true
 
     [ -f "${TOML}" ]
+    grep -q '\[dns\]' "${TOML}"
+    grep -q 'upstreams' "${TOML}"
+    grep -q '8.8.8.8' "${TOML}"
 }
 
 @test "launcher-ftl does not overwrite an existing pihole.toml" {
@@ -86,10 +94,18 @@ teardown() {
     TOML="${TEST_TMPDIR}/etc/pihole/pihole.toml"
     echo "existing=content" > "${TOML}"
 
-    bash -c "[ -f '${TOML}' ] || : > '${TOML}'"
+    LAUNCHER_SEED="${TEST_TMPDIR}/launcher-seed2"
+    sed 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
+        "${LAUNCHER}" > "${LAUNCHER_SEED}"
+    chmod +x "${LAUNCHER_SEED}"
 
-    # File must still contain the original content
+    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" bash "${LAUNCHER_SEED}" 2>/dev/null || true
+
+    # File must still contain the original content and NOT the default upstreams
     grep -q "existing=content" "${TOML}"
+    if grep -q '\[dns\]' "${TOML}"; then
+        false
+    fi
 }
 
 # ---------------------------------------------------------------------------
