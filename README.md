@@ -2,7 +2,7 @@
 
 <img align="right" src="./snap/gui/pihole.png" width="120" alt="Pi-hole Logo">
 
-[![Build and Smoke Test](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/build.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/build.yml)
+[![Build and Smoke Test](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/edge.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/edge.yml)
 [![Upstream Tracker](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-upstream.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-upstream.yml)
 
 
