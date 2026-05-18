@@ -29,22 +29,22 @@ For a detailed explanation of what this snap is, how it works, and why it's the 
 ## In this documentation
 
 - 🎓 **Tutorial**
-  - [Getting Started with the Pi-hole Snap](https://github.com/rajannpatel/snap-pi-hole/wiki/Tutorial-Getting-Started)
+  - [Getting Started with the Pi-hole Snap](https://github.com/rajannpatel/snap-pi-hole/wiki/Tutorial:-Getting-Started)
 - 🛠️ **How-to guides**
-  - [Migrate from an Existing Install](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To-Migrate-from-an-Existing-Install)
-  - [Configure DHCP](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To-Configure-DHCP)
-  - [Backups and Restores](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To-Backups-and-Restores)
-  - [Build and Test from Source](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To-Build-and-Test-from-Source)
+  - [Migrate from an Existing Install](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Migrate-from-an-Existing-Install)
+  - [Configure DHCP](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Configure-DHCP)
+  - [Backups and Restores](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Backups-and-Restores)
+  - [Build and Test from Source](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Build-and-Test-from-Source)
 - 📚 **Reference**
-  - [Native Configuration](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference-Native-Configuration)
-  - [CLI Wrapper Commands](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference-CLI-Wrapper-Commands)
-  - [Networking Compatibility](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference-Networking-Compatibility)
-  - [Ports and Firewall](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference-Ports-and-Firewall)
-  - [Supported Systems](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference-Supported-Systems)
+  - [Native Configuration](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-Native-Configuration)
+  - [CLI Wrapper Commands](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-CLI-Wrapper-Commands)
+  - [Networking Compatibility](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-Networking-Compatibility)
+  - [Ports and Firewall](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-Ports-and-Firewall)
+  - [Supported Systems](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-Supported-Systems)
 - 💡 **Explanation**
-  - [Architecture and Rationale](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation-Architecture-and-Rationale)
-  - [Why Unbound is Not Bundled](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation-Why-Unbound-is-Not-Bundled)
-  - [Refresh Behavior and Updates](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation-Refresh-Behavior-and-Updates)
+  - [Architecture and Rationale](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Architecture-and-Rationale)
+  - [Why Unbound is Not Bundled](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Why-Unbound-is-Not-Bundled)
+  - [Refresh Behavior and Updates](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Refresh-Behavior-and-Updates)
 
 ## Project and community
 
