@@ -352,6 +352,29 @@ apps:
       - network
       - network-bind
 
+  # Explicit top-level convenience aliases
+  status:
+    command: bin/launcher-pihole status
+    plugs:
+      - network
+      - network-bind
+      - system-observe
+  
+  health:
+    command: bin/check-system
+    plugs:
+      - network
+      - network-bind
+
+  debug:
+    command: bin/launcher-pihole -d
+    plugs:
+      - network
+      - network-bind
+      - system-observe
+      - hardware-observe
+      - mount-observe
+
   # Automated gravity sync. Runs weekly. Users can customize the schedule using:
   # snap set pihole timer.gravity-sync.schedule="mon,02:00"
   gravity-sync:
