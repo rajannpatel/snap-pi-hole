@@ -182,3 +182,13 @@ EOF
     # After sed rewriting, /opt/pihole becomes ${TMPDIR}/opt, so check for that
     [[ "$output" == *"${TMPDIR}/opt"* ]]
 }
+
+@test "launcher-pihole exports FTLCONF_files_pid for IPC" {
+    cat > "${STUB}" <<'EOF'
+#!/bin/sh
+echo "FTLCONF_files_pid=${FTLCONF_files_pid}"
+EOF
+    run "${LAUNCHER}" status
+    [ "$status" -eq 0 ]
+    [[ "$output" == "FTLCONF_files_pid=/run/snap.pihole/pihole-FTL.pid" ]]
+}

@@ -30,5 +30,6 @@ esac
 
 export HOME="${SNAP_DATA}"
 export PATH="/opt/pihole:${PATH}"
+export FTLCONF_files_pid="/run/snap.pihole/pihole-FTL.pid"
 
 exec /opt/pihole/pihole "$@"

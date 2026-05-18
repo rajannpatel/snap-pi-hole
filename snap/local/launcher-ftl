@@ -68,7 +68,11 @@ fi
 # Some scripts (and a few FTL code paths) assume $HOME is writable.
 export HOME="${SNAP_DATA}"
 
-# FTL writes its pid file relative to cwd in a couple of code paths.
+# Force FTL to use an absolute path for its PID file, regardless of CWD.
+# This ensures that CLI commands (like `pihole -g`) can locate the daemon for IPC.
+export FTLCONF_files_pid="/run/snap.${SNAP_NAME}/pihole-FTL.pid"
+
+# FTL sometimes behaves better when started from a writable directory.
 cd "${SNAP_DATA}/run/pihole"
 
 # If gravity.db is missing (e.g. on first install), build it in the background.

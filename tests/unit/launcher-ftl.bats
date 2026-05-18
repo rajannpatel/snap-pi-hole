@@ -160,6 +160,21 @@ teardown() {
     [[ "$output" == *"HOME=${SNAP_DATA}"* ]]
 }
 
+@test "launcher-ftl exports FTLCONF_files_pid for IPC" {
+    LAUNCHER_ENV="${TEST_TMPDIR}/launcher-env2"
+    sed \
+        's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
+        "${LAUNCHER}" > "${LAUNCHER_ENV}"
+    chmod +x "${LAUNCHER_ENV}"
+
+    # Replace FTL stub with one that records the env variable
+    printf '#!/bin/sh\necho "FTLCONF_files_pid=${FTLCONF_files_pid}"\n' > "${SNAP}/usr/bin/pihole-FTL"
+    chmod +x "${SNAP}/usr/bin/pihole-FTL"
+
+    run bash "${LAUNCHER_ENV}"
+    [[ "$output" == *"FTLCONF_files_pid=/run/snap.pihole/pihole-FTL.pid"* ]]
+}
+
 @test "launcher-ftl changes cwd to run/pihole before exec" {
     LAUNCHER_CWD="${TEST_TMPDIR}/launcher-cwd"
     sed \
