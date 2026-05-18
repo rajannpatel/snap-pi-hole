@@ -23,4 +23,4 @@ jobs:
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         run: |
-          snapcraft release pihole ${{ github.event.inputs.revision }} ${{ github.event.inputs.target_channel }}
+          snapcraft release pihole-by-rajannpatel ${{ github.event.inputs.revision }} ${{ github.event.inputs.target_channel }}
