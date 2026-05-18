@@ -389,9 +389,18 @@ apps:
       - hardware-observe
       - mount-observe
 
-# No hook plugs declared  -  install only mkdir's directories (which the
-# layout bind-mounts already grant write access to) and configure only
-# calls snapctl + pihole-FTL --config locally. Neither needs network.
+hooks:
+  post-refresh:
+    plugs:
+      - network
+      - network-bind
+      - network-observe
+      - system-observe
+      - hardware-observe
+      - mount-observe
+
+# install only mkdir's directories (which the layout bind-mounts already
+# grant write access to) and configure only calls snapctl + pihole-FTL.
 
 plugs:
   # Private /dev/shm namespace for FTL. snapd creates

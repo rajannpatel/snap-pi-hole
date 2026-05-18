@@ -18,7 +18,7 @@ SNAPSHOT_FILE="${SNAPSHOT_DIR}/pihole-backup-${TIMESTAMP}.tar.gz"
 if [ -d /etc/pihole ]; then
     # Create a quick snapshot of /etc/pihole in the background (avoid blocking for too long)
     # Exclude large FTL databases which are ephemeral anyway.
-    tar -czf "$SNAPSHOT_FILE" --exclude='pihole-FTL.db' -C /etc pihole >/dev/null 2>&1 || true
+    tar -czf "$SNAPSHOT_FILE" --exclude='pihole-FTL.db' -C "${SNAP_DATA}/etc" pihole >/dev/null 2>&1 || true
     # Keep only the last 3 snapshots to save space
     # shellcheck disable=SC2012
     ls -1t "${SNAPSHOT_DIR}"/pihole-backup-*.tar.gz 2>/dev/null | tail -n +4 | xargs -I {} rm -f {} || true
