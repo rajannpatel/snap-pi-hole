@@ -2,8 +2,10 @@
 # Daemon launcher for pihole-FTL inside the snap sandbox.
 #
 # Path remapping is handled by the `layout:` block in snapcraft.yaml,
-# so /etc/pihole, /var/log/pihole, and /run/pihole already point at writable
-# snap data dirs by the time this script runs.
+# so /etc/pihole and /var/log/pihole already point at writable snap data
+# dirs by the time this script runs. The PID file lives in /etc/pihole/
+# (layout-mounted) so it is accessible to ALL snap apps regardless of
+# the snap's published store name.
 set -eu
 
 

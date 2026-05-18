@@ -120,11 +120,11 @@ parts:
       sed -i 's/mbedtls_x509write_crt_pem(&ca_cert, ca_buffer, sizeof(ca_buffer))/mbedtls_x509write_crt_pem(\&ca_cert, ca_buffer, sizeof(ca_buffer), mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE)/g' src/webserver/x509.c
       sed -i 's/mbedtls_x509write_crt_pem(&server_cert, cert_buffer, sizeof(cert_buffer))/mbedtls_x509write_crt_pem(\&server_cert, cert_buffer, sizeof(cert_buffer), mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE)/g' src/webserver/x509.c
       sed -i 's/mbedtls_pk_parse_keyfile(&key, certfile, NULL)/mbedtls_pk_parse_keyfile(\&key, certfile, NULL, mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE)/g' src/webserver/x509.c
-      # Redirect PID files to /run/pihole which is bind-mounted via the layout
-      # to $SNAP_DATA/run/pihole. This path is shared across ALL snap apps
-      # (daemon + CLI), enabling pihole-FTL gravity IPC to locate the daemon.
-      grep -rlZ '/run/pihole-FTL.pid' "${CRAFT_PART_SRC}" | xargs -0 -r sed -i "s|/run/pihole-FTL.pid|/run/pihole/pihole-FTL.pid|g"
-      grep -rlZ '/run/dnsmasq.pid' "${CRAFT_PART_SRC}" | xargs -0 -r sed -i "s|/run/dnsmasq.pid|/run/pihole/dnsmasq.pid|g"
+      # Redirect PID files to /etc/pihole/ which is layout-mounted to
+      # $SNAP_DATA/etc/pihole/ and is visible to ALL snap apps regardless
+      # of the snap's store name (avoids CRAFT_PROJECT_NAME vs SNAP_NAME mismatch).
+      grep -rlZ '/run/pihole-FTL.pid' "${CRAFT_PART_SRC}" | xargs -0 -r sed -i "s|/run/pihole-FTL.pid|/etc/pihole/pihole-FTL.pid|g"
+      grep -rlZ '/run/dnsmasq.pid' "${CRAFT_PART_SRC}" | xargs -0 -r sed -i "s|/run/dnsmasq.pid|/etc/pihole/dnsmasq.pid|g"
       # Neutralize dnsmasq's attempt to drop supplementary groups.
       # In a strictly confined snap, daemons run as root without CAP_SETGID
       # by default. Since pihole-FTL passes `-u root` internally, dnsmasq
@@ -199,8 +199,8 @@ parts:
       # is unreachable from confinement. Neutralise it.
       sed -i 's|systemctl status pihole-FTL.service|true # patched: systemctl unavailable in snap|g' \
         advanced/Scripts/piholeDebug.sh
-      # Redirect PID files to /run/pihole (layout-mounted, shared across all snap apps)
-      grep -rlZ '/run/pihole-FTL.pid' . | xargs -0 -r sed -i "s|/run/pihole-FTL.pid|/run/pihole/pihole-FTL.pid|g"
+      # Redirect PID files to /etc/pihole/ (layout-mounted, snap-name-independent)
+      grep -rlZ '/run/pihole-FTL.pid' . | xargs -0 -r sed -i "s|/run/pihole-FTL.pid|/etc/pihole/pihole-FTL.pid|g"
       # Strip readonly modifier from FTL_PID_FILE to prevent bash local variable scope collisions inside subshells
       grep -rlZ 'readonly FTL_PID_FILE' . | xargs -0 -r sed -i 's/readonly FTL_PID_FILE/FTL_PID_FILE/g'
       # Neutralize upstream git version tracking checks inside strict confinement where git binary is stripped
