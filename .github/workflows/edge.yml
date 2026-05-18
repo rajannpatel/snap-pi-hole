@@ -36,14 +36,13 @@ jobs:
 
   build:
     name: build (${{ matrix.arch }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [amd64]
-        # arm64 and armhf are covered by `snapcraft remote-build` once
-        # we wire up a Launchpad token; GH-hosted runners only have
-        # amd64.
+        arch: [amd64, arm64]
+        # armhf, ppc64el, and s390x must be built via Launchpad or remote-build
+        # because GitHub-hosted runners only support amd64 and arm64.
     steps:
       - uses: actions/checkout@v5
 
@@ -68,14 +67,18 @@ jobs:
           if-no-files-found: error
 
   smoke:
-    name: smoke test
+    name: smoke test (${{ matrix.arch }})
     needs: [build, lint]
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
     steps:
       - name: Download snap
         uses: actions/download-artifact@v4
         with:
-          name: pihole-snap-amd64
+          name: pihole-snap-${{ matrix.arch }}
 
       - name: Free port 53
         run: |
