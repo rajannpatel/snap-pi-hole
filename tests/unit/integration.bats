@@ -240,6 +240,8 @@ STUB
     "${TEST_TMPDIR}/hook-install"
 
     # launcher-ftl should not fail due to missing directories
+    # Mock out the aggressive port 53 TCP conflict checks so the script doesn't fail-fast
+    # and exit 1 if the CI runner already has a local DNS server bound to port 53.
     LAUNCHER_NO_PORT="${TEST_TMPDIR}/launcher-ftl-noport"
     sed -e 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
         -e 's|elif (exec 3<>/dev/tcp/127.0.0.1/53).*|elif false; then|' \
@@ -260,6 +262,7 @@ STUB
     [ ! -f "${TEST_TMPDIR}/etc/pihole/pihole.toml" ]
 
     # launcher-ftl should seed it
+    # Mock out the aggressive port 53 TCP conflict checks to prevent fail-fast in CI environments.
     LAUNCHER_NO_PORT="${TEST_TMPDIR}/launcher-ftl-noport"
     sed -e 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
         -e 's|elif (exec 3<>/dev/tcp/127.0.0.1/53).*|elif false; then|' \
@@ -285,6 +288,7 @@ STUB
 
     # Create a launcher variant that echoes HOME
     LAUNCHER_HOME="${TEST_TMPDIR}/launcher-ftl-home"
+    # Mock out the aggressive port 53 TCP conflict checks to prevent fail-fast in CI environments.
     sed \
         -e 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
         -e 's|elif (exec 3<>/dev/tcp/127.0.0.1/53).*|elif false; then|' \
