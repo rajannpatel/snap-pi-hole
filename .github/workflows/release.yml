@@ -47,10 +47,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Prepare Store Namespace
-        run: |
-          sed -i 's/^name: pihole/name: ${{ env.SNAP_NAME }}/' snap/snapcraft.yaml
-
       - name: Build snap
         id: snapcraft
         uses: snapcore/action-build@v1
@@ -77,10 +73,6 @@ jobs:
         arch: [armhf, ppc64el, s390x, riscv64]
     steps:
       - uses: actions/checkout@v5
-
-      - name: Prepare Store Namespace
-        run: |
-          sed -i 's/^name: pihole/name: ${{ env.SNAP_NAME }}/' snap/snapcraft.yaml
 
       - name: Install Snapcraft
         run: sudo snap install snapcraft --classic --channel=9.x/candidate
