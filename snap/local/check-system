@@ -94,8 +94,8 @@ if snapctl is-connected "system-observe"; then
         echo "  [OK] No recent AppArmor denials detected."
     fi
 else
-    echo "  [WARN] 'system-observe' is disconnected. Cannot check dmesg for AppArmor denials."
-    echo "    -> Remediation: sudo snap connect ${SNAP_NAME}:system-observe"
+    echo "  [INFO] 'system-observe' is disconnected (expected for production)."
+    echo "    -> To enable this check for debugging: sudo snap connect ${SNAP_NAME}:system-observe"
 fi
 echo ""
 
