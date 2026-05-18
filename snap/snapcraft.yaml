@@ -153,9 +153,8 @@ parts:
       export GIT_HASH="$(git -C "${CRAFT_PART_SRC}" rev-parse --short HEAD)"
       export GIT_BRANCH="snap"
       craftctl default
-    build-snaps:
-      - cmake/3.27/stable
     build-packages:
+      - cmake
       - build-essential
       - bind9-dnsutils
       - git
