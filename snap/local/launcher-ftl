@@ -69,15 +69,27 @@ export HOME="${SNAP_DATA}"
 # FTL sometimes behaves better when started from a writable directory.
 cd "${SNAP_DATA}/run/pihole"
 
-# If gravity.db is missing (e.g. on first install), build it in the background.
-# We sleep for 10 seconds to ensure the FTL daemon has fully initialized
-# and bound to its sockets before pihole -g attempts to communicate with it.
+# If gravity.db is missing or empty (first install), seed Steven Black's
+# default blocklist and build gravity. This mirrors what Pi-hole's own
+# basic-install.sh does:
+#   1. First pihole -g initialises gravity.db with the correct schema
+#      (gravity.sh creates all tables; pihole-FTL does not do this).
+#   2. INSERT the Steven Black adlist now that the schema exists.
+#   3. Second pihole -g downloads and processes the adlist.
+# We sleep 10 s to let FTL fully bind port 53 before pihole -g runs.
 if [ ! -s "/etc/pihole/gravity.db" ]; then
-    echo "gravity.db is missing. Spawning 'pihole -g' in the background to build adlists..."
-    ( 
-      sleep 10
-      "${SNAP}/usr/bin/pihole-FTL" sqlite3 /etc/pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, enabled, comment) VALUES ('https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts', 1, 'Default Steven Black List');" || true
-      "${SNAP}/opt/pihole/pihole" -g > /var/log/pihole/gravity-first-run.log 2>&1 
+    echo "gravity.db is missing. Seeding default adlist and building gravity..."
+    (
+        sleep 10
+        # Pass 1: initialise schema (no adlists configured yet, downloads nothing)
+        "${SNAP}/opt/pihole/pihole" -g > /var/log/pihole/gravity-init.log 2>&1 || true
+        # Insert Steven Black's unified hosts list now that the schema exists
+        "${SNAP}/usr/bin/pihole-FTL" sqlite3 /etc/pihole/gravity.db \
+          "INSERT OR IGNORE INTO adlist (address, enabled, comment) \
+           VALUES ('https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts', \
+                   1, 'Steven Black unified hosts (default)');" 2>/dev/null || true
+        # Pass 2: download and process the adlist
+        "${SNAP}/opt/pihole/pihole" -g > /var/log/pihole/gravity-first-run.log 2>&1
     ) &
 fi
 
