@@ -160,7 +160,8 @@ parts:
       - bind9-dnsutils
       - git
       - libidn2-dev
-      - libnettle8
+      # Renamed from libnettle8 in core26 for the Y2038 64-bit time_t transition on armhf
+      - libnettle8t64
       - nettle-dev
       - libgmp-dev
       - libuv1-dev
@@ -175,11 +176,14 @@ parts:
     stage-packages:
       - libidn2-0
       - bind9-dnsutils
-      - libuv1
+      # Renamed from libuv1 in core26 for the Y2038 64-bit time_t transition on armhf
+      - libuv1t64
       - libcap2
-      - libreadline8
+      # Renamed from libreadline8 in core26 for the Y2038 64-bit time_t transition on armhf
+      - libreadline8t64
       - libsqlite3-0
-      - libnettle8
+      # Renamed from libnettle8 in core26 for the Y2038 64-bit time_t transition on armhf
+      - libnettle8t64
       - libgmp10
       # mbedtls 3.6 SONAMEs on core26. libmbedtls21 transitively
       # pulls libmbedcrypto16 and libmbedx509-7; list explicitly so the
