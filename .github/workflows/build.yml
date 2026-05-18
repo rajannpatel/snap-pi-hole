@@ -168,6 +168,18 @@ jobs:
               exit 1
           fi
 
+      - name: Web UI health check
+        run: |
+          echo "Testing embedded Civetweb HTTP server on port 8123..."
+          # Fetch the dashboard and assert HTTP 200 OK.
+          # The dashboard redirects /admin to /admin/, so we request /admin/ directly.
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8123/admin/")
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+              echo "::error::Web UI health check failed! HTTP status: $HTTP_STATUS" >&2
+              exit 1
+          fi
+          echo "Web UI is healthy."
+
       - name: Gravity update (pihole -g) runs cleanly under confinement
         run: |
           # Run a full gravity update and assert it exits 0. This exercises
@@ -180,6 +192,28 @@ jobs:
               exit 1
           fi
           echo "gravity.db size: $(du -h /var/snap/pihole/current/etc/pihole/gravity.db | cut -f1)"
+
+      - name: Refresh and migration test
+        run: |
+          echo "Simulating an over-the-top snap refresh..."
+          # Re-installing an existing local snap triggers the refresh pathway
+          sudo snap install --dangerous ./pihole_*.snap
+          
+          echo "Verifying pre-refresh snapshot generation..."
+          if ! sudo ls /var/snap/pihole/common/snapshots/pihole-backup-*.tar.gz >/dev/null 2>&1; then
+              echo "::error::pre-refresh snapshot was not generated!" >&2
+              exit 1
+          fi
+          
+          echo "Verifying post-refresh data persistence..."
+          if ! sudo grep -E '8123' /var/snap/pihole/current/etc/pihole/pihole.toml; then
+              echo "::error::Data migration failed! web.port=8123 did not persist across refresh." >&2
+              exit 1
+          fi
+          
+          echo "Verifying daemon health after refresh..."
+          sudo pihole status
+          dig +short +time=1 +tries=1 @127.0.0.1 pi.hole >/dev/null 2>&1
 
       - name: Show recent daemon logs
         if: always()
