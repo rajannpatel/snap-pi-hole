@@ -63,9 +63,6 @@ epoch: 0
 # core22+ supports all major Ubuntu OS architectures natively.
 platforms:
   amd64:
-  amd64_v3:
-    build-on: [amd64]
-    build-for: [amd64_v3]
   arm64:
   armhf:
   ppc64el:

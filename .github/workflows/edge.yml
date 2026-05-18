@@ -40,7 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [amd64, amd64_v3, arm64]
+        arch: [amd64, arm64]
         # armhf, ppc64el, and s390x must be built via Launchpad or remote-build
         # because GitHub-hosted runners only support amd64 and arm64.
     steps:
@@ -103,7 +103,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [amd64, amd64_v3, arm64]
+        arch: [amd64, arm64]
     steps:
       - name: Download snap
         uses: actions/download-artifact@v4
@@ -314,7 +314,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
       matrix:
-        arch: [amd64, amd64_v3, arm64, armhf, ppc64el, s390x, riscv64]
+        arch: [amd64, arm64, armhf, ppc64el, s390x, riscv64]
     steps:
       - uses: actions/checkout@v5
 
