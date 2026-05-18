@@ -48,7 +48,8 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Prepare Store Namespace
-        run: sed -i 's/^name: pihole/name: pihole-by-rajannpatel/' snap/snapcraft.yaml
+        run: |
+          sed -i 's/^name: pihole/name: pihole-by-rajannpatel/' snap/snapcraft.yaml
 
       - name: Build snap
         id: snapcraft
