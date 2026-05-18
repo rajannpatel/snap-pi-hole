@@ -46,7 +46,7 @@ check_udp() {
 
 # If FTL is running, we don't want to flag its own ports as external conflicts.
 FTL_RUNNING=false
-if snapctl services pihole.pihole-ftl 2>/dev/null | grep -q "active"; then
+if snapctl services pihole.pihole-ftl 2>/dev/null | grep -qw "active"; then
     FTL_RUNNING=true
 fi
 
