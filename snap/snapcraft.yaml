@@ -163,6 +163,7 @@ parts:
       - libmbedx509-7
       - libunistring5
       - ca-certificates
+      - jq
 
   # ---------------------------------------------------------------------
   # pi-hole core: the `pihole` CLI and supporting shell scripts.

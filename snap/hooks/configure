@@ -7,49 +7,21 @@ set -eu
 FTL_BIN="${SNAP}/usr/bin/pihole-FTL"
 
 # Extract the entire 'ftl' config namespace and pass directly to pihole-FTL
-snapctl get -d ftl | python3 -c '
-import sys, json, subprocess
-
-def flatten(d, parent_key=""):
-    items = []
-    if not isinstance(d, dict):
-        return items
-    for k, v in d.items():
-        new_key = f"{parent_key}.{k}" if parent_key else k
-        if isinstance(v, dict):
-            items.extend(flatten(v, new_key))
-        else:
-            items.append((new_key, v))
-    return items
-
-try:
-    raw = sys.stdin.read()
-    print(f"RAW STDIN: {repr(raw)}", file=sys.stderr)
-    cfg = json.loads(raw)
-except Exception as e:
-    print(f"JSON Load Exception: {e}", file=sys.stderr)
-    sys.exit(0)
-
-if not cfg:
-    sys.exit(0)
-
-items = flatten(cfg)
-for k, v in items:
-    if isinstance(v, bool):
-        val = "true" if v else "false"
-    elif isinstance(v, list):
-        # Flatten snapctl arrays to comma-separated lists for FTL
-        val = ",".join(str(i) for i in v)
-    else:
-        val = str(v)
-    
-    # Let FTL validate and apply its own configuration
-    import os
-    res = os.system(f"\"{sys.argv[1]}\" --config {k} \"{val}\" >/dev/null 2>&1")
-    if res != 0:
-        print(f"Error applying ftl.{k}={val}", file=sys.stderr)
-        sys.exit(1)
-' "$FTL_BIN"
+snapctl get -d ftl | jq -r '
+  [ paths(type != "object" and type != "array") as $p |
+    { key: $p | join("."), value: getpath($p) }
+  ] | group_by(.key | sub("\\.[0-9]+$"; "")) | map({
+    key: .[0].key | sub("\\.[0-9]+$"; ""),
+    value: map(.value | tostring) | join(",")
+  }) | .[] | "\(.key)=\(.value)"
+' | while IFS='=' read -r key val; do
+    if [ -n "$key" ]; then
+        "$FTL_BIN" --config "$key" "$val" >/dev/null 2>&1 || {
+            echo "Error applying ftl.$key=$val" >&2
+            exit 1
+        }
+    fi
+done
 
 # Restart the daemon if it's currently running, so changes take effect immediately
 if snapctl services pihole.pihole-ftl 2>/dev/null | awk 'NR>1 {print $3}' | grep -qx active; then
