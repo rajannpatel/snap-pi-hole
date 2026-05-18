@@ -32,6 +32,9 @@ Disable its stub listener and try again:
     sudo systemctl restart systemd-resolved
 
 Then: sudo snap start pihole.pihole-ftl
+
+For a full diagnostic readout of port conflicts, run:
+    sudo pihole.check-system
 EOF
     exit 1
 fi

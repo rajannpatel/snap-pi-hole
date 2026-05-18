@@ -293,10 +293,12 @@ parts:
       launcher-ftl: bin/launcher-ftl
       launcher-pihole: bin/launcher-pihole
       config-helper.sh: bin/config-helper.sh
+      check-system: bin/check-system
     stage:
       - bin/launcher-ftl
       - bin/launcher-pihole
       - bin/config-helper.sh
+      - bin/check-system
 
 apps:
   # The daemon. Disabled on install so the operator can free port 53 and
@@ -342,6 +344,13 @@ apps:
       - system-observe
       - hardware-observe
       - mount-observe
+
+  # Diagnostic tool to proactively detect and remediate port conflicts
+  check-system:
+    command: bin/check-system
+    plugs:
+      - network
+      - network-bind
 
   # Automated gravity sync. Runs weekly. Users can customize the schedule using:
   # snap set pihole timer.gravity-sync.schedule="mon,02:00"

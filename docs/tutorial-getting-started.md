@@ -25,6 +25,13 @@ printf '[Resolve]\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d
 sudo systemctl restart systemd-resolved
 ```
 
+> [!TIP]
+> **Check your ports!** To proactively verify that port 53 (and port 80 for the web dashboard) is fully available, run our built-in diagnostic tool:
+> ```bash
+> sudo pihole.check-system
+> ```
+> It will tell you exactly what is blocking the ports and give you copy-pasteable remediation commands.
+
 ## 3. Connect required interfaces
 
 Snaps are strictly confined. By default, the Pi-hole daemon cannot bind to privileged network ports. You must explicitly grant it permission:

@@ -1,0 +1,51 @@
+#!/bin/bash
+# A system diagnostic tool for Pi-hole to detect port conflicts.
+# Exposed as `pihole.check-system`.
+
+set -eu
+
+echo "Pi-hole System Diagnostics"
+echo "=========================="
+
+# Check if a port is in use using bash's built-in /dev/tcp
+check_tcp() {
+    local ip=$1
+    local port=$2
+    # Use a 1 second timeout to avoid hanging indefinitely if packets are dropped
+    (timeout 1 bash -c "exec 3<>/dev/tcp/$ip/$port" 2>/dev/null)
+}
+
+# --- PORT 53 (DNS) ---
+echo -n "Checking Port 53 (DNS)... "
+if check_tcp "127.0.0.53" "53"; then
+    echo "CONFLICT"
+    echo "  -> systemd-resolved is binding port 53 on 127.0.0.53."
+    echo "  -> Remediation: Disable its stub listener to free port 53:"
+    echo ""
+    echo "     sudo mkdir -p /etc/systemd/resolved.conf.d"
+    echo "     printf '[Resolve]\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf"
+    echo "     sudo systemctl restart systemd-resolved"
+    echo ""
+elif check_tcp "127.0.0.1" "53" || check_tcp "0.0.0.0" "53"; then
+    echo "CONFLICT"
+    echo "  -> Another DNS server is binding port 53."
+    echo "  -> Remediation: Run 'sudo ss -tulpn | grep :53' on your host to identify and stop it."
+    echo ""
+else
+    echo "OK"
+fi
+
+# --- PORT 80 (HTTP) ---
+echo -n "Checking Port 80 (HTTP)... "
+if check_tcp "127.0.0.1" "80" || check_tcp "0.0.0.0" "80"; then
+    echo "CONFLICT"
+    echo "  -> Another web server is binding port 80."
+    echo "  -> Remediation: Either stop the other server, or change Pi-hole's web port:"
+    echo ""
+    echo "     sudo snap set pihole web.port=8080"
+    echo ""
+else
+    echo "OK"
+fi
+
+echo "Diagnostics complete."
