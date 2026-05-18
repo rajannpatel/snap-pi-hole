@@ -18,6 +18,8 @@ This snap is currently published with `grade: devel`; it will not install from t
 ---
 A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole.
 
+[![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/pihole-by-rajannpatel)
+
 ## Documentation
 
 The documentation is organized according to the [Diátaxis framework](https://diataxis.fr/) and is hosted in the **[GitHub Wiki](https://github.com/rajannpatel/snap-pi-hole/wiki)**:
