@@ -45,7 +45,7 @@ sudo snap connect pihole:firewall-control
 **3. Start and Configure**
 Enable the daemon and set your secure web admin password:
 ```bash
-sudo snap start --enable pihole.pihole-ftl
+sudo snap start --enable pihole
 echo "YourSecurePasswordHere" | sudo pihole setpassword
 ```
 You can now access the web dashboard at `http://<your-host-ip>/admin`.
