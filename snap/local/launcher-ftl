@@ -80,6 +80,10 @@ cd "${SNAP_DATA}/run/pihole"
 if [ ! -s "/etc/pihole/gravity.db" ]; then
     echo "gravity.db is missing. Seeding default adlist and building gravity..."
     (
+        # Ensure the snap-bundled curl (staged from bind9-dnsutils + curl
+        # packages) is found by gravity.sh. Minimal Ubuntu images (ubuntu:lts
+        # LXC) do not include curl by default.
+        export PATH="${SNAP}/usr/bin:${PATH}"
         # Wait until FTL's DNS resolver is accepting queries (up to 90 s).
         # A fixed sleep is unreliable: gravity.sh uses curl which resolves
         # raw.githubusercontent.com via the system resolver; if FTL hasn't

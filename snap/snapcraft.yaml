@@ -179,6 +179,10 @@ parts:
       - libmbedx509-7
       - libunistring5
       - ca-certificates
+      # curl is used by gravity.sh to download adlists. It is not present on
+      # minimal Ubuntu installations (e.g. ubuntu:lts LXC images), so we
+      # bundle it in the snap. ca-certificates (above) provides HTTPS trust roots.
+      - curl
       - jq
 
   # ---------------------------------------------------------------------
