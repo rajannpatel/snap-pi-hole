@@ -295,10 +295,12 @@ parts:
       launcher-ftl: bin/launcher-ftl
       launcher-pihole: bin/launcher-pihole
       check-system: bin/check-system
+      snapdebug: bin/snapdebug
     stage:
       - bin/launcher-ftl
       - bin/launcher-pihole
       - bin/check-system
+      - bin/snapdebug
 
 apps:
   # The daemon. Disabled on install so the operator can free port 53 and
@@ -366,6 +368,15 @@ apps:
     plugs:
       - network
       - network-bind
+
+  snapdebug:
+    command: bin/snapdebug
+    plugs:
+      - network
+      - network-bind
+      - system-observe
+      - hardware-observe
+      - mount-observe
 
   debug:
     command: bin/launcher-pihole -d

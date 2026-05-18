@@ -1,0 +1,121 @@
+#!/bin/bash
+# A system diagnostic tool for Pi-hole strictly confined within a snap.
+# Exposed as `pihole.snapdebug`.
+
+set -eu
+
+echo "=========================================================="
+echo "              PI-HOLE SNAP DIAGNOSTIC DUMP              "
+echo "=========================================================="
+echo "Purpose: This tool captures a snapshot of the snap's runtime"
+echo "environment, including network interfaces, port conflicts,"
+echo "confinement logs, and daemon configuration."
+echo ""
+echo "Usage: Run this when experiencing deployment issues, DNS"
+echo "failures, or crashes. Copy the ENTIRE output of this command"
+echo "and provide it when opening a bug report."
+echo "=========================================================="
+echo "Date: $(date)"
+echo "Snap Version: $(snapctl get version || echo 'Unknown')"
+echo ""
+
+# --- INTERFACE CONNECTION STATE ---
+echo "--- INTERFACES ---"
+check_interface() {
+    local plug=$1
+    if snapctl is-connected "$plug"; then
+        echo "  [OK] $plug (Connected)"
+    else
+        echo "  [FAIL] $plug (Disconnected)"
+    fi
+}
+check_interface "network-bind"
+check_interface "network-control"
+check_interface "system-observe"
+check_interface "hardware-observe"
+check_interface "mount-observe"
+echo ""
+
+# --- PORT CONFLICTS ---
+echo "--- PORTS ---"
+check_tcp() {
+    local ip=$1
+    local port=$2
+    (timeout 1 bash -c "exec 3<>/dev/tcp/$ip/$port" 2>/dev/null)
+}
+check_udp() {
+    local hex_port=$1
+    grep -qi ":$hex_port " /proc/net/udp 2>/dev/null || grep -qi ":$hex_port " /proc/net/udp6 2>/dev/null
+}
+
+FTL_RUNNING=false
+if snapctl services ${SNAP_NAME}.pihole-ftl 2>/dev/null | grep -qw "active"; then
+    FTL_RUNNING=true
+fi
+
+if [ "$FTL_RUNNING" = "true" ]; then
+    echo "  [OK] pihole-FTL is active. Port conflict checks skipped."
+else
+    if check_tcp "127.0.0.53" "53"; then
+        echo "  [FAIL] Port 53 (TCP) - systemd-resolved conflict on 127.0.0.53"
+    elif check_tcp "127.0.0.1" "53" || check_tcp "0.0.0.0" "53" || check_udp "0035"; then
+        echo "  [FAIL] Port 53 - Another DNS server is binding port 53"
+    else
+        echo "  [OK] Port 53 (DNS) is free."
+    fi
+
+    if check_tcp "127.0.0.1" "80" || check_tcp "0.0.0.0" "80"; then
+        echo "  [FAIL] Port 80 (HTTP) - Another web server is binding port 80"
+    else
+        echo "  [OK] Port 80 (HTTP) is free."
+    fi
+
+    if check_udp "0043" || check_udp "0222"; then
+        echo "  [WARN] Port 67/546 (DHCP) is in use by another process."
+    else
+        echo "  [OK] Ports 67/546 (DHCP) are free."
+    fi
+fi
+echo ""
+
+# --- CONFINEMENT FAILURES ---
+echo "--- CONFINEMENT ---"
+if snapctl is-connected "system-observe"; then
+    if dmesg 2>/dev/null | grep -i "apparmor=\"DENIED\"" | grep -q "snap.${SNAP_NAME}"; then
+        echo "  [WARN] AppArmor denials detected in dmesg:"
+        dmesg 2>/dev/null | grep -i "apparmor=\"DENIED\"" | grep "snap.${SNAP_NAME}" | tail -n 5 | sed 's/^/         /'
+    else
+        echo "  [OK] No recent AppArmor denials detected."
+    fi
+else
+    echo "  [INFO] 'system-observe' is disconnected. Cannot check dmesg for AppArmor denials."
+fi
+echo ""
+
+# --- CONFIGURATION ---
+echo "--- PIHOLE.TOML CONFIGURATION ---"
+if [ -f "$SNAP_DATA/etc/pihole/pihole.toml" ]; then
+    cat "$SNAP_DATA/etc/pihole/pihole.toml" | sed 's/password = .*/password = "[REDACTED]"/' | sed 's/^/  /'
+else
+    echo "  [WARN] pihole.toml not found."
+fi
+echo ""
+
+# --- DAEMON LOGS ---
+echo "--- TAIL OF FTL LOG ---"
+if [ -f "/var/log/pihole/pihole-FTL.log" ]; then
+    tail -n 30 "/var/log/pihole/pihole-FTL.log" | sed 's/^/  /'
+elif [ -f "$SNAP_COMMON/var/log/pihole/pihole-FTL.log" ]; then
+    tail -n 30 "$SNAP_COMMON/var/log/pihole/pihole-FTL.log" | sed 's/^/  /'
+else
+    echo "  [WARN] pihole-FTL.log not found."
+fi
+echo ""
+
+echo "=========================================================="
+echo "                END OF DIAGNOSTIC DUMP                  "
+echo "=========================================================="
+echo ""
+echo "Please copy the output above and submit it along with your"
+echo "issue description to the GitHub repository:"
+echo "https://github.com/rajannpatel/snap-pi-hole/issues"
