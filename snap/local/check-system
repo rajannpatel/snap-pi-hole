@@ -1,51 +1,102 @@
 #!/bin/bash
-# A system diagnostic tool for Pi-hole to detect port conflicts.
-# Exposed as `pihole.check-system`.
+# A system diagnostic tool for Pi-hole to detect conflicts and health.
+# Exposed as `pihole.health` and `pihole.check-system`.
 
 set -eu
 
 echo "Pi-hole System Diagnostics"
 echo "=========================="
 
-# Check if a port is in use using bash's built-in /dev/tcp
+# --- INTERFACE CONNECTION STATE ---
+echo "--- INTERFACES ---"
+check_interface() {
+    local plug=$1
+    local required=$2
+    if snapctl is-connected "$plug"; then
+        echo "  [OK] $plug (Connected)"
+    else
+        if [ "$required" = "true" ]; then
+            echo "  [FAIL] $plug (Disconnected)"
+            echo "    -> Remediation: sudo snap connect pihole:$plug"
+        else
+            echo "  [WARN] $plug (Disconnected)"
+            echo "    -> Remediation (Optional): sudo snap connect pihole:$plug"
+        fi
+    fi
+}
+check_interface "network-bind" "true"
+check_interface "network-control" "false"
+check_interface "system-observe" "false"
+echo ""
+
+# --- PORT CONFLICTS ---
+echo "--- PORTS ---"
 check_tcp() {
     local ip=$1
     local port=$2
-    # Use a 1 second timeout to avoid hanging indefinitely if packets are dropped
+    # Use a 1 second timeout to avoid hanging indefinitely
     (timeout 1 bash -c "exec 3<>/dev/tcp/$ip/$port" 2>/dev/null)
 }
 
-# --- PORT 53 (DNS) ---
-echo -n "Checking Port 53 (DNS)... "
-if check_tcp "127.0.0.53" "53"; then
-    echo "CONFLICT"
-    echo "  -> systemd-resolved is binding port 53 on 127.0.0.53."
-    echo "  -> Remediation: Disable its stub listener to free port 53:"
-    echo ""
-    echo "     sudo mkdir -p /etc/systemd/resolved.conf.d"
-    echo "     printf '[Resolve]\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf"
-    echo "     sudo systemctl restart systemd-resolved"
-    echo ""
-elif check_tcp "127.0.0.1" "53" || check_tcp "0.0.0.0" "53"; then
-    echo "CONFLICT"
-    echo "  -> Another DNS server is binding port 53."
-    echo "  -> Remediation: Run 'sudo ss -tulpn | grep :53' on your host to identify and stop it."
-    echo ""
-else
-    echo "OK"
+# Hex matching for /proc/net/udp: 53 is 0035, 67 is 0043, 546 is 0222
+check_udp() {
+    local hex_port=$1
+    grep -qi ":$hex_port " /proc/net/udp 2>/dev/null || grep -qi ":$hex_port " /proc/net/udp6 2>/dev/null
+}
+
+# If FTL is running, we don't want to flag its own ports as external conflicts.
+FTL_RUNNING=false
+if snapctl services pihole.pihole-ftl 2>/dev/null | grep -q "active"; then
+    FTL_RUNNING=true
 fi
 
-# --- PORT 80 (HTTP) ---
-echo -n "Checking Port 80 (HTTP)... "
-if check_tcp "127.0.0.1" "80" || check_tcp "0.0.0.0" "80"; then
-    echo "CONFLICT"
-    echo "  -> Another web server is binding port 80."
-    echo "  -> Remediation: Either stop the other server, or change Pi-hole's web port:"
-    echo ""
-    echo "     sudo snap set pihole web.port=8080"
-    echo ""
+if [ "$FTL_RUNNING" = "true" ]; then
+    echo "  [OK] pihole-FTL is active. Port conflict checks skipped."
 else
-    echo "OK"
+    # Check 53 (DNS TCP/UDP)
+    if check_tcp "127.0.0.53" "53"; then
+        echo "  [FAIL] Port 53 (TCP) - systemd-resolved conflict on 127.0.0.53"
+        echo "    -> Remediation: Disable DNSStubListener in /etc/systemd/resolved.conf"
+    elif check_tcp "127.0.0.1" "53" || check_tcp "0.0.0.0" "53" || check_udp "0035"; then
+        echo "  [FAIL] Port 53 - Another DNS server is binding port 53"
+        echo "    -> Remediation: Run 'sudo ss -tulpn | grep :53' on your host to identify it."
+    else
+        echo "  [OK] Port 53 (DNS) is free."
+    fi
+
+    # Check 80 (HTTP)
+    if check_tcp "127.0.0.1" "80" || check_tcp "0.0.0.0" "80"; then
+        echo "  [FAIL] Port 80 (HTTP) - Another web server is binding port 80"
+        echo "    -> Remediation: Stop the server, or change Pi-hole's port: sudo snap set pihole webserver.port=8080"
+    else
+        echo "  [OK] Port 80 (HTTP) is free."
+    fi
+
+    # Check 67/546 (DHCP)
+    if check_udp "0043" || check_udp "0222"; then
+        echo "  [WARN] Port 67/546 (DHCP) is in use by another process."
+        echo "    -> Remediation: If enabling Pi-hole DHCP, disable the host's isc-dhcp-server or dnsmasq."
+    else
+        echo "  [OK] Ports 67/546 (DHCP) are free."
+    fi
 fi
+echo ""
+
+# --- CONFINEMENT FAILURES ---
+echo "--- CONFINEMENT ---"
+if snapctl is-connected "system-observe"; then
+    # Parse dmesg for recent apparmor DENIED logs related to pihole
+    if dmesg 2>/dev/null | grep -i "apparmor=\"DENIED\"" | grep -q "snap.pihole"; then
+        echo "  [WARN] AppArmor denials detected in dmesg."
+        echo "    -> This indicates strict confinement is blocking a daemon action."
+        echo "    -> Remediation: Run 'dmesg | grep DENIED | grep pihole' for details."
+    else
+        echo "  [OK] No recent AppArmor denials detected."
+    fi
+else
+    echo "  [WARN] 'system-observe' is disconnected. Cannot check dmesg for AppArmor denials."
+    echo "    -> Remediation: sudo snap connect pihole:system-observe"
+fi
+echo ""
 
 echo "Diagnostics complete."
