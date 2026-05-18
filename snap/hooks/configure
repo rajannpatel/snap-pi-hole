@@ -11,7 +11,7 @@ snapctl get -d ftl | jq -r '
   [ paths(type != "object" and type != "array") as $p |
     { key: $p | join("."), value: getpath($p) }
   ] | group_by(.key | sub("\\.[0-9]+$"; "")) | map({
-    key: .[0].key | sub("\\.[0-9]+$"; ""),
+    key: .[0].key | sub("\\.[0-9]+$"; "") | sub("^ftl\\."; ""),
     value: map(.value | tostring) | join(",")
   }) | .[] | "\(.key)=\(.value)"
 ' | while IFS='=' read -r key val; do
