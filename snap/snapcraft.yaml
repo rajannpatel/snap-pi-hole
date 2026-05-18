@@ -337,6 +337,7 @@ apps:
   # prints the snap-native equivalent.
   pihole:
     command: bin/launcher-pihole
+    aliases: [pihole]
     plugs:
       - network
       - network-bind

@@ -25,6 +25,7 @@ setup() {
     export SNAP="${TEST_TMPDIR}/snap"
     export SNAP_DATA="${TEST_TMPDIR}/data"
     export SNAP_COMMON="${TEST_TMPDIR}/common"
+    export SNAP_NAME="pihole"
     mkdir -p "${SNAP}/usr/bin" "${SNAP_DATA}" "${SNAP_COMMON}" "${SNAP}/meta/hooks" "${SNAP}/bin"
 
     # Create stubs for external commands
@@ -131,7 +132,7 @@ EOF
             -e "s|/etc/dnsmasq.d|${TEST_TMPDIR}/etc/dnsmasq.d|g" \
             -e "s|/var/log/pihole|${TEST_TMPDIR}/var/log/pihole|g" \
             -e "s|/opt/pihole|${TEST_TMPDIR}/opt|g" \
-            -e "s|/run/snap.pihole|${TEST_TMPDIR}/run/snap.pihole|g" \
+            -e "s|/run/snap.\"\${SNAP_NAME}\"|${TEST_TMPDIR}/run/snap.pihole|g" \
             "${src}" > "${dst}"
         chmod +x "${dst}"
     done

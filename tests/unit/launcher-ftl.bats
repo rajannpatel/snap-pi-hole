@@ -19,6 +19,7 @@ setup() {
     # Minimal snap environment variables required by the launcher
     export SNAP_DATA="${TEST_TMPDIR}/data"
     export SNAP="${TEST_TMPDIR}/snap"
+    export SNAP_NAME="pihole"
     mkdir -p "${SNAP_DATA}" "${SNAP}/usr/bin"
 
     # Create a stub pihole-FTL binary so `exec` doesn't fail
@@ -34,7 +35,7 @@ setup() {
         -e "s|/etc/pihole|${TEST_TMPDIR}/etc/pihole|g" \
         -e "s|/etc/dnsmasq.d|${TEST_TMPDIR}/etc/dnsmasq.d|g" \
         -e "s|/var/log/pihole|${TEST_TMPDIR}/var/log/pihole|g" \
-        -e "s|/run/snap.pihole|${TEST_TMPDIR}/run/snap.pihole|g" \
+        -e "s|/run/snap.\"\${SNAP_NAME}\"|${TEST_TMPDIR}/run/snap.pihole|g" \
         "${REPO_ROOT}/snap/local/launcher-ftl" > "${LAUNCHER}"
     chmod +x "${LAUNCHER}"
 }

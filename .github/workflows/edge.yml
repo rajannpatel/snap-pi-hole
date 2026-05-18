@@ -46,6 +46,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Prepare Store Namespace
+        run: sed -i 's/^name: pihole/name: pihole-by-rajannpatel/' snap/snapcraft.yaml
+
       - name: Build snap
         id: snapcraft
         uses: snapcore/action-build@v1
@@ -83,25 +86,25 @@ jobs:
         run: |
           # `snap refresh` only works once the snapd snap exists, which isn't
           # guaranteed on a fresh ubuntu-latest runner (only the apt package
-          # is). Hence the install-or-refresh fallback.
+          sudo apt-get install -y iproute2 dnsutils
           sudo snap install snapd --channel=latest/edge \
             || sudo snap refresh snapd --channel=latest/edge
           sudo snap install core26 --channel=latest/edge || true
-          sudo snap install --dangerous ./pihole_*.snap
+          sudo snap install --dangerous ./pihole-by-rajannpatel_*.snap
           
           # Explicitly connect network interfaces and required system plugs
-          sudo snap connect pihole:network-bind
-          sudo snap connect pihole:system-observe
-          sudo snap connect pihole:hardware-observe
-          sudo snap connect pihole:mount-observe
-          sudo snap connect pihole:network-control
-          sudo snap connect pihole:firewall-control
+          sudo snap connect pihole-by-rajannpatel:network-bind
+          sudo snap connect pihole-by-rajannpatel:system-observe
+          sudo snap connect pihole-by-rajannpatel:hardware-observe
+          sudo snap connect pihole-by-rajannpatel:mount-observe
+          sudo snap connect pihole-by-rajannpatel:network-control
+          sudo snap connect pihole-by-rajannpatel:firewall-control
           
           # Private /dev/shm for FTL locks. --dangerous installs don't
           # always auto-connect; connecting explicitly is a no-op if
           # snapd already connected it.
-          sudo snap connect pihole:shared-memory || true
-          sudo snap connect pihole:network-observe || true
+          sudo snap connect pihole-by-rajannpatel:shared-memory || true
+          sudo snap connect pihole-by-rajannpatel:network-observe || true
 
       - name: CLI sanity
         run: |
@@ -121,7 +124,7 @@ jobs:
 
       - name: Start daemon and wait for DNS
         run: |
-          sudo snap start --enable pihole.pihole-ftl
+          sudo snap start --enable pihole-by-rajannpatel.pihole-ftl
           
           bound=0
           echo "Waiting for pihole-FTL to bind to port 53 and respond..."
@@ -244,10 +247,10 @@ jobs:
           #            polling which is sufficient for `pihole status` to verify
           #            that port 53 is bound.
           # ---------------------------------------------------------------------
-          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole' | grep -vE 'dac_read_search|dac_override|net_admin'; then
+          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole-by-rajannpatel' | grep -vE 'dac_read_search|dac_override|net_admin'; then
               echo "::error::AppArmor recorded fatal denials against the pihole snap (see above)"
               # Print the actual fatal errors to the log before exiting
-              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole' | grep -vE 'dac_read_search|dac_override|net_admin'
+              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.pihole-by-rajannpatel' | grep -vE 'dac_read_search|dac_override|net_admin'
               exit 1
           else
               echo "No fatal AppArmor denials recorded for snap.pihole."
@@ -256,10 +259,10 @@ jobs:
       - name: Dump service status on failure
         if: failure()
         run: |
-          sudo snap services pihole || true
-          sudo journalctl -u snap.pihole.pihole-ftl.service --no-pager | tail -200 || true
+          sudo snap services pihole-by-rajannpatel || true
+          sudo journalctl -u snap.pihole-by-rajannpatel.pihole-ftl.service --no-pager | tail -200 || true
           echo "--- FTL.log ---"
-          sudo cat /var/snap/pihole/common/var/log/pihole/FTL.log || true
+          sudo cat /var/snap/pihole-by-rajannpatel/common/var/log/pihole/FTL.log || true
 
   publish:
     name: publish to edge
@@ -280,5 +283,5 @@ jobs:
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
-          snap: pihole_*.snap
+          snap: pihole-by-rajannpatel_*.snap
           release: latest/edge

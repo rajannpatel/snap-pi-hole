@@ -9,7 +9,7 @@
 set -eu
 
 # Ensure the AppArmor-approved PID directory exists (wiped on every reboot)
-mkdir -p /run/snap.pihole
+mkdir -p /run/snap."${SNAP_NAME}"
 
 # Detect the most common port-53 collision: systemd-resolved's stub
 # listener on 127.0.0.53. Fail fast with a clear message  -  otherwise

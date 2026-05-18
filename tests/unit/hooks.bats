@@ -16,6 +16,7 @@ setup() {
     export SNAP="${TEST_TMPDIR}/snap"
     export SNAP_DATA="${TEST_TMPDIR}/data"
     export SNAP_COMMON="${TEST_TMPDIR}/common"
+    export SNAP_NAME="pihole"
     mkdir -p "${SNAP}/usr/bin" "${SNAP_DATA}" "${SNAP_COMMON}" "${SNAP}/bin"
 
     # Seed the mock template layout directory and versions stub file 

@@ -34,18 +34,17 @@ sudo systemctl restart systemd-resolved
 **2. Install and Connect**
 Install the snap and explicitly connect the required network interfaces:
 ```bash
-sudo snap install pihole
-sudo snap connect pihole:network-bind
+sudo snap install pihole-by-rajannpatel
+sudo snap connect pihole-by-rajannpatel:network-bind
 
 # Optional: Connect these if you plan to use Pi-hole as a DHCP server
-sudo snap connect pihole:network-control
-sudo snap connect pihole:firewall-control
-```
+sudo snap connect pihole-by-rajannpatel:network-control
+sudo snap connect pihole-by-rajannpatel:firewall-control
 
-**3. Start and Configure**
-Enable the daemon and set your secure web admin password:
+# 3. Start and Configure
+# Enable the daemon and set your secure web admin password:
 ```bash
-sudo snap start --enable pihole
+sudo snap start --enable pihole-by-rajannpatel.pihole-ftl
 echo "YourSecurePasswordHere" | sudo pihole setpassword
 ```
 You can now access the web dashboard at `http://<your-host-ip>/admin`.
