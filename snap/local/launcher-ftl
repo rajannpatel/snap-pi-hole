@@ -9,45 +9,11 @@
 set -eu
 
 
-# Detect the most common port-53 collision: systemd-resolved's stub
-# listener on 127.0.0.53. Fail fast with a clear message  -  otherwise
-# FTL itself would die later with a generic EADDRINUSE that's harder
-# to diagnose from `snap logs`.
-#
-# /dev/tcp is a bash builtin and uses ordinary socket(2); the `network`
-# plug is enough.
-if (exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null; then
-    exec 3<&- 3>&-
-    cat >&2 <<EOF
-ERROR: systemd-resolved is listening on 127.0.0.53:53 and will conflict
-with Pi-hole on port 53.
-
-Disable its stub listener and try again:
-
-    sudo mkdir -p /etc/systemd/resolved.conf.d
-    printf '[Resolve]\nDNSStubListener=no\n' \
-      | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
-    sudo systemctl restart systemd-resolved
-
-Then: sudo snap start ${SNAP_NAME}.pihole-ftl
-
-For a full diagnostic readout of port conflicts, run:
-    sudo ${SNAP_NAME}.check-system
-EOF
-    exit 1
-elif (exec 3<>/dev/tcp/127.0.0.1/53) 2>/dev/null || (exec 3<>/dev/tcp/0.0.0.0/53) 2>/dev/null; then
-    exec 3<&- 3>&-
-    cat >&2 <<EOF
-ERROR: Port 53 is already in use by another service on this host.
-Pi-hole requires port 53 to function.
-
-Run 'sudo ss -tulpn | grep :53' on the host to identify the conflicting service.
-
-For a full diagnostic readout of port conflicts, run:
-    sudo ${SNAP_NAME}.check-system
-EOF
-    exit 1
-fi
+# The launcher no longer performs pre-flight port 53 checks.
+# If port 53 is occupied, FTL will log a clear EADDRINUSE error and crash,
+# which the user can diagnose via `snap logs` and `pihole.check-system`.
+# Pre-flight bash socket checks are brittle (lack of timeout can cause indefinite hangs)
+# and fail to account for users who intentionally configure custom IP bindings.
 
 mkdir -p /etc/pihole /etc/dnsmasq.d /var/log/pihole "${SNAP_DATA}/run/pihole"
 

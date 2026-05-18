@@ -107,38 +107,7 @@ teardown() {
 }
 
 # ---------------------------------------------------------------------------
-# Port-53 conflict detection
-# ---------------------------------------------------------------------------
 
-@test "launcher-ftl exits 1 and prints remediation if port 53 is occupied" {
-    # Simulate port-53 occupied by making /dev/tcp/127.0.0.53/53 succeed.
-    # We rewrite the launcher's port check to always trigger.
-    LAUNCHER_OCCUPIED="${TEST_TMPDIR}/launcher-occupied"
-    sed 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|true|' \
-        "${LAUNCHER}" > "${LAUNCHER_OCCUPIED}"
-    chmod +x "${LAUNCHER_OCCUPIED}"
-
-    run "${LAUNCHER_OCCUPIED}"
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"systemd-resolved"* ]]
-    [[ "$output" == *"DNSStubListener=no"* ]]
-    echo "$output"
-    [[ "$output" == *"snap start ${SNAP_NAME}.pihole-ftl"* ]]
-}
-
-@test "launcher-ftl does not print conflict error when port 53 is free" {
-    # Make the port-53 check always fail (port is free).
-    LAUNCHER_FREE="${TEST_TMPDIR}/launcher-free"
-    sed 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
-        "${LAUNCHER}" > "${LAUNCHER_FREE}"
-    chmod +x "${LAUNCHER_FREE}"
-
-    run "${LAUNCHER_FREE}"
-    [[ "$output" != *"systemd-resolved"* ]]
-    [[ "$output" != *"DNSStubListener"* ]]
-}
-
-# ---------------------------------------------------------------------------
 # Environment setup
 # ---------------------------------------------------------------------------
 
