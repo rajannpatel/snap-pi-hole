@@ -137,6 +137,12 @@ parts:
       - -DCMAKE_INSTALL_PREFIX=/usr
       - -DSTATIC=false
       - -DCMAKE_C_FLAGS="-Wno-error=discarded-qualifiers"
+    override-build: |
+      # Stage all files modified by our sed patches in override-pull so that
+      # cmake's 'git describe --dirty' call sees a clean working tree and
+      # bakes "v6.6.2" into the binary instead of "v6.6.2-dirty".
+      git -C "${CRAFT_PART_SRC}" add -A 2>/dev/null || true
+      craftctl default
     build-snaps:
       - cmake/3.27/stable
     build-packages:
