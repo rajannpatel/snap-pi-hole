@@ -280,10 +280,14 @@ jobs:
           name: pihole-snap-amd64
           path: .
 
+      - name: Get snap filename
+        id: snap
+        run: echo "file=$(ls ${{ env.SNAP_NAME }}_*.snap)" >> $GITHUB_OUTPUT
+
       - name: Publish to Snap Store
         uses: snapcore/action-publish@v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
-          snap: ${{ env.SNAP_NAME }}_*.snap
+          snap: ${{ steps.snap.outputs.file }}
           release: latest/edge
