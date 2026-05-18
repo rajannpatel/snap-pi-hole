@@ -14,11 +14,26 @@ setup() {
     # Create fake pihole.toml, logs, and database files
     echo 'password = "secret_password_here"' > "${SNAP_DATA}/etc/pihole/pihole.toml"
     echo 'some_setting = "value"' >> "${SNAP_DATA}/etc/pihole/pihole.toml"
+    echo '[dns]' >> "${SNAP_DATA}/etc/pihole/pihole.toml"
+    echo '  upstreams = ["8.8.8.8"]' >> "${SNAP_DATA}/etc/pihole/pihole.toml"
     
     echo "Log line 1" > "${SNAP_COMMON}/var/log/pihole/pihole-FTL.log"
 
     echo "fake db data" > "${SNAP_DATA}/etc/pihole/gravity.db"
     echo "fake db data" > "${SNAP_DATA}/etc/pihole/pihole-FTL.db"
+
+    # Create fake pihole-FTL stub to mock sqlite3 calls
+    export SNAP="${TMPDIR}/snap"
+    mkdir -p "${SNAP}/usr/bin"
+    cat > "${SNAP}/usr/bin/pihole-FTL" <<'EOF'
+#!/bin/bash
+if [ "$1" = "sqlite3" ]; then
+    if [[ "$3" == *"SELECT count(*)"* ]]; then
+        echo "1"
+    fi
+fi
+EOF
+    chmod +x "${SNAP}/usr/bin/pihole-FTL"
 
     # Setup a mock bin directory to intercept snapctl, timeout, dmesg
     export MOCK_BIN="${TMPDIR}/bin"
@@ -194,4 +209,23 @@ EOF
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"[WARN] pihole-FTL.db is missing or empty"* ]]
+}
+
+@test "snapdebug fails if pihole.toml missing upstreams" {
+    echo 'some_setting = "value"' > "${SNAP_DATA}/etc/pihole/pihole.toml"
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[FAIL] No upstream DNS servers found in pihole.toml"* ]]
+}
+
+@test "snapdebug flags missing adlists" {
+    cat > "${SNAP}/usr/bin/pihole-FTL" <<'EOF'
+#!/bin/bash
+echo "0"
+EOF
+    chmod +x "${SNAP}/usr/bin/pihole-FTL"
+
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[WARN] No enabled adlists found in gravity.db"* ]]
 }

@@ -83,6 +83,14 @@ echo "--- DATABASES ---"
 GRAVITY_DB="$SNAP_DATA/etc/pihole/gravity.db"
 if [ -s "$GRAVITY_DB" ]; then
     echo "  [OK] gravity.db is present and populated ($(stat -c%s "$GRAVITY_DB") bytes)."
+    if [ -x "$SNAP/usr/bin/pihole-FTL" ]; then
+        ADLIST_COUNT=$("$SNAP/usr/bin/pihole-FTL" sqlite3 "$GRAVITY_DB" "SELECT count(*) FROM adlist WHERE enabled=1;" 2>/dev/null || echo "0")
+        if [ "$ADLIST_COUNT" -gt 0 ]; then
+            echo "  [OK] Found $ADLIST_COUNT enabled adlist(s)."
+        else
+            echo "  [WARN] No enabled adlists found in gravity.db. Ad-blocking will not work!"
+        fi
+    fi
 elif [ -e "$GRAVITY_DB" ]; then
     echo "  [FAIL] gravity.db exists but is 0 bytes."
     echo "    -> Remediation: Run 'sudo pihole -g' to build the adlist database."
@@ -116,6 +124,12 @@ echo ""
 # --- CONFIGURATION ---
 echo "--- PIHOLE.TOML CONFIGURATION ---"
 if [ -f "$SNAP_DATA/etc/pihole/pihole.toml" ]; then
+    if grep -q "upstreams" "$SNAP_DATA/etc/pihole/pihole.toml"; then
+        echo "  [OK] Upstream DNS servers are configured."
+    else
+        echo "  [FAIL] No upstream DNS servers found in pihole.toml! FTL will not resolve external domains."
+    fi
+    echo ""
     cat "$SNAP_DATA/etc/pihole/pihole.toml" | sed 's/password = .*/password = "[REDACTED]"/' | sed 's/^/  /'
 else
     echo "  [WARN] pihole.toml not found."
