@@ -22,28 +22,9 @@
 This snap is currently published with `grade: devel`; it will not install from the `stable` risk level until I have a green end-to-end smoke test on real DNS traffic.
 
 ---
+A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole.
 
-**What is the Pi-hole snap?**
-
-It is a strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole. It packages Pi-hole's DNS resolver, DHCP server, and web admin interface into a single, immutable package.
-
-**How does it work?**
-
-It bind-mounts Pi-hole's upstream-hardcoded paths into the snap's secure data directory and intercepts incompatible CLI commands, allowing the standard Pi-hole daemon to run out-of-the-box in strict AppArmor confinement.
-
-**Who is it for?**
-
-It is built for homelab operators, system administrators, and privacy advocates who want a stable, network-wide ad blocker without mutating their host operating system.
-
-## Why choose the Pi-hole Snap?
-
-Snaps provide a comprehensive, multi-layered approach to software distribution that extends from basic application delivery to full system management. The Pi-hole snap leverages these capabilities to provide a superior deployment experience:
-
-- **System Integrity**: The snap is a tamper-proof, GPG-signed, and compressed read-only filesystem image. Unlike traditional packages, it is mounted rather than unpacked on disk, preventing accidental mutations to the core binaries.
-- **Safe & Reliable Updates**: Updates are fully transactional. If a Pi-hole update breaks your network's DNS, you have clear rollback capabilities to safely return to the previous stable state (`snap revert pihole`).
-- **Security by Design**: The snap security model follows a "deny by default" principle. Pi-hole runs in an isolated AppArmor sandbox, with system access mediated through pre-defined interfaces explicitly controlled by the administrator.
-- **Long-Term Maintainability**: Snapping Pi-hole decouples it from your underlying OS library versions, effectively solving dependency conflicts "forever in the future" and keeping your host operating system clean.
-- **Built-in Data Protection**: Snaps include a native backup and restore mechanism (`snap save pihole`). Pre-refresh hooks also automatically back up your Pi-hole configuration and blocklists to ensure your user state is perfectly preserved during updates or rollbacks.
+For a detailed explanation of what this snap is, how it works, and why it's the preferred deployment method, please see the **[Home Page of our Wiki](https://github.com/rajannpatel/snap-pi-hole/wiki)**!
 
 ## In this documentation
 
