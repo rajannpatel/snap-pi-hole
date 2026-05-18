@@ -7,7 +7,10 @@ HOOK_DIR="$(dirname "$0")"
 
 # Re-apply configuration. We can just call the configure hook logic.
 if [ -x "${HOOK_DIR}/configure" ]; then
-    "${HOOK_DIR}/configure" || echo "Warning: configure hook returned non-zero during post-refresh" >&2
+    if ! "${HOOK_DIR}/configure"; then
+        echo "Error: Configuration schema migration failed! Aborting refresh." >&2
+        exit 1
+    fi
 else
     echo "Warning: configure hook not found or not executable at ${HOOK_DIR}/configure" >&2
 fi
@@ -16,19 +19,27 @@ fi
 sleep 2
 
 # Validate DNS resolution
-# We use dig if available, otherwise fallback to ping or getent.
-# Note: we test against localhost since Pi-hole is local.
+# We use dig if available to test local resolution.
 DNS_TARGET="127.0.0.1"
 
 echo "Validating DNS resolution on $DNS_TARGET after refresh..."
 if command -v dig >/dev/null 2>&1; then
-    if ! dig +short @${DNS_TARGET} github.com >/dev/null 2>&1; then
-        echo "Warning: DNS validation failed using dig." >&2
+    # Test `pi.hole` (local) instead of github.com to avoid false-positive rollbacks
+    # if the upstream internet connection is temporarily down.
+    # We retry a few times to give FTL time to start up.
+    healthy=0
+    for i in $(seq 1 5); do
+        if dig +short +time=1 +tries=1 @${DNS_TARGET} pi.hole >/dev/null 2>&1; then
+            healthy=1
+            break
+        fi
+        sleep 1
+    done
+
+    if [ "$healthy" -eq 0 ]; then
+        echo "Error: DNS validation failed after refresh! FTL is unresponsive. Aborting refresh." >&2
+        exit 1
     fi
 else
-    # Fallback to getent if dig isn't staged
-    # We can't force getent to use a specific nameserver easily, but 
-    # if the snap runs in a namespace where resolv.conf is configured to 127.0.0.1, it works.
-    # We will log a warning if dig is missing.
     echo "Warning: 'dig' not found, skipping deep DNS validation." >&2
 fi

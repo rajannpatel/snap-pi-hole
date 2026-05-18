@@ -43,6 +43,15 @@ You can completely customize this schedule natively through snapd using `snap se
 sudo snap set pihole timer.gravity-sync.schedule="mon,02:00"
 ```
 
+### Automatic Refresh Safety Mechanisms
+
+Because Pi-hole controls DNS for your entire network, automatic updates (refreshes) must be rock solid. We implemented 4 pillars of safety to guarantee zero data loss and zero downtime during snap updates:
+
+1. **Transactional Refreshes (Zero Downtime)**: The snap is configured with `refresh-mode: endure`. When a new update downloads, the old FTL daemon continues to serve DNS queries completely uninterrupted. It is only killed *after* the new daemon starts up successfully.
+2. **Pre-refresh Snapshots**: Before the new snap revision is allowed to execute any code, the `pre-refresh` hook safely snapshots your `/etc/pihole` configuration (including `gravity.db` and custom lists) into a `.tar.gz` archive. This guarantees you always have a manual rollback point.
+3. **Schema Validation & Rollbacks**: After the new snap starts, the `post-refresh` hook intercepts your configuration and re-runs it through the strict schema validator. If the new Pi-hole version introduces a breaking change to configuration parameters, the validation fails and `snapd` **automatically aborts and rolls back** to the previous working version.
+4. **Post-refresh Health Checks**: Finally, `post-refresh` queries the new daemon for local DNS resolution (`pi.hole`). If FTL fails to respond within 5 seconds, it exits with an error, triggering another automatic rollback.
+
 While ConfDB is available in `snapd` that runs alongside `core26`, it is still an experimental feature. 
 
 To use native ConfDB today, you have to:

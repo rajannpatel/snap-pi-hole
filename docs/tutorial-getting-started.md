@@ -65,3 +65,7 @@ If you ever want to run a gravity update manually, you can use the wrapper scrip
 ```bash
 sudo pihole -g
 ```
+
+## 8. Automatic Updates (Snap Refreshes)
+
+Snaps automatically update in the background. Because Pi-hole manages DNS for your entire network, we have engineered these updates to be **completely safe and zero-downtime**. The new daemon is started before the old one is stopped, and if any configuration migration or DNS health check fails, the system will automatically abort the update and roll back to the previous working version. You do not need to worry about an update taking your network offline!
