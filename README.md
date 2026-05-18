@@ -48,22 +48,22 @@ Snaps provide a comprehensive, multi-layered approach to software distribution t
 ## In this documentation
 
 - 🎓 **Tutorial**
-  - [Getting Started with the Pi-hole Snap](docs/tutorials/getting-started.md)
+  - [Getting Started with the Pi-hole Snap](https://github.com/rajannpatel/snap-pi-hole/wiki/Tutorial:-Getting-Started)
 - 🛠️ **How-to guides**
-  - [Migrate from an Existing Install](docs/how-to/migrate-existing.md)
-  - [Configure DHCP](docs/how-to/dhcp-setup.md)
-  - [Backups and Restores](docs/how-to/backups.md)
-  - [Build and Test from Source](docs/how-to/build-and-test.md)
+  - [Migrate from an Existing Install](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Migrate-from-an-Existing-Install)
+  - [Configure DHCP](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Configure-DHCP)
+  - [Backups and Restores](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Backups-and-Restores)
+  - [Build and Test from Source](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Build-and-Test-from-Source)
 - 📚 **Reference**
-  - [Native Configuration](docs/reference/configuration.md)
-  - [CLI Wrapper Commands](docs/reference/cli-commands.md)
-  - [Networking Compatibility](docs/reference/networking-compatibility.md)
-  - [Ports and Firewall](docs/reference/ports-and-firewall.md)
-  - [Supported Systems](docs/reference/supported-systems.md)
+  - [Native Configuration](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-Native-Configuration)
+  - [CLI Wrapper Commands](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-CLI-Wrapper-Commands)
+  - [Networking Compatibility](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-Networking-Compatibility)
+  - [Ports and Firewall](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-Ports-and-Firewall)
+  - [Supported Systems](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-Supported-Systems)
 - 💡 **Explanation**
-  - [Architecture and Rationale](docs/explanation/architecture.md)
-  - [Why Unbound is Not Bundled](docs/explanation/unbound.md)
-  - [Refresh Behavior and Updates](docs/explanation/refresh-behavior.md)
+  - [Architecture and Rationale](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Architecture-and-Rationale)
+  - [Why Unbound is Not Bundled](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Why-Unbound-is-Not-Bundled)
+  - [Refresh Behavior and Updates](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Refresh-Behavior-and-Updates)
 
 ## Project and community
 
