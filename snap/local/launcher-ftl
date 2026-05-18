@@ -67,7 +67,11 @@ cd "${SNAP_DATA}/run/pihole"
 # and bound to its sockets before pihole -g attempts to communicate with it.
 if [ ! -s "/etc/pihole/gravity.db" ]; then
     echo "gravity.db is missing. Spawning 'pihole -g' in the background to build adlists..."
-    ( sleep 10 && "${SNAP}/opt/pihole/pihole" -g > /var/log/pihole/gravity-first-run.log 2>&1 ) &
+    ( 
+      sleep 10
+      "${SNAP}/usr/bin/pihole-FTL" sqlite3 /etc/pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, enabled, comment) VALUES ('https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts', 1, 'Default Steven Black List');" || true
+      "${SNAP}/opt/pihole/pihole" -g > /var/log/pihole/gravity-first-run.log 2>&1 
+    ) &
 fi
 
 exec "${SNAP}/usr/bin/pihole-FTL" no-daemon
