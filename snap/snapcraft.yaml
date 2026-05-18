@@ -88,12 +88,6 @@ layout:
   # Log files (FTL.log, pihole.log, webserver.log).
   /var/log/pihole:
     bind: $SNAP_COMMON/var/log/pihole
-  # Shared runtime directory for PID file and sockets. Exposing this via the
-  # layout (rather than /run/snap.pihole/ which is private to the daemon)
-  # ensures both the daemon and CLI apps resolve the same pihole-FTL.pid path,
-  # which is required for `pihole -g` / UI gravity update IPC to work correctly.
-  /run/pihole:
-    bind: $SNAP_DATA/run/pihole
   # Bash-script helper dir (`pihole`, gravity.sh, piholeDebug.sh, etc.).
   # Read-only  -  these are part of the squashfs.
   /opt/pihole:
