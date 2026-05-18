@@ -406,6 +406,12 @@ apps:
       - hardware-observe
       - mount-observe
 
+  sqlite3:
+    command: usr/bin/pihole-FTL sqlite3
+    plugs:
+      - network
+      - network-bind
+
   # Automated gravity sync. Runs weekly. Users can customize the schedule using:
   # snap set pihole timer.gravity-sync.schedule="mon,02:00"
   gravity-sync:
