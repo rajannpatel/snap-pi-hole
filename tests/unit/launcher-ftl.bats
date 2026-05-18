@@ -38,6 +38,11 @@ setup() {
         -e "s|/run/snap.\"\${SNAP_NAME}\"|${TEST_TMPDIR}/run/snap.pihole|g" \
         "${REPO_ROOT}/snap/local/launcher-ftl" > "${LAUNCHER}"
     chmod +x "${LAUNCHER}"
+
+    # Create dummy gravity.db to prevent the background spawn of `pihole -g`
+    # from hanging the bats test due to open FDs from the background subshell.
+    mkdir -p "${TEST_TMPDIR}/etc/pihole"
+    echo "mock_data" > "${TEST_TMPDIR}/etc/pihole/gravity.db"
 }
 
 teardown() {

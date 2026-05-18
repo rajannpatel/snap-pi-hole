@@ -62,4 +62,12 @@ export HOME="${SNAP_DATA}"
 # FTL writes its pid file relative to cwd in a couple of code paths.
 cd "${SNAP_DATA}/run/pihole"
 
+# If gravity.db is missing (e.g. on first install), build it in the background.
+# We sleep for 10 seconds to ensure the FTL daemon has fully initialized
+# and bound to its sockets before pihole -g attempts to communicate with it.
+if [ ! -s "/etc/pihole/gravity.db" ]; then
+    echo "gravity.db is missing. Spawning 'pihole -g' in the background to build adlists..."
+    ( sleep 10 && "${SNAP}/opt/pihole/pihole" -g > /var/log/pihole/gravity-first-run.log 2>&1 ) &
+fi
+
 exec "${SNAP}/usr/bin/pihole-FTL" no-daemon
