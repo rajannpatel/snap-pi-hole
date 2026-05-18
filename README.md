@@ -23,16 +23,20 @@ For a detailed explanation of what this snap is, how it works, and why it's the 
 
 ## Quickstart
 
-**1. Free up Port 53**
+1. **Free up Port 53**
+
 On Ubuntu, `systemd-resolved` usually binds to port 53. You must disable its stub listener before starting Pi-hole:
+
 ```bash
 sudo mkdir -p /etc/systemd/resolved.conf.d
 printf '[Resolve]\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
 sudo systemctl restart systemd-resolved
 ```
 
-**2. Install and Connect**
+2. **Install and Connect**
+
 Install the snap and explicitly connect the required network interfaces:
+
 ```bash
 sudo snap install pihole-by-rajannpatel
 sudo snap connect pihole-by-rajannpatel:network-bind
@@ -40,9 +44,12 @@ sudo snap connect pihole-by-rajannpatel:network-bind
 # Optional: Connect these if you plan to use Pi-hole as a DHCP server
 sudo snap connect pihole-by-rajannpatel:network-control
 sudo snap connect pihole-by-rajannpatel:firewall-control
+```
 
-**3. Start and Configure**
+3. **Start and Configure**
+
 Enable the daemon and set your secure web admin password:
+
 ```bash
 sudo snap start --enable pihole-by-rajannpatel.pihole-ftl
 echo "YourSecurePasswordHere" | sudo pihole setpassword
