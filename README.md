@@ -13,6 +13,7 @@
 >
 > These versions are automatically tracked and updated by a daily GitHub Actions bot
 
+This snap is currently published with `grade: devel` because it strictly requires the experimental `core26` Ubuntu base to satisfy Pi-hole's `mbedTLS >= 3.5.0` dependencies. It will be promoted to stable once Canonical officially releases the `core26` base.
 
 ---
 A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole.
