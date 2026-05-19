@@ -50,10 +50,10 @@ jobs:
         id: snapcraft
         uses: snapcore/action-build@v1
         with:
-          # snapcraft 9.x supports every base from core18 onwards; aligning
-          # the build and release workflows on the same channel keeps the
-          # behaviour reproducible across them.
-          snapcraft-channel: 9.x/candidate
+          # We must use 8.x/stable because Snapcraft 9.0.0 candidate has a
+          # schema validation bug that completely prevents building a core26
+          # snap with grade: stable.
+          snapcraft-channel: 8.x/stable
           snapcraft-args: --build-for ${{ matrix.arch }}
 
       - name: Upload snap artefact
