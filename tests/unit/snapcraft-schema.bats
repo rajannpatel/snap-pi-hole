@@ -186,13 +186,13 @@ PYEOF
     done
 }
 
-@test "snapcraft.yaml: adopt-info points to the ftl part" {
+@test "snapcraft.yaml: adopt-info points to the core part" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
-assert doc.get("adopt-info") == "ftl", \
-    f"expected adopt-info: ftl, got: {doc.get('adopt-info')}"
+assert doc.get("adopt-info") == "core", \
+    f"expected adopt-info: core, got: {doc.get('adopt-info')}"
 PYEOF
 }
 

@@ -198,3 +198,74 @@ BASH
     run _run_port53_guard "no"
     [[ "$output" == *"::error::"* ]]
 }
+
+# ---------------------------------------------------------------------------
+# Channel mapping logic (from publish.yml)
+# ---------------------------------------------------------------------------
+
+_run_channel_mapping() {
+    local SNAP_VERSION="$1"
+    local ENABLE_TRACKS="$2"
+    bash <<BASH
+    SNAP_VERSION="${SNAP_VERSION}"
+    ENABLE_TRACKS="${ENABLE_TRACKS}"
+    MAJOR_VERSION=\$(echo "\${SNAP_VERSION#v}" | cut -d'.' -f1)
+    
+    if [[ "\$SNAP_VERSION" == *"-alpha"* ]] || [[ "\$SNAP_VERSION" =~ -g[0-9a-f]+ ]]; then
+      CHANNELS="latest/edge"
+      [[ "\$ENABLE_TRACKS" == "true" ]] && CHANNELS="\${CHANNELS},\${MAJOR_VERSION}/edge"
+    elif [[ "\$SNAP_VERSION" == *"-beta"* ]]; then
+      CHANNELS="latest/beta,latest/edge"
+      [[ "\$ENABLE_TRACKS" == "true" ]] && CHANNELS="\${CHANNELS},\${MAJOR_VERSION}/beta,\${MAJOR_VERSION}/edge"
+    elif [[ "\$SNAP_VERSION" == *"-rc"* ]]; then
+      CHANNELS="latest/candidate,latest/beta,latest/edge"
+      [[ "\$ENABLE_TRACKS" == "true" ]] && CHANNELS="\${CHANNELS},\${MAJOR_VERSION}/candidate,\${MAJOR_VERSION}/beta,\${MAJOR_VERSION}/edge"
+    else
+      CHANNELS="latest/stable,latest/candidate,latest/beta,latest/edge"
+      [[ "\$ENABLE_TRACKS" == "true" ]] && CHANNELS="\${CHANNELS},\${MAJOR_VERSION}/stable,\${MAJOR_VERSION}/candidate,\${MAJOR_VERSION}/beta,\${MAJOR_VERSION}/edge"
+    fi
+    echo "\$CHANNELS"
+BASH
+}
+
+@test "publish mapping: clean tag goes to all channels" {
+    run _run_channel_mapping "v6.4.2" "false"
+    [ "$status" -eq 0 ]
+    [ "$output" = "latest/stable,latest/candidate,latest/beta,latest/edge" ]
+}
+
+@test "publish mapping: clean tag with -dirty goes to all channels" {
+    run _run_channel_mapping "v6.4.2-dirty" "false"
+    [ "$status" -eq 0 ]
+    [ "$output" = "latest/stable,latest/candidate,latest/beta,latest/edge" ]
+}
+
+@test "publish mapping: -beta goes to beta and edge" {
+    run _run_channel_mapping "v6.4.2-beta.1" "false"
+    [ "$status" -eq 0 ]
+    [ "$output" = "latest/beta,latest/edge" ]
+}
+
+@test "publish mapping: -rc goes to candidate, beta, and edge" {
+    run _run_channel_mapping "v6.4.2-rc.1" "false"
+    [ "$status" -eq 0 ]
+    [ "$output" = "latest/candidate,latest/beta,latest/edge" ]
+}
+
+@test "publish mapping: -alpha goes to edge" {
+    run _run_channel_mapping "v7.0.0-alpha.1" "false"
+    [ "$status" -eq 0 ]
+    [ "$output" = "latest/edge" ]
+}
+
+@test "publish mapping: post-tag commit (-gXXX) goes to edge" {
+    run _run_channel_mapping "v6.4.2-12-g12345" "false"
+    [ "$status" -eq 0 ]
+    [ "$output" = "latest/edge" ]
+}
+
+@test "publish mapping: tracks enabled mirrors channels to major version" {
+    run _run_channel_mapping "v6.4.2" "true"
+    [ "$status" -eq 0 ]
+    [ "$output" = "latest/stable,latest/candidate,latest/beta,latest/edge,6/stable,6/candidate,6/beta,6/edge" ]
+}
