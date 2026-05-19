@@ -50,8 +50,7 @@ jobs:
         id: snapcraft
         uses: snapcore/action-build@v1
         with:
-          # Snapcraft 9 is in candidate, which fully supports core26 natively
-          snapcraft-channel: 9.x/candidate
+          snapcraft-channel: 9.x/stable
           snapcraft-args: --build-for ${{ matrix.arch }}
 
       - name: Upload snap artefact
