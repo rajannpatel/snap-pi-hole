@@ -304,6 +304,27 @@ jobs:
           # Strip leading 'v' if present and get the major version number (e.g., v6.6.2 -> 6)
           MAJOR_VERSION=$(echo "${SNAP_VERSION#v}" | cut -d'.' -f1)
           echo "track=${MAJOR_VERSION}" >> $GITHUB_OUTPUT
+          
+          # Map Pi-hole versioning to Snap Store channels
+          # Set to true once you request and receive the major version track (e.g., '6' or '7') from the Snapcraft forum
+          ENABLE_TRACKS=false
+          
+          # If the version has commits past a tag (contains -g followed by hex) or is alpha, it's a dev build
+          if [[ "$SNAP_VERSION" == *"-alpha"* ]] || [[ "$SNAP_VERSION" =~ -g[0-9a-f]+ ]]; then
+            CHANNELS="latest/edge"
+            [[ "$ENABLE_TRACKS" == "true" ]] && CHANNELS="${CHANNELS},${MAJOR_VERSION}/edge"
+          elif [[ "$SNAP_VERSION" == *"-beta"* ]]; then
+            CHANNELS="latest/beta,latest/edge"
+            [[ "$ENABLE_TRACKS" == "true" ]] && CHANNELS="${CHANNELS},${MAJOR_VERSION}/beta,${MAJOR_VERSION}/edge"
+          elif [[ "$SNAP_VERSION" == *"-rc"* ]]; then
+            CHANNELS="latest/candidate,latest/beta,latest/edge"
+            [[ "$ENABLE_TRACKS" == "true" ]] && CHANNELS="${CHANNELS},${MAJOR_VERSION}/candidate,${MAJOR_VERSION}/beta,${MAJOR_VERSION}/edge"
+          else
+            # A clean tag (even if it has -dirty from local sed patches) goes to stable
+            CHANNELS="latest/stable,latest/candidate,latest/beta,latest/edge"
+            [[ "$ENABLE_TRACKS" == "true" ]] && CHANNELS="${CHANNELS},${MAJOR_VERSION}/stable,${MAJOR_VERSION}/candidate,${MAJOR_VERSION}/beta,${MAJOR_VERSION}/edge"
+          fi
+          echo "channels=${CHANNELS}" >> $GITHUB_OUTPUT
 
       - name: Publish to Snap Store
         uses: snapcore/action-publish@v1
@@ -311,7 +332,4 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
           snap: ${{ steps.snap.outputs.file }}
-          # Once you request and are granted the major version track (e.g. '6' or '7') from the Snapcraft forum,
-          # you can uncomment the track release string below to auto-publish to tracks.
-          # release: ${{ steps.snap.outputs.track }}/edge,${{ steps.snap.outputs.track }}/beta,${{ steps.snap.outputs.track }}/candidate,${{ steps.snap.outputs.track }}/stable
-          release: latest/edge,latest/beta,latest/candidate,latest/stable
+          release: ${{ steps.snap.outputs.channels }}

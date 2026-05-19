@@ -3,7 +3,7 @@ title: Pi-hole
 summary: Network-wide ad blocking via your own DNS server
 license: MIT
 icon: snap/gui/pihole.png
-adopt-info: ftl
+adopt-info: core
 
 description: |
   Pi-hole is a Linux network-level advertisement and Internet tracker
@@ -141,9 +141,10 @@ parts:
       - -DSTATIC=false
       - -DCMAKE_C_FLAGS="-Wno-error=discarded-qualifiers"
     override-build: |
-      # FTL's gen_version.cmake honors these environment variables.
-      # Setting them explicitly prevents `git describe` from appending
-      # "-dirty" to the version string due to our sed patches in the source.
+      # STRIPPING -dirty:
+      # The sed patches in override-pull leave the git tree dirty.
+      # If we don't strip -dirty, pihole-FTL's internal version check will output v6.6.2-dirty, 
+      # which alarms users in the web interface. Setting these variables forces a clean version.
       export GIT_VERSION="$(git -C "${CRAFT_PART_SRC}" describe --tags --abbrev=0)"
       export GIT_TAG="${GIT_VERSION}"
       export GIT_HASH="$(git -C "${CRAFT_PART_SRC}" rev-parse --short HEAD)"
@@ -207,6 +208,8 @@ parts:
     source-depth: 1
     override-pull: |
       craftctl default
+      # Snap versioning: capture the clean tag before we dirty the tree with sed patches below.
+      craftctl set version="$(git -C "${CRAFT_PART_SRC}" describe --tags --always)"
       cd "${CRAFT_PART_SRC}"
       # piholeLogFlush.sh stops/restarts the daemon via `service`; rewrite
       # to use snapctl so it works inside the sandbox.
