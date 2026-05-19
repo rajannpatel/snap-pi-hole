@@ -106,7 +106,6 @@ parts:
     source-depth: 1
     override-pull: |
       craftctl default
-      craftctl set version="$(git -C "${CRAFT_PART_SRC}" describe --tags --always)"
       # Fix strstr redefinition error on newer glibc (Ubuntu 26.04)
       sed -i 's/#define strstr(haystack, needle)/#undef strstr\n#define strstr(haystack, needle)/' "${CRAFT_PART_SRC}/src/FTL.h"
       # Patch x509.c for MbedTLS 3.x API compatibility (MbedTLS 3.6 strictly requires RNG for PEM generation)
