@@ -20,11 +20,22 @@ A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](
 
 [![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/pihole-by-rajannpatel)
 
-## Documentation
+## More information
 
-The documentation is organized according to the [Diátaxis framework](https://diataxis.fr/) and is hosted in the **[GitHub Wiki](https://github.com/rajannpatel/snap-pi-hole/wiki)**:
+**[Documentation](https://github.com/rajannpatel/snap-pi-hole/wiki)**:
 
-* **[Tutorials](https://github.com/rajannpatel/snap-pi-hole/wiki/Tutorial:-Getting-Started)**: Step-by-step learning for beginners.
-* **[How-To Guides](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Supported-Deployment-Patterns)**: Problem-oriented instructions.
-* **[Reference](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-Native-Configuration)**: Information-oriented technical references.
-* **[Explanation](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Architecture-and-Rationale)**: Understanding-oriented background information.
+* **[Tutorial](https://github.com/rajannpatel/snap-pi-hole/wiki/Tutorial:-Getting-Started)**
+
+   Step-by-step learning for beginners.
+
+* **[How-To Guides](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Supported-Deployment-Patterns)**
+
+   Problem-oriented instructions.
+
+* **[Reference](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-Native-Configuration)**
+
+   Information-oriented technical references.
+
+* **[Explanation](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Architecture-and-Rationale)**
+
+   Understanding-oriented background information.
