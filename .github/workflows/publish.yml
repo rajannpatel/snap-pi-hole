@@ -1,9 +1,8 @@
-name: Release Pipeline
+name: Publish Pipeline
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -91,9 +90,9 @@ jobs:
           # `snap refresh` only works once the snapd snap exists, which isn't
           # guaranteed on a fresh ubuntu-latest runner (only the apt package
           sudo apt-get install -y iproute2 dnsutils
-          sudo snap install snapd --channel=latest/edge \
-            || sudo snap refresh snapd --channel=latest/edge
-          sudo snap install core26 --channel=latest/edge || true
+          sudo snap install snapd \
+            || sudo snap refresh snapd
+          sudo snap install core26 || true
           sudo snap install --dangerous ./${{ env.SNAP_NAME }}_*.snap
           
           # Explicitly connect network interfaces and required system plugs
@@ -253,6 +252,11 @@ jobs:
           #            denied, it successfully falls back to standard unprivileged
           #            polling which is sufficient for `pihole status` to verify
           #            that port 53 is bound.
+          # EXCEPTION 3: /etc/ldap/ldap.conf
+          #   Context: curl probes this during SASL/LDAP plugin discovery on
+          #            every invocation, even for plain HTTPS requests.
+          #   Reason:  Non-fatal. curl gracefully continues without LDAP
+          #            configuration; all HTTP/HTTPS downloads work normally.
           # ---------------------------------------------------------------------
           if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin|ldap\.conf'; then
               echo "::error::AppArmor recorded fatal denials against the pihole snap (see above)"
@@ -272,10 +276,10 @@ jobs:
           sudo cat /var/snap/${{ env.SNAP_NAME }}/common/var/log/pihole/FTL.log || true
 
   publish:
-    name: publish to beta (${{ matrix.arch }})
+    name: publish (${{ matrix.arch }})
     needs: [smoke]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -288,9 +292,18 @@ jobs:
           name: pihole-snap-${{ matrix.arch }}
           path: .
 
-      - name: Get snap filename
+      - name: Get snap filename and parse track
         id: snap
-        run: echo "file=$(ls ${{ env.SNAP_NAME }}_*.snap)" >> $GITHUB_OUTPUT
+        run: |
+          SNAP_FILE=$(ls ${{ env.SNAP_NAME }}_*.snap | head -n1)
+          echo "file=${SNAP_FILE}" >> $GITHUB_OUTPUT
+          
+          # Extract the version from the snap filename (e.g., pihole-by-rajannpatel_v6.6.2_amd64.snap -> v6.6.2)
+          SNAP_VERSION=$(echo "$SNAP_FILE" | cut -d'_' -f2)
+          
+          # Strip leading 'v' if present and get the major version number (e.g., v6.6.2 -> 6)
+          MAJOR_VERSION=$(echo "${SNAP_VERSION#v}" | cut -d'.' -f1)
+          echo "track=${MAJOR_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Publish to Snap Store
         uses: snapcore/action-publish@v1
@@ -298,4 +311,7 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
           snap: ${{ steps.snap.outputs.file }}
-          release: latest/beta
+          # Once you request and are granted the major version track (e.g. '6' or '7') from the Snapcraft forum,
+          # you can uncomment the track release string below to auto-publish to tracks.
+          # release: ${{ steps.snap.outputs.track }}/edge,${{ steps.snap.outputs.track }}/beta,${{ steps.snap.outputs.track }}/candidate,${{ steps.snap.outputs.track }}/stable
+          release: latest/edge,latest/beta,latest/candidate,latest/stable

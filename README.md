@@ -2,7 +2,7 @@
 
 <img align="right" src="./snap/gui/pihole.png" width="120" alt="Pi-hole Logo">
 
-[![Build and Smoke Test](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/edge.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/edge.yml)
+[![Build and Smoke Test](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/publish.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/publish.yml)
 [![Upstream Tracker](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-upstream.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-upstream.yml)
 
 > | Upstream Component | Current Version |
@@ -13,7 +13,7 @@
 >
 > These versions are automatically tracked and updated by a daily GitHub Actions bot
 
-This snap is currently published with `grade: devel` because it strictly requires the experimental `core26` Ubuntu base to satisfy Pi-hole's `mbedTLS >= 3.5.0` dependencies. It will be promoted to stable once Canonical officially releases the `core26` base.
+This snap strictly requires the `core26` Ubuntu base to satisfy Pi-hole's `mbedTLS >= 3.5.0` dependencies.
 
 ---
 A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole.
