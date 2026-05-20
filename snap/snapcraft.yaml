@@ -145,50 +145,63 @@ parts:
       - GIT_BRANCH: "snap"
     override-build: |
       craftctl default
-    build-packages:
-      - cmake
-      - build-essential
-      - bind9-dnsutils
-      - git
-      - libidn2-dev
-      # Renamed from libnettle8 in core26 for the Y2038 64-bit time_t transition on armhf
-      - libnettle8t64
-      - nettle-dev
-      - libgmp-dev
-      - libuv1-dev
-      - libcap-dev
-      - libreadline-dev
-      - libsqlite3-dev
-      - libssl-dev
-      - libmbedtls-dev
-      - libunistring-dev   # added in FTL v6.6.x for Unicode handling
-      - python3
-      - xxd
-    stage-packages:
-      - libidn2-0
-      - bind9-dnsutils
-      # Renamed from libuv1 in core26 for the Y2038 64-bit time_t transition on armhf
-      - libuv1t64
-      - libcap2
-      # Renamed from libreadline8 in core26 for the Y2038 64-bit time_t transition on armhf
-      - libreadline8t64
-      - libsqlite3-0
-      # Renamed from libnettle8 in core26 for the Y2038 64-bit time_t transition on armhf
-      - libnettle8t64
-      - libgmp10
-      # mbedtls 3.6 SONAMEs on core26. libmbedtls21 transitively
-      # pulls libmbedcrypto16 and libmbedx509-7; list explicitly so the
-      # link line is reproducible from this file alone.
-      - libmbedtls21
-      - libmbedcrypto16
-      - libmbedx509-7
-      - libunistring5
-      - ca-certificates
-      # curl is used by gravity.sh to download adlists. It is not present on
-      # minimal Ubuntu installations (e.g. ubuntu:lts LXC images), so we
-      # bundle it in the snap. ca-certificates (above) provides HTTPS trust roots.
-      - curl
-      - jq
+build-packages:
+    # --- Build Tools & Utilities ---
+    - build-essential
+    - cmake
+    - git
+    - python3
+    - xxd
+    - bind9-dnsutils
+
+    # --- Development Headers ---
+    - libcap-dev
+    - libgmp-dev
+    - libidn2-dev
+    - libmbedtls-dev
+    - libreadline-dev
+    - libsqlite3-dev
+    - libssl-dev
+    - libunistring-dev   # added in FTL v6.6.x for Unicode handling
+    - libuv1-dev
+
+    # --- Nettle Stack ---
+    - nettle-dev
+    # Pulled dynamically by nettle-dev, but listed here to track
+    # the Y2038 64-bit time_t transition on armhf for core26
+    - libnettle8t64
+
+stage-packages:
+  # --- Standalone Tools ---
+  - bind9-dnsutils
+  - jq
+
+  # --- Web / Downloader Stack ---
+  # curl is used by gravity.sh to download adlists. It is not present on
+  # minimal Ubuntu installations (e.g. ubuntu:lts LXC images).
+  - curl
+  # HTTPS trust roots required by curl
+  - ca-certificates
+
+  # --- Core Libraries (Y2038 t64 transitions for core26) ---
+  - libreadline8t64
+  - libuv1t64
+  - libnettle8t64
+
+  # --- Core Libraries (Standard) ---
+  - libcap2
+  - libgmp10
+  - libidn2-0
+  - libsqlite3-0
+  - libunistring5
+
+  # --- MbedTLS Stack ---
+  # mbedtls 3.6 SONAMEs on core26.
+  - libmbedtls21
+  # Explicitly defined transitive dependencies of libmbedtls21.
+  # Listed explicitly so the link line is reproducible from this file alone.
+  - libmbedcrypto16
+  - libmbedx509-7
 
   # ---------------------------------------------------------------------
   # pi-hole core: the `pihole` CLI and supporting shell scripts.
@@ -223,14 +236,14 @@ parts:
       grep -rlZ 'readonly FTL_PID_FILE' . | xargs -0 -r sed -i 's/readonly FTL_PID_FILE/FTL_PID_FILE/g'
       # Neutralize upstream git version tracking checks inside strict confinement where git binary is stripped
       grep -rlZ 'git' advanced/Scripts/updatecheck.sh | xargs -0 -r sed -i 's|git |true # git disabled inside snap|g'
-      
+
       # Redirect hardcoded /etc/.pihole paths to their corresponding snap paths
       grep -rlZ '/etc/.pihole/advanced/Scripts' . | xargs -0 -r sed -i 's|/etc/.pihole/advanced/Scripts|/opt/pihole|g'
       grep -rlZ '${piholeGitDir}/advanced/Templates' . | xargs -0 -r sed -i 's|${piholeGitDir}/advanced/Templates|/opt/pihole/templates|g'
-      
+
       # Neuter chown commands since snap daemon runs as root and pihole user does not exist
       grep -rlZ 'chown pihole:pihole' . | xargs -0 -r sed -i 's|chown pihole:pihole|true # chown pihole:pihole|g'
-      
+
       # Seed a static template mapping matching our pinned deployment components
       mkdir -p advanced/Templates
       cat > advanced/Templates/versions << 'EOF'
@@ -390,7 +403,7 @@ apps:
       - network
       - network-bind
       - system-observe
-  
+
   health:
     command: bin/check-system
     plugs:

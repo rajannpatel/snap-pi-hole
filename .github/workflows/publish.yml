@@ -50,7 +50,7 @@ jobs:
         id: snapcraft
         uses: snapcore/action-build@v1
         with:
-          snapcraft-channel: latest/candidate
+          snapcraft-channel: 9.x/candidate
           snapcraft-args: --build-for ${{ matrix.arch }}
 
       - name: Upload snap artefact
