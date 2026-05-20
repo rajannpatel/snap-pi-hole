@@ -145,63 +145,63 @@ parts:
       - GIT_BRANCH: "snap"
     override-build: |
       craftctl default
-build-packages:
-    # --- Build Tools & Utilities ---
-    - build-essential
-    - cmake
-    - git
-    - python3
-    - xxd
-    - bind9-dnsutils
+    build-packages:
+      # --- Build Tools & Utilities ---
+      - build-essential
+      - cmake
+      - git
+      - python3
+      - xxd
+      - bind9-dnsutils
 
-    # --- Development Headers ---
-    - libcap-dev
-    - libgmp-dev
-    - libidn2-dev
-    - libmbedtls-dev
-    - libreadline-dev
-    - libsqlite3-dev
-    - libssl-dev
-    - libunistring-dev   # added in FTL v6.6.x for Unicode handling
-    - libuv1-dev
+      # --- Development Headers ---
+      - libcap-dev
+      - libgmp-dev
+      - libidn2-dev
+      - libmbedtls-dev
+      - libreadline-dev
+      - libsqlite3-dev
+      - libssl-dev
+      - libunistring-dev   # added in FTL v6.6.x for Unicode handling
+      - libuv1-dev
 
-    # --- Nettle Stack ---
-    - nettle-dev
-    # Pulled dynamically by nettle-dev, but listed here to track
-    # the Y2038 64-bit time_t transition on armhf for core26
-    - libnettle8t64
+      # --- Nettle Stack ---
+      - nettle-dev
+      # Pulled dynamically by nettle-dev, but listed here to track
+      # the Y2038 64-bit time_t transition on armhf for core26
+      - libnettle8t64
 
-stage-packages:
-  # --- Standalone Tools ---
-  - bind9-dnsutils
-  - jq
+    stage-packages:
+      # --- Standalone Tools ---
+      - bind9-dnsutils
+      - jq
 
-  # --- Web / Downloader Stack ---
-  # curl is used by gravity.sh to download adlists. It is not present on
-  # minimal Ubuntu installations (e.g. ubuntu:lts LXC images).
-  - curl
-  # HTTPS trust roots required by curl
-  - ca-certificates
+      # --- Web / Downloader Stack ---
+      # curl is used by gravity.sh to download adlists. It is not present on
+      # minimal Ubuntu installations (e.g. ubuntu:lts LXC images).
+      - curl
+      # HTTPS trust roots required by curl
+      - ca-certificates
 
-  # --- Core Libraries (Y2038 t64 transitions for core26) ---
-  - libreadline8t64
-  - libuv1t64
-  - libnettle8t64
+      # --- Core Libraries (Y2038 t64 transitions for core26) ---
+      - libreadline8t64
+      - libuv1t64
+      - libnettle8t64
 
-  # --- Core Libraries (Standard) ---
-  - libcap2
-  - libgmp10
-  - libidn2-0
-  - libsqlite3-0
-  - libunistring5
+      # --- Core Libraries (Standard) ---
+      - libcap2
+      - libgmp10
+      - libidn2-0
+      - libsqlite3-0
+      - libunistring5
 
-  # --- MbedTLS Stack ---
-  # mbedtls 3.6 SONAMEs on core26.
-  - libmbedtls21
-  # Explicitly defined transitive dependencies of libmbedtls21.
-  # Listed explicitly so the link line is reproducible from this file alone.
-  - libmbedcrypto16
-  - libmbedx509-7
+      # --- MbedTLS Stack ---
+      # mbedtls 3.6 SONAMEs on core26.
+      - libmbedtls21
+      # Explicitly defined transitive dependencies of libmbedtls21.
+      # Listed explicitly so the link line is reproducible from this file alone.
+      - libmbedcrypto16
+      - libmbedx509-7
 
   # ---------------------------------------------------------------------
   # pi-hole core: the `pihole` CLI and supporting shell scripts.
