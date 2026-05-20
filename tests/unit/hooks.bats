@@ -85,7 +85,7 @@ teardown() {
 # install hook
 # ---------------------------------------------------------------------------
 
-@test "install hook creates all required data directories" {
+@test "install hook creates required data directories" {
     # Rewrite hook paths to use TMPDIR so we don't touch real /etc
     HOOK="${TEST_TMPDIR}/install"
     sed \

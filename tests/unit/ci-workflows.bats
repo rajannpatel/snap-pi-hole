@@ -64,29 +64,29 @@ PYEOF
 # README version bump tests
 # ---------------------------------------------------------------------------
 
-@test "README bump: FTL version is updated correctly" {
+@test "readme FTL version is updated correctly" {
     _bump_readme "v9.1.0" "v6.4.2" "v6.5"
     grep -q "v9.1.0" "${TMPDIR}/README.md"
 }
 
-@test "README bump: pi-hole (core) version is updated correctly" {
+@test "readme pi-hole (core) version is updated correctly" {
     _bump_readme "v6.6.2" "v9.2.0" "v6.5"
     grep -q "v9.2.0" "${TMPDIR}/README.md"
 }
 
-@test "README bump: web version is updated correctly" {
+@test "readme web version is updated correctly" {
     _bump_readme "v6.6.2" "v6.4.2" "v9.3"
     grep -q "v9.3" "${TMPDIR}/README.md"
 }
 
-@test "README bump: all three versions updated independently in a single run" {
+@test "readme all three versions updated independently in a single run" {
     _bump_readme "v9.1.0" "v9.2.0" "v9.3"
     grep -q "v9.1.0" "${TMPDIR}/README.md"
     grep -q "v9.2.0" "${TMPDIR}/README.md"
     grep -q "v9.3"   "${TMPDIR}/README.md"
 }
 
-@test "README bump: old versions are removed after update" {
+@test "readme old versions are removed after update" {
     _bump_readme "v9.1.0" "v9.2.0" "v9.3"
     # The original versions in the repo's README should be gone
     local content
@@ -95,7 +95,7 @@ PYEOF
     [[ "$content" != *"v6.4.2"* ]]
 }
 
-@test "README bump: FTL row does not bleed into pi-hole or web rows" {
+@test "readme FTL row does not bleed into pi-hole or web rows" {
     # Set all three to distinct sentinel values and verify each row is exact
     _bump_readme "v1.0.0" "v2.0.0" "v3.0"
     # Each GitHub URL must appear with exactly its own version on the same line
@@ -107,7 +107,7 @@ PYEOF
     ! grep "pi-hole/pi-hole" "${TMPDIR}/README.md" | grep -q "v1.0.0"
 }
 
-@test "README bump: idempotent - running twice produces the same result" {
+@test "readme idempotent - running twice produces the same result" {
     _bump_readme "v9.1.0" "v9.2.0" "v9.3"
     local first
     first="$(cat "${TMPDIR}/README.md")"
@@ -128,22 +128,22 @@ _bump_snapcraft() {
     sed -i "/^  web:/,/^    source-tag:/ s/^    source-tag: .*/    source-tag: ${web}/" "$target"
 }
 
-@test "snapcraft.yaml bump: FTL source-tag updated" {
+@test "snapcraft.yaml FTL source-tag updated" {
     _bump_snapcraft "v9.1.0" "v6.4.2" "v6.5"
     grep -A5 "^  ftl:" "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v9.1.0"
 }
 
-@test "snapcraft.yaml bump: core (pi-hole) source-tag updated" {
+@test "snapcraft.yaml core (pi-hole) source-tag updated" {
     _bump_snapcraft "v6.6.2" "v9.2.0" "v6.5"
     grep -A5 "^  core:" "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v9.2.0"
 }
 
-@test "snapcraft.yaml bump: web source-tag updated" {
+@test "snapcraft.yaml web source-tag updated" {
     _bump_snapcraft "v6.6.2" "v6.4.2" "v9.3.0"
     grep -A5 "^  web:" "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v9.3.0"
 }
 
-@test "snapcraft.yaml bump: FTL tag does not bleed into core or web sections" {
+@test "snapcraft.yaml FTL tag does not bleed into core or web sections" {
     _bump_snapcraft "v1.0.0" "v2.0.0" "v3.0.0"
     # Each part must have its own unique tag, not all set to the last value
     grep -A5 "^  ftl:"  "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v1.0.0"
@@ -151,7 +151,7 @@ _bump_snapcraft() {
     grep -A5 "^  web:"  "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v3.0.0"
 }
 
-@test "snapcraft.yaml bump: idempotent - running twice produces the same result" {
+@test "snapcraft.yaml idempotent - running twice produces the same result" {
     _bump_snapcraft "v9.1.0" "v9.2.0" "v9.3.0"
     local first
     first="$(cat "${TMPDIR}/snapcraft.yaml")"
@@ -183,19 +183,19 @@ echo "FTL bound to port 53"
 BASH
 }
 
-@test "port-53 guard: succeeds when port binds immediately" {
+@test "port-53 guard succeeds when port binds immediately" {
     run _run_port53_guard "yes"
     [ "$status" -eq 0 ]
     [[ "$output" == *"FTL bound"* ]]
 }
 
-@test "port-53 guard: fails with error message when port never binds" {
+@test "port-53 guard fails with error message when port never binds" {
     run _run_port53_guard "no"
     [ "$status" -eq 1 ]
     [[ "$output" == *"FTL failed to bind"* ]]
 }
 
-@test "port-53 guard: error message includes GitHub Actions annotation syntax" {
+@test "port-53 guard error message includes GitHub Actions annotation syntax" {
     run _run_port53_guard "no"
     [[ "$output" == *"::error::"* ]]
 }
@@ -229,43 +229,43 @@ _run_channel_mapping() {
 BASH
 }
 
-@test "publish mapping: clean tag goes to all channels" {
+@test "publish mapping clean tag goes to all channels" {
     run _run_channel_mapping "v6.4.2" "false"
     [ "$status" -eq 0 ]
     [ "$output" = "latest/stable,latest/candidate,latest/beta,latest/edge" ]
 }
 
-@test "publish mapping: clean tag with -dirty goes to all channels" {
+@test "publish mapping clean tag with -dirty goes to all channels" {
     run _run_channel_mapping "v6.4.2-dirty" "false"
     [ "$status" -eq 0 ]
     [ "$output" = "latest/stable,latest/candidate,latest/beta,latest/edge" ]
 }
 
-@test "publish mapping: -beta goes to beta and edge" {
+@test "publish mapping -beta goes to beta and edge" {
     run _run_channel_mapping "v6.4.2-beta.1" "false"
     [ "$status" -eq 0 ]
     [ "$output" = "latest/beta,latest/edge" ]
 }
 
-@test "publish mapping: -rc goes to candidate, beta, and edge" {
+@test "publish mapping -rc goes to candidate, beta, and edge" {
     run _run_channel_mapping "v6.4.2-rc.1" "false"
     [ "$status" -eq 0 ]
     [ "$output" = "latest/candidate,latest/beta,latest/edge" ]
 }
 
-@test "publish mapping: -alpha goes to edge" {
+@test "publish mapping -alpha goes to edge" {
     run _run_channel_mapping "v7.0.0-alpha.1" "false"
     [ "$status" -eq 0 ]
     [ "$output" = "latest/edge" ]
 }
 
-@test "publish mapping: post-tag commit (-gXXX) goes to edge" {
+@test "publish mapping post-tag commit (-gXXX) goes to edge" {
     run _run_channel_mapping "v6.4.2-12-g12345" "false"
     [ "$status" -eq 0 ]
     [ "$output" = "latest/edge" ]
 }
 
-@test "publish mapping: tracks enabled mirrors channels to major version" {
+@test "publish mapping tracks enabled mirrors channels to major version" {
     run _run_channel_mapping "v6.4.2" "true"
     [ "$status" -eq 0 ]
     [ "$output" = "latest/stable,latest/candidate,latest/beta,latest/edge,6/stable,6/candidate,6/beta,6/edge" ]

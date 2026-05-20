@@ -74,7 +74,7 @@ teardown() {
     rm -rf "${TMPDIR}"
 }
 
-@test "snapdebug outputs basic diagnostic structure" {
+@test "outputs basic diagnostic structure" {
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"PI-HOLE SNAP DIAGNOSTIC DUMP"* ]]
@@ -88,14 +88,14 @@ teardown() {
     [[ "$output" == *"END OF DIAGNOSTIC DUMP"* ]]
 }
 
-@test "snapdebug redacts the pihole.toml password" {
+@test "redacts the pihole.toml password" {
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"password = \"[REDACTED]\""* ]]
     [[ "$output" != *"secret_password_here"* ]]
 }
 
-@test "snapdebug detects disconnected required interfaces" {
+@test "detects disconnected required interfaces" {
     cat > "${MOCK_BIN}/snapctl" <<'EOF'
 #!/bin/bash
 if [ "$1" = "is-connected" ]; then
@@ -111,7 +111,7 @@ EOF
     [[ "$output" == *"[OK]   network"* ]]
 }
 
-@test "snapdebug shows INFO for disconnected optional interfaces" {
+@test "shows INFO for disconnected optional interfaces" {
     cat > "${MOCK_BIN}/snapctl" <<'EOF'
 #!/bin/bash
 if [ "$1" = "is-connected" ]; then
@@ -125,7 +125,7 @@ EOF
     [[ "$output" == *"[INFO] system-observe (disconnected - optional:"* ]]
 }
 
-@test "snapdebug flags unexpected apparmor denials if system-observe is connected" {
+@test "flags unexpected apparmor denials if system-observe is connected" {
     cat > "${MOCK_BIN}/snapctl" <<'EOF'
 #!/bin/bash
 if [ "$1" = "is-connected" ]; then
@@ -143,7 +143,7 @@ EOF
     [[ "$output" == *"apparmor=\"DENIED\""* ]]
 }
 
-@test "snapdebug filters benign dmi and proc denials as non-fatal" {
+@test "filters benign dmi and proc denials as non-fatal" {
     cat > "${MOCK_BIN}/snapctl" <<'EOF'
 #!/bin/bash
 if [ "$1" = "is-connected" ]; then exit 0; fi
@@ -161,7 +161,7 @@ EOF
     [[ "$output" != *"[WARN] Unexpected AppArmor denials"* ]]
 }
 
-@test "snapdebug skips dmesg check if system-observe is disconnected" {
+@test "skips dmesg check if system-observe is disconnected" {
     cat > "${MOCK_BIN}/snapctl" <<'EOF'
 #!/bin/bash
 if [ "$1" = "is-connected" ]; then
@@ -181,7 +181,7 @@ EOF
     [[ "$output" != *"apparmor=\"DENIED\""* ]]
 }
 
-@test "snapdebug detects port 53 tcp conflicts when ftl is not running" {
+@test "detects port 53 tcp conflicts when ftl is not running" {
     cat > "${MOCK_BIN}/snapctl" <<'EOF'
 #!/bin/bash
 if [ "$1" = "services" ]; then
@@ -199,7 +199,7 @@ EOF
     [[ "$output" == *"[FAIL] Port 53 (TCP) - systemd-resolved conflict on 127.0.0.53"* ]]
 }
 
-@test "snapdebug skips port checks when ftl is running" {
+@test "skips port checks when ftl is running" {
     cat > "${MOCK_BIN}/snapctl" <<'EOF'
 #!/bin/bash
 if [ "$1" = "services" ]; then
@@ -213,47 +213,47 @@ EOF
     [[ "$output" != *"[FAIL] Port 53 (TCP)"* ]]
 }
 
-@test "snapdebug tails the FTL log" {
+@test "tails the FTL log" {
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Log line 1"* ]]
 }
 
-@test "snapdebug detects missing gravity.db" {
+@test "detects missing gravity.db" {
     rm "${SNAP_DATA}/etc/pihole/gravity.db"
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"[FAIL] gravity.db is missing"* ]]
 }
 
-@test "snapdebug detects 0-byte gravity.db" {
+@test "detects 0-byte gravity.db" {
     > "${SNAP_DATA}/etc/pihole/gravity.db" # truncate to 0 bytes
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"[FAIL] gravity.db exists but is 0 bytes"* ]]
 }
 
-@test "snapdebug detects valid gravity.db" {
+@test "detects valid gravity.db" {
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"[OK] gravity.db is present and populated"* ]]
 }
 
-@test "snapdebug detects missing pihole-FTL.db as WARN" {
+@test "detects missing pihole-FTL.db as WARN" {
     rm "${SNAP_DATA}/etc/pihole/pihole-FTL.db"
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"[WARN] pihole-FTL.db is missing or empty"* ]]
 }
 
-@test "snapdebug fails if pihole.toml missing upstreams" {
+@test "fails if pihole.toml missing upstreams" {
     echo 'some_setting = "value"' > "${SNAP_DATA}/etc/pihole/pihole.toml"
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"[FAIL] No upstream DNS servers found in pihole.toml"* ]]
 }
 
-@test "snapdebug flags missing adlists" {
+@test "flags missing adlists" {
     cat > "${SNAP}/usr/bin/pihole-FTL" <<'EOF'
 #!/bin/bash
 echo "0"

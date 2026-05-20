@@ -41,44 +41,44 @@ teardown() {
 
 # --- blocked subcommands -------------------------------------------------
 
-@test "blocks -up and points at snap refresh" {
+@test "block -up and point at snap refresh" {
     run "${LAUNCHER}" -up
     [ "$status" -eq 1 ]
     [[ "$output" == *"not supported in the snap"* ]]
     [[ "$output" == *"snap refresh pihole"* ]]
 }
 
-@test "blocks updatePihole and points at snap refresh" {
+@test "block updatePihole and point at snap refresh" {
     run "${LAUNCHER}" updatePihole
     [ "$status" -eq 1 ]
     [[ "$output" == *"snap refresh pihole"* ]]
 }
 
-@test "blocks updatechecker and points at snap refresh" {
+@test "block updatechecker and point at snap refresh" {
     run "${LAUNCHER}" updatechecker
     [ "$status" -eq 1 ]
     [[ "$output" == *"snap refresh pihole"* ]]
 }
 
-@test "blocks checkout and points at snap refresh" {
+@test "block checkout and point at snap refresh" {
     run "${LAUNCHER}" checkout master
     [ "$status" -eq 1 ]
     [[ "$output" == *"snap refresh pihole"* ]]
 }
 
-@test "blocks -r and points at snap revert" {
+@test "block -r and point at snap revert" {
     run "${LAUNCHER}" -r
     [ "$status" -eq 1 ]
     [[ "$output" == *"snap revert pihole"* ]]
 }
 
-@test "blocks repair and points at snap revert" {
+@test "block repair and point at snap revert" {
     run "${LAUNCHER}" repair
     [ "$status" -eq 1 ]
     [[ "$output" == *"snap revert pihole"* ]]
 }
 
-@test "blocks uninstall and points at snap remove" {
+@test "block uninstall and point at snap remove" {
     run "${LAUNCHER}" uninstall
     [ "$status" -eq 1 ]
     [[ "$output" == *"snap remove pihole"* ]]
@@ -86,31 +86,31 @@ teardown() {
 
 # --- pass-through --------------------------------------------------------
 
-@test "passes status through to the upstream script" {
+@test "pass status through to upstream script" {
     run "${LAUNCHER}" status
     [ "$status" -eq 0 ]
     [[ "$output" == "STUB:status" ]]
 }
 
-@test "passes -g (gravity update) through" {
+@test "pass -g (gravity update) through" {
     run "${LAUNCHER}" -g
     [ "$status" -eq 0 ]
     [[ "$output" == "STUB:-g" ]]
 }
 
-@test "passes multi-argument subcommands through verbatim" {
+@test "pass multi-argument subcommands through verbatim" {
     run "${LAUNCHER}" allow example.com
     [ "$status" -eq 0 ]
     [[ "$output" == "STUB:allow example.com" ]]
 }
 
-@test "passes no-argument invocation through" {
+@test "pass no-argument invocation through" {
     run "${LAUNCHER}"
     [ "$status" -eq 0 ]
     [[ "$output" == "STUB:" ]]
 }
 
-@test "passes -h / help through (upstream owns usage rendering)" {
+@test "pass -h / help through" {
     run "${LAUNCHER}" -h
     [ "$status" -eq 0 ]
     [[ "$output" == "STUB:-h" ]]
@@ -118,7 +118,7 @@ teardown() {
 
 # --- regression guards ---------------------------------------------------
 
-@test "blocked subcommands never invoke the upstream script" {
+@test "blocked subcommands do not invoke upstream script" {
     # Replace the stub with one that fails loudly. If a 'blocked'
     # subcommand reaches the exec, the test fails.
     cat > "${STUB}" <<'EOF'
@@ -135,7 +135,7 @@ EOF
 
 # --- error channel -------------------------------------------------------
 
-@test "blocked subcommand error message goes to stderr, not stdout" {
+@test "blocked subcommand error message goes to stderr" {
     # Verify blocked commands print to stderr (not stdout) by checking
     # the stub is never invoked (its STUB: prefix never appears in output)
     run "${LAUNCHER}" -up
@@ -146,7 +146,7 @@ EOF
 
 # --- exit code propagation -----------------------------------------------
 
-@test "upstream non-zero exit code is propagated to the caller" {
+@test "propagate non-zero exit code from upstream" {
     cat > "${STUB}" <<'EOF'
 #!/bin/sh
 exit 42
@@ -155,14 +155,14 @@ EOF
     [ "$status" -eq 42 ]
 }
 
-@test "upstream zero exit code is propagated to the caller" {
+@test "propagate zero exit code from upstream" {
     run "${LAUNCHER}" status
     [ "$status" -eq 0 ]
 }
 
 # --- environment ----------------------------------------------------------
 
-@test "launcher-pihole exports HOME as SNAP_DATA" {
+@test "export HOME as SNAP_DATA" {
     cat > "${STUB}" <<'EOF'
 #!/bin/sh
 echo "HOME=${HOME}"
@@ -172,7 +172,7 @@ EOF
     [[ "$output" == "HOME=${SNAP_DATA}" ]]
 }
 
-@test "launcher-pihole prepends /opt/pihole to PATH" {
+@test "prepend /opt/pihole to PATH" {
     cat > "${STUB}" <<'EOF'
 #!/bin/sh
 echo "PATH=${PATH}"

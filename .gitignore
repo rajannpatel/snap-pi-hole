@@ -13,3 +13,7 @@ snap/.snapcraft/
 
 # OS
 .DS_Store
+
+# Local scratchpads and AI configs
+.claude/
+scratch/

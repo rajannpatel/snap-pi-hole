@@ -52,7 +52,7 @@ teardown() {
 # Directory and config seeding
 # ---------------------------------------------------------------------------
 
-@test "launcher-ftl creates required directories when they do not exist" {
+@test "creates required directories when they do not exist" {
     # Bypass the port-53 check. Use a distinct output path to avoid clobbering
     # LAUNCHER (both were previously ${TEST_TMPDIR}/launcher-ftl).
     LAUNCHER_NO_PORT="${TEST_TMPDIR}/launcher-no-port"
@@ -68,7 +68,7 @@ teardown() {
     [ -d "${TEST_TMPDIR}/var/log/pihole" ]
 }
 
-@test "launcher-ftl seeds pihole.toml with default upstreams when none exists" {
+@test "seeds pihole.toml with default upstreams when none exists" {
     mkdir -p "${TEST_TMPDIR}/etc/pihole"
     TOML="${TEST_TMPDIR}/etc/pihole/pihole.toml"
     [ ! -f "${TOML}" ]  # pre-condition: does not exist yet
@@ -87,7 +87,7 @@ teardown() {
     grep -q '8.8.8.8' "${TOML}"
 }
 
-@test "launcher-ftl does not overwrite an existing pihole.toml" {
+@test "does not overwrite an existing pihole.toml" {
     mkdir -p "${TEST_TMPDIR}/etc/pihole"
     TOML="${TEST_TMPDIR}/etc/pihole/pihole.toml"
     echo "existing=content" > "${TOML}"
@@ -111,7 +111,7 @@ teardown() {
 # Environment setup
 # ---------------------------------------------------------------------------
 
-@test "launcher-ftl exports HOME as SNAP_DATA" {
+@test "exports HOME as SNAP_DATA" {
     # Build a launcher variant that bypasses port-53 and records the env
     LAUNCHER_ENV="${TEST_TMPDIR}/launcher-env"
     sed \
@@ -127,7 +127,7 @@ teardown() {
     [[ "$output" == *"HOME=${SNAP_DATA}"* ]]
 }
 
-@test "launcher-ftl changes cwd to run/pihole before exec" {
+@test "changes cwd to run/pihole before exec" {
     LAUNCHER_CWD="${TEST_TMPDIR}/launcher-cwd"
     cp "${LAUNCHER}" "${LAUNCHER_CWD}"
     chmod +x "${LAUNCHER_CWD}"

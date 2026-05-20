@@ -28,19 +28,19 @@ setup() {
 # 1. Top-level snap metadata
 # ---------------------------------------------------------------------------
 
-@test "snapcraft.yaml: confinement is strict" {
+@test "snapcraft.yaml confinement is strict" {
     grep -q "^confinement: strict" "${REPO_ROOT}/snap/snapcraft.yaml"
 }
 
-@test "snapcraft.yaml: base is core26" {
+@test "snapcraft.yaml base is core26" {
     grep -q "^base: core26" "${REPO_ROOT}/snap/snapcraft.yaml"
 }
 
-@test "snapcraft.yaml: license is MIT" {
+@test "snapcraft.yaml license is MIT" {
     grep -q "^license: MIT" "${REPO_ROOT}/snap/snapcraft.yaml"
 }
 
-@test "snapcraft.yaml: epoch is defined (data migration safety)" {
+@test "snapcraft.yaml epoch is defined (data migration safety)" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -49,7 +49,7 @@ assert "epoch" in doc, "epoch key missing from snapcraft.yaml"
 PYEOF
 }
 
-@test "snapcraft.yaml: adopt-info points to the core part" {
+@test "snapcraft.yaml adopt-info points to the core part" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -63,7 +63,7 @@ PYEOF
 # 2. Parts and layout structure
 # ---------------------------------------------------------------------------
 
-@test "snapcraft.yaml: all four parts exist (ftl, core, web, wrappers)" {
+@test "snapcraft.yaml all four parts exist (ftl, core, web, wrappers)" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -74,7 +74,7 @@ for required in ["ftl", "core", "web", "wrappers"]:
 PYEOF
 }
 
-@test "snapcraft.yaml: wrappers part sources from snap/local" {
+@test "snapcraft.yaml wrappers part sources from snap/local" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -87,7 +87,7 @@ assert wrappers.get("source", "").endswith("snap/local/") or \
 PYEOF
 }
 
-@test "snapcraft.yaml: all required layout paths are defined" {
+@test "snapcraft.yaml all required layout paths are defined" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -103,7 +103,7 @@ PYEOF
 # 3. Daemon: apps.pihole-ftl
 # ---------------------------------------------------------------------------
 
-@test "snapcraft.yaml: pihole-ftl has refresh-mode endure (DNS stays up across refresh)" {
+@test "snapcraft.yaml pihole-ftl has refresh-mode endure (DNS stays up across refresh)" {
     python3 - <<PYEOF
 import yaml, sys
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -114,7 +114,7 @@ assert ftl.get("refresh-mode") == "endure", \
 PYEOF
 }
 
-@test "snapcraft.yaml: pihole-ftl has stop-timeout defined (graceful shutdown)" {
+@test "snapcraft.yaml pihole-ftl has stop-timeout defined (graceful shutdown)" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -124,7 +124,7 @@ assert "stop-timeout" in ftl, "stop-timeout missing from pihole-ftl"
 PYEOF
 }
 
-@test "snapcraft.yaml: pihole-ftl is disabled on install (operator must enable)" {
+@test "snapcraft.yaml pihole-ftl is disabled on install (operator must enable)" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -135,7 +135,7 @@ assert ftl.get("install-mode") == "disable", \
 PYEOF
 }
 
-@test "snapcraft.yaml: pihole-ftl has network-bind plug (DNS port 53)" {
+@test "snapcraft.yaml pihole-ftl has network-bind plug (DNS port 53)" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -145,7 +145,7 @@ assert "network-bind" in plugs, f"network-bind missing from pihole-ftl plugs: {p
 PYEOF
 }
 
-@test "snapcraft.yaml: pihole-ftl has system-observe plug (web dashboard)" {
+@test "snapcraft.yaml pihole-ftl has system-observe plug (web dashboard)" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -159,7 +159,7 @@ PYEOF
 # 4. Other apps and timers
 # ---------------------------------------------------------------------------
 
-@test "snapcraft.yaml: pihole CLI app uses launcher-pihole command" {
+@test "snapcraft.yaml pihole CLI app uses launcher-pihole command" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -171,7 +171,7 @@ assert apps["pihole"].get("command") == "bin/launcher-pihole", \
 PYEOF
 }
 
-@test "snapcraft.yaml: pihole CLI app has network plug" {
+@test "snapcraft.yaml pihole CLI app has network plug" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -181,7 +181,7 @@ assert "network" in plugs, f"network missing from pihole CLI plugs: {plugs}"
 PYEOF
 }
 
-@test "snapcraft.yaml: gravity-sync runs as a weekly oneshot timer" {
+@test "snapcraft.yaml gravity-sync runs as a weekly oneshot timer" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -208,7 +208,7 @@ PYEOF
 # prevent a silent revert to hardcoded duplicates.
 # ---------------------------------------------------------------------------
 
-@test "snapcraft.yaml: each upstream part declares source-tag" {
+@test "snapcraft.yaml each upstream part declares source-tag" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
@@ -220,7 +220,7 @@ for name in ("ftl", "core", "web"):
 PYEOF
 }
 
-@test "snapcraft.yaml: ftl build-environment does not reference non-existent snapcraft vars" {
+@test "snapcraft.yaml ftl build-environment does not reference non-existent snapcraft vars" {
     # GIT_VERSION/GIT_TAG were previously interpolated from
     # \${SNAPCRAFT_PROJECT_VERSION} and \${CRAFT_PART_SOURCE_TAG}, neither
     # of which exist as snapcraft variables - they expanded to empty
@@ -239,7 +239,7 @@ assert "GIT_TAG" not in keys, \
 PYEOF
 }
 
-@test "snapcraft.yaml: core does not embed a static versions heredoc" {
+@test "snapcraft.yaml core does not embed a static versions heredoc" {
     # The runtime versions template must be generated from each part's
     # actual fetched tag in core.override-build, not hardcoded in
     # core.override-pull. A heredoc that bakes CORE_VERSION=vX.Y.Z would
@@ -255,7 +255,7 @@ assert not pattern.search(pull), \
 PYEOF
 }
 
-@test "snapcraft.yaml: core depends on ftl and web for tag propagation" {
+@test "snapcraft.yaml core depends on ftl and web for tag propagation" {
     # core.override-build reads ftl/web tags from CRAFT_STAGE; without
     # `after:`, snapcraft is free to schedule core's build before the
     # other parts have staged their snap-meta/<part>-tag files.
@@ -270,7 +270,7 @@ for required in ("ftl", "web"):
 PYEOF
 }
 
-@test "snapcraft.yaml: core derives version + versions template at build time" {
+@test "snapcraft.yaml core derives version + versions template at build time" {
     # Lock in the dynamic generation: core.override-build must (a) call
     # craftctl set version, (b) read FTL_TAG from CRAFT_STAGE/snap-meta,
     # and (c) read WEB_TAG from the post-organize location under
@@ -289,7 +289,7 @@ assert "\${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag" in build, \
 PYEOF
 }
 
-@test "snapcraft.yaml: ftl and web publish their tag to snap-meta (and prime it out)" {
+@test "snapcraft.yaml ftl and web publish their tag to snap-meta (and prime it out)" {
     # Each upstream part writes \${CRAFT_PART_INSTALL}/snap-meta/<part>-tag
     # during its override-build so the core part can consume it via
     # CRAFT_STAGE. The prime block then keeps it out of the final snap.
@@ -319,7 +319,7 @@ PYEOF
 # Catch snapcraft schema gotchas locally before the CI runner does.
 # ---------------------------------------------------------------------------
 
-@test "snapcraft.yaml: organize globs always have trailing-slash destinations" {
+@test "snapcraft.yaml organize globs always have trailing-slash destinations" {
     # snapcraft 9.x rejects an organize rule whose source glob matches
     # multiple files when the destination does not end with '/' - it
     # can't tell whether you mean "rename to a single file" or "drop
@@ -347,7 +347,7 @@ PYEOF
 # 7. Repository file presence
 # ---------------------------------------------------------------------------
 
-@test "snap/hooks: install, configure, pre-refresh, remove all exist and are executable" {
+@test "hooks install, configure, pre-refresh, remove all exist and are executable" {
     for hook in install configure pre-refresh remove; do
         path="${REPO_ROOT}/snap/hooks/${hook}"
         [ -f "$path" ] || { echo "missing hook: $hook"; return 1; }
@@ -355,20 +355,20 @@ PYEOF
     done
 }
 
-@test "snap/local: launcher-ftl and launcher-pihole exist and are executable" {
+@test "local launcher-ftl and launcher-pihole exist and are executable" {
     [ -x "${REPO_ROOT}/snap/local/launcher-ftl" ]
     [ -x "${REPO_ROOT}/snap/local/launcher-pihole" ]
 }
 
-@test "snap/gui: store icon exists" {
+@test "snap/gui store icon exists" {
     [ -f "${REPO_ROOT}/snap/gui/pihole.png" ]
 }
 
-@test "repo root: LICENSE file exists" {
+@test "repo root LICENSE file exists" {
     [ -f "${REPO_ROOT}/LICENSE" ]
 }
 
-@test "README.md: all linked docs/ files exist" {
+@test "readme.md all linked docs/ files exist" {
     python3 - <<PYEOF
 import re, pathlib, sys
 root = pathlib.Path("${REPO_ROOT}")
@@ -389,7 +389,7 @@ PYEOF
 # 8. Shell script integrity
 # ---------------------------------------------------------------------------
 
-@test "snap shell scripts: all six exist on disk" {
+@test "shell scripts all six exist on disk" {
     local scripts=(
         snap/local/launcher-ftl
         snap/local/launcher-pihole
@@ -403,7 +403,7 @@ PYEOF
     done
 }
 
-@test "snap shell scripts: pass bash -n syntax check" {
+@test "shell scripts pass bash -n syntax check" {
     local scripts=(
         snap/local/launcher-ftl
         snap/local/launcher-pihole

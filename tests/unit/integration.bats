@@ -152,7 +152,7 @@ STUB
 # Lifecycle Integration Tests
 # ---------------------------------------------------------------------------
 
-@test "lifecycle: install creates required directories" {
+@test "install creates required directories" {
     run "${TEST_TMPDIR}/hook-install"
     [ "$status" -eq 0 ]
     [ -d "${TEST_TMPDIR}/etc/pihole" ]
@@ -161,7 +161,7 @@ STUB
     [ -d "${TEST_TMPDIR}/var/log/pihole" ]
 }
 
-@test "lifecycle: install → configure → remove sequence completes" {
+@test "install → configure → remove sequence completes" {
     # Install
     run "${TEST_TMPDIR}/hook-install"
     [ "$status" -eq 0 ]
@@ -178,7 +178,7 @@ STUB
     [ "$status" -eq 0 ]
 }
 
-@test "lifecycle: install is safe to run twice (idempotent)" {
+@test "install is safe to run twice (idempotent)" {
     run "${TEST_TMPDIR}/hook-install"
     [ "$status" -eq 0 ]
 
@@ -191,7 +191,7 @@ STUB
     [ -d "${SNAP_DATA}/run/pihole" ]
 }
 
-@test "lifecycle: multiple configure calls accumulate settings" {
+@test "multiple configure calls accumulate settings" {
     "${TEST_TMPDIR}/hook-install"
 
     # First configure: set web-port
@@ -209,7 +209,7 @@ STUB
     grep -q "FTL:--config webserver.port 8080" "${TEST_TMPDIR}/ftl.log"
 }
 
-@test "lifecycle: pre-refresh does not delete user data (pihole.toml)" {
+@test "pre-refresh does not delete user data (pihole.toml)" {
     # Install and seed pihole.toml
     "${TEST_TMPDIR}/hook-install"
     echo "user_setting=value" >> "${TEST_TMPDIR}/etc/pihole/pihole.toml"
@@ -223,7 +223,7 @@ STUB
     grep -q "user_setting=value" "${TEST_TMPDIR}/etc/pihole/pihole.toml"
 }
 
-@test "lifecycle: remove is silent when no systemd dropin exists" {
+@test "remove is silent when no systemd dropin exists" {
     "${TEST_TMPDIR}/hook-install"
 
     # Remove without ever creating the resolved dropin
@@ -236,7 +236,7 @@ STUB
 # Launcher Interaction Tests
 # ---------------------------------------------------------------------------
 
-@test "launchers: launcher-ftl executes after install hook has run" {
+@test "launcher-ftl executes after install hook has run" {
     # Install creates directories
     "${TEST_TMPDIR}/hook-install"
 
@@ -255,7 +255,7 @@ STUB
     [ -d "${SNAP_DATA}/run/pihole" ]
 }
 
-@test "launchers: launcher-ftl seeds pihole.toml if missing" {
+@test "launcher-ftl seeds pihole.toml if missing" {
     "${TEST_TMPDIR}/hook-install"
 
     # Verify install created dirs but not pihole.toml (it doesn't)
@@ -275,7 +275,7 @@ STUB
     [ -f "${TEST_TMPDIR}/etc/pihole/pihole.toml" ]
 }
 
-@test "launchers: launcher-pihole finds upstream script in PATH set by hook env" {
+@test "launcher-pihole finds upstream script in PATH set by hook env" {
     "${TEST_TMPDIR}/hook-install"
 
     # launcher-pihole should work with the environment
@@ -284,7 +284,7 @@ STUB
     [[ "$output" == *"PIHOLE:status"* ]]
 }
 
-@test "launchers: both launchers export HOME from SNAP_DATA" {
+@test "both launchers export HOME from SNAP_DATA" {
     "${TEST_TMPDIR}/hook-install"
 
     # Create a launcher variant that echoes HOME
@@ -305,7 +305,7 @@ STUB
 # Configuration Persistence Tests
 # ---------------------------------------------------------------------------
 
-@test "config: install → configure → pre-refresh preserves settings in pihole.toml" {
+@test "install → configure → pre-refresh preserves settings in pihole.toml" {
     # Install
     "${TEST_TMPDIR}/hook-install"
 
@@ -324,7 +324,7 @@ STUB
     grep -q "FTL:--config webserver.port 8080" "${TEST_TMPDIR}/ftl.log"
 }
 
-@test "config: launcher-ftl seeded pihole.toml is not overwritten by hooks" {
+@test "launcher-ftl seeded pihole.toml is not overwritten by hooks" {
     # Simulate launcher-ftl seeding the config
     "${TEST_TMPDIR}/hook-install"
     mkdir -p "${TEST_TMPDIR}/etc/pihole"
@@ -340,7 +340,7 @@ STUB
     grep -q "existing_setting=42" "${TEST_TMPDIR}/etc/pihole/pihole.toml"
 }
 
-@test "config: configure without daemon running does not block future startup" {
+@test "configure without daemon running does not block future startup" {
     "${TEST_TMPDIR}/hook-install"
 
     # Daemon is inactive
@@ -359,7 +359,7 @@ STUB
 # Error Recovery Tests
 # ---------------------------------------------------------------------------
 
-@test "recovery: partial install (missing a dir) is recoverable" {
+@test "partial install (missing a dir) is recoverable" {
     # Run install
     run "${TEST_TMPDIR}/hook-install"
     [ "$status" -eq 0 ]
@@ -373,7 +373,7 @@ STUB
     [ -d "${SNAP_DATA}/run/pihole" ]
 }
 
-@test "recovery: configure with no settings applied is idempotent" {
+@test "configure with no settings applied is idempotent" {
     "${TEST_TMPDIR}/hook-install"
 
     # Configure with no settings
@@ -386,7 +386,7 @@ STUB
     [ "$status" -eq "$first_status" ]
 }
 
-@test "recovery: remove without network plug gracefully handles missing dropin" {
+@test "remove without network plug gracefully handles missing dropin" {
     "${TEST_TMPDIR}/hook-install"
 
     # Create a partially broken environment (no systemd dropin)
