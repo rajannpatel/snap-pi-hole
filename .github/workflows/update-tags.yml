@@ -1,0 +1,73 @@
+name: Update Upstream Tags
+on:
+  schedule:
+    - cron: '0 0 * * *' # Run daily at midnight
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  update-tags:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup yq
+        uses: dcarbone/install-yq-action@v1.1.1
+
+      - name: Check for updates
+        id: check_updates
+        run: |
+          set -e
+          
+          # Fetch latest tags from GitHub API
+          get_latest_tag() {
+            curl -s "https://api.github.com/repos/pi-hole/$1/releases/latest" | jq -r .tag_name
+          }
+          
+          LATEST_FTL=$(get_latest_tag "FTL")
+          LATEST_PIHOLE=$(get_latest_tag "pi-hole")
+          LATEST_WEB=$(get_latest_tag "web")
+          
+          echo "Latest FTL: $LATEST_FTL"
+          echo "Latest Pi-hole: $LATEST_PIHOLE"
+          echo "Latest Web: $LATEST_WEB"
+          
+          # Current tags in snapcraft.yaml
+          CURRENT_FTL=$(yq '.parts.ftl.source-tag' snap/snapcraft.yaml)
+          CURRENT_PIHOLE=$(yq '.parts.pihole.source-tag' snap/snapcraft.yaml)
+          CURRENT_WEB=$(yq '.parts.web.source-tag' snap/snapcraft.yaml)
+          
+          echo "Current FTL: $CURRENT_FTL"
+          echo "Current Pi-hole: $CURRENT_PIHOLE"
+          echo "Current Web: $CURRENT_WEB"
+          
+          UPDATED=false
+          
+          if [ "$LATEST_FTL" != "null" ] && [ "$LATEST_FTL" != "$CURRENT_FTL" ]; then
+            yq -i ".parts.ftl.source-tag = \"$LATEST_FTL\"" snap/snapcraft.yaml
+            UPDATED=true
+          fi
+          
+          if [ "$LATEST_PIHOLE" != "null" ] && [ "$LATEST_PIHOLE" != "$CURRENT_PIHOLE" ]; then
+            yq -i ".parts.pihole.source-tag = \"$LATEST_PIHOLE\"" snap/snapcraft.yaml
+            UPDATED=true
+          fi
+          
+          if [ "$LATEST_WEB" != "null" ] && [ "$LATEST_WEB" != "$CURRENT_WEB" ]; then
+            yq -i ".parts.web.source-tag = \"$LATEST_WEB\"" snap/snapcraft.yaml
+            UPDATED=true
+          fi
+          
+          echo "updated=$UPDATED" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: steps.check_updates.outputs.updated == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update upstream Pi-hole tags"
+          title: "Update Upstream Pi-hole Components"
+          body: |
+            Automated PR to update upstream Pi-hole components.
+            This action was triggered by the daily cron job detecting new releases.
+          branch: update-pihole-tags
+          delete-branch: true
