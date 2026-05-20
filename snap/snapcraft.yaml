@@ -339,7 +339,7 @@ parts:
       # everything under advanced/Scripts/ lands at /opt/pihole/<file>.
       advanced/Scripts/*: opt/pihole/
       advanced/Templates/versions: opt/pihole/templates/versions
-      advanced/Templates/*: opt/pihole/templates
+      advanced/Templates/*: opt/pihole/templates/
       manpages: usr/share/man-src
     stage:
       - opt/pihole

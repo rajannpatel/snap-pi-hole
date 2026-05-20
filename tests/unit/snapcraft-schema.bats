@@ -339,6 +339,30 @@ assert "\${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag" in build, \
 PYEOF
 }
 
+@test "snapcraft.yaml: organize rules with glob sources have trailing-slash destinations" {
+    # snapcraft 9.x rejects an organize rule whose source glob matches
+    # multiple files when the destination does not end with '/' - it
+    # can't tell whether you mean "rename to a single file" or "drop
+    # into a directory". 8.x silently treated bare paths as directories;
+    # 9.x errors out. Catch this locally instead of on the CI runner.
+    python3 - <<PYEOF
+import yaml, sys
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+problems = []
+for part_name, part in (doc.get("parts") or {}).items():
+    for src, dst in (part.get("organize") or {}).items():
+        is_glob = any(c in src for c in "*?[")
+        if is_glob and not dst.endswith("/"):
+            problems.append(f"parts.{part_name}.organize: {src!r} -> {dst!r}")
+if problems:
+    print("Glob organize source(s) with no trailing-slash destination:", file=sys.stderr)
+    for line in problems:
+        print(f"  {line}", file=sys.stderr)
+    sys.exit(1)
+PYEOF
+}
+
 @test "snapcraft.yaml: ftl and web publish their tag to snap-meta and prime it out" {
     # Each upstream part writes \${CRAFT_PART_INSTALL}/snap-meta/<part>-tag
     # during its override-build so the core part can consume it via
