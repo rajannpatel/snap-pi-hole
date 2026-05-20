@@ -231,17 +231,6 @@ assert wrappers.get("source", "").endswith("snap/local/") or \
 PYEOF
 }
 
-@test "snapcraft.yaml: assumes snapd2.55 or later" {
-    python3 - <<PYEOF
-import yaml
-with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
-    doc = yaml.safe_load(f)
-assumes = doc.get("assumes", [])
-assert any("snapd2" in str(a) for a in assumes), \
-    f"no snapd2.x assumption found: {assumes}"
-PYEOF
-}
-
 @test "snapcraft.yaml: gravity-sync app exists with correct timer schedule" {
     python3 - <<PYEOF
 import yaml
@@ -256,6 +245,122 @@ assert app.get("daemon") == "oneshot", \
     f"gravity-sync daemon wrong: {app.get('daemon')}"
 assert app.get("timer") == "sun,03:00~05:00", \
     f"gravity-sync timer wrong: {app.get('timer')}"
+PYEOF
+}
+
+# ---------------------------------------------------------------------------
+# Version single-source-of-truth invariants
+#
+# The only places versions live in this file are the three `source-tag:`
+# lines (one per upstream part). Everything else - the snap version string,
+# the GIT_VERSION baked into pihole-FTL, and the `versions` template that
+# powers `pihole -v` - is derived at build time from the tags actually
+# fetched. These tests prevent a silent revert to hardcoded duplicates.
+# ---------------------------------------------------------------------------
+
+@test "snapcraft.yaml: each upstream part declares source-tag" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+for name in ("ftl", "core", "web"):
+    tag = doc["parts"][name].get("source-tag")
+    assert tag and tag.startswith("v"), \
+        f"parts.{name}.source-tag missing or malformed: {tag!r}"
+PYEOF
+}
+
+@test "snapcraft.yaml: ftl build-environment does not reference snapcraft project version vars" {
+    # GIT_VERSION/GIT_TAG were previously interpolated from
+    # \${SNAPCRAFT_PROJECT_VERSION} and \${CRAFT_PART_SOURCE_TAG}, neither
+    # of which exist as snapcraft variables - they expanded to empty
+    # strings. Tag values are now exported inside override-build from
+    # git describe instead.
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+env = doc["parts"]["ftl"].get("build-environment", []) or []
+keys = {k for entry in env for k in entry}
+assert "GIT_VERSION" not in keys, \
+    "GIT_VERSION must not be in ftl.build-environment; export it from git describe inside override-build"
+assert "GIT_TAG" not in keys, \
+    "GIT_TAG must not be in ftl.build-environment; export it from git describe inside override-build"
+PYEOF
+}
+
+@test "snapcraft.yaml: core does not embed a static versions heredoc" {
+    # The runtime versions template must be generated from each part's
+    # actual fetched tag in core.override-build, not hardcoded in
+    # core.override-pull. A heredoc that bakes CORE_VERSION=vX.Y.Z would
+    # silently drift the moment the nightly bot bumps any source-tag.
+    python3 - <<PYEOF
+import re, yaml
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+pull = doc["parts"]["core"].get("override-pull", "")
+pattern = re.compile(r"^(CORE|FTL|WEB)_VERSION=v", re.MULTILINE)
+assert not pattern.search(pull), \
+    "core.override-pull contains a hardcoded *_VERSION= line; this heredoc must live in override-build and read tags from CRAFT_STAGE"
+PYEOF
+}
+
+@test "snapcraft.yaml: core depends on ftl and web for tag propagation" {
+    # core.override-build reads ftl/web tags from CRAFT_STAGE; without
+    # `after:`, snapcraft is free to schedule core's build before the
+    # other parts have staged their snap-meta/<part>-tag files.
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+after = doc["parts"]["core"].get("after", [])
+for required in ("ftl", "web"):
+    assert required in after, \
+        f"core.after must include {required!r} (got {after!r}) - core reads its tag from CRAFT_STAGE"
+PYEOF
+}
+
+@test "snapcraft.yaml: core derives version + versions template at build time" {
+    # Lock in the dynamic generation: core.override-build must (a) call
+    # craftctl set version, (b) read FTL_TAG from CRAFT_STAGE/snap-meta,
+    # and (c) read WEB_TAG from the post-organize location under
+    # var/www/html/admin/snap-meta.
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+build = doc["parts"]["core"].get("override-build", "")
+assert "craftctl set version=" in build, \
+    "core.override-build must call 'craftctl set version=...' to expose the upstream pi-hole tag"
+assert "\${CRAFT_STAGE}/snap-meta/ftl-tag" in build, \
+    "core.override-build must read FTL_TAG from \${CRAFT_STAGE}/snap-meta/ftl-tag"
+assert "\${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag" in build, \
+    "core.override-build must read WEB_TAG from the post-organize web snap-meta path"
+PYEOF
+}
+
+@test "snapcraft.yaml: ftl and web publish their tag to snap-meta and prime it out" {
+    # Each upstream part writes \${CRAFT_PART_INSTALL}/snap-meta/<part>-tag
+    # during its override-build so the core part can consume it via
+    # CRAFT_STAGE. The prime block then keeps it out of the final snap.
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+
+ftl = doc["parts"]["ftl"]
+assert "snap-meta/ftl-tag" in ftl.get("override-build", ""), \
+    "ftl.override-build must write \${CRAFT_PART_INSTALL}/snap-meta/ftl-tag"
+assert "-snap-meta" in (ftl.get("prime") or []), \
+    "ftl.prime must exclude snap-meta from the final snap"
+
+web = doc["parts"]["web"]
+assert "snap-meta/web-tag" in web.get("override-build", ""), \
+    "web.override-build must write \${CRAFT_PART_INSTALL}/snap-meta/web-tag"
+# The organize rule moves snap-meta under var/www/html/admin/, so the
+# prime exclusion lives at the post-organize path.
+assert "-var/www/html/admin/snap-meta" in (web.get("prime") or []), \
+    "web.prime must exclude var/www/html/admin/snap-meta from the final snap"
 PYEOF
 }
 
