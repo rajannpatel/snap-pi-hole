@@ -5,6 +5,11 @@ set -eu
 
 HOOK_DIR="$(dirname "$0")"
 
+# Update the static version profile template during upgrade/refresh
+if [ -f "${SNAP}/opt/pihole/templates/versions" ]; then
+    cp "${SNAP}/opt/pihole/templates/versions" /etc/pihole/versions
+fi
+
 # Re-apply configuration. We can just call the configure hook logic.
 if [ -x "${HOOK_DIR}/configure" ]; then
     if ! "${HOOK_DIR}/configure"; then

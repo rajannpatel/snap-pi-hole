@@ -17,6 +17,11 @@ set -eu
 
 mkdir -p /etc/pihole /etc/dnsmasq.d /var/log/pihole "${SNAP_DATA}/run/pihole"
 
+# Seed/Update the static version profile template if present inside the snap squashfs
+if [ -f "${SNAP:-}/opt/pihole/templates/versions" ]; then
+    cp "${SNAP:-}/opt/pihole/templates/versions" /etc/pihole/versions
+fi
+
 # Seed a default config on first boot. FTL requires upstream servers to be configured
 # in order to resolve adlist domains during the initial background gravity sync.
 if [ ! -f /etc/pihole/pihole.toml ]; then

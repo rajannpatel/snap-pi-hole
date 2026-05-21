@@ -11,7 +11,7 @@ setup() {
     REPO_ROOT="$(git rev-parse --show-toplevel)"
     TMPDIR="$(mktemp -d)"
     export SNAP_DATA="${TMPDIR}/data"
-    mkdir -p "${SNAP_DATA}"
+    mkdir -p "${SNAP_DATA}" "${TMPDIR}/etc"
 
     # The launcher hardcodes /opt/pihole/pihole as the upstream script.
     # Build a copy where that path points at our stub, which records its
@@ -24,6 +24,7 @@ setup() {
     sed \
         -e "s|/opt/pihole/pihole|${STUB}|g" \
         -e "s|/opt/pihole|${TMPDIR}/opt|g" \
+        -e "s|/etc/pihole|${TMPDIR}/etc|g" \
         "${REPO_ROOT}/snap/local/launcher-pihole" > "${LAUNCHER}"
     chmod +x "${LAUNCHER}"
 
