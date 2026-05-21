@@ -259,7 +259,67 @@ parts:
     source-depth: 1
     after: [ftl, web]
     override-pull: |
-      # ... (Keep your existing override-pull exactly as it is) ...
+      craftctl default
+      cd "${CRAFT_PART_SRC}"
+      
+      # 1. piholeLogFlush.sh stops/restarts the daemon via `service`; rewrite
+      # to use snapctl so it works inside the sandbox.
+      # Scoped to the current snap (no snap name prefix) to support renames.
+      sed -i \
+        -e 's|service pihole-FTL stop|snapctl stop pihole-ftl|g' \
+        -e 's|service pihole-FTL restart|snapctl restart pihole-ftl|g' \
+        -e 's|service pihole-FTL start|snapctl start pihole-ftl|g' \
+        advanced/Scripts/piholeLogFlush.sh
+      
+      # 2. piholeDebug.sh checks FTL daemon status. Redirect systemctl is-active and service status to snapctl.
+      # This handles both code paths gracefully inside confinement.
+      sed -i 's|status_of_process=$(systemctl is-active "${i}")|status_of_process=$(snapctl is-active pihole-ftl \&>/dev/null \&\& echo "active" \|\| echo "inactive")|g' advanced/Scripts/piholeDebug.sh
+      sed -i 's|if service "${i}" status |if snapctl is-active pihole-ftl \&>/dev/null; then true; elif false; |g' advanced/Scripts/piholeDebug.sh
+      
+      # 3. piholeDebug.sh full status check uses systemctl status. Divert to snapctl services.
+      sed -i 's|FTL_status=$(systemctl status --full --no-pager pihole-FTL.service)|FTL_status=$(snapctl services pihole-ftl)|g' advanced/Scripts/piholeDebug.sh
+      # And bypass the systemctl check block for FTL full status
+      sed -i 's|log_write "${INFO} systemctl:  command not found"|FTL_status=$(snapctl services pihole-ftl); log_write "   ${FTL_status}"|g' advanced/Scripts/piholeDebug.sh
+
+      # 4. Redirect PID files to /etc/pihole/ (layout-mounted to $SNAP_DATA/etc/pihole/)
+      # which is visible to all snap commands and matches FTL's target path.
+      # Handle /var/run/ before /run/ to avoid partial-match corruption.
+      grep --exclude-dir=.git -rlZ '/run/pihole-FTL.pid' . | xargs -0 -r sed -i \
+        -e 's|/var/run/pihole-FTL.pid|/etc/pihole/pihole-FTL.pid|g' \
+        -e 's|/run/pihole-FTL.pid|/etc/pihole/pihole-FTL.pid|g'
+        
+      # 5. Strip readonly modifier from FTL_PID_FILE to prevent bash local variable scope collisions inside subshells
+      grep --exclude-dir=.git -rlZ 'readonly FTL_PID_FILE' . | xargs -0 -r sed -i 's/readonly FTL_PID_FILE/FTL_PID_FILE/g'
+
+      # 6. Neutralize upstream git version tracking checks inside strict confinement where git binary is stripped
+      grep -rlZ 'git' advanced/Scripts/updatecheck.sh | xargs -0 -r sed -i 's|git |true # git disabled inside snap|g'
+
+      # 7. Neuter chown commands since snap daemon runs as root and pihole user does not exist
+      grep --exclude-dir=.git -rlZ 'chown pihole:pihole' . | xargs -0 -r sed -i 's|chown pihole:pihole|true # chown pihole:pihole|g'
+      # Also catch chown user:pihole in debug log script
+      sed -i 's|chown "$USER":"${username}" ${PIHOLE_DEBUG_LOG}|true # chown disabled inside snap|g' advanced/Scripts/piholeDebug.sh
+
+      # Patch-rot guard. If upstream renames a file the sed -i would have
+      # errored out and failed the build already; if upstream subtly
+      # rewords one of the target strings, the sed silently no-ops and
+      # the script ships broken. Fail loudly so we notice on the next
+      # version bump.
+      if grep -nF 'service pihole-FTL' advanced/Scripts/piholeLogFlush.sh; then
+        echo "ERROR: piholeLogFlush.sh still references 'service pihole-FTL' after patch" >&2
+        exit 1
+      fi
+      if grep --exclude-dir=.git -rnF '/run/pihole-FTL.pid' .; then
+        echo "ERROR: PID redirect missed a file" >&2
+        exit 1
+      fi
+      if grep -nF 'systemctl is-active "${i}"' advanced/Scripts/piholeDebug.sh; then
+        echo "ERROR: piholeDebug.sh still references systemctl is-active for FTL" >&2
+        exit 1
+      fi
+      if grep -nF 'systemctl status --full --no-pager' advanced/Scripts/piholeDebug.sh; then
+        echo "ERROR: piholeDebug.sh still references systemctl status for FTL" >&2
+        exit 1
+      fi
     override-build: |
       FTL_TAG=$(cat "${CRAFT_STAGE}/snap-meta/ftl-tag")
       WEB_TAG=$(cat "${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag")

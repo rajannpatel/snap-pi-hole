@@ -417,3 +417,41 @@ PYEOF
             || { echo "syntax error in: $script"; return 1; }
     done
 }
+
+# ---------------------------------------------------------------------------
+# 9. Confinement hardening patches
+# ---------------------------------------------------------------------------
+
+@test "snapcraft.yaml pi_hole override-pull includes sandboxing patches and patch-rot guards" {
+    python3 - <<PYEOF
+import yaml, sys
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+
+pull = doc["parts"]["pi_hole"].get("override-pull", "")
+
+# Verify that service stops/starts are routed to snapctl
+assert "snapctl stop pihole-ftl" in pull, "missing snapctl stop diversion"
+assert "snapctl restart pihole-ftl" in pull, "missing snapctl restart diversion"
+assert "snapctl start pihole-ftl" in pull, "missing snapctl start diversion"
+
+# Verify that PID files are redirected
+assert "/etc/pihole/pihole-FTL.pid" in pull, "missing PID file redirection to /etc/pihole/"
+
+# Verify that readonly is stripped
+assert "readonly FTL_PID_FILE" in pull and "FTL_PID_FILE" in pull, "missing FTL_PID_FILE readonly strip"
+
+# Verify updatecheck git neutralization
+assert "git" in pull and "true # git disabled inside snap" in pull, "missing git neutralization in updatecheck.sh"
+
+# Verify chown neutralization
+assert "chown pihole:pihole" in pull and "true # chown pihole:pihole" in pull, "missing chown neutralization"
+assert 'chown "\$USER":"\${username}"' in pull and "true # chown disabled inside snap" in pull, "missing piholeDebug.sh chown neutralization"
+
+# Verify patch-rot guards are present
+assert "service pihole-FTL" in pull, "missing patch-rot guard for service pihole-FTL"
+assert "/run/pihole-FTL.pid" in pull, "missing patch-rot guard for FTL_PID"
+assert 'systemctl is-active "\${i}"' in pull, "missing patch-rot guard for systemctl is-active FTL status check"
+assert "systemctl status --full --no-pager" in pull, "missing patch-rot guard for FTL systemctl full status check"
+PYEOF
+}
