@@ -330,7 +330,7 @@ parts:
         -e 's|/usr/bin/timeout|timeout|g' \
         -e 's|/bin/truncate|truncate|g' \
         -e 's|/bin/timeout|timeout|g' {} +
-      find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E 's/(^|[ \t;|$(])(timeout|truncate)([ \t]+)/\1"$SNAP\/usr\/bin\/\2"\3/g' {} +
+      find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E 's/(^|[ \t;|$(])(timeout|truncate)([ \t]+)/\1"$SNAP\/usr\/bin\/gnu\2"\3/g' {} +
 
       # Patch-rot guard. If upstream renames a file the sed -i would have
       # errored out and failed the build already; if upstream subtly
