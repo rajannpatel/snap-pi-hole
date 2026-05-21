@@ -93,6 +93,10 @@ layout:
   # Read-only  -  these are part of the squashfs.
   /etc/.pihole:
     bind: $SNAP/etc/.pihole
+  # Expose the pihole CLI wrapper at its upstream hardcoded location so FTL's
+  # Civetweb API endpoint can invoke it for updates.
+  /usr/local/bin/pihole:
+    symlink: $SNAP/bin/launcher-pihole
 
 parts:
   # ---------------------------------------------------------------------

@@ -93,7 +93,7 @@ import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
 layout = doc.get("layout", {})
-required = ["/etc/pihole", "/etc/.pihole", "/etc/dnsmasq.d", "/var/www/html", "/var/log/pihole", "/opt/pihole"]
+required = ["/etc/pihole", "/etc/.pihole", "/etc/dnsmasq.d", "/var/www/html", "/var/log/pihole", "/opt/pihole", "/usr/local/bin/pihole"]
 for path in required:
     assert path in layout, f"layout path '{path}' missing from snapcraft.yaml"
 PYEOF
