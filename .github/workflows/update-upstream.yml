@@ -8,6 +8,11 @@ on:
 jobs:
   check-updates:
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      pull-requests: write
+      
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
