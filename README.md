@@ -8,7 +8,7 @@ This snap strictly requires the `core26` Ubuntu base to satisfy Pi-hole's `mbedT
 
 [![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/pihole-by-rajannpatel)
 
-| Upstream Component<br>[![Upstream Tracker](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-upstream.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-upstream.yml) | Current Version<br>[![Update Upstream Tags](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-tags.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-tags.yml) |
+| Upstream Component<br><br>[![Upstream Tracker](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-upstream.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-upstream.yml) | Current Version<br><br>[![Update Upstream Tags](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-tags.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-tags.yml) |
 | :--- | :--- |
 | **[FTL](https://github.com/pi-hole/FTL)** | v6.6.2 |
 | **[pi-hole (core)](https://github.com/pi-hole/pi-hole)** | v6.4.2 |
