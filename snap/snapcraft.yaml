@@ -353,7 +353,7 @@ parts:
         echo "ERROR: piholeDebug.sh still references systemctl status for FTL" >&2
         exit 1
       fi
-      if grep --exclude-dir=.git -rE '/(usr/)?bin/(truncate|timeout)' .; then
+      if grep --exclude-dir=.git -rE '/(usr/)?bin/(truncate|timeout)' . | grep -vF '$SNAP'; then
         echo "ERROR: Absolute path to /bin/truncate or /usr/bin/timeout still exists after patching" >&2
         exit 1
       fi
