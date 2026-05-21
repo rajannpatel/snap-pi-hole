@@ -325,6 +325,11 @@ parts:
       # causing standard commands to resolve to the base core26 snap's rust-coreutils
       # symlinks. This triggers AppArmor execution denials for lesser-used utils.
       # We dynamically patch the scripts to use the absolute $SNAP path.
+      find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E \
+        -e 's|/usr/bin/truncate|truncate|g' \
+        -e 's|/usr/bin/timeout|timeout|g' \
+        -e 's|/bin/truncate|truncate|g' \
+        -e 's|/bin/timeout|timeout|g' {} +
       find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E 's/(^|[ \t;|$(])(timeout|truncate)([ \t]+)/\1"$SNAP\/usr\/bin\/\2"\3/g' {} +
 
       # Patch-rot guard. If upstream renames a file the sed -i would have
@@ -346,6 +351,10 @@ parts:
       fi
       if grep -nF 'systemctl status --full --no-pager' advanced/Scripts/piholeDebug.sh; then
         echo "ERROR: piholeDebug.sh still references systemctl status for FTL" >&2
+        exit 1
+      fi
+      if grep --exclude-dir=.git -rE '/(usr/)?bin/(truncate|timeout)' .; then
+        echo "ERROR: Absolute path to /bin/truncate or /usr/bin/timeout still exists after patching" >&2
         exit 1
       fi
     override-build: |
