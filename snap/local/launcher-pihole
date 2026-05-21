@@ -33,7 +33,7 @@ export PATH="/opt/pihole:${PATH}"
 
 # Ensure version profile template is seeded before running CLI commands
 if [ -f "${SNAP:-}/opt/pihole/templates/versions" ]; then
-    cp "${SNAP:-}/opt/pihole/templates/versions" /etc/pihole/versions
+    cp "${SNAP:-}/opt/pihole/templates/versions" "${SNAP_DATA}/etc/pihole/versions"
 fi
 
 exec /opt/pihole/pihole "$@"

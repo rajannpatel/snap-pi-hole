@@ -18,30 +18,25 @@ setup() {
 
     # Minimal snap environment variables required by the launcher
     export SNAP_DATA="${TEST_TMPDIR}/data"
+    export SNAP_COMMON="${TEST_TMPDIR}/common"
     export SNAP="${TEST_TMPDIR}/snap"
     export SNAP_NAME="pihole"
-    mkdir -p "${SNAP_DATA}" "${SNAP}/usr/bin"
+    mkdir -p "${SNAP_DATA}" "${SNAP_COMMON}" "${SNAP}/usr/bin"
 
     # Create a stub pihole-FTL binary so `exec` doesn't fail
     FTL_STUB="${SNAP}/usr/bin/pihole-FTL"
     printf '#!/bin/sh\necho "STUB:pihole-FTL $*"\n' > "${FTL_STUB}"
     chmod +x "${FTL_STUB}"
 
-    # Build a patched copy of the launcher with paths rewritten to our tmpdir.
-    # The global filesystem paths get sed-rewritten to tmpdir equivalents so 
-    # mkdir calls don't touch or violate host-level write permissions.
+    # Copy the launcher directly
     LAUNCHER="${TEST_TMPDIR}/launcher-ftl"
-    sed \
-        -e "s|/etc/pihole|${TEST_TMPDIR}/etc/pihole|g" \
-        -e "s|/etc/dnsmasq.d|${TEST_TMPDIR}/etc/dnsmasq.d|g" \
-        -e "s|/var/log/pihole|${TEST_TMPDIR}/var/log/pihole|g" \
-        "${REPO_ROOT}/snap/local/launcher-ftl" > "${LAUNCHER}"
+    cp "${REPO_ROOT}/snap/local/launcher-ftl" "${LAUNCHER}"
     chmod +x "${LAUNCHER}"
 
     # Create dummy gravity.db to prevent the background spawn of `pihole -g`
     # from hanging the bats test due to open FDs from the background subshell.
-    mkdir -p "${TEST_TMPDIR}/etc/pihole"
-    echo "mock_data" > "${TEST_TMPDIR}/etc/pihole/gravity.db"
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    echo "mock_data" > "${SNAP_DATA}/etc/pihole/gravity.db"
 }
 
 teardown() {
@@ -60,17 +55,17 @@ teardown() {
         "${LAUNCHER}" > "${LAUNCHER_NO_PORT}"
     chmod +x "${LAUNCHER_NO_PORT}"
 
-    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" bash "${LAUNCHER_NO_PORT}" 2>/dev/null || true
+    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" SNAP_COMMON="${SNAP_COMMON}" bash "${LAUNCHER_NO_PORT}" 2>/dev/null || true
 
-    [ -d "${TEST_TMPDIR}/etc/pihole" ]
-    [ -d "${TEST_TMPDIR}/etc/dnsmasq.d" ]
+    [ -d "${SNAP_DATA}/etc/pihole" ]
+    [ -d "${SNAP_DATA}/etc/dnsmasq.d" ]
     [ -d "${SNAP_DATA}/run/pihole" ]
-    [ -d "${TEST_TMPDIR}/var/log/pihole" ]
+    [ -d "${SNAP_COMMON}/var/log/pihole" ]
 }
 
 @test "seeds pihole.toml with default upstreams when none exists" {
-    mkdir -p "${TEST_TMPDIR}/etc/pihole"
-    TOML="${TEST_TMPDIR}/etc/pihole/pihole.toml"
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    TOML="${SNAP_DATA}/etc/pihole/pihole.toml"
     [ ! -f "${TOML}" ]  # pre-condition: does not exist yet
 
     # Run the launcher bypassing port checks to trigger seeding
@@ -79,7 +74,7 @@ teardown() {
         "${LAUNCHER}" > "${LAUNCHER_SEED}"
     chmod +x "${LAUNCHER_SEED}"
 
-    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" bash "${LAUNCHER_SEED}" 2>/dev/null || true
+    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" SNAP_COMMON="${SNAP_COMMON}" bash "${LAUNCHER_SEED}" 2>/dev/null || true
 
     [ -f "${TOML}" ]
     grep -q '\[dns\]' "${TOML}"
@@ -88,8 +83,8 @@ teardown() {
 }
 
 @test "does not overwrite an existing pihole.toml" {
-    mkdir -p "${TEST_TMPDIR}/etc/pihole"
-    TOML="${TEST_TMPDIR}/etc/pihole/pihole.toml"
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    TOML="${SNAP_DATA}/etc/pihole/pihole.toml"
     echo "existing=content" > "${TOML}"
 
     LAUNCHER_SEED="${TEST_TMPDIR}/launcher-seed2"
@@ -97,7 +92,7 @@ teardown() {
         "${LAUNCHER}" > "${LAUNCHER_SEED}"
     chmod +x "${LAUNCHER_SEED}"
 
-    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" bash "${LAUNCHER_SEED}" 2>/dev/null || true
+    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" SNAP_COMMON="${SNAP_COMMON}" bash "${LAUNCHER_SEED}" 2>/dev/null || true
 
     # File must still contain the original content and NOT the default upstreams
     grep -q "existing=content" "${TOML}"

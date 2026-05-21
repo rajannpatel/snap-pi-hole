@@ -15,7 +15,7 @@ mkdir -p "$SNAPSHOT_DIR"
 TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 SNAPSHOT_FILE="${SNAPSHOT_DIR}/pihole-backup-${TIMESTAMP}.tar.gz"
 
-if [ -d /etc/pihole ]; then
+if [ -d "${SNAP_DATA}/etc/pihole" ]; then
     # Create a quick snapshot of /etc/pihole in the background (avoid blocking for too long)
     # Exclude large FTL databases which are ephemeral anyway.
     tar -czf "$SNAPSHOT_FILE" --exclude='pihole-FTL.db' -C "${SNAP_DATA}/etc" pihole >/dev/null 2>&1 || true

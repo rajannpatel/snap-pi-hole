@@ -86,31 +86,22 @@ teardown() {
 # ---------------------------------------------------------------------------
 
 @test "install hook creates required data directories" {
-    # Rewrite hook paths to use TMPDIR so we don't touch real /etc
     HOOK="${TEST_TMPDIR}/install"
-    sed \
-        -e "s|/etc/pihole|${TEST_TMPDIR}/etc/pihole|g" \
-        -e "s|/etc/dnsmasq.d|${TEST_TMPDIR}/etc/dnsmasq.d|g" \
-        -e "s|/var/log/pihole|${TEST_TMPDIR}/var/log/pihole|g" \
-        "${REPO_ROOT}/snap/hooks/install" > "${HOOK}"
+    cp "${REPO_ROOT}/snap/hooks/install" "${HOOK}"
     chmod +x "${HOOK}"
 
     run "${HOOK}"
     [ "$status" -eq 0 ]
-    [ -d "${TEST_TMPDIR}/etc/pihole" ]
-    [ -d "${TEST_TMPDIR}/etc/dnsmasq.d" ]
+    [ -d "${SNAP_DATA}/etc/pihole" ]
+    [ -d "${SNAP_DATA}/etc/dnsmasq.d" ]
     [ -d "${SNAP_DATA}/run/pihole" ]
-    [ -d "${TEST_TMPDIR}/var/log/pihole" ]
-    [ -f "${TEST_TMPDIR}/etc/pihole/versions" ]
+    [ -d "${SNAP_COMMON}/var/log/pihole" ]
+    [ -f "${SNAP_DATA}/etc/pihole/versions" ]
 }
 
 @test "install hook is idempotent (safe to run twice)" {
     HOOK="${TEST_TMPDIR}/install"
-    sed \
-        -e "s|/etc/pihole|${TEST_TMPDIR}/etc/pihole|g" \
-        -e "s|/etc/dnsmasq.d|${TEST_TMPDIR}/etc/dnsmasq.d|g" \
-        -e "s|/var/log/pihole|${TEST_TMPDIR}/var/log/pihole|g" \
-        "${REPO_ROOT}/snap/hooks/install" > "${HOOK}"
+    cp "${REPO_ROOT}/snap/hooks/install" "${HOOK}"
     chmod +x "${HOOK}"
 
     run "${HOOK}"

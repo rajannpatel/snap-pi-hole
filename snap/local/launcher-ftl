@@ -15,17 +15,17 @@ set -eu
 # Pre-flight bash socket checks are brittle (lack of timeout can cause indefinite hangs)
 # and fail to account for users who intentionally configure custom IP bindings.
 
-mkdir -p /etc/pihole /etc/dnsmasq.d /var/log/pihole "${SNAP_DATA}/run/pihole"
+mkdir -p "${SNAP_DATA}/etc/pihole" "${SNAP_DATA}/etc/dnsmasq.d" "${SNAP_COMMON}/var/log/pihole" "${SNAP_DATA}/run/pihole"
 
 # Seed/Update the static version profile template if present inside the snap squashfs
 if [ -f "${SNAP:-}/opt/pihole/templates/versions" ]; then
-    cp "${SNAP:-}/opt/pihole/templates/versions" /etc/pihole/versions
+    cp "${SNAP:-}/opt/pihole/templates/versions" "${SNAP_DATA}/etc/pihole/versions"
 fi
 
 # Seed a default config on first boot. FTL requires upstream servers to be configured
 # in order to resolve adlist domains during the initial background gravity sync.
-if [ ! -f /etc/pihole/pihole.toml ]; then
-    cat > /etc/pihole/pihole.toml <<EOF
+if [ ! -f "${SNAP_DATA}/etc/pihole/pihole.toml" ]; then
+    cat > "${SNAP_DATA}/etc/pihole/pihole.toml" <<EOF
 [dns]
   upstreams = [
     "8.8.8.8",
@@ -48,7 +48,7 @@ cd "${SNAP_DATA}/run/pihole"
 #   2. INSERT the Steven Black adlist now that the schema exists.
 #   3. Second pihole -g downloads and processes the adlist.
 # We sleep 10 s to let FTL fully bind port 53 before pihole -g runs.
-if [ ! -s "/etc/pihole/gravity.db" ]; then
+if [ ! -s "${SNAP_DATA}/etc/pihole/gravity.db" ]; then
     echo "gravity.db is missing. Seeding default adlist and building gravity..."
     (
         # Ensure the snap-bundled curl (staged from bind9-dnsutils + curl
@@ -75,14 +75,14 @@ if [ ! -s "/etc/pihole/gravity.db" ]; then
         fi
 
         # Pass 1: initialise schema (no adlists configured yet, downloads nothing)
-        "${SNAP}/opt/pihole/pihole" -g > /var/log/pihole/gravity-init.log 2>&1 || true
+        "${SNAP}/opt/pihole/pihole" -g > "${SNAP_COMMON}/var/log/pihole/gravity-init.log" 2>&1 || true
         # Insert Steven Black's unified hosts list now that the schema exists
-        "${SNAP}/usr/bin/pihole-FTL" sqlite3 /etc/pihole/gravity.db \
+        "${SNAP}/usr/bin/pihole-FTL" sqlite3 "${SNAP_DATA}/etc/pihole/gravity.db" \
           "INSERT OR IGNORE INTO adlist (address, enabled, comment) \
            VALUES ('https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts', \
                    1, 'Steven Black unified hosts (default)');" 2>/dev/null || true
         # Pass 2: download and process the adlist
-        "${SNAP}/opt/pihole/pihole" -g > /var/log/pihole/gravity-first-run.log 2>&1
+        "${SNAP}/opt/pihole/pihole" -g > "${SNAP_COMMON}/var/log/pihole/gravity-first-run.log" 2>&1
     ) &
 fi
 
