@@ -88,6 +88,10 @@ layout:
   # Read-only  -  these are part of the squashfs.
   /opt/pihole:
     bind: $SNAP/opt/pihole
+  # Repository templates and migration scripts (`gravity-db.sh`, SQLite SQL templates).
+  # Read-only  -  these are part of the squashfs.
+  /etc/.pihole:
+    bind: $SNAP/etc/.pihole
 
 parts:
   # ---------------------------------------------------------------------
@@ -341,6 +345,12 @@ parts:
       EOF
 
       craftctl default
+      # Replicate the advanced/ directory structure to etc/.pihole/advanced
+      # to satisfy gravity.sh which expects /etc/.pihole/advanced/Templates/ 
+      # and /etc/.pihole/advanced/Scripts/database_migration/
+      mkdir -p "${CRAFT_PART_INSTALL}/etc/.pihole"
+      cp -R "${CRAFT_PART_SRC}/advanced" "${CRAFT_PART_INSTALL}/etc/.pihole/"
+
       # Workaround for core26 rust-coreutils AppArmor denial for `truncate` and `timeout`
       mkdir -p "${CRAFT_PART_INSTALL}/usr/bin"
       cp -L /usr/bin/truncate "${CRAFT_PART_INSTALL}/usr/bin/truncate"
@@ -354,6 +364,7 @@ parts:
       manpages: usr/share/man-src
     stage:
       - opt/pihole
+      - etc/.pihole
       - usr/share/man-src
       - usr/bin/truncate
       - usr/bin/timeout
