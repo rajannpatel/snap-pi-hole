@@ -104,9 +104,9 @@ layout:
   # Map absolute paths of coreutils to the snap-staged GNU coreutils
   # to prevent executing the host/base snap's rust-coreutils.
   /usr/bin/truncate:
-    bind-file: $SNAP/usr/bin/truncate
+    symlink: $SNAP/usr/bin/truncate
   /usr/bin/timeout:
-    bind-file: $SNAP/usr/bin/timeout
+    symlink: $SNAP/usr/bin/timeout
 
 parts:
   # ---------------------------------------------------------------------
