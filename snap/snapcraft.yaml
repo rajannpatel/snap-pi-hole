@@ -325,7 +325,7 @@ parts:
       # causing standard commands to resolve to the base core26 snap's rust-coreutils
       # symlinks. This triggers AppArmor execution denials for lesser-used utils.
       # We dynamically patch the scripts to use the absolute $SNAP path.
-      find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E 's/\b(timeout|truncate)([ \t]+)/"$SNAP\/usr\/bin\/\1"\2/g' {} +
+      find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E 's/(^|[ \t;|$(])(timeout|truncate)([ \t]+)/\1"$SNAP\/usr\/bin\/\2"\3/g' {} +
 
       # Patch-rot guard. If upstream renames a file the sed -i would have
       # errored out and failed the build already; if upstream subtly
