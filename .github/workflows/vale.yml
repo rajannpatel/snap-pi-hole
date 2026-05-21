@@ -10,6 +10,12 @@ jobs:
   vale:
     name: Style checker
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+      
     defaults:
       run:
         shell: bash
