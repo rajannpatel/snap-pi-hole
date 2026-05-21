@@ -368,7 +368,7 @@ parts:
 
       # Write the file directly to advanced/Scripts/ where the wildcard organizer will catch it cleanly
       mkdir -p "${CRAFT_PART_SRC}/advanced/Scripts/templates"
-      cat > "${CRAFT_PART_SRC}/advanced/Scripts/templates/versions" <<EOF
+      cat <<EOF | sed 's/^[ \t]*//' > "${CRAFT_PART_SRC}/advanced/Scripts/templates/versions"
       CORE_VERSION=${CORE_TAG}
       CORE_BRANCH=snap
       WEB_VERSION=${WEB_TAG}
