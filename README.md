@@ -4,7 +4,11 @@
 
 A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole.
 
-This snap strictly requires the `core26` Ubuntu base to satisfy Pi-hole's `mbedTLS >= 3.5.0` dependencies.
+> [!NOTE]
+> **Why Ubuntu Core 26?** 
+>  
+> Pi-hole FTL v6.6.x dropped support for mbedTLS 2.x and now strictly requires mbedTLS ≥ 3.5.0 and Nettle ≥ 3.9. The Ubuntu Core 24 snap base (`core24`) ships older versions of both libraries, so the package was bumped to Ubuntu Core 26 (`core26`).
+
 
 [![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/pihole-by-rajannpatel)
 
