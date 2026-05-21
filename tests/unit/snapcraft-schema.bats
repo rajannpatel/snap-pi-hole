@@ -9,7 +9,7 @@
 #
 # Tests are organised top-down:
 #   1. Top-level snap metadata          - confinement, base, license, ...
-#   2. Parts and layout structure       - ftl, core, web, wrappers, paths
+#   2. Parts and layout structure       - ftl, pi_hole, web, wrappers, paths
 #   3. Daemon (apps.pihole-ftl)         - refresh-mode, plugs, lifecycle
 #   4. Other apps and timers            - CLI, gravity-sync
 #   5. Version single-source-of-truth   - locks in derivation from source-tag
@@ -49,13 +49,13 @@ assert "epoch" in doc, "epoch key missing from snapcraft.yaml"
 PYEOF
 }
 
-@test "snapcraft.yaml adopt-info points to the core part" {
+@test "snapcraft.yaml adopt-info points to the pi_hole part" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
-assert doc.get("adopt-info") == "core", \
-    f"expected adopt-info: core, got: {doc.get('adopt-info')}"
+assert doc.get("adopt-info") == "pi_hole", \
+    f"expected adopt-info: pi_hole, got: {doc.get('adopt-info')}"
 PYEOF
 }
 
@@ -63,13 +63,13 @@ PYEOF
 # 2. Parts and layout structure
 # ---------------------------------------------------------------------------
 
-@test "snapcraft.yaml all four parts exist (ftl, core, web, wrappers)" {
+@test "snapcraft.yaml all four parts exist (ftl, pi_hole, web, wrappers)" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
 parts = doc.get("parts", {})
-for required in ["ftl", "core", "web", "wrappers"]:
+for required in ["ftl", "pi_hole", "web", "wrappers"]:
     assert required in parts, f"part '{required}' missing from snapcraft.yaml"
 PYEOF
 }
@@ -213,7 +213,7 @@ PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
-for name in ("ftl", "core", "web"):
+for name in ("ftl", "pi_hole", "web"):
     tag = doc["parts"][name].get("source-tag")
     assert tag and tag.startswith("v"), \
         f"parts.{name}.source-tag missing or malformed: {tag!r}"
@@ -239,39 +239,39 @@ assert "GIT_TAG" not in keys, \
 PYEOF
 }
 
-@test "snapcraft.yaml core does not embed a static versions heredoc" {
+@test "snapcraft.yaml pi_hole does not embed a static versions heredoc" {
     # The runtime versions template must be generated from each part's
-    # actual fetched tag in core.override-build, not hardcoded in
-    # core.override-pull. A heredoc that bakes CORE_VERSION=vX.Y.Z would
+    # actual fetched tag in pi_hole.override-build, not hardcoded in
+    # pi_hole.override-pull. A heredoc that bakes CORE_VERSION=vX.Y.Z would
     # silently drift the moment the nightly bot bumps any source-tag.
     python3 - <<PYEOF
 import re, yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
-pull = doc["parts"]["core"].get("override-pull", "")
+pull = doc["parts"]["pi_hole"].get("override-pull", "")
 pattern = re.compile(r"^(CORE|FTL|WEB)_VERSION=v", re.MULTILINE)
 assert not pattern.search(pull), \
-    "core.override-pull contains a hardcoded *_VERSION= line; this heredoc must live in override-build and read tags from CRAFT_STAGE"
+    "pi_hole.override-pull contains a hardcoded *_VERSION= line; this heredoc must live in override-build and read tags from CRAFT_STAGE"
 PYEOF
 }
 
-@test "snapcraft.yaml core depends on ftl and web for tag propagation" {
-    # core.override-build reads ftl/web tags from CRAFT_STAGE; without
-    # `after:`, snapcraft is free to schedule core's build before the
+@test "snapcraft.yaml pi_hole depends on ftl and web for tag propagation" {
+    # pi_hole.override-build reads ftl/web tags from CRAFT_STAGE; without
+    # `after:`, snapcraft is free to schedule pi_hole's build before the
     # other parts have staged their snap-meta/<part>-tag files.
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
-after = doc["parts"]["core"].get("after", [])
+after = doc["parts"]["pi_hole"].get("after", [])
 for required in ("ftl", "web"):
     assert required in after, \
-        f"core.after must include {required!r} (got {after!r}) - core reads its tag from CRAFT_STAGE"
+        f"pi_hole.after must include {required!r} (got {after!r}) - pi_hole reads its tag from CRAFT_STAGE"
 PYEOF
 }
 
-@test "snapcraft.yaml core derives version + versions template at build time" {
-    # Lock in the dynamic generation: core.override-build must (a) call
+@test "snapcraft.yaml pi_hole derives version + versions template at build time" {
+    # Lock in the dynamic generation: pi_hole.override-build must (a) call
     # craftctl set version, (b) read FTL_TAG from CRAFT_STAGE/snap-meta,
     # and (c) read WEB_TAG from the post-organize location under
     # var/www/html/admin/snap-meta.
@@ -279,19 +279,19 @@ PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
-build = doc["parts"]["core"].get("override-build", "")
+build = doc["parts"]["pi_hole"].get("override-build", "")
 assert "craftctl set version=" in build, \
-    "core.override-build must call 'craftctl set version=...' to expose the upstream pi-hole tag"
+    "pi_hole.override-build must call 'craftctl set version=...' to expose the upstream pi-hole tag"
 assert "\${CRAFT_STAGE}/snap-meta/ftl-tag" in build, \
-    "core.override-build must read FTL_TAG from \${CRAFT_STAGE}/snap-meta/ftl-tag"
+    "pi_hole.override-build must read FTL_TAG from \${CRAFT_STAGE}/snap-meta/ftl-tag"
 assert "\${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag" in build, \
-    "core.override-build must read WEB_TAG from the post-organize web snap-meta path"
+    "pi_hole.override-build must read WEB_TAG from the post-organize web snap-meta path"
 PYEOF
 }
 
 @test "snapcraft.yaml ftl and web publish their tag to snap-meta (and prime it out)" {
     # Each upstream part writes \${CRAFT_PART_INSTALL}/snap-meta/<part>-tag
-    # during its override-build so the core part can consume it via
+    # during its override-build so the pi_hole part can consume it via
     # CRAFT_STAGE. The prime block then keeps it out of the final snap.
     python3 - <<PYEOF
 import yaml

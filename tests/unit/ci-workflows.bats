@@ -69,7 +69,7 @@ PYEOF
     grep -q "v9.1.0" "${TMPDIR}/README.md"
 }
 
-@test "readme pi-hole (core) version is updated correctly" {
+@test "readme pi-hole (pi_hole) version is updated correctly" {
     _bump_readme "v6.6.2" "v9.2.0" "v6.5"
     grep -q "v9.2.0" "${TMPDIR}/README.md"
 }
@@ -124,7 +124,7 @@ PYEOF
 _bump_snapcraft() {
     local ftl="$1" pihole="$2" web="$3" target="${TMPDIR}/snapcraft.yaml"
     sed -i "/^  ftl:/,/^    source-tag:/ s/^    source-tag: .*/    source-tag: ${ftl}/" "$target"
-    sed -i "/^  core:/,/^    source-tag:/ s/^    source-tag: .*/    source-tag: ${pihole}/" "$target"
+    sed -i "/^  pi_hole:/,/^    source-tag:/ s/^    source-tag: .*/    source-tag: ${pihole}/" "$target"
     sed -i "/^  web:/,/^    source-tag:/ s/^    source-tag: .*/    source-tag: ${web}/" "$target"
 }
 
@@ -133,9 +133,9 @@ _bump_snapcraft() {
     grep -A5 "^  ftl:" "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v9.1.0"
 }
 
-@test "snapcraft.yaml core (pi-hole) source-tag updated" {
+@test "snapcraft.yaml pi_hole (pi-hole) source-tag updated" {
     _bump_snapcraft "v6.6.2" "v9.2.0" "v6.5"
-    grep -A5 "^  core:" "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v9.2.0"
+    grep -A5 "^  pi_hole:" "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v9.2.0"
 }
 
 @test "snapcraft.yaml web source-tag updated" {
@@ -143,11 +143,11 @@ _bump_snapcraft() {
     grep -A5 "^  web:" "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v9.3.0"
 }
 
-@test "snapcraft.yaml FTL tag does not bleed into core or web sections" {
+@test "snapcraft.yaml FTL tag does not bleed into pi_hole or web sections" {
     _bump_snapcraft "v1.0.0" "v2.0.0" "v3.0.0"
     # Each part must have its own unique tag, not all set to the last value
     grep -A5 "^  ftl:"  "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v1.0.0"
-    grep -A5 "^  core:" "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v2.0.0"
+    grep -A5 "^  pi_hole:" "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v2.0.0"
     grep -A5 "^  web:"  "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v3.0.0"
 }
 

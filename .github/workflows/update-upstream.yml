@@ -43,8 +43,8 @@ jobs:
           # Part 1: ftl
           sed -i "/^  ftl:/,/^    source-tag:/ s/^    source-tag: .*/    source-tag: ${FTL_LATEST}/" snap/snapcraft.yaml
           
-          # Part 2: core
-          sed -i "/^  core:/,/^    source-tag:/ s/^    source-tag: .*/    source-tag: ${PIHOLE_LATEST}/" snap/snapcraft.yaml
+          # Part 2: pi_hole
+          sed -i "/^  pi_hole:/,/^    source-tag:/ s/^    source-tag: .*/    source-tag: ${PIHOLE_LATEST}/" snap/snapcraft.yaml
 
           # Part 3: web
           sed -i "/^  web:/,/^    source-tag:/ s/^    source-tag: .*/    source-tag: ${WEB_LATEST}/" snap/snapcraft.yaml
