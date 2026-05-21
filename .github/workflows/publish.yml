@@ -36,6 +36,9 @@ jobs:
       - name: bats unit tests
         run: bats tests/unit/
 
+      - name: bats integration tests
+        run: bats tests/integration/
+
   build:
     name: build (${{ matrix.arch }})
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
@@ -256,17 +259,11 @@ jobs:
           #            every invocation, even for plain HTTPS requests.
           #   Reason:  Non-fatal. curl gracefully continues without LDAP
           #            configuration; all HTTP/HTTPS downloads work normally.
-          #
-          # EXCEPTION 4: coreutils/timeout
-          #   Context: Requested by bash/utilities when running on host systems that use
-          #            Rust coreutils by default.
-          #   Reason:  Non-fatal. The snap has its own bundled GNU timeout which it falls
-          #            back to, or continues without.
           # ---------------------------------------------------------------------
-          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin|ldap\.conf|coreutils/timeout'; then
+          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin|ldap\.conf'; then
               echo "::error::AppArmor recorded fatal denials against the pihole snap (see above)"
               # Print the actual fatal errors to the log before exiting
-              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin|ldap\.conf|coreutils/timeout'
+              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin|ldap\.conf'
               exit 1
           else
               echo "No fatal AppArmor denials recorded for snap.pihole."

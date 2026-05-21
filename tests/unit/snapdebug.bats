@@ -53,12 +53,8 @@ fi
 EOF
     chmod +x "${MOCK_BIN}/snapctl"
 
-    cat > "${MOCK_BIN}/timeout" <<'EOF'
-#!/bin/bash
-# Mock timeout to fail (port free)
-exit 1
-EOF
-    chmod +x "${MOCK_BIN}/timeout"
+    export MOCK_TCP_CHECK="true"
+    export MOCK_TCP_PORTS_IN_USE=""
 
     cat > "${MOCK_BIN}/dmesg" <<'EOF'
 #!/bin/bash
@@ -189,11 +185,7 @@ if [ "$1" = "services" ]; then
 fi
 exit 0
 EOF
-    # timeout 1 succeeds -> means port is in use
-    cat > "${MOCK_BIN}/timeout" <<'EOF'
-#!/bin/bash
-exit 0
-EOF
+    export MOCK_TCP_PORTS_IN_USE="127.0.0.53:53"
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"[FAIL] Port 53 (TCP) - systemd-resolved conflict on 127.0.0.53"* ]]

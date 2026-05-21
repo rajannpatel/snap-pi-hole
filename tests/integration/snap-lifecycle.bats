@@ -14,7 +14,7 @@
 #   - Pre-refresh doesn't delete user data
 #   - Launchers work with the environment hooks set up
 #
-# Run locally:  bats tests/unit/integration.bats
+# Run locally:  bats tests/integration/snap-lifecycle.bats
 # In CI:        see .github/workflows/build.yml (lint+unit job)
 
 setup() {

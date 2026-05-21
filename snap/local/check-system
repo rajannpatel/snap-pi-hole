@@ -34,8 +34,24 @@ echo "--- PORTS ---"
 check_tcp() {
     local ip=$1
     local port=$2
-    # Use a 1 second timeout to avoid hanging indefinitely
-    (timeout 1 bash -c "exec 3<>/dev/tcp/$ip/$port" 2>/dev/null)
+    # Allow unit tests to mock TCP checks
+    if [ "${MOCK_TCP_CHECK:-}" = "true" ]; then
+        if [[ ",$MOCK_TCP_PORTS_IN_USE," == *",$ip:$port,"* ]]; then
+            return 0
+        fi
+        return 1
+    fi
+    # Pure bash TCP socket check with 1-second timeout
+    (
+        bash -c "exec 3<>/dev/tcp/$ip/$port" &
+        pid=$!
+        (sleep 1; kill $pid 2>/dev/null) &
+        killer_pid=$!
+        wait $pid 2>/dev/null
+        rc=$?
+        kill $killer_pid 2>/dev/null
+        exit $rc
+    )
 }
 
 # Hex matching for /proc/net/udp: 53 is 0035, 67 is 0043, 546 is 0222
