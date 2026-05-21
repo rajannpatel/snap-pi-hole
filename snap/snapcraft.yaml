@@ -95,8 +95,12 @@ layout:
     bind: $SNAP/etc/.pihole
   # Expose the pihole CLI wrapper at its upstream hardcoded location so FTL's
   # Civetweb API endpoint can invoke it for updates.
+  # Note: We must use a `bind-file` layout rather than a `symlink` layout here.
+  # Since `/usr/local` is blocked by default AppArmor templates, snapd does not
+  # generate AppArmor path exceptions for symlinks under blocked paths. Using
+  # `bind-file` forces snapd to generate AppArmor read/execute rules for the path.
   /usr/local/bin/pihole:
-    symlink: $SNAP/bin/launcher-pihole
+    bind-file: $SNAP/bin/launcher-pihole
 
 parts:
   # ---------------------------------------------------------------------
@@ -225,8 +229,15 @@ parts:
 
     stage-packages:
       # --- Standalone Tools ---
+      # Staging GNU coreutils bundles standard commands (mkdir, cp, timeout, truncate)
+      # inside the snap, avoiding AppArmor execution denials triggered by the base 
+      # snap's rust-coreutils (/usr/lib/cargo/bin/coreutils/...) path.
+      - coreutils
       - bind9-dnsutils
       - jq
+      # Staging iproute2 bundles `ss` inside the snap, avoiding AppArmor denials
+      # when querying socket statuses via host/base executables on Ubuntu Core.
+      - iproute2
 
       # --- Web / Downloader Stack ---
       # curl is used by gravity.sh to download adlists. It is not present on
@@ -355,11 +366,6 @@ parts:
       # and /etc/.pihole/advanced/Scripts/database_migration/
       mkdir -p "${CRAFT_PART_INSTALL}/etc/.pihole"
       cp -R "${CRAFT_PART_SRC}/advanced" "${CRAFT_PART_INSTALL}/etc/.pihole/"
-
-      # Workaround for core26 rust-coreutils AppArmor denial for `truncate` and `timeout`
-      mkdir -p "${CRAFT_PART_INSTALL}/usr/bin"
-      cp -L /usr/bin/truncate "${CRAFT_PART_INSTALL}/usr/bin/truncate"
-      cp -L /usr/bin/timeout "${CRAFT_PART_INSTALL}/usr/bin/timeout"
     organize:
       pihole: opt/pihole/pihole
       gravity.sh: opt/pihole/gravity.sh
@@ -371,8 +377,6 @@ parts:
       - opt/pihole
       - etc/.pihole
       - usr/share/man-src
-      - usr/bin/truncate
-      - usr/bin/timeout
 
   # ---------------------------------------------------------------------
   # Embedded web admin UI assets, served by FTL's civetweb instance.
