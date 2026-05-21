@@ -37,7 +37,7 @@ jobs:
           
           # Current tags in snapcraft.yaml
           CURRENT_FTL=$(yq '.parts.ftl.source-tag' snap/snapcraft.yaml)
-          CURRENT_PIHOLE=$(yq '.parts.pihole.source-tag' snap/snapcraft.yaml)
+          CURRENT_PIHOLE=$(yq '.parts.core.source-tag' snap/snapcraft.yaml)
           CURRENT_WEB=$(yq '.parts.web.source-tag' snap/snapcraft.yaml)
           
           echo "Current FTL: $CURRENT_FTL"
@@ -52,7 +52,7 @@ jobs:
           fi
           
           if [ "$LATEST_PIHOLE" != "null" ] && [ "$LATEST_PIHOLE" != "$CURRENT_PIHOLE" ]; then
-            yq -i ".parts.pihole.source-tag = \"$LATEST_PIHOLE\"" snap/snapcraft.yaml
+            yq -i ".parts.core.source-tag = \"$LATEST_PIHOLE\"" snap/snapcraft.yaml
             UPDATED=true
           fi
           
