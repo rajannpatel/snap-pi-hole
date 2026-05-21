@@ -132,7 +132,8 @@ EOF
             -e "s|/etc/pihole|${TEST_TMPDIR}/etc/pihole|g" \
             -e "s|/etc/dnsmasq.d|${TEST_TMPDIR}/etc/dnsmasq.d|g" \
             -e "s|/var/log/pihole|${TEST_TMPDIR}/var/log/pihole|g" \
-            -e "s|/opt/pihole|${TEST_TMPDIR}/opt|g" \
+            -e "s|/opt/pihole/pihole|${TEST_TMPDIR}/opt/pihole|g" \
+            -e "s|/opt/pihole:|${TEST_TMPDIR}/opt:|g" \
             "${src}" > "${dst}"
         chmod +x "${dst}"
     done
@@ -395,4 +396,21 @@ STUB
     # Remove should still succeed
     run "${TEST_TMPDIR}/hook-remove"
     [ "$status" -eq 0 ]
+}
+
+@test "launcher-pihole copies versions template to /etc/pihole/versions" {
+    # Install hook creates directories and copies versions initially
+    run "${TEST_TMPDIR}/hook-install"
+    [ "$status" -eq 0 ]
+
+    # Remove the versions file that install hook created to test that the launcher copies it
+    rm -f "${TEST_TMPDIR}/etc/pihole/versions"
+
+    # Run the launcher
+    run "${TEST_TMPDIR}/launcher-pihole" status
+    [ "$status" -eq 0 ]
+
+    # Verify that the versions file was copied by the launcher
+    [ -f "${TEST_TMPDIR}/etc/pihole/versions" ]
+    grep -q "CORE_VERSION=v6.4.2" "${TEST_TMPDIR}/etc/pihole/versions"
 }
