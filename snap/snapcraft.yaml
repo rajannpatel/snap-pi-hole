@@ -320,11 +320,12 @@ parts:
       # Also catch chown user:pihole in debug log script
       sed -i 's|chown "$USER":"${username}" ${PIHOLE_DEBUG_LOG}|true # chown disabled inside snap|g' advanced/Scripts/piholeDebug.sh
 
-      # 8. Strip absolute paths for coreutils to force standard PATH resolution
-      # This ensures the scripts use our snap-staged GNU coreutils instead of
-      # hitting AppArmor denials against the base snap's rust-coreutils.
-      # grep --exclude-dir=.git -rlZ '/usr/bin/timeout' . | xargs -0 -r sed -i 's|/usr/bin/timeout|timeout|g'
-      # grep --exclude-dir=.git -rlZ '/usr/bin/truncate' . | xargs -0 -r sed -i 's|/usr/bin/truncate|truncate|g'
+      # 8. Force the use of snap-staged GNU coreutils.
+      # Upstream scripts sanitize $PATH (e.g., piholeDebug.sh sets it to /usr/bin:/bin:...),
+      # causing standard commands to resolve to the base core26 snap's rust-coreutils
+      # symlinks. This triggers AppArmor execution denials for lesser-used utils.
+      # We dynamically patch the scripts to use the absolute $SNAP path.
+      find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E 's/\b(timeout|truncate)([ \t]+)/"$SNAP\/usr\/bin\/\1"\2/g' {} +
 
       # Patch-rot guard. If upstream renames a file the sed -i would have
       # errored out and failed the build already; if upstream subtly
