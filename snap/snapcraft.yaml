@@ -39,11 +39,12 @@ description: |
   password is printed to the daemon log on first start and can be reset
   with `sudo pihole setpassword`.
 
-grade: stable
+grade: devel
 confinement: strict
 # We use core26 because Pi-hole FTL v6.6.2 dropped support for mbedTLS 2.x
 # and now strictly requires mbedTLS >= 3.5.0, as well as Nettle >= 3.9.
 base: core26
+build-base: devel
 
 # Document the current data-format baseline. Bump to `epoch: 1*` (note
 # the trailing asterisk) the first time we ship a revision that changes
@@ -220,8 +221,10 @@ parts:
 
     stage-packages:
       # --- Standalone Tools ---
+      - coreutils
       - bind9-dnsutils
       - jq
+      - iproute2
 
       # --- Web / Downloader Stack ---
       # curl is used by gravity.sh to download adlists. It is not present on
@@ -350,11 +353,6 @@ parts:
       # and /etc/.pihole/advanced/Scripts/database_migration/
       mkdir -p "${CRAFT_PART_INSTALL}/etc/.pihole"
       cp -R "${CRAFT_PART_SRC}/advanced" "${CRAFT_PART_INSTALL}/etc/.pihole/"
-
-      # Workaround for core26 rust-coreutils AppArmor denial for `truncate` and `timeout`
-      mkdir -p "${CRAFT_PART_INSTALL}/usr/bin"
-      cp -L /usr/bin/truncate "${CRAFT_PART_INSTALL}/usr/bin/truncate"
-      cp -L /usr/bin/timeout "${CRAFT_PART_INSTALL}/usr/bin/timeout"
     organize:
       pihole: opt/pihole/pihole
       gravity.sh: opt/pihole/gravity.sh
@@ -366,8 +364,6 @@ parts:
       - opt/pihole
       - etc/.pihole
       - usr/share/man-src
-      - usr/bin/truncate
-      - usr/bin/timeout
 
   # ---------------------------------------------------------------------
   # Embedded web admin UI assets, served by FTL's civetweb instance.
@@ -484,6 +480,8 @@ apps:
     plugs:
       - network
       - network-bind
+      - system-observe
+      - network-observe
 
   # Explicit top-level convenience aliases
   status:
@@ -492,12 +490,15 @@ apps:
       - network
       - network-bind
       - system-observe
+      - network-observe
 
   health:
     command: bin/check-system
     plugs:
       - network
       - network-bind
+      - system-observe
+      - network-observe
 
   snapdebug:
     command: bin/snapdebug
