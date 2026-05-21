@@ -101,6 +101,12 @@ layout:
   # `bind-file` forces snapd to generate AppArmor read/execute rules for the path.
   /usr/local/bin/pihole:
     bind-file: $SNAP/bin/launcher-pihole
+  # Map absolute paths of coreutils to the snap-staged GNU coreutils
+  # to prevent executing the host/base snap's rust-coreutils.
+  /usr/bin/truncate:
+    bind-file: $SNAP/usr/bin/truncate
+  /usr/bin/timeout:
+    bind-file: $SNAP/usr/bin/timeout
 
 parts:
   # ---------------------------------------------------------------------
