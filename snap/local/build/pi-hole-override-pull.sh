@@ -1,4 +1,9 @@
 #!/bin/bash
+# Safely silence the SC2016 information warnings
+# since we intentionally use single quotes to prevent early evaluation of variables like $SNAP and ${i}.
+#
+# shellcheck disable=SC2016
+
 set -e
 
 craftctl default
