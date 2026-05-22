@@ -297,10 +297,10 @@ fi
 
 if [ "$WIZARD_USED" = "true" ]; then
     echo ""
-    log "============================================================"
+    echo ""
     log "WIZARD COMPLETED! To run this configuration directly next time, use:"
     echo -e "\033[1;35m  $equivalent_cmd\033[0m"
-    log "============================================================"
+    echo ""
     echo ""
 fi
 
