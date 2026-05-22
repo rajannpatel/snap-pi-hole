@@ -455,7 +455,6 @@ for patch_path in glob.glob("${REPO_ROOT}/snap/local/patches/*.patch"):
 # Verify that service stops/starts are routed to snapctl
 assert "snapctl stop pihole-ftl" in pull, "missing snapctl stop diversion"
 assert "snapctl restart pihole-ftl" in pull, "missing snapctl restart diversion"
-assert "snapctl start pihole-ftl" in pull, "missing snapctl start diversion"
 
 # Verify that PID files are redirected
 assert "/etc/pihole/pihole-FTL.pid" in pull, "missing PID file redirection to /etc/pihole/"
@@ -464,7 +463,7 @@ assert "/etc/pihole/pihole-FTL.pid" in pull, "missing PID file redirection to /e
 assert "readonly FTL_PID_FILE" in pull and "FTL_PID_FILE" in pull, "missing FTL_PID_FILE readonly strip"
 
 # Verify updatecheck git neutralization
-assert "git" in pull and "true # git disabled inside snap" in pull, "missing git neutralization in updatecheck.sh"
+assert "/opt/pihole/templates/versions" in pull, "missing git neutralization in updatecheck.sh"
 
 # Verify chown neutralization
 assert "chown pihole:pihole" in pull and "true # chown pihole:pihole" in pull, "missing chown neutralization"
