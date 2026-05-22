@@ -4,6 +4,11 @@
 
 set -eu
 
+# Prepend snap staged paths to PATH to ensure we use our staged GNU coreutils
+# rather than hitting AppArmor execution denials on the base snap's rust-coreutils.
+export PATH="${SNAP}/usr/sbin:${SNAP}/usr/bin:${SNAP}/sbin:${SNAP}/bin:${PATH:-}"
+
+
 FTL_BIN="${SNAP}/usr/bin/pihole-FTL"
 
 # Extract the entire 'ftl' config namespace and pass directly to pihole-FTL

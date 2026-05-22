@@ -13,11 +13,28 @@ craftctl default
 mkdir -p "${CRAFT_PART_INSTALL}/snap-meta"
 printf '%s\n' "${FTL_TAG}" > "${CRAFT_PART_INSTALL}/snap-meta/ftl-tag"
 
-# Explicitly copy host's Rust coreutils binary to bypass Snapcraft base snap exclusions.
-# Since the build host (Ubuntu 26.04) uses Rust-based uutils coreutils by default,
-# realpath resolves /usr/bin/timeout to the multicall binary. Copying the resolved
-# binary as a real file avoids AppArmor symlink resolution issues inside the snap.
+# Explicitly copy host's coreutils binaries as real files to avoid AppArmor symlink execution denials on Ubuntu Core.
+# Since the build host uses Rust-based uutils coreutils by default, realpath resolves the symlinks
+# to the multicall binary. Copying the resolved binary as a real file under the command name
+# avoids AppArmor symlink resolution issues inside the snap.
 mkdir -p "${CRAFT_PART_INSTALL}/usr/bin"
-cp "$(realpath /usr/bin/timeout)" "${CRAFT_PART_INSTALL}/usr/bin/timeout"
-cp "$(realpath /usr/bin/truncate)" "${CRAFT_PART_INSTALL}/usr/bin/truncate"
+(
+    # Restrict PATH to host system paths so we don't resolve to already staged/installed binaries
+    PATH="/usr/sbin:/usr/bin:/sbin:/bin"
+    for cmd in timeout truncate mkdir cp rm sleep date seq ls tail cat chmod chown mv ln uname touch id whoami head wc tr cut sort uniq tee dirname basename readlink realpath env true false stat; do
+        path="$(command -v "$cmd")"
+        case "$path" in
+            /*)
+                src="$(realpath "$path")"
+                dst="${CRAFT_PART_INSTALL}/usr/bin/$cmd"
+                if [ "$src" != "$dst" ]; then
+                    cp "$src" "$dst"
+                fi
+                ;;
+        esac
+    done
+)
+
+
+
 

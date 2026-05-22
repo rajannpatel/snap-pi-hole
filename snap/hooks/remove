@@ -13,6 +13,11 @@
 # the stub listener on the next boot/daemon reload.
 set -eu
 
+# Prepend snap staged paths to PATH to ensure we use our staged GNU coreutils
+# rather than hitting AppArmor execution denials on the base snap's rust-coreutils.
+export PATH="${SNAP}/usr/sbin:${SNAP}/usr/bin:${SNAP}/sbin:${SNAP}/bin:${PATH:-}"
+
+
 RESOLVED_DROPIN="/etc/systemd/resolved.conf.d/pihole.conf"
 
 if [ -f "$RESOLVED_DROPIN" ]; then

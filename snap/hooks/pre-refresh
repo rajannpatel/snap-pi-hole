@@ -8,6 +8,11 @@
 # a pre-refresh hook would abort the refresh entirely (not what we want).
 set -eu
 
+# Prepend snap staged paths to PATH to ensure we use our staged GNU coreutils
+# rather than hitting AppArmor execution denials on the base snap's rust-coreutils.
+export PATH="${SNAP}/usr/sbin:${SNAP}/usr/bin:${SNAP}/sbin:${SNAP}/bin:${PATH:-}"
+
+
 # Snapshot critical state (configuration and gravity database)
 # This provides a manual rollback point if the refresh severely corrupts data.
 SNAPSHOT_DIR="${SNAP_COMMON}/snapshots"
