@@ -17,10 +17,25 @@ set -eu
 
 mkdir -p "${SNAP_DATA}/etc/pihole" "${SNAP_DATA}/etc/dnsmasq.d" "${SNAP_COMMON}/var/log/pihole" "${SNAP_DATA}/run/pihole"
 
+# Debug: Log the presence and contents of the templates/versions file
+mkdir -p "${SNAP_COMMON}/var/log/pihole"
+{
+    echo "=== DEBUG VERSIONS ==="
+    echo "Date: $(date)"
+    echo "SNAP env: ${SNAP:-}"
+    echo "Checking ${SNAP:-}/opt/pihole/templates/versions:"
+    ls -la "${SNAP:-}/opt/pihole/templates/versions" || true
+    echo "Content:"
+    cat "${SNAP:-}/opt/pihole/templates/versions" || true
+    echo "======================"
+} > "${SNAP_COMMON}/var/log/pihole/versions_debug.log" 2>&1
+
+
 # Seed/Update the static version profile template if present inside the snap squashfs
 if [ -f "${SNAP:-}/opt/pihole/templates/versions" ]; then
     cp "${SNAP:-}/opt/pihole/templates/versions" "${SNAP_DATA}/etc/pihole/versions"
 fi
+
 
 # Seed a default config on first boot. FTL requires upstream servers to be configured
 # in order to resolve adlist domains during the initial background gravity sync.
@@ -39,6 +54,14 @@ export HOME="${SNAP_DATA}"
 
 # FTL sometimes behaves better when started from a writable directory.
 cd "${SNAP_DATA}/run/pihole"
+
+# If gravity.db exists but is 0 bytes, it is invalid and will cause migration
+# errors in gravity.sh (e.g. no such table: OLD.group). Remove it to force
+# a clean creation from scratch.
+if [ -f "${SNAP_DATA}/etc/pihole/gravity.db" ] && [ ! -s "${SNAP_DATA}/etc/pihole/gravity.db" ]; then
+    echo "Found 0-byte gravity.db, removing to allow clean re-initialization..."
+    rm -f "${SNAP_DATA}/etc/pihole/gravity.db"
+fi
 
 # If gravity.db is missing or empty (first install), seed Steven Black's
 # default blocklist and build gravity. This mirrors what Pi-hole's own

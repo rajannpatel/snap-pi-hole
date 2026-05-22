@@ -63,7 +63,7 @@ EOF
     chmod +x "${MOCK_BIN}/dmesg"
 
     # Our script under test
-    SCRIPT_UNDER_TEST="${REPO_ROOT}/snap/local/snapdebug"
+    SCRIPT_UNDER_TEST="${REPO_ROOT}/snap/local/testing/snapdebug.sh"
 }
 
 teardown() {

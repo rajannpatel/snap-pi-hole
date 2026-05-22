@@ -355,9 +355,9 @@ PYEOF
     done
 }
 
-@test "local launcher-ftl and launcher-pihole exist and are executable" {
-    [ -x "${REPO_ROOT}/snap/local/launcher-ftl" ]
-    [ -x "${REPO_ROOT}/snap/local/launcher-pihole" ]
+@test "local launcher-ftl.sh and launcher-pihole.sh exist and are executable" {
+    [ -x "${REPO_ROOT}/snap/local/runtime/launcher-ftl.sh" ]
+    [ -x "${REPO_ROOT}/snap/local/runtime/launcher-pihole.sh" ]
 }
 
 @test "snap/gui store icon exists" {
@@ -389,10 +389,12 @@ PYEOF
 # 8. Shell script integrity
 # ---------------------------------------------------------------------------
 
-@test "shell scripts all six exist on disk" {
+@test "shell scripts all eight exist on disk" {
     local scripts=(
-        snap/local/launcher-ftl
-        snap/local/launcher-pihole
+        snap/local/runtime/launcher-ftl.sh
+        snap/local/runtime/launcher-pihole.sh
+        snap/local/testing/check-system.sh
+        snap/local/testing/snapdebug.sh
         snap/hooks/install
         snap/hooks/configure
         snap/hooks/pre-refresh
@@ -405,8 +407,10 @@ PYEOF
 
 @test "shell scripts pass bash -n syntax check" {
     local scripts=(
-        snap/local/launcher-ftl
-        snap/local/launcher-pihole
+        snap/local/runtime/launcher-ftl.sh
+        snap/local/runtime/launcher-pihole.sh
+        snap/local/testing/check-system.sh
+        snap/local/testing/snapdebug.sh
         snap/hooks/install
         snap/hooks/configure
         snap/hooks/pre-refresh

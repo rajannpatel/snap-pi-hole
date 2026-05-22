@@ -1,0 +1,51 @@
+--- a/advanced/Scripts/updatecheck.sh
++++ b/advanced/Scripts/updatecheck.sh
+@@ -11,25 +11,30 @@
+ set -o pipefail
+ 
+ function get_local_branch() {
+-    # Return active branch
+-    cd "${1}" 2>/dev/null || { echo "null"; return; }
+-    git rev-parse --abbrev-ref HEAD || echo "null"
++    local template="/opt/pihole/templates/versions"
++    if [[ "${1}" == "/etc/.pihole" ]]; then
++        sed -n "s/^CORE_BRANCH=//p" "${template}" 2>/dev/null || echo "snap"
++    else
++        sed -n "s/^WEB_BRANCH=//p" "${template}" 2>/dev/null || echo "snap"
++    fi
+ }
+ 
+ function get_local_version() {
+-    # Return active version
+-    cd "${1}" 2>/dev/null || { echo "null"; return; }
+-    git describe --tags --always 2>/dev/null || echo "null"
++    local template="/opt/pihole/templates/versions"
++    if [[ "${1}" == "/etc/.pihole" ]]; then
++        sed -n "s/^CORE_VERSION=//p" "${template}" 2>/dev/null || echo "N/A"
++    else
++        sed -n "s/^WEB_VERSION=//p" "${template}" 2>/dev/null || echo "N/A"
++    fi
+ }
+ 
+ function get_local_hash() {
+-    cd "${1}" 2>/dev/null || { echo "null"; return; }
+-    git rev-parse --short=8 HEAD || echo "null"
++    echo "snap"
+ }
+ 
+ function get_remote_version() {
+     # if ${2} is = "master" we need to use the "latest" endpoint, otherwise, we simply return null
+-    if [[ "${2}" == "master" ]]; then
++    if [[ "${2}" == "master" || "${2}" == "snap" ]]; then
+         curl -s "https://api.github.com/repos/pi-hole/${1}/releases/latest" 2>/dev/null | jq --raw-output .tag_name || echo "null"
+     else
+         echo "null"
+@@ -37,7 +42,7 @@
+ }
+ 
+ function get_remote_hash() {
+-    git ls-remote "https://github.com/pi-hole/${1}" --tags "${2}" | awk '{print substr($0, 1,8);}' || echo "null"
++    echo "N/A"
+ }
+ 
+ # Source the utils file for addOrEditKeyValPair()

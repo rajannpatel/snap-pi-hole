@@ -1,0 +1,44 @@
+--- a/advanced/Scripts/piholeDebug.sh
++++ b/advanced/Scripts/piholeDebug.sh
+@@ -756,7 +756,7 @@
+         # If systemd
+         if command -v systemctl &> /dev/null; then
+             # get its status via systemctl
+-            status_of_process=$(systemctl is-active "${i}")
++            status_of_process=$(snapctl is-active pihole-ftl &>/dev/null && echo "active" || echo "inactive")
+         else
+             # Otherwise, use the service command and mock the output of `systemctl is-active`
+ 
+@@ -765,7 +765,7 @@
+                 :
+             else
+             # non-Docker system
+-                if service "${i}" status | grep -q -E 'is\srunning|started'; then
++                if snapctl is-active pihole-ftl &>/dev/null; then
+                     status_of_process="active"
+                 else
+                     status_of_process="inactive"
+@@ -792,12 +792,12 @@
+     echo_current_diagnostic "Pi-hole-FTL full status"
+     local FTL_status
+     if command -v systemctl &> /dev/null; then
+-      FTL_status=$(systemctl status --full --no-pager pihole-FTL.service)
++      FTL_status=$(snapctl services pihole-ftl)
+       log_write "   ${FTL_status}"
+     elif [ -n "${DOCKER_VERSION}" ]; then
+       log_write "${INFO} systemctl/service not installed inside docker container ${COL_YELLOW}(skipped)${COL_NC}"
+     else
+-      log_write "${INFO} systemctl:  command not found"
++      FTL_status=$(snapctl services pihole-ftl); log_write "   ${FTL_status}"
+     fi
+ }
+ 
+@@ -1242,7 +1242,7 @@
+     local username="pihole"
+     # Set the permissions and owner
+     chmod 640 ${PIHOLE_DEBUG_LOG}
+-    chown "$USER":"${username}" ${PIHOLE_DEBUG_LOG}
++    true # chown disabled inside snap
+ 
+     # Let the user know debugging is complete with something strikingly visual
+     log_write ""

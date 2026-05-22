@@ -1,0 +1,18 @@
+--- a/advanced/Scripts/piholeLogFlush.sh
++++ b/advanced/Scripts/piholeLogFlush.sh
+@@ -78,13 +78,13 @@
+     fi
+ 
+     # Stop FTL to make sure it doesn't write to the database while we're deleting data
+-    service pihole-FTL stop
++    snapctl stop pihole-ftl
+ 
+     # Delete most recent 24 hours from FTL's database, leave even older data intact (don't wipe out all history)
+     deleted=$(pihole-FTL sqlite3 -ni "${DBFILE}" "DELETE FROM query_storage WHERE timestamp >= strftime('%s','now')-86400; select changes() from query_storage limit 1")
+ 
+     # Restart FTL
+-    service pihole-FTL restart
++    snapctl restart pihole-ftl
+     if [[ "$*" != *"quiet"* ]]; then
+         echo -e "${OVER}  ${TICK} Deleted ${deleted} queries from long-term query database"
+     fi

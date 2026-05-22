@@ -25,7 +25,7 @@ setup() {
         -e "s|/opt/pihole/pihole|${STUB}|g" \
         -e "s|/opt/pihole|${TMPDIR}/opt|g" \
         -e "s|/etc/pihole|${TMPDIR}/etc|g" \
-        "${REPO_ROOT}/snap/local/launcher-pihole" > "${LAUNCHER}"
+        "${REPO_ROOT}/snap/local/runtime/launcher-pihole.sh" > "${LAUNCHER}"
     chmod +x "${LAUNCHER}"
 
     cat > "${STUB}" <<'EOF'

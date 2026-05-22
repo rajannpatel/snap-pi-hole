@@ -123,7 +123,7 @@ EOF
 
     # Rewrite launchers
     for launcher in launcher-ftl launcher-pihole; do
-        local src="${REPO_ROOT}/snap/local/${launcher}"
+        local src="${REPO_ROOT}/snap/local/runtime/${launcher}.sh"
         local dst="${TEST_TMPDIR}/${launcher}"
         sed \
             -e "s|/opt/pihole/pihole|${TEST_TMPDIR}/opt/pihole|g" \

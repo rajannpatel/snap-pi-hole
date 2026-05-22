@@ -12,39 +12,14 @@ description: |
   with network capability, such as a Raspberry Pi, but it can be used on
   other machines running Linux and cloud implementations.
 
-  This snap packages Pi-hole v6, which consolidates the DNS resolver
-  (a fork of dnsmasq), the DHCP server, the HTTP API, and the embedded
-  web admin interface into a single binary: pihole-FTL.
+# grade: devel
+grade: stable
+# build-base: devel
 
-  IMPORTANT  -  host setup before starting the daemon:
-
-    1. Port 53 must be free. On most Ubuntu systems systemd-resolved
-       holds it. Disable its stub listener:
-
-         sudo mkdir -p /etc/systemd/resolved.conf.d
-         printf '[Resolve]\nDNSStubListener=no\n' \
-           | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
-         sudo systemctl restart systemd-resolved
-
-    2. Connect interfaces and enable the daemon:
-
-         sudo snap connect pihole:network-bind
-         sudo snap connect pihole:network-control     # only if using DHCP
-         sudo snap connect pihole:firewall-control    # only if using DHCP
-         sudo snap start --enable pihole.pihole-ftl
-
-    3. Point your router (or individual clients) at this host's IP for DNS.
-
-  The web admin interface listens on http://<host>/admin by default; the
-  password is printed to the daemon log on first start and can be reset
-  with `sudo pihole setpassword`.
-
-grade: devel
 confinement: strict
 # We use core26 because Pi-hole FTL v6.6.2 dropped support for mbedTLS 2.x
 # and now strictly requires mbedTLS >= 3.5.0, as well as Nettle >= 3.9.
 base: core26
-build-base: devel
 
 # Document the current data-format baseline. Bump to `epoch: 1*` (note
 # the trailing asterisk) the first time we ship a revision that changes
@@ -114,72 +89,7 @@ parts:
     source-type: git
     source-tag: v6.6.2
     source-depth: 1
-    override-pull: |
-      craftctl default
-      # Fix strstr redefinition error on newer glibc (Ubuntu 26.04)
-      sed -i 's/#define strstr(haystack, needle)/#undef strstr\n#define strstr(haystack, needle)/' "${CRAFT_PART_SRC}/src/FTL.h"
-
-      # Patch x509.c for MbedTLS 3.x API compatibility (MbedTLS 3.6 strictly requires RNG for PEM generation)
-      sed -i '15i #include <mbedtls/psa_util.h>' src/webserver/x509.c
-      sed -i 's/mbedtls_x509write_crt_pem(&ca_cert, ca_buffer, sizeof(ca_buffer))/mbedtls_x509write_crt_pem(\&ca_cert, ca_buffer, sizeof(ca_buffer), mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE)/g' src/webserver/x509.c
-      sed -i 's/mbedtls_x509write_crt_pem(&server_cert, cert_buffer, sizeof(cert_buffer))/mbedtls_x509write_crt_pem(\&server_cert, cert_buffer, sizeof(cert_buffer), mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE)/g' src/webserver/x509.c
-      sed -i 's/mbedtls_pk_parse_keyfile(&key, certfile, NULL)/mbedtls_pk_parse_keyfile(\&key, certfile, NULL, mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE)/g' src/webserver/x509.c
-
-      # Redirect PID files to /etc/pihole/ which is layout-mounted to
-      # $SNAP_DATA/etc/pihole/ and is visible to ALL snap apps regardless
-      # of the snap's store name (avoids CRAFT_PROJECT_NAME vs SNAP_NAME mismatch).
-      # Handle /var/run/ before /run/ to avoid partial-match corruption
-      # (dnsmasq defaults to /var/run/dnsmasq.pid; a naive s|/run/…| would
-      # turn that into /var/etc/pihole/dnsmasq.pid).
-      grep -rlZ '/run/pihole-FTL.pid' "${CRAFT_PART_SRC}" | xargs -0 -r sed -i \
-        -e "s|/var/run/pihole-FTL.pid|/etc/pihole/pihole-FTL.pid|g" \
-        -e "s|/run/pihole-FTL.pid|/etc/pihole/pihole-FTL.pid|g"
-      grep -rlZ '/run/dnsmasq.pid' "${CRAFT_PART_SRC}" | xargs -0 -r sed -i \
-        -e "s|/var/run/dnsmasq.pid|/etc/pihole/dnsmasq.pid|g" \
-        -e "s|/run/dnsmasq.pid|/etc/pihole/dnsmasq.pid|g"
-
-      # Neutralize dnsmasq's attempt to drop supplementary groups.
-      # In a strictly confined snap, daemons run as root without CAP_SETGID
-      # by default. Since pihole-FTL passes `-u root` internally, dnsmasq
-      # looks up the root group and tries to call setgroups(0) which fails with EPERM.
-      sed -i 's/setgroups(0, \&dummy) == -1/0/g' src/dnsmasq/dnsmasq.c
-      sed -i 's/setgid(gp->gr_gid) == -1/0/g' src/dnsmasq/dnsmasq.c
-
-      # Suppress harmless chown_pihole warning in strictly confined snaps
-      # where the pihole user does not exist. Daemons run as root anyway.
-      sed -i 's/log_warn("chown_pihole(): Failed to get pihole user.*/return true;/g' src/files.c
-
-      # Patch-rot guards. If upstream renames or rewords any of the targets
-      # above, the sed silently no-ops and the build ships an unpatched
-      # binary. Fail loudly so the next FTL bump is investigated.
-      if ! grep -qF '#undef strstr' "${CRAFT_PART_SRC}/src/FTL.h"; then
-        echo "ERROR: FTL.h strstr undef patch did not apply" >&2
-        exit 1
-      fi
-      if ! grep -qF 'mbedtls_psa_get_random' "${CRAFT_PART_SRC}/src/webserver/x509.c"; then
-        echo "ERROR: x509.c MbedTLS RNG patch did not apply" >&2
-        exit 1
-      fi
-      if grep -rnF '/run/pihole-FTL.pid' "${CRAFT_PART_SRC}"; then
-        echo "ERROR: PID redirect for pihole-FTL.pid missed a file" >&2
-        exit 1
-      fi
-      if grep -rnF '/run/dnsmasq.pid' "${CRAFT_PART_SRC}"; then
-        echo "ERROR: PID redirect for dnsmasq.pid missed a file" >&2
-        exit 1
-      fi
-      if grep -nF 'setgroups(0, &dummy) == -1' "${CRAFT_PART_SRC}/src/dnsmasq/dnsmasq.c"; then
-        echo "ERROR: dnsmasq setgroups neutralization did not apply" >&2
-        exit 1
-      fi
-      if grep -nF 'setgid(gp->gr_gid) == -1' "${CRAFT_PART_SRC}/src/dnsmasq/dnsmasq.c"; then
-        echo "ERROR: dnsmasq setgid neutralization did not apply" >&2
-        exit 1
-      fi
-      if grep -nF 'log_warn("chown_pihole(): Failed to get pihole user' "${CRAFT_PART_SRC}/src/files.c"; then
-        echo "ERROR: chown_pihole warning suppression did not apply" >&2
-        exit 1
-      fi
+    override-pull: $CRAFT_PROJECT_DIR/snap/local/build/ftl-override-pull.sh
     cmake-parameters:
       - -DCMAKE_BUILD_TYPE=Release
       - -DCMAKE_INSTALL_PREFIX=/usr
@@ -188,18 +98,7 @@ parts:
     build-environment:
       - GIT_HASH: "snap"
       - GIT_BRANCH: "snap"
-    override-build: |
-      # Single source of truth for the FTL version: the tag we just fetched.
-      # No YAML interpolation, no drift with the heredoc-in-core, no
-      # dependency on undocumented snapcraft variables.
-      FTL_TAG=$(git -C "${CRAFT_PART_SRC}" describe --tags --always)
-      export GIT_VERSION="${FTL_TAG}"
-      export GIT_TAG="${FTL_TAG}"
-      craftctl default
-      # Publish the tag for the pi_hole part to consume via CRAFT_STAGE.
-      # Excluded from the final snap by the `prime:` block below.
-      mkdir -p "${CRAFT_PART_INSTALL}/snap-meta"
-      printf '%s\n' "${FTL_TAG}" > "${CRAFT_PART_INSTALL}/snap-meta/ftl-tag"
+    override-build: $CRAFT_PROJECT_DIR/snap/local/build/ftl-override-build.sh
     prime:
       - -snap-meta
     build-packages:
@@ -279,116 +178,11 @@ parts:
     source-tag: v6.4.2
     source-depth: 1
     after: [ftl, web]
-    override-pull: |
-      craftctl default
-      cd "${CRAFT_PART_SRC}"
-      
-      # 1. piholeLogFlush.sh stops/restarts the daemon via `service`; rewrite
-      # to use snapctl so it works inside the sandbox.
-      # Scoped to the current snap (no snap name prefix) to support renames.
-      sed -i \
-        -e 's|service pihole-FTL stop|snapctl stop pihole-ftl|g' \
-        -e 's|service pihole-FTL restart|snapctl restart pihole-ftl|g' \
-        -e 's|service pihole-FTL start|snapctl start pihole-ftl|g' \
-        advanced/Scripts/piholeLogFlush.sh
-      
-      # 2. piholeDebug.sh checks FTL daemon status. Redirect systemctl is-active and service status to snapctl.
-      # This handles both code paths gracefully inside confinement.
-      sed -i 's|status_of_process=$(systemctl is-active "${i}")|status_of_process=$(snapctl is-active pihole-ftl \&>/dev/null \&\& echo "active" \|\| echo "inactive")|g' advanced/Scripts/piholeDebug.sh
-      sed -i 's|if service "${i}" status |if snapctl is-active pihole-ftl \&>/dev/null; then true; elif false; |g' advanced/Scripts/piholeDebug.sh
-      
-      # 3. piholeDebug.sh full status check uses systemctl status. Divert to snapctl services.
-      sed -i 's|FTL_status=$(systemctl status --full --no-pager pihole-FTL.service)|FTL_status=$(snapctl services pihole-ftl)|g' advanced/Scripts/piholeDebug.sh
-      # And bypass the systemctl check block for FTL full status
-      sed -i 's|log_write "${INFO} systemctl:  command not found"|FTL_status=$(snapctl services pihole-ftl); log_write "   ${FTL_status}"|g' advanced/Scripts/piholeDebug.sh
-
-      # 4. Redirect PID files to /etc/pihole/ (layout-mounted to $SNAP_DATA/etc/pihole/)
-      # which is visible to all snap commands and matches FTL's target path.
-      # Handle /var/run/ before /run/ to avoid partial-match corruption.
-      grep --exclude-dir=.git -rlZ '/run/pihole-FTL.pid' . | xargs -0 -r sed -i \
-        -e 's|/var/run/pihole-FTL.pid|/etc/pihole/pihole-FTL.pid|g' \
-        -e 's|/run/pihole-FTL.pid|/etc/pihole/pihole-FTL.pid|g'
-        
-      # 5. Strip readonly modifier from FTL_PID_FILE to prevent bash local variable scope collisions inside subshells
-      grep --exclude-dir=.git -rlZ 'readonly FTL_PID_FILE' . | xargs -0 -r sed -i 's/readonly FTL_PID_FILE/FTL_PID_FILE/g'
-
-      # 6. Neutralize upstream git version tracking checks inside strict confinement where git binary is stripped
-      grep -rlZ 'git' advanced/Scripts/updatecheck.sh | xargs -0 -r sed -i 's|git |true # git disabled inside snap|g'
-
-      # 7. Neuter chown commands since snap daemon runs as root and pihole user does not exist
-      grep --exclude-dir=.git -rlZ 'chown pihole:pihole' . | xargs -0 -r sed -i 's|chown pihole:pihole|true # chown pihole:pihole|g'
-      # Also catch chown user:pihole in debug log script
-      sed -i 's|chown "$USER":"${username}" ${PIHOLE_DEBUG_LOG}|true # chown disabled inside snap|g' advanced/Scripts/piholeDebug.sh
-
-      # 8. Force the use of snap-staged GNU coreutils.
-      # Upstream scripts sanitize $PATH (e.g., piholeDebug.sh sets it to /usr/bin:/bin:...),
-      # causing standard commands to resolve to the base core26 snap's rust-coreutils
-      # symlinks. This triggers AppArmor execution denials for lesser-used utils.
-      # We dynamically patch the scripts to use the absolute $SNAP path.
-      find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E \
-        -e 's|/usr/bin/truncate|truncate|g' \
-        -e 's|/usr/bin/timeout|timeout|g' \
-        -e 's|/bin/truncate|truncate|g' \
-        -e 's|/bin/timeout|timeout|g' {} +
-      find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E 's/(^|[ \t;|$(])(timeout|truncate)([ \t]+)/\1"$SNAP\/usr\/bin\/gnu\2"\3/g' {} +
-
-      # Patch-rot guard. If upstream renames a file the sed -i would have
-      # errored out and failed the build already; if upstream subtly
-      # rewords one of the target strings, the sed silently no-ops and
-      # the script ships broken. Fail loudly so we notice on the next
-      # version bump.
-      if grep -nF 'service pihole-FTL' advanced/Scripts/piholeLogFlush.sh; then
-        echo "ERROR: piholeLogFlush.sh still references 'service pihole-FTL' after patch" >&2
-        exit 1
-      fi
-      if grep --exclude-dir=.git -rnF '/run/pihole-FTL.pid' .; then
-        echo "ERROR: PID redirect missed a file" >&2
-        exit 1
-      fi
-      if grep -nF 'systemctl is-active "${i}"' advanced/Scripts/piholeDebug.sh; then
-        echo "ERROR: piholeDebug.sh still references systemctl is-active for FTL" >&2
-        exit 1
-      fi
-      if grep -nF 'systemctl status --full --no-pager' advanced/Scripts/piholeDebug.sh; then
-        echo "ERROR: piholeDebug.sh still references systemctl status for FTL" >&2
-        exit 1
-      fi
-      if grep --exclude-dir=.git -rE '/(usr/)?bin/(truncate|timeout)' . | grep -vF '$SNAP'; then
-        echo "ERROR: Absolute path to /bin/truncate or /usr/bin/timeout still exists after patching" >&2
-        exit 1
-      fi
-    override-build: |
-      FTL_TAG=$(cat "${CRAFT_STAGE}/snap-meta/ftl-tag")
-      WEB_TAG=$(cat "${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag")
-      CORE_TAG=$(git -C "${CRAFT_PART_SRC}" describe --tags --always)
-
-      # Snap version mirrors the upstream pi-hole/pi-hole tag, matching
-      # what `pihole -v` reports for CORE_VERSION.
-      craftctl set version="${CORE_TAG}"
-
-      # Write the file directly to advanced/Scripts/ where the wildcard organizer will catch it cleanly
-      mkdir -p "${CRAFT_PART_SRC}/advanced/Scripts/templates"
-      cat <<EOF | sed 's/^[ \t]*//' > "${CRAFT_PART_SRC}/advanced/Scripts/templates/versions"
-      CORE_VERSION=${CORE_TAG}
-      CORE_BRANCH=snap
-      WEB_VERSION=${WEB_TAG}
-      WEB_BRANCH=snap
-      FTL_VERSION=${FTL_TAG}
-      FTL_BRANCH=snap
-      EOF
-
-      craftctl default
-      # Replicate the advanced/ directory structure to etc/.pihole/advanced
-      # to satisfy gravity.sh which expects /etc/.pihole/advanced/Templates/ 
-      # and /etc/.pihole/advanced/Scripts/database_migration/
-      mkdir -p "${CRAFT_PART_INSTALL}/etc/.pihole"
-      cp -R "${CRAFT_PART_SRC}/advanced" "${CRAFT_PART_INSTALL}/etc/.pihole/"
+    override-pull: $CRAFT_PROJECT_DIR/snap/local/build/pi-hole-override-pull.sh
+    override-build: $CRAFT_PROJECT_DIR/snap/local/build/pi-hole-override-build.sh
     organize:
       pihole: opt/pihole/pihole
       gravity.sh: opt/pihole/gravity.sh
-      # This single clean rule maps advanced/Scripts/ directly to /opt/pihole/, 
-      # carrying your new templates/versions directory right along with it natively.
-      advanced/Scripts/*: opt/pihole/
       manpages: usr/share/man-src
     stage:
       - opt/pihole
@@ -404,16 +198,7 @@ parts:
     source-type: git
     source-tag: v6.5
     source-depth: 1
-    override-build: |
-      # Capture the fetched tag for the pi_hole part to consume via CRAFT_STAGE.
-      # The `organize: "*"` below moves snap-meta along with the upstream
-      # docroot under var/www/html/admin/, so the consumer reads from
-      # ${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag. Excluded from
-      # the final snap by the `prime:` block below.
-      WEB_TAG=$(git -C "${CRAFT_PART_SRC}" describe --tags --always)
-      craftctl default
-      mkdir -p "${CRAFT_PART_INSTALL}/snap-meta"
-      printf '%s\n' "${WEB_TAG}" > "${CRAFT_PART_INSTALL}/snap-meta/web-tag"
+    override-build: $CRAFT_PROJECT_DIR/snap/local/build/web-override-build.sh
     organize:
       "*": var/www/html/admin/
     stage:
@@ -446,10 +231,10 @@ parts:
     source: snap/local/
     source-type: local
     organize:
-      launcher-ftl: bin/launcher-ftl
-      launcher-pihole: bin/launcher-pihole
-      check-system: bin/check-system
-      snapdebug: bin/snapdebug
+      runtime/launcher-ftl.sh: bin/launcher-ftl
+      runtime/launcher-pihole.sh: bin/launcher-pihole
+      testing/check-system.sh: bin/check-system
+      testing/snapdebug.sh: bin/snapdebug
     stage:
       - bin/launcher-ftl
       - bin/launcher-pihole
