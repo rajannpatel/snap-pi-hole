@@ -92,6 +92,15 @@ exit 0
 EOF
     chmod +x "${FTL}"
 
+    # Stub dig to return success for health checks
+    local DIG="${TEST_TMPDIR}/dig"
+    cat > "${DIG}" <<'STUB'
+#!/bin/sh
+echo "127.0.0.1"
+exit 0
+STUB
+    chmod +x "${DIG}"
+
     # Prepend tmpdir stubs to PATH
     export PATH="${TEST_TMPDIR}:${PATH}"
 }
@@ -112,11 +121,12 @@ EOF
     # "${SNAP_DATA}/run/pihole" in the launcher resolves to
     # ${TEST_TMPDIR}/data/run/pihole at runtime via the exported SNAP_DATA,
     # so no sed rewrite is needed for that path.
-    for hook in install configure pre-refresh remove; do
+    for hook in install configure pre-refresh post-refresh remove; do
         local src="${REPO_ROOT}/snap/hooks/${hook}"
         local dst="${TEST_TMPDIR}/hook-${hook}"
         sed \
             -e "s|/etc/systemd/resolved.conf.d/pihole.conf|${TEST_TMPDIR}/resolved.conf|g" \
+            -e "s|\${HOOK_DIR}/configure|\${HOOK_DIR}/hook-configure|g" \
             "${src}" > "${dst}"
         chmod +x "${dst}"
     done
@@ -407,4 +417,33 @@ STUB
     # Remove should still succeed
     run "${TEST_TMPDIR}/hook-remove"
     [ "$status" -eq 0 ]
+}
+
+# ---------------------------------------------------------------------------
+# Post-Refresh Integration Tests
+# ---------------------------------------------------------------------------
+
+@test "post-refresh copies versions template and runs configure hook successfully" {
+    # Install setup
+    run "${TEST_TMPDIR}/hook-install"
+    [ "$status" -eq 0 ]
+
+    # Remove the version file that install hook created to verify that the
+    # post-refresh hook will copy it.
+    rm -f "${SNAP_DATA}/etc/pihole/versions"
+
+    # Set mock snapctl variables to trace configuration invocation
+    export SNAPCTL_GET_D_FTL='{"webserver": {"port": 9090}}'
+    export SNAPCTL_SERVICE_STATUS="inactive"
+
+    # Run post-refresh
+    run "${TEST_TMPDIR}/hook-post-refresh"
+    [ "$status" -eq 0 ]
+
+    # Verify versions file was copied
+    [ -f "${SNAP_DATA}/etc/pihole/versions" ]
+    grep -q "CORE_VERSION=v6.4.2" "${SNAP_DATA}/etc/pihole/versions"
+
+    # Verify that the configure hook was invoked by verifying that the config logic was executed
+    grep -q "FTL:--config webserver.port 9090" "${TEST_TMPDIR}/ftl.log"
 }

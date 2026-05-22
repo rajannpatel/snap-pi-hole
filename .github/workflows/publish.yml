@@ -26,11 +26,12 @@ jobs:
       - name: shellcheck launchers and hooks
         run: |
           shellcheck \
-            snap/local/launcher-ftl \
-            snap/local/launcher-pihole \
+            snap/local/runtime/launcher-ftl.sh \
+            snap/local/runtime/launcher-pihole.sh \
             snap/hooks/install \
             snap/hooks/configure \
             snap/hooks/pre-refresh \
+            snap/hooks/post-refresh \
             snap/hooks/remove
 
       - name: bats unit tests

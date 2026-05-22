@@ -248,10 +248,12 @@ PYEOF
 import re, yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
-pull = doc["parts"]["pi_hole"].get("override-pull", "")
+pull_script = doc["parts"]["pi_hole"].get("override-pull", "").replace("\$CRAFT_PROJECT_DIR", "${REPO_ROOT}")
+with open(pull_script) as sf:
+    pull = sf.read()
 pattern = re.compile(r"^(CORE|FTL|WEB)_VERSION=v", re.MULTILINE)
 assert not pattern.search(pull), \
-    "pi_hole.override-pull contains a hardcoded *_VERSION= line; this heredoc must live in override-build and read tags from CRAFT_STAGE"
+    "pi_hole.override-pull script contains a hardcoded *_VERSION= line; this heredoc must live in override-build and read tags from CRAFT_STAGE"
 PYEOF
 }
 
@@ -279,13 +281,15 @@ PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
-build = doc["parts"]["pi_hole"].get("override-build", "")
+build_script = doc["parts"]["pi_hole"].get("override-build", "").replace("\$CRAFT_PROJECT_DIR", "${REPO_ROOT}")
+with open(build_script) as sf:
+    build = sf.read()
 assert "craftctl set version=" in build, \
-    "pi_hole.override-build must call 'craftctl set version=...' to expose the upstream pi-hole tag"
+    "pi_hole.override-build script must call 'craftctl set version=...' to expose the upstream pi-hole tag"
 assert "\${CRAFT_STAGE}/snap-meta/ftl-tag" in build, \
-    "pi_hole.override-build must read FTL_TAG from \${CRAFT_STAGE}/snap-meta/ftl-tag"
+    "pi_hole.override-build script must read FTL_TAG from \${CRAFT_STAGE}/snap-meta/ftl-tag"
 assert "\${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag" in build, \
-    "pi_hole.override-build must read WEB_TAG from the post-organize web snap-meta path"
+    "pi_hole.override-build script must read WEB_TAG from the post-organize web snap-meta path"
 PYEOF
 }
 
@@ -299,14 +303,20 @@ with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
 
 ftl = doc["parts"]["ftl"]
-assert "snap-meta/ftl-tag" in ftl.get("override-build", ""), \
-    "ftl.override-build must write \${CRAFT_PART_INSTALL}/snap-meta/ftl-tag"
+ftl_build_script = ftl.get("override-build", "").replace("\$CRAFT_PROJECT_DIR", "${REPO_ROOT}")
+with open(ftl_build_script) as sf:
+    ftl_build = sf.read()
+assert "snap-meta/ftl-tag" in ftl_build, \
+    "ftl.override-build script must write \${CRAFT_PART_INSTALL}/snap-meta/ftl-tag"
 assert "-snap-meta" in (ftl.get("prime") or []), \
     "ftl.prime must exclude snap-meta from the final snap"
 
 web = doc["parts"]["web"]
-assert "snap-meta/web-tag" in web.get("override-build", ""), \
-    "web.override-build must write \${CRAFT_PART_INSTALL}/snap-meta/web-tag"
+web_build_script = web.get("override-build", "").replace("\$CRAFT_PROJECT_DIR", "${REPO_ROOT}")
+with open(web_build_script) as sf:
+    web_build = sf.read()
+assert "snap-meta/web-tag" in web_build, \
+    "web.override-build script must write \${CRAFT_PART_INSTALL}/snap-meta/web-tag"
 # The organize rule moves snap-meta under var/www/html/admin/, so the
 # prime exclusion lives at the post-organize path.
 assert "-var/www/html/admin/snap-meta" in (web.get("prime") or []), \
@@ -347,8 +357,8 @@ PYEOF
 # 7. Repository file presence
 # ---------------------------------------------------------------------------
 
-@test "hooks install, configure, pre-refresh, remove all exist and are executable" {
-    for hook in install configure pre-refresh remove; do
+@test "hooks install, configure, pre-refresh, post-refresh, remove all exist and are executable" {
+    for hook in install configure pre-refresh post-refresh remove; do
         path="${REPO_ROOT}/snap/hooks/${hook}"
         [ -f "$path" ] || { echo "missing hook: $hook"; return 1; }
         [ -x "$path" ] || { echo "hook not executable: $hook"; return 1; }
@@ -389,7 +399,7 @@ PYEOF
 # 8. Shell script integrity
 # ---------------------------------------------------------------------------
 
-@test "shell scripts all eight exist on disk" {
+@test "shell scripts all nine exist on disk" {
     local scripts=(
         snap/local/runtime/launcher-ftl.sh
         snap/local/runtime/launcher-pihole.sh
@@ -398,6 +408,7 @@ PYEOF
         snap/hooks/install
         snap/hooks/configure
         snap/hooks/pre-refresh
+        snap/hooks/post-refresh
         snap/hooks/remove
     )
     for script in "${scripts[@]}"; do
@@ -414,6 +425,7 @@ PYEOF
         snap/hooks/install
         snap/hooks/configure
         snap/hooks/pre-refresh
+        snap/hooks/post-refresh
         snap/hooks/remove
     )
     for script in "${scripts[@]}"; do
@@ -428,11 +440,17 @@ PYEOF
 
 @test "snapcraft.yaml pi_hole override-pull includes sandboxing patches and patch-rot guards" {
     python3 - <<PYEOF
-import yaml, sys
+import yaml, sys, glob
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
 
-pull = doc["parts"]["pi_hole"].get("override-pull", "")
+pull_script = doc["parts"]["pi_hole"].get("override-pull", "").replace("\$CRAFT_PROJECT_DIR", "${REPO_ROOT}")
+with open(pull_script) as sf:
+    pull = sf.read()
+
+for patch_path in glob.glob("${REPO_ROOT}/snap/local/patches/*.patch"):
+    with open(patch_path) as pf:
+        pull += "\n" + pf.read()
 
 # Verify that service stops/starts are routed to snapctl
 assert "snapctl stop pihole-ftl" in pull, "missing snapctl stop diversion"

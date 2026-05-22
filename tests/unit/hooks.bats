@@ -271,3 +271,109 @@ teardown() {
     [ "$status" -eq 0 ]
     grep -q "restart" "${TEST_TMPDIR}/snapctl.log"
 }
+
+# ---------------------------------------------------------------------------
+# post-refresh hook
+# ---------------------------------------------------------------------------
+
+@test "post-refresh hook copies versions template if it exists" {
+    HOOK="${TEST_TMPDIR}/post-refresh"
+    cp "${REPO_ROOT}/snap/hooks/post-refresh" "${HOOK}"
+    chmod +x "${HOOK}"
+
+    # Pre-condition: create data directory and remove any existing versions file
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    rm -f "${SNAP_DATA}/etc/pihole/versions"
+
+    # Create dummy configure hook to prevent failures
+    cat > "${TEST_TMPDIR}/configure" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+    chmod +x "${TEST_TMPDIR}/configure"
+
+    # Stub dig to return success
+    cat > "${TEST_TMPDIR}/dig" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+    chmod +x "${TEST_TMPDIR}/dig"
+
+    run "${HOOK}"
+    [ "$status" -eq 0 ]
+    [ -f "${SNAP_DATA}/etc/pihole/versions" ]
+    grep -q "CORE_VERSION=v6.4.2" "${SNAP_DATA}/etc/pihole/versions"
+}
+
+@test "post-refresh hook handles missing versions template gracefully" {
+    HOOK="${TEST_TMPDIR}/post-refresh"
+    cp "${REPO_ROOT}/snap/hooks/post-refresh" "${HOOK}"
+    chmod +x "${HOOK}"
+
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    rm -rf "${SNAP}/opt/pihole/templates"
+    rm -f "${SNAP_DATA}/etc/pihole/versions"
+
+    # Create dummy configure hook to prevent failures
+    cat > "${TEST_TMPDIR}/configure" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+    chmod +x "${TEST_TMPDIR}/configure"
+
+    # Stub dig to return success
+    cat > "${TEST_TMPDIR}/dig" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+    chmod +x "${TEST_TMPDIR}/dig"
+
+    run "${HOOK}"
+    [ "$status" -eq 0 ]
+    [ ! -f "${SNAP_DATA}/etc/pihole/versions" ]
+}
+
+@test "post-refresh hook fails if configure hook fails" {
+    HOOK="${TEST_TMPDIR}/post-refresh"
+    cp "${REPO_ROOT}/snap/hooks/post-refresh" "${HOOK}"
+    chmod +x "${HOOK}"
+
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+
+    # Create failing configure hook
+    cat > "${TEST_TMPDIR}/configure" <<'EOF'
+#!/bin/sh
+exit 42
+EOF
+    chmod +x "${TEST_TMPDIR}/configure"
+
+    run "${HOOK}"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Configuration schema migration failed"* ]]
+}
+
+@test "post-refresh hook fails if DNS validation fails with dig" {
+    HOOK="${TEST_TMPDIR}/post-refresh"
+    cp "${REPO_ROOT}/snap/hooks/post-refresh" "${HOOK}"
+    chmod +x "${HOOK}"
+
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+
+    # Create dummy configure hook to prevent failures
+    cat > "${TEST_TMPDIR}/configure" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+    chmod +x "${TEST_TMPDIR}/configure"
+
+    # Stub dig to return failure
+    cat > "${TEST_TMPDIR}/dig" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+    chmod +x "${TEST_TMPDIR}/dig"
+
+    run "${HOOK}"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"DNS validation failed"* ]]
+}
