@@ -33,6 +33,10 @@ setup() {
 
     # Copy and rewrite hooks and launchers to use our tmpdir
     _setup_scripts
+
+    # Create dummy gravity.db to prevent launcher-ftl from spawning the background 90s loop
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    echo "mock_gravity" > "${SNAP_DATA}/etc/pihole/gravity.db"
 }
 
 teardown() {
