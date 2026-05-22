@@ -142,6 +142,59 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+# Check host dependencies
+log "Checking host dependencies..."
+HAS_MULTIPASS=true
+HAS_SNAPCRAFT=true
+HAS_SHELLCHECK=true
+HAS_BATS=true
+
+if command -v multipass >/dev/null 2>&1; then
+    echo -e "  [✓] multipass   (Required: VM manager)"
+else
+    echo -e "  [✗] multipass   (Required: VM manager)"
+    HAS_MULTIPASS=false
+fi
+
+if command -v snapcraft >/dev/null 2>&1; then
+    echo -e "  [✓] snapcraft   (Optional: required for --rebuild)"
+else
+    echo -e "  [ ] snapcraft   (Optional: required for --rebuild)"
+    HAS_SNAPCRAFT=false
+fi
+
+if command -v shellcheck >/dev/null 2>&1; then
+    echo -e "  [✓] shellcheck  (Optional: static analysis / linter)"
+else
+    echo -e "  [ ] shellcheck  (Optional: static analysis / linter)"
+    HAS_SHELLCHECK=false
+fi
+
+if command -v bats >/dev/null 2>&1; then
+    echo -e "  [✓] bats        (Optional: testing framework / unit tests)"
+else
+    echo -e "  [ ] bats        (Optional: testing framework / unit tests)"
+    HAS_BATS=false
+fi
+echo ""
+
+if [ "$HAS_MULTIPASS" = "false" ]; then
+    log_error "Multipass is not installed on this host. Please install it to use this script."
+    exit 1
+fi
+
+if [ "${REBUILD:-}" = "true" ] && [ "$HAS_SNAPCRAFT" = "false" ]; then
+    log_error "Snapcraft is required to rebuild the snap package, but it is not installed."
+    exit 1
+fi
+
+if [ "${LINT:-}" = "true" ]; then
+    if [ "$HAS_SHELLCHECK" = "false" ] || [ "$HAS_BATS" = "false" ]; then
+        log_error "--lint was requested, but required tools are missing (shellcheck: $HAS_SHELLCHECK, bats: $HAS_BATS)."
+        exit 1
+    fi
+fi
+
 # Run Interactive Wizard if parameters were omitted
 if [ -z "$PLATFORM" ]; then
     echo "Select target platform/image for the Multipass VM:"
@@ -197,19 +250,29 @@ multipass launch "$PLATFORM" --cpus "$CPUS" --memory "$MEMORY" --disk "$DISK" > 
 LAUNCH_PID=$!
 
 if [ -z "$LINT" ]; then
-    read -r -p "Run local linting (shellcheck) and unit tests (bats) first? [Y/n]: " lint_choice
-    case "$lint_choice" in
-        [nN]|[nN][oO]) LINT="false" ;;
-        *) LINT="true" ;;
-    esac
+    if [ "$HAS_SHELLCHECK" = "false" ] && [ "$HAS_BATS" = "false" ]; then
+        log_warn "Both shellcheck and bats are missing. Skipping local checks."
+        LINT="false"
+    else
+        read -r -p "Run local linting (shellcheck) and unit tests (bats) first? [Y/n]: " lint_choice
+        case "$lint_choice" in
+            [nN]|[nN][oO]) LINT="false" ;;
+            *) LINT="true" ;;
+        esac
+    fi
 fi
 
 if [ -z "$REBUILD" ]; then
-    read -r -p "Clean and rebuild the snap package? [Y/n]: " rebuild_choice
-    case "$rebuild_choice" in
-        [nN]|[nN][oO]) REBUILD="false" ;;
-        *) REBUILD="true" ;;
-    esac
+    if [ "$HAS_SNAPCRAFT" = "false" ]; then
+        log_warn "Snapcraft is not installed on the host. Skipping rebuild."
+        REBUILD="false"
+    else
+        read -r -p "Clean and rebuild the snap package? [Y/n]: " rebuild_choice
+        case "$rebuild_choice" in
+            [nN]|[nN][oO]) REBUILD="false" ;;
+            *) REBUILD="true" ;;
+        esac
+    fi
 fi
 
 # Construct and print equivalent CLI command
