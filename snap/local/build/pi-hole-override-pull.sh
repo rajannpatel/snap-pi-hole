@@ -43,9 +43,17 @@ grep --exclude-dir=.git -rlZ 'chown pihole:pihole' . | xargs -0 -r sed -i 's|cho
 find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E \
   -e 's|/usr/bin/truncate|truncate|g' \
   -e 's|/usr/bin/timeout|timeout|g' \
+  -e 's|/usr/bin/mktemp|mktemp|g' \
   -e 's|/bin/truncate|truncate|g' \
-  -e 's|/bin/timeout|timeout|g' {} +
-find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E 's/(^|[ \t;|$(])(timeout|truncate)([ \t]+)/\1"$SNAP\/usr\/bin\/\2"\3/g' {} +
+  -e 's|/bin/timeout|timeout|g' \
+  -e 's|/bin/mktemp|mktemp|g' {} +
+find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E 's/(^|[ \t;|$(])(timeout|truncate|mktemp)([ \t]+)/\1"$SNAP\/usr\/bin\/\2"\3/g' {} +
+
+# Prepend staged paths at the top of all shell scripts (line 2, right after shebang)
+find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i '2i export PATH="$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"' {} +
+
+# Patch hardcoded PATH assignments in case they overwrite the launcher's environment
+find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E 's|PATH=(["'\''\x27]?)(/usr/)|PATH=\1$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:\2|g' {} +
 
 # Patch-rot guard: fail the build loudly if any expected substitution was missed.
 # If upstream renames a function or rewords a string, we catch it here rather than
@@ -66,7 +74,8 @@ if grep -nF 'systemctl status --full --no-pager' advanced/Scripts/piholeDebug.sh
   echo "ERROR: piholeDebug.sh still references systemctl status for FTL" >&2
   exit 1
 fi
-if grep --exclude-dir=.git -rE '/(usr/)?bin/(truncate|timeout)' . | grep -vF '$SNAP'; then
-  echo "ERROR: Absolute path to /bin/truncate or /usr/bin/timeout still exists after patching" >&2
+if grep --exclude-dir=.git -rE '/(usr/)?bin/(truncate|timeout|mktemp)' . | grep -vF '$SNAP'; then
+  echo "ERROR: Absolute path to /bin/truncate, /usr/bin/timeout, or /usr/bin/mktemp still exists after patching" >&2
   exit 1
 fi
+

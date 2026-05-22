@@ -8,6 +8,11 @@
 # the snap's published store name.
 set -eu
 
+# Prepend snap staged paths to PATH to ensure we use our staged GNU coreutils
+# rather than hitting AppArmor execution denials on the base snap's rust-coreutils.
+export PATH="${SNAP}/usr/sbin:${SNAP}/usr/bin:${SNAP}/sbin:${SNAP}/bin:${PATH:-}"
+
+
 
 # The launcher no longer performs pre-flight port 53 checks.
 # If port 53 is occupied, FTL will log a clear EADDRINUSE error and crash,
@@ -73,11 +78,19 @@ fi
 # We sleep 10 s to let FTL fully bind port 53 before pihole -g runs.
 if [ ! -s "${SNAP_DATA}/etc/pihole/gravity.db" ]; then
     echo "gravity.db is missing. Seeding default adlist and building gravity..."
+    
+    # Pass 1: initialise schema (no adlists configured yet, downloads nothing)
+    # This runs synchronously before FTL starts to avoid any database race conditions.
+    "${SNAP}/opt/pihole/pihole" -g > "${SNAP_COMMON}/var/log/pihole/gravity-init.log" 2>&1 || true
+    
+    # Insert Steven Black's unified hosts list now that the schema exists
+    "${SNAP}/usr/bin/pihole-FTL" sqlite3 "${SNAP_DATA}/etc/pihole/gravity.db" \
+      "INSERT OR IGNORE INTO adlist (address, enabled, comment) \
+       VALUES ('https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts', \
+               1, 'Steven Black unified hosts (default)');" 2>/dev/null || true
+
+    # Spawn background task to download and process the adlist once FTL is ready
     (
-        # Ensure the snap-bundled curl (staged from bind9-dnsutils + curl
-        # packages) is found by gravity.sh. Minimal Ubuntu images (ubuntu:lts
-        # LXC) do not include curl by default.
-        export PATH="${SNAP}/usr/bin:${PATH}"
         # Wait until FTL's DNS resolver is accepting queries (up to 90 s).
         # A fixed sleep is unreliable: gravity.sh uses curl which resolves
         # raw.githubusercontent.com via the system resolver; if FTL hasn't
@@ -93,17 +106,10 @@ if [ ! -s "${SNAP_DATA}/etc/pihole/gravity.db" ]; then
             sleep 1
         done
         if [ "${_ftl_ready}" -eq 0 ]; then
-            echo "FTL DNS did not become ready within 90 s; skipping gravity seed." >&2
+            echo "FTL DNS did not become ready within 90 s; skipping background gravity update." >&2
             exit 0
         fi
 
-        # Pass 1: initialise schema (no adlists configured yet, downloads nothing)
-        "${SNAP}/opt/pihole/pihole" -g > "${SNAP_COMMON}/var/log/pihole/gravity-init.log" 2>&1 || true
-        # Insert Steven Black's unified hosts list now that the schema exists
-        "${SNAP}/usr/bin/pihole-FTL" sqlite3 "${SNAP_DATA}/etc/pihole/gravity.db" \
-          "INSERT OR IGNORE INTO adlist (address, enabled, comment) \
-           VALUES ('https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts', \
-                   1, 'Steven Black unified hosts (default)');" 2>/dev/null || true
         # Pass 2: download and process the adlist
         "${SNAP}/opt/pihole/pihole" -g > "${SNAP_COMMON}/var/log/pihole/gravity-first-run.log" 2>&1
     ) &

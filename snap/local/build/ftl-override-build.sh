@@ -21,7 +21,7 @@ mkdir -p "${CRAFT_PART_INSTALL}/usr/bin"
 (
     # Restrict PATH to host system paths so we don't resolve to already staged/installed binaries
     PATH="/usr/sbin:/usr/bin:/sbin:/bin"
-    for cmd in timeout truncate mkdir cp rm sleep date seq ls tail cat chmod chown mv ln uname touch id whoami head wc tr cut sort uniq tee dirname basename readlink realpath env true false stat; do
+    for cmd in timeout truncate mktemp mkdir cp rm sleep date seq ls tail cat chmod chown mv ln uname touch id whoami head wc tr cut sort uniq tee dirname basename readlink realpath env true false stat; do
         path="$(command -v "$cmd")"
         case "$path" in
             /*)

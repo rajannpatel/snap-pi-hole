@@ -6,6 +6,11 @@
 # them here with a clear message pointing at the snap-native equivalent.
 set -eu
 
+# Prepend snap staged paths to PATH to ensure we use our staged GNU coreutils
+# rather than hitting AppArmor execution denials on the base snap's rust-coreutils.
+export PATH="${SNAP}/usr/sbin:${SNAP}/usr/bin:${SNAP}/sbin:${SNAP}/bin:${PATH:-}"
+
+
 usage_snap_equivalent() {
     case "$1" in
         -up|updatePihole|updatechecker|checkout)
