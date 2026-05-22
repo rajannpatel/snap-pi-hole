@@ -33,7 +33,7 @@ if command -v dig >/dev/null 2>&1; then
     # if the upstream internet connection is temporarily down.
     # We retry a few times to give FTL time to start up.
     healthy=0
-    for i in $(seq 1 5); do
+    for _i in $(seq 1 5); do
         if dig +short +time=1 +tries=1 @${DNS_TARGET} pi.hole >/dev/null 2>&1; then
             healthy=1
             break
