@@ -17,3 +17,5 @@ snap/.snapcraft/
 # Local scratchpads and AI configs
 .claude/
 scratch/
+network-cache/
+
