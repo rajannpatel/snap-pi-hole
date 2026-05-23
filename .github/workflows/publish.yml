@@ -330,9 +330,25 @@ jobs:
           echo "channels=${CHANNELS}" >> $GITHUB_OUTPUT
 
       - name: Publish to Snap Store
-        uses: snapcore/action-publish@v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        with:
-          snap: ${{ steps.snap.outputs.file }}
-          release: ${{ steps.snap.outputs.channels }}
+        run: |
+          sudo snap install --classic snapcraft
+          
+          echo "Uploading snap..."
+          set +e
+          UPLOAD_OUT=$(/snap/bin/snapcraft upload "${{ steps.snap.outputs.file }}" --release "${{ steps.snap.outputs.channels }}" 2>&1)
+          RC=$?
+          set -e
+          
+          echo "$UPLOAD_OUT"
+          
+          if [ $RC -ne 0 ]; then
+            if echo "$UPLOAD_OUT" | grep -q "A file with this exact same content has already been uploaded"; then
+              echo "::notice::Snap with the same content is already uploaded. Skipping duplicate upload."
+              exit 0
+            else
+              echo "::error::Snapcraft upload failed with exit code $RC"
+              exit $RC
+            fi
+          fi
