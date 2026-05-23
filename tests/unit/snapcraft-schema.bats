@@ -69,8 +69,9 @@ import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
 parts = doc.get("parts", {})
-for required in ["ftl", "pi_hole", "web", "wrappers"]:
-    assert required in parts, f"part '{required}' missing from snapcraft.yaml"
+expected = {"ftl", "pi_hole", "web", "wrappers"}
+actual = set(parts.keys())
+assert actual == expected, f"expected parts {expected}, got {actual}"
 PYEOF
 }
 
