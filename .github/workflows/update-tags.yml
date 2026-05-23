@@ -45,23 +45,45 @@ jobs:
           echo "Current Web: $CURRENT_WEB"
           
           UPDATED=false
+          BODY_FILE=$(mktemp)
+          echo "Automated PR to update upstream Pi-hole components." > "$BODY_FILE"
+          echo "This action was triggered by the daily cron job detecting new releases." >> "$BODY_FILE"
+          echo "" >> "$BODY_FILE"
+          echo "### Component Updates" >> "$BODY_FILE"
+          echo "| Component | Previous Tag | New Tag | Release Details |" >> "$BODY_FILE"
+          echo "| :--- | :--- | :--- | :--- |" >> "$BODY_FILE"
           
           if [ "$LATEST_FTL" != "null" ] && [ "$LATEST_FTL" != "$CURRENT_FTL" ]; then
             yq -i ".parts.ftl.source-tag = \"$LATEST_FTL\"" snap/snapcraft.yaml
             UPDATED=true
+            echo "| **FTL** | \`$CURRENT_FTL\` | \`$LATEST_FTL\` | [Release Notes](https://github.com/pi-hole/FTL/releases/tag/$LATEST_FTL) |" >> "$BODY_FILE"
           fi
           
           if [ "$LATEST_PIHOLE" != "null" ] && [ "$LATEST_PIHOLE" != "$CURRENT_PIHOLE" ]; then
             yq -i ".parts.pi_hole.source-tag = \"$LATEST_PIHOLE\"" snap/snapcraft.yaml
             UPDATED=true
+            echo "| **pi-hole (core)** | \`$CURRENT_PIHOLE\` | \`$LATEST_PIHOLE\` | [Release Notes](https://github.com/pi-hole/pi-hole/releases/tag/$LATEST_PIHOLE) |" >> "$BODY_FILE"
           fi
           
           if [ "$LATEST_WEB" != "null" ] && [ "$LATEST_WEB" != "$CURRENT_WEB" ]; then
             yq -i ".parts.web.source-tag = \"$LATEST_WEB\"" snap/snapcraft.yaml
             UPDATED=true
+            echo "| **web (admin)** | \`$CURRENT_WEB\` | \`$LATEST_WEB\` | [Release Notes](https://github.com/pi-hole/web/releases/tag/$LATEST_WEB) |" >> "$BODY_FILE"
           fi
           
+          echo "" >> "$BODY_FILE"
+          echo "_This PR was generated automatically by the Update Upstream Tags GitHub Action workflow._" >> "$BODY_FILE"
+
           echo "updated=$UPDATED" >> $GITHUB_OUTPUT
+          
+          if [ "$UPDATED" = "true" ]; then
+            {
+              echo "pr_body<<EOF"
+              cat "$BODY_FILE"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+          rm -f "$BODY_FILE"
 
       - name: Create Pull Request
         if: steps.check_updates.outputs.updated == 'true'
@@ -70,8 +92,6 @@ jobs:
           token: ${{ secrets.PAT_FOR_PRS }}
           commit-message: "chore: update upstream Pi-hole tags"
           title: "Update Upstream Pi-hole Components"
-          body: |
-            Automated PR to update upstream Pi-hole components.
-            This action was triggered by the daily cron job detecting new releases.
+          body: ${{ steps.check_updates.outputs.pr_body }}
           branch: update-pihole-tags
           delete-branch: true
