@@ -335,20 +335,36 @@ jobs:
         run: |
           sudo snap install --classic snapcraft
           
-          echo "Uploading snap..."
-          set +e
-          UPLOAD_OUT=$(/snap/bin/snapcraft upload "${{ steps.snap.outputs.file }}" --release "${{ steps.snap.outputs.channels }}" 2>&1)
-          RC=$?
-          set -e
+          MAX_ATTEMPTS=3
+          attempt=1
+          success=0
           
-          echo "$UPLOAD_OUT"
-          
-          if [ $RC -ne 0 ]; then
+          while [ $attempt -le $MAX_ATTEMPTS ]; do
+            echo "Uploading snap (attempt $attempt of $MAX_ATTEMPTS)..."
+            set +e
+            UPLOAD_OUT=$(/snap/bin/snapcraft upload "${{ steps.snap.outputs.file }}" --release "${{ steps.snap.outputs.channels }}" 2>&1)
+            RC=$?
+            set -e
+            
+            echo "$UPLOAD_OUT"
+            
+            if [ $RC -eq 0 ]; then
+              success=1
+              break
+            fi
+            
             if echo "$UPLOAD_OUT" | grep -q "A file with this exact same content has already been uploaded"; then
               echo "::notice::Snap with the same content is already uploaded. Skipping duplicate upload."
-              exit 0
-            else
-              echo "::error::Snapcraft upload failed with exit code $RC"
-              exit $RC
+              success=1
+              break
             fi
+            
+            echo "::warning::Snapcraft upload attempt $attempt failed with exit code $RC. Retrying in 15 seconds..."
+            attempt=$((attempt + 1))
+            sleep 15
+          done
+          
+          if [ $success -ne 1 ]; then
+            echo "::error::Snapcraft upload failed after $MAX_ATTEMPTS attempts."
+            exit $RC
           fi
