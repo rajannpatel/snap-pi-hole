@@ -65,7 +65,7 @@ Usage: $0 [options]
 Developer utility script for interactive testing and debugging of the snap on Multipass.
 
 Options:
-  -p, --platform PLATFORM   Target platform: lts, core24, core22
+  -p, --platform PLATFORM   Target platform image name (e.g., lts, core24, core22, 24.04)
   -c, --cpus NUM            Number of CPUs for VM (default: 4)
   -m, --memory SIZE         Memory for VM (default: 8G)
   -d, --disk SIZE           Disk size for VM (default: 15G)
@@ -197,17 +197,54 @@ fi
 
 # Run Interactive Wizard if parameters were omitted
 if [ -z "$PLATFORM" ]; then
+    log "Querying available Multipass images..."
+    if ! json=$(multipass find --only-images --format json 2>/dev/null); then
+        log_error "Failed to query Multipass images. Is Multipass running?"
+        exit 1
+    fi
+
+    # Extract keys and descriptions
+    image_keys=()
+    image_descs=()
+    while IFS=$'\t' read -r key desc; do
+        if [ -n "$key" ]; then
+            image_keys+=("$key")
+            image_descs+=("$desc")
+        fi
+    done < <(echo "$json" | jq -r '.images | to_entries[] | select(.key | startswith("appliance:") | not) | "\(.key)\t\(.value.os) \(.value.release)"')
+
+    num_images=${#image_keys[@]}
+    if [ "$num_images" -eq 0 ]; then
+        log_error "No available Multipass images found."
+        exit 1
+    fi
+
     echo "Select target platform/image for the Multipass VM:"
-    echo "  1) Ubuntu LTS (lts)"
-    echo "  2) Ubuntu Core 24 (core24)"
-    echo "  3) Ubuntu Core 22 (core22)"
-    read -r -p "Enter choice [1-3, default 1]: " plat_choice
-    case "$plat_choice" in
-        2) PLATFORM="core24" ;;
-        3) PLATFORM="core22" ;;
-        *) PLATFORM="lts" ;;
-    esac
+    for ((i=0; i<num_images; i++)); do
+        printf "  %2d) %-15s (%s)\n" "$((i+1))" "${image_keys[i]}" "${image_descs[i]}"
+    done
+
+    choice=""
+    while true; do
+        read -r -p "Enter choice [1-$num_images, default 1]: " choice
+        if [ -z "$choice" ]; then
+            choice=1
+        fi
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$num_images" ]; then
+            PLATFORM="${image_keys[$((choice-1))]}"
+            break
+        else
+            echo "Invalid choice. Please enter a number between 1 and $num_images."
+        fi
+    done
 fi
+
+# Determine if target platform is Ubuntu Core or Classic (LTS)
+IS_CORE=false
+if [[ "$PLATFORM" =~ ^core ]]; then
+    IS_CORE=true
+fi
+
 
 # Track cleanup status and background launch state
 CLEANUP_ON_EXIT=true
@@ -402,8 +439,8 @@ fi
 log_success "VM successfully launched! Name: $VM_NAME"
 
 # Configure platform specific settings
-if [ "$PLATFORM" = "lts" ]; then
-    log "Configuring systemd-resolved on Ubuntu LTS to free port 53..."
+if [ "$IS_CORE" = "false" ]; then
+    log "Configuring systemd-resolved on Ubuntu LTS/Classic to free port 53..."
     multipass exec "$VM_NAME" -- sudo mkdir -p /etc/systemd/resolved.conf.d
     multipass exec "$VM_NAME" -- sh -c 'printf "[Resolve]\nDNS=127.0.0.1\nDNSStubListener=no\n" | sudo tee /etc/systemd/resolved.conf.d/pihole.conf'
     multipass exec "$VM_NAME" -- sudo systemctl restart systemd-resolved
@@ -422,7 +459,7 @@ log "Installing snap package on VM..."
 multipass exec "$VM_NAME" -- sudo snap remove --purge pihole-by-rajannpatel >/dev/null 2>&1 || true
 multipass exec "$VM_NAME" -- sudo snap install "$VM_SNAP_PATH" --dangerous
 
-if [ "$PLATFORM" != "lts" ]; then
+if [ "$IS_CORE" = "true" ]; then
     wait_for_snapd_stability
 fi
 
