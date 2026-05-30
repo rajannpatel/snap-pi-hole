@@ -11,22 +11,66 @@ export PATH="${SNAP}/usr/sbin:${SNAP}/usr/bin:${SNAP}/sbin:${SNAP}/bin:${PATH:-}
 
 FTL_BIN="${SNAP}/usr/bin/pihole-FTL"
 
-# Extract the entire 'ftl' config namespace and pass directly to pihole-FTL
-snapctl get -d ftl | jq -r '
+# Migration mapping: "old_key:new_key"
+MIGRATIONS="dns.dnssec:dns.dnssec_enabled"
+
+# Extract the config to check for migrations
+ftl_json=$(snapctl get -d ftl)
+
+flat_config=$(echo "$ftl_json" | jq -r '
   [ paths(type != "object" and type != "array") as $p |
     { key: $p | join("."), value: getpath($p) }
   ] | group_by(.key | sub("\\.[0-9]+$"; "")) | map({
     key: .[0].key | sub("\\.[0-9]+$"; "") | sub("^ftl\\."; ""),
     value: map(.value | tostring) | join(",")
   }) | .[] | "\(.key)=\(.value)"
-' | while IFS='=' read -r key val; do
-    if [ -n "$key" ]; then
-        "$FTL_BIN" --config "$key" "$val" >/dev/null 2>&1 || {
-            echo "Error applying ftl.$key=$val" >&2
-            exit 1
-        }
-    fi
-done
+' 2>/dev/null || echo "")
+
+need_reload=0
+if [ -n "$flat_config" ]; then
+    while IFS='=' read -r key val; do
+        [ -z "$key" ] && continue
+        for migration in $MIGRATIONS; do
+            old_key="${migration%%:*}"
+            new_key="${migration#*:}"
+            if [ "$key" = "$old_key" ]; then
+                echo "Migrating deprecated configuration parameter: ftl.${old_key} -> ftl.${new_key}" >&2
+                snapctl set "ftl.${new_key}=${val}"
+                snapctl unset "ftl.${old_key}"
+                need_reload=1
+            fi
+        done
+    done <<EOF
+$flat_config
+EOF
+fi
+
+if [ "$need_reload" -eq 1 ]; then
+    # Re-read the config after migrations
+    ftl_json=$(snapctl get -d ftl)
+    flat_config=$(echo "$ftl_json" | jq -r '
+      [ paths(type != "object" and type != "array") as $p |
+        { key: $p | join("."), value: getpath($p) }
+      ] | group_by(.key | sub("\\.[0-9]+$"; "")) | map({
+        key: .[0].key | sub("\\.[0-9]+$"; "") | sub("^ftl\\."; ""),
+        value: map(.value | tostring) | join(",")
+      }) | .[] | "\(.key)=\(.value)"
+    ' 2>/dev/null || echo "")
+fi
+
+# Apply migrated configuration to FTL
+if [ -n "$flat_config" ]; then
+    while IFS='=' read -r key val; do
+        if [ -n "$key" ]; then
+            "$FTL_BIN" --config "$key" "$val" >/dev/null 2>&1 || {
+                echo "Error applying ftl.$key=$val" >&2
+                exit 1
+            }
+        fi
+    done <<EOF
+$flat_config
+EOF
+fi
 
 # Restart the daemon if it's currently running, so changes take effect immediately
 if snapctl services "${SNAP_NAME}".pihole-ftl 2>/dev/null | awk 'NR>1 {print $3}' | grep -qx active; then

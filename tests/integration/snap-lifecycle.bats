@@ -49,19 +49,28 @@ teardown() {
 
 _setup_stubs() {
     # Stub snapctl with logging and key-value lookup via env vars
-    local SNAPCTL="${TEST_TMPDIR}/snapctl"
+    local    SNAPCTL="${TEST_TMPDIR}/snapctl"
     cat > "${SNAPCTL}" <<'STUB'
 #!/bin/bash
+TEST_TMPDIR="MOCK_TMPDIR"
 LOG="${TEST_TMPDIR}/snapctl.log"
 echo "SNAPCTL:$*" >> "$LOG"
 case "$1" in
     get)
         if [ "$2" = "-d" ] && [ "$3" = "ftl" ]; then
-            if [ -n "${SNAPCTL_GET_D_FTL:-}" ]; then
-                echo "${SNAPCTL_GET_D_FTL}"
-            else
-                echo "{}"
+            current_env="${SNAPCTL_GET_D_FTL:-{}}"
+            last_env=""
+            if [ -f "${TEST_TMPDIR}/last_snapctl_get_d_ftl.json" ]; then
+                last_env=$(cat "${TEST_TMPDIR}/last_snapctl_get_d_ftl.json")
             fi
+            if [ "$current_env" != "$last_env" ]; then
+                echo "$current_env" > "${TEST_TMPDIR}/snapctl_ftl.json"
+                echo "$current_env" > "${TEST_TMPDIR}/last_snapctl_get_d_ftl.json"
+            fi
+            if [ ! -f "${TEST_TMPDIR}/snapctl_ftl.json" ]; then
+                echo "{}" > "${TEST_TMPDIR}/snapctl_ftl.json"
+            fi
+            cat "${TEST_TMPDIR}/snapctl_ftl.json"
             exit 0
         fi
         key="${2:-}"
@@ -69,6 +78,47 @@ case "$1" in
         if [ -z "$key" ]; then exit 0; fi
         var="SNAPCTL_GET_$(echo "$key" | tr '.-' '_')"
         echo "${!var:-}"
+        ;;
+    set)
+        if [ "$2" = "ftl" ]; then
+            echo "$3" > "${TEST_TMPDIR}/snapctl_ftl.json"
+            echo "$3" > "${TEST_TMPDIR}/last_snapctl_get_d_ftl.json"
+            exit 0
+        elif [[ "$2" =~ ^ftl=(.*)$ ]]; then
+            val="${BASH_REMATCH[1]}"
+            echo "$val" > "${TEST_TMPDIR}/snapctl_ftl.json"
+            echo "$val" > "${TEST_TMPDIR}/last_snapctl_get_d_ftl.json"
+            exit 0
+        fi
+        if [ ! -f "${TEST_TMPDIR}/snapctl_ftl.json" ]; then
+            echo "${SNAPCTL_GET_D_FTL:-{}}" > "${TEST_TMPDIR}/snapctl_ftl.json"
+        fi
+        arg="$2"
+        if [[ "$arg" =~ ^ftl\.(.+)=(.*)$ ]]; then
+            key="${BASH_REMATCH[1]}"
+            val="${BASH_REMATCH[2]}"
+            jq --arg val "$val" --arg key "$key" '
+              (try ($val | fromjson) catch $val) as $parsed_val |
+              setpath($key | split("."); $parsed_val)
+            ' "${TEST_TMPDIR}/snapctl_ftl.json" > "${TEST_TMPDIR}/snapctl_ftl.json.tmp"
+            mv "${TEST_TMPDIR}/snapctl_ftl.json.tmp" "${TEST_TMPDIR}/snapctl_ftl.json"
+        fi
+        ;;
+    unset)
+        if [ "$2" = "ftl" ]; then
+            echo "{}" > "${TEST_TMPDIR}/snapctl_ftl.json"
+            echo "{}" > "${TEST_TMPDIR}/last_snapctl_get_d_ftl.json"
+            exit 0
+        fi
+        if [ ! -f "${TEST_TMPDIR}/snapctl_ftl.json" ]; then
+            echo "${SNAPCTL_GET_D_FTL:-{}}" > "${TEST_TMPDIR}/snapctl_ftl.json"
+        fi
+        arg="$2"
+        if [[ "$arg" =~ ^ftl\.(.+)$ ]]; then
+            key="${BASH_REMATCH[1]}"
+            jq --arg key "$key" 'delpaths([[$key | split(".")[]]])' "${TEST_TMPDIR}/snapctl_ftl.json" > "${TEST_TMPDIR}/snapctl_ftl.json.tmp"
+            mv "${TEST_TMPDIR}/snapctl_ftl.json.tmp" "${TEST_TMPDIR}/snapctl_ftl.json"
+        fi
         ;;
     services)
         printf 'Service         Startup  Current  Notes\n'
@@ -83,6 +133,7 @@ case "$1" in
     *) exit 0 ;;
 esac
 STUB
+    sed -i "s|MOCK_TMPDIR|${TEST_TMPDIR}|g" "${SNAPCTL}"
     chmod +x "${SNAPCTL}"
 
     # Stub pihole-FTL with --config logging
@@ -135,15 +186,18 @@ EOF
         chmod +x "${dst}"
     done
 
-    # Rewrite launchers
-    for launcher in launcher-ftl launcher-pihole; do
-        local src="${REPO_ROOT}/snap/local/runtime/${launcher}.sh"
-        local dst="${TEST_TMPDIR}/${launcher}"
+    # Rewrite launchers and sync tools
+    mkdir -p "${SNAP}/bin"
+    for script in launcher-ftl launcher-pihole config-sync; do
+        local src="${REPO_ROOT}/snap/local/runtime/${script}.sh"
+        local dst="${SNAP}/bin/${script}"
         sed \
             -e "s|/opt/pihole/pihole|${TEST_TMPDIR}/opt/pihole|g" \
             -e "s|/opt/pihole:|${TEST_TMPDIR}/opt:|g" \
             "${src}" > "${dst}"
         chmod +x "${dst}"
+        # Keep a copy in TEST_TMPDIR for backward compatibility with existing tests
+        cp "${dst}" "${TEST_TMPDIR}/${script}"
     done
 
     # Create launcher-pihole stub (upstream script)
@@ -450,4 +504,70 @@ STUB
 
     # Verify that the configure hook was invoked by verifying that the config logic was executed
     grep -q "FTL:--config webserver.port 9090" "${TEST_TMPDIR}/ftl.log"
+}
+
+@test "config-sync updates snapctl from pihole.toml" {
+    # Prepare directories
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    
+    # Write a dummy pihole.toml
+    cat > "${SNAP_DATA}/etc/pihole/pihole.toml" <<EOF
+[dns]
+  dnssec = true
+  upstreams = [
+    "1.1.1.1",
+    "1.0.0.1"
+  ]
+[webserver]
+  port = 8080
+EOF
+
+    # Clear snapctl_ftl.json
+    rm -f "${TEST_TMPDIR}/snapctl_ftl.json"
+
+    # Run config-sync
+    run "${SNAP}/bin/config-sync"
+    [ "$status" -eq 0 ]
+
+    # Verify that the snapctl_ftl.json now contains the correct values
+    [ -f "${TEST_TMPDIR}/snapctl_ftl.json" ]
+    
+    local port=$(jq -r '.webserver.port' "${TEST_TMPDIR}/snapctl_ftl.json")
+    [ "$port" = "8080" ]
+    
+    local dnssec=$(jq -r '.dns.dnssec' "${TEST_TMPDIR}/snapctl_ftl.json")
+    [ "$dnssec" = "true" ]
+    
+    local upstreams=$(jq -c '.dns.upstreams' "${TEST_TMPDIR}/snapctl_ftl.json")
+    [ "$upstreams" = '["1.1.1.1","1.0.0.1"]' ]
+}
+
+@test "post-refresh hook executes database migration" {
+    # Install setup
+    run "${TEST_TMPDIR}/hook-install"
+    [ "$status" -eq 0 ]
+
+    # Run post-refresh hook which triggers launcher-pihole -g
+    run "${TEST_TMPDIR}/hook-post-refresh"
+    [ "$status" -eq 0 ]
+
+    # Verify database migration script was executed
+    # launcher-pihole is rewritten to call /opt/pihole (which is stubbed to output "PIHOLE:$*")
+    # Wait, post-refresh redirect launcher-pihole stdout/stderr to /dev/null, but we can verify it was called
+    # through the logs or by testing with a failing database migration.
+    # To verify it ran, we can verify that the command ran by checking if we get exit 1 when we fake a failure.
+    
+    # Setup database migration failure by stubbing launcher-pihole to fail when -g is passed
+    cat > "${SNAP}/bin/launcher-pihole" <<'EOF'
+#!/bin/sh
+if [ "$1" = "-g" ]; then
+    exit 1
+fi
+exit 0
+EOF
+    chmod +x "${SNAP}/bin/launcher-pihole"
+
+    run "${TEST_TMPDIR}/hook-post-refresh"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Database migration failed"* ]]
 }

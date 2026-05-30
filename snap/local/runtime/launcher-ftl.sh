@@ -54,6 +54,13 @@ if [ ! -f "${SNAP_DATA}/etc/pihole/pihole.toml" ]; then
 EOF
 fi
 
+# Sync local configuration back to snapctl database to treat it as the single source of truth
+if [ -x "${SNAP}/bin/config-sync" ]; then
+    "${SNAP}/bin/config-sync" || echo "Warning: configuration sync failed" >&2
+else
+    echo "Warning: config-sync not found or not executable at ${SNAP}/bin/config-sync" >&2
+fi
+
 # Some scripts (and a few FTL code paths) assume $HOME is writable.
 export HOME="${SNAP_DATA}"
 

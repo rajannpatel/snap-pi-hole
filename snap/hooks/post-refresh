@@ -15,6 +15,13 @@ if [ -f "${SNAP:-}/opt/pihole/templates/versions" ]; then
     cp "${SNAP:-}/opt/pihole/templates/versions" "${SNAP_DATA}/etc/pihole/versions"
 fi
 
+# Sync local configuration back to snapctl database to treat it as the single source of truth
+if [ -x "${SNAP:-}/bin/config-sync" ]; then
+    "${SNAP:-}/bin/config-sync" || echo "Warning: configuration sync failed" >&2
+else
+    echo "Warning: config-sync not found or not executable at ${SNAP:-}/bin/config-sync" >&2
+fi
+
 # Re-apply configuration. We can just call the configure hook logic.
 if [ -x "${HOOK_DIR}/configure" ]; then
     if ! "${HOOK_DIR}/configure"; then
@@ -23,6 +30,17 @@ if [ -x "${HOOK_DIR}/configure" ]; then
     fi
 else
     echo "Warning: configure hook not found or not executable at ${HOOK_DIR}/configure" >&2
+fi
+
+# Run database schema migration checks
+if [ -x "${SNAP:-}/bin/launcher-pihole" ]; then
+    echo "Running database schema migrations..."
+    if ! "${SNAP:-}/bin/launcher-pihole" -g >/dev/null 2>&1; then
+        echo "Error: Database migration failed! Aborting refresh." >&2
+        exit 1
+    fi
+else
+    echo "Warning: launcher-pihole not found or not executable at ${SNAP:-}/bin/launcher-pihole" >&2
 fi
 
 # Give the daemon a moment to settle if it was restarted

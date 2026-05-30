@@ -216,11 +216,13 @@ parts:
     organize:
       runtime/launcher-ftl.sh: bin/launcher-ftl
       runtime/launcher-pihole.sh: bin/launcher-pihole
+      runtime/config-sync.sh: bin/config-sync
       testing/check-system.sh: bin/check-system
       testing/snapdebug.sh: bin/snapdebug
     stage:
       - bin/launcher-ftl
       - bin/launcher-pihole
+      - bin/config-sync
       - bin/check-system
       - bin/snapdebug
 
