@@ -43,8 +43,8 @@ check_optional_interface() {
 }
 check_required_interface "network"
 check_required_interface "network-bind"
+check_required_interface "network-observe"
 check_optional_interface "network-control"  "DHCP server mode only"
-check_optional_interface "network-observe"  "pihole status port check"
 check_optional_interface "system-observe"   "per-process DNS attribution in network table"
 check_optional_interface "hardware-observe" "hardware info in Pi-hole diagnosis page"
 check_optional_interface "mount-observe"    "filesystem info in Pi-hole diagnosis page"
