@@ -36,24 +36,4 @@ esac
 export HOME="${SNAP_DATA}"
 export PATH="/opt/pihole:${PATH}"
 
-# Debug: Log the presence and contents of the templates/versions file
-mkdir -p "${SNAP_COMMON}/var/log/pihole"
-{
-    echo "=== DEBUG PIHOLE LAUNCHER VERSIONS ==="
-    echo "Date: $(date)"
-    echo "SNAP env: ${SNAP:-}"
-    echo "Checking ${SNAP:-}/opt/pihole/templates/versions:"
-    ls -la "${SNAP:-}/opt/pihole/templates/versions" || true
-    echo "Content:"
-    cat "${SNAP:-}/opt/pihole/templates/versions" || true
-    echo "======================================"
-} > "${SNAP_COMMON}/var/log/pihole/pihole_launcher_debug.log" 2>&1
-
-
-# Ensure version profile template is seeded before running CLI commands
-if [ -f "${SNAP:-}/opt/pihole/templates/versions" ]; then
-    cp "${SNAP:-}/opt/pihole/templates/versions" "${SNAP_DATA}/etc/pihole/versions"
-fi
-
-
 exec /opt/pihole/pihole "$@"
