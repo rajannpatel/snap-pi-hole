@@ -1,6 +1,6 @@
 #!/bin/bash
 # A system diagnostic tool for Pi-hole strictly confined within a snap.
-# Exposed as `pihole.snapdebug`.
+# Exposed as `pihole snap-debug`.
 
 set -eu
 

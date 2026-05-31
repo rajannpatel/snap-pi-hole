@@ -217,14 +217,14 @@ parts:
       runtime/launcher-ftl.sh: bin/launcher-ftl
       runtime/launcher-pihole.sh: bin/launcher-pihole
       runtime/config-sync.sh: bin/config-sync
-      testing/check-system.sh: bin/check-system
-      testing/snapdebug.sh: bin/snapdebug
+      testing/snap-check.sh: bin/snap-check
+      testing/snap-debug.sh: bin/snap-debug
     stage:
       - bin/launcher-ftl
       - bin/launcher-pihole
       - bin/config-sync
-      - bin/check-system
-      - bin/snapdebug
+      - bin/snap-check
+      - bin/snap-debug
 
 apps:
   # The daemon. Disabled on install so the operator can free port 53 and
@@ -273,38 +273,16 @@ apps:
       - hardware-observe
       - mount-observe
   # Diagnostic tool to proactively detect and remediate port conflicts
-  check-system:
-    command: bin/check-system
+  snap-check:
+    command: bin/snap-check
     plugs:
       - network
       - network-bind
       - system-observe
       - network-observe
-  # Explicit top-level convenience aliases
-  status:
-    command: bin/launcher-pihole status
-    plugs:
-      - network
-      - network-bind
-      - system-observe
-      - network-observe
-  health:
-    command: bin/check-system
-    plugs:
-      - network
-      - network-bind
-      - system-observe
-      - network-observe
-  snapdebug:
-    command: bin/snapdebug
-    plugs:
-      - network
-      - network-bind
-      - system-observe
-      - hardware-observe
-      - mount-observe
-  debug:
-    command: bin/launcher-pihole -d
+  # Full system diagnostic dump
+  snap-debug:
+    command: bin/snap-debug
     plugs:
       - network
       - network-bind

@@ -36,6 +36,22 @@ printf 'STUB:%s\n' "$*"
 exit 0
 EOF
     chmod +x "${STUB}"
+
+    # Stub the snap-specific snap-check and snap-debug tools
+    mkdir -p "${SNAP}/bin"
+    cat > "${SNAP}/bin/snap-check" <<'EOF'
+#!/bin/sh
+printf 'STUB_SNAP_CHECK:%s\n' "$*"
+exit 0
+EOF
+    chmod +x "${SNAP}/bin/snap-check"
+
+    cat > "${SNAP}/bin/snap-debug" <<'EOF'
+#!/bin/sh
+printf 'STUB_SNAP_DEBUG:%s\n' "$*"
+exit 0
+EOF
+    chmod +x "${SNAP}/bin/snap-debug"
 }
 
 teardown() {
@@ -218,4 +234,23 @@ EOF
     run "${LAUNCHER}" query example.com
     [ "$status" -eq 0 ]
     [[ "$output" == "STUB:query example.com" ]]
+
+    # 5. Snap-check command
+    run "${LAUNCHER}" snap-check
+    [ "$status" -eq 0 ]
+    [[ "$output" == "STUB_SNAP_CHECK:" ]]
+}
+
+# --- snap specific diagnostic subcommands routing -------------------------
+
+@test "route snap-check and snap-debug to their custom scripts" {
+    # 1. snap-check
+    run "${LAUNCHER}" snap-check
+    [ "$status" -eq 0 ]
+    [[ "$output" == "STUB_SNAP_CHECK:" ]]
+
+    # 2. snap-debug (run as root / not in SNAP_REVISION to allow execution)
+    run "${LAUNCHER}" snap-debug
+    [ "$status" -eq 0 ]
+    [[ "$output" == "STUB_SNAP_DEBUG:" ]]
 }

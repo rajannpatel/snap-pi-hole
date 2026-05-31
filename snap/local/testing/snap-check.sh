@@ -1,6 +1,6 @@
 #!/bin/bash
 # A system diagnostic tool for Pi-hole to detect conflicts and health.
-# Exposed as `pihole.health` and `pihole.check-system`.
+# Exposed as `pihole snap-check`.
 
 set -eu
 

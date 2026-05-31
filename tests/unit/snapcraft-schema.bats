@@ -404,8 +404,8 @@ PYEOF
     local scripts=(
         snap/local/runtime/launcher-ftl.sh
         snap/local/runtime/launcher-pihole.sh
-        snap/local/testing/check-system.sh
-        snap/local/testing/snapdebug.sh
+        snap/local/testing/snap-check.sh
+        snap/local/testing/snap-debug.sh
         snap/hooks/install
         snap/hooks/configure
         snap/hooks/pre-refresh
@@ -421,8 +421,8 @@ PYEOF
     local scripts=(
         snap/local/runtime/launcher-ftl.sh
         snap/local/runtime/launcher-pihole.sh
-        snap/local/testing/check-system.sh
-        snap/local/testing/snapdebug.sh
+        snap/local/testing/snap-check.sh
+        snap/local/testing/snap-debug.sh
         snap/hooks/install
         snap/hooks/configure
         snap/hooks/pre-refresh

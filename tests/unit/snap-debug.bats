@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 #
-# Unit tests for snap/local/snapdebug
+# Unit tests for snap/local/snap-debug
 
 setup() {
     REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -63,7 +63,7 @@ EOF
     chmod +x "${MOCK_BIN}/dmesg"
 
     # Our script under test
-    SCRIPT_UNDER_TEST="${REPO_ROOT}/snap/local/testing/snapdebug.sh"
+    SCRIPT_UNDER_TEST="${REPO_ROOT}/snap/local/testing/snap-debug.sh"
 }
 
 teardown() {

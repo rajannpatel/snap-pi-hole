@@ -36,7 +36,7 @@ esac
 # Check if the command requires root privileges
 if [ "${EUID}" -ne 0 ] && [ -n "${SNAP_REVISION:-}" ]; then
     case "${1:-}" in
-        ""|-h|--help|help|-v|--version|version|status|-q|query)
+        ""|-h|--help|help|-v|--version|version|status|-q|query|snap-check)
             # Allowed to run as non-root
             ;;
         *)
@@ -47,6 +47,16 @@ if [ "${EUID}" -ne 0 ] && [ -n "${SNAP_REVISION:-}" ]; then
             ;;
     esac
 fi
+
+# Intercept snap-specific diagnostic subcommands
+case "${1:-}" in
+    snap-check)
+        exec "${SNAP}/bin/snap-check" "${@:2}"
+        ;;
+    snap-debug)
+        exec "${SNAP}/bin/snap-debug" "${@:2}"
+        ;;
+esac
 
 export HOME="${SNAP_DATA}"
 export PATH="/opt/pihole:${PATH}"
