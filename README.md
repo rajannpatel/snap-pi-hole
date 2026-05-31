@@ -5,7 +5,7 @@
 A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole.
 
 [![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/pihole-by-rajannpatel)
-[![Update Upstream Tags](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-tags.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-tags.yml)
+
 [![Build and Smoke Test](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/publish.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/publish.yml)
 
 > [!NOTE]
@@ -13,6 +13,7 @@ A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](
 
 | Upstream Component | Current Version |
 | :--- | :--- |
+| | [![Update Upstream Tags](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-tags.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-tags.yml) |
 | **[FTL](https://github.com/pi-hole/FTL)** | v6.6.2 |
 | **[pi-hole (core)](https://github.com/pi-hole/pi-hole)** | v6.4.2 |
 | **[web](https://github.com/pi-hole/web)** | v6.5 |
