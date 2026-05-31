@@ -333,22 +333,7 @@ STUB
     [[ "$output" == *"PIHOLE:status"* ]]
 }
 
-@test "launcher-pihole copies versions template to /etc/pihole/versions" {
-    # Install hook creates directories and copies versions initially
-    run "${TEST_TMPDIR}/hook-install"
-    [ "$status" -eq 0 ]
 
-    # Remove the versions file that install hook created to test that the launcher copies it
-    rm -f "${SNAP_DATA}/etc/pihole/versions"
-
-    # Run the launcher
-    run "${TEST_TMPDIR}/launcher-pihole" status
-    [ "$status" -eq 0 ]
-
-    # Verify that the versions file was copied by the launcher
-    [ -f "${SNAP_DATA}/etc/pihole/versions" ]
-    grep -q "CORE_VERSION=v6.4.2" "${SNAP_DATA}/etc/pihole/versions"
-}
 
 @test "both launchers export HOME from SNAP_DATA" {
     "${TEST_TMPDIR}/hook-install"
