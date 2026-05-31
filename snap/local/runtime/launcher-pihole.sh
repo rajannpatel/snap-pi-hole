@@ -33,6 +33,21 @@ case "${1:-}" in
         ;;
 esac
 
+# Check if the command requires root privileges
+if [ "${EUID}" -ne 0 ] && [ -n "${SNAP_REVISION:-}" ]; then
+    case "${1:-}" in
+        ""|-h|--help|help|-v|--version|version|status|-q|query)
+            # Allowed to run as non-root
+            ;;
+        *)
+            echo "Error: 'pihole $1' must be run with root privileges (sudo)." >&2
+            echo "Reason: This command modifies configuration files, updates the database, or restarts services, which require root permissions." >&2
+            echo "Please run: sudo pihole $@" >&2
+            exit 1
+            ;;
+    esac
+fi
+
 export HOME="${SNAP_DATA}"
 export PATH="/opt/pihole:${PATH}"
 

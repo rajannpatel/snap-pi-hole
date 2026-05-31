@@ -185,3 +185,37 @@ EOF
     # After sed rewriting, /opt/pihole becomes ${TMPDIR}/opt, so check for that
     [[ "$output" == *"${TMPDIR}/opt"* ]]
 }
+
+# --- root privilege checks ------------------------------------------------
+
+@test "reject administrative commands when run as non-root in snap environment" {
+    export SNAP_REVISION="123"
+    run "${LAUNCHER}" allow example.com
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"must be run with root privileges"* ]]
+    [[ "$output" == *"sudo pihole allow example.com"* ]]
+}
+
+@test "allow help, version, status, and query commands when run as non-root in snap environment" {
+    export SNAP_REVISION="123"
+    
+    # 1. Help flag
+    run "${LAUNCHER}" -h
+    [ "$status" -eq 0 ]
+    [[ "$output" == "STUB:-h" ]]
+    
+    # 2. Version flag
+    run "${LAUNCHER}" -v
+    [ "$status" -eq 0 ]
+    [[ "$output" == "STUB:-v" ]]
+    
+    # 3. Status command
+    run "${LAUNCHER}" status
+    [ "$status" -eq 0 ]
+    [[ "$output" == "STUB:status" ]]
+    
+    # 4. Query command
+    run "${LAUNCHER}" query example.com
+    [ "$status" -eq 0 ]
+    [[ "$output" == "STUB:query example.com" ]]
+}
