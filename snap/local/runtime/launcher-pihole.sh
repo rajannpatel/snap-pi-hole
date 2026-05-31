@@ -42,7 +42,7 @@ if [ "${EUID}" -ne 0 ] && [ -n "${SNAP_REVISION:-}" ]; then
         *)
             echo "Error: 'pihole $1' must be run with root privileges (sudo)." >&2
             echo "Reason: This command modifies configuration files, updates the database, or restarts services, which require root permissions." >&2
-            echo "Please run: sudo pihole $@" >&2
+            echo "Please run: sudo pihole $*" >&2
             exit 1
             ;;
     esac
