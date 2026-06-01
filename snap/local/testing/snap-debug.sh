@@ -80,7 +80,7 @@ check_udp() {
 }
 
 FTL_RUNNING=false
-if snapctl services ${SNAP_NAME}.pihole-ftl 2>/dev/null | grep -qw "active"; then
+if snapctl services "${SNAP_NAME}.pihole-ftl" 2>/dev/null | grep -qw "active"; then
     FTL_RUNNING=true
 fi
 
@@ -180,7 +180,7 @@ if [ -f "$SNAP_DATA/etc/pihole/pihole.toml" ]; then
         echo "  [FAIL] No upstream DNS servers found in pihole.toml! FTL will not resolve external domains."
     fi
     echo ""
-    cat "$SNAP_DATA/etc/pihole/pihole.toml" | sed 's/password = .*/password = "[REDACTED]"/' | sed 's/^/  /'
+    sed 's/password = .*/password = "[REDACTED]"/' "$SNAP_DATA/etc/pihole/pihole.toml" | sed 's/^/  /'
 else
     echo "  [WARN] pihole.toml not found."
 fi
