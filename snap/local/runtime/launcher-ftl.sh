@@ -68,7 +68,9 @@ fi
 #      (gravity.sh creates all tables; pihole-FTL does not do this).
 #   2. INSERT the Steven Black adlist now that the schema exists.
 #   3. Second pihole -g downloads and processes the adlist.
-# We sleep 10 s to let FTL fully bind port 53 before pihole -g runs.
+# Pass 2 is deferred to a background child that waits for FTL to actually
+# answer DNS before running (a fixed sleep would be unreliable); see the
+# lifecycle rationale on that block below.
 if [ ! -s "${SNAP_DATA}/etc/pihole/gravity.db" ]; then
     echo "gravity.db is missing. Seeding default adlist and building gravity..."
     
@@ -82,7 +84,24 @@ if [ ! -s "${SNAP_DATA}/etc/pihole/gravity.db" ]; then
        VALUES ('https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts', \
                1, 'Steven Black unified hosts (default)');" 2>/dev/null || true
 
-    # Spawn background task to download and process the adlist once FTL is ready
+    # Pass 2 runs as a background child so it does not block FTL's startup:
+    # gravity.sh can only download adlists once FTL is resolving DNS, so FTL
+    # must come up first (via the exec below) and the fetch runs in parallel.
+    #
+    # This is deliberately NOT a separate oneshot "seed" service. FTL ships
+    # install-mode: disable and gravity needs FTL's resolver running, so an
+    # install-time service would have nothing to run against, and ordering a
+    # oneshot after an operator-enabled daemon adds complexity for no real gain.
+    #
+    # The child is safe even though it outlives this script's exec into FTL:
+    #   * Self-bounding:    it gives up after 90 s if FTL never answers.
+    #   * Reaped by systemd: it remains in the service cgroup, so a stop,
+    #     on-failure restart, or `endure` refresh kills it together with the
+    #     daemon (default KillMode=control-group) - it cannot leak past the
+    #     service's lifetime.
+    #   * Self-healing:     if it is killed mid-build, the next start re-checks
+    #     for a missing/0-byte gravity.db and rebuilds; the post-refresh hook
+    #     and the gravity-sync timer are further backstops.
     (
         # Wait until FTL's DNS resolver is accepting queries (up to 90 s).
         # A fixed sleep is unreliable: gravity.sh uses curl which resolves
