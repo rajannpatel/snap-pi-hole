@@ -400,12 +400,17 @@ PYEOF
 # 8. Shell script integrity
 # ---------------------------------------------------------------------------
 
-@test "shell scripts all nine exist on disk" {
+@test "shell scripts exist on disk" {
     local scripts=(
         snap/local/runtime/launcher-ftl.sh
         snap/local/runtime/launcher-pihole.sh
         snap/local/testing/snap-check.sh
         snap/local/testing/snap-debug.sh
+        snap/local/build/ftl-override-build.sh
+        snap/local/build/ftl-override-pull.sh
+        snap/local/build/pi-hole-override-build.sh
+        snap/local/build/pi-hole-override-pull.sh
+        snap/local/build/web-override-build.sh
         snap/hooks/install
         snap/hooks/configure
         snap/hooks/pre-refresh
@@ -423,6 +428,11 @@ PYEOF
         snap/local/runtime/launcher-pihole.sh
         snap/local/testing/snap-check.sh
         snap/local/testing/snap-debug.sh
+        snap/local/build/ftl-override-build.sh
+        snap/local/build/ftl-override-pull.sh
+        snap/local/build/pi-hole-override-build.sh
+        snap/local/build/pi-hole-override-pull.sh
+        snap/local/build/web-override-build.sh
         snap/hooks/install
         snap/hooks/configure
         snap/hooks/pre-refresh
