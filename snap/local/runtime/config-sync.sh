@@ -17,9 +17,10 @@ echo "Syncing pihole.toml config to snapctl..." >&2
 
 # Convert TOML to flat key-value pairs
 flat_config=$(awk '
-/^[[:space:]]*\[([^\]]+)\]/ {
-    match($0, /\[([^\]]+)\]/, arr);
-    section = arr[1];
+/^[[:space:]]*\[[^\]]+\]/ {
+    section = $0;
+    sub(/^[[:space:]]*\[/, "", section);
+    sub(/\][[:space:]]*$/, "", section);
     next;
 }
 /^[[:space:]]*[A-Za-z0-9_\.-]+[[:space:]]*=/ {
