@@ -38,20 +38,28 @@ EOF
     exit 1
 fi
 
+# Function to parse snapctl JSON configuration tree into flat FTL key=value configuration lines.
+# For array values, it formats them as TOML/JSON array strings (e.g. ["a","b"]) to satisfy FTL v6 array requirements.
+get_flat_config() {
+    echo "$1" | jq -r '
+      paths as $p |
+      select(getpath($p) | type != "object") |
+      select(($p | length == 0) or (getpath($p[:-1]) | type == "object")) |
+      getpath($p) as $v |
+      {
+        key: ($p | join(".") | sub("^ftl\\."; "")),
+        value: (if ($v | type == "array") then ($v | @json) else ($v | tostring) end)
+      } |
+      "\(.key)=\(.value)"
+    ' 2>/dev/null || echo ""
+}
+
 # Migration mapping: "old_key:new_key"
 MIGRATIONS="dns.dnssec:dns.dnssec_enabled"
 
 # Extract the config to check for migrations
 ftl_json=$(snapctl get -d ftl)
-
-flat_config=$(echo "$ftl_json" | jq -r '
-  [ paths(type != "object" and type != "array") as $p |
-    { key: $p | join("."), value: getpath($p) }
-  ] | group_by(.key | sub("\\.[0-9]+$"; "")) | map({
-    key: .[0].key | sub("\\.[0-9]+$"; "") | sub("^ftl\\."; ""),
-    value: map(.value | tostring) | join(",")
-  }) | .[] | "\(.key)=\(.value)"
-' 2>/dev/null || echo "")
+flat_config=$(get_flat_config "$ftl_json")
 
 need_reload=0
 if [ -n "$flat_config" ]; then
@@ -75,14 +83,7 @@ fi
 if [ "$need_reload" -eq 1 ]; then
     # Re-read the config after migrations
     ftl_json=$(snapctl get -d ftl)
-    flat_config=$(echo "$ftl_json" | jq -r '
-      [ paths(type != "object" and type != "array") as $p |
-        { key: $p | join("."), value: getpath($p) }
-      ] | group_by(.key | sub("\\.[0-9]+$"; "")) | map({
-        key: .[0].key | sub("\\.[0-9]+$"; "") | sub("^ftl\\."; ""),
-        value: map(.value | tostring) | join(",")
-      }) | .[] | "\(.key)=\(.value)"
-    ' 2>/dev/null || echo "")
+    flat_config=$(get_flat_config "$ftl_json")
 fi
 
 # Apply migrated configuration to FTL

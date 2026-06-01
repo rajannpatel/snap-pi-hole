@@ -380,6 +380,21 @@ teardown() {
     grep -q "FTL:--config dhcp.active true" "${TEST_TMPDIR}/ftl.log"
 }
 
+@test "configure hook maps dns.upstreams array correctly" {
+    export SNAPCTL_GET_D_FTL='{"dns": {"upstreams": ["8.8.8.8", "8.8.4.4"]}}'
+    HOOK="${TEST_TMPDIR}/configure"
+    sed \
+        -e "s|snapctl get|${SNAPCTL} get|g" \
+        -e "s|snapctl services|${SNAPCTL} services|g" \
+        -e "s|snapctl restart|${SNAPCTL} restart|g" \
+        "${REPO_ROOT}/snap/hooks/configure" > "${HOOK}"
+    chmod +x "${HOOK}"
+
+    run "${HOOK}"
+    [ "$status" -eq 0 ]
+    grep -q 'FTL:--config dns.upstreams \["8.8.8.8","8.8.4.4"\]' "${TEST_TMPDIR}/ftl.log"
+}
+
 @test "configure hook restarts daemon when it is active and a key is set" {
     export SNAPCTL_GET_D_FTL='{"webserver": {"port": 9090}}'
     export SNAPCTL_SERVICE_STATUS="active"
