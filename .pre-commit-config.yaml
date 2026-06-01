@@ -1,0 +1,6 @@
+repos:
+  - repo: https://github.com/pre-commit/mirrors-shellcheck
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        files: ^(snap/hooks/|snap/local/runtime/|snap/local/build/|snap/local/testing/|test_multipass\.sh)
