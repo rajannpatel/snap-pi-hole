@@ -13,6 +13,13 @@ setup() {
     export SNAP_DATA="${TMPDIR}/data"
     export SNAP_COMMON="${TMPDIR}/common"
     export SNAP="${TMPDIR}/snap"
+    # Sanitize the snap environment we may have inherited from the host (e.g.
+    # when the suite runs inside a snap-confined editor/terminal like the VS
+    # Code snap, which exports SNAP_REVISION). The launcher's root gate keys
+    # off SNAP_REVISION, so leaving it inherited would spuriously reject
+    # non-allowlisted subcommands. Tests that exercise the gate set it
+    # explicitly.
+    unset SNAP_REVISION
     mkdir -p "${SNAP_DATA}" "${SNAP_COMMON}" "${SNAP}" "${TMPDIR}/etc"
 
     # The launcher hardcodes /opt/pihole/pihole as the upstream script.

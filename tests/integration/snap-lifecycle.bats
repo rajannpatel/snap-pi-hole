@@ -26,6 +26,10 @@ setup() {
     export SNAP_DATA="${TEST_TMPDIR}/data"
     export SNAP_COMMON="${TEST_TMPDIR}/common"
     export SNAP_NAME="pihole"
+    # Sanitize SNAP_REVISION inherited from a snap-confined host (e.g. the VS
+    # Code snap). launcher-pihole's root gate keys off it; leaving it set would
+    # make the real launcher reject non-allowlisted subcommands under test.
+    unset SNAP_REVISION
     mkdir -p "${SNAP}/usr/bin" "${SNAP_DATA}" "${SNAP_COMMON}" "${SNAP}/meta/hooks" "${SNAP}/bin"
 
     # Create stubs for external commands
