@@ -294,8 +294,11 @@ apps:
     plugs:
       - network
       - network-bind
-  # Automated gravity sync. Runs weekly. Users can customize the schedule using:
-  # snap set pihole timer.gravity-sync.schedule="mon,02:00"
+  # Automated gravity sync. Runs weekly (Sun 03:00-05:00). Snap app timers are
+  # static and cannot be changed via `snap set` (the configure hook rejects
+  # timer.* keys). Operators customize the schedule with a host-side systemd
+  # drop-in on snap.<name>.gravity-sync.timer  -  see the wiki "Automated
+  # updates" reference.
   gravity-sync:
     command: bin/launcher-pihole -g
     daemon: oneshot

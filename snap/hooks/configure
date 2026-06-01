@@ -11,6 +11,33 @@ export PATH="${SNAP}/usr/sbin:${SNAP}/usr/bin:${SNAP}/sbin:${SNAP}/bin:${PATH:-}
 
 FTL_BIN="${SNAP}/usr/bin/pihole-FTL"
 
+# Reject attempts to reconfigure the gravity-sync timer via `snap set`.
+# Snap application timers are static: snapd has no mechanism to change them at
+# runtime, and a strictly-confined hook cannot write to /etc/systemd/system.
+# Point the operator at the supported host-side systemd drop-in instead. A
+# non-zero exit here rolls back the whole `snap set` transaction, so the
+# rejected key is never persisted into snapctl.
+timer_cfg="$(snapctl get -d timer 2>/dev/null || true)"
+timer_cfg_compact="$(printf '%s' "$timer_cfg" | tr -d '[:space:]')"
+if [ -n "$timer_cfg_compact" ] && [ "$timer_cfg_compact" != "{}" ]; then
+    cat >&2 <<EOF
+Error: the gravity-sync schedule cannot be changed with 'snap set'.
+
+Snap application timers are static. To customize when gravity is updated, add
+a systemd drop-in override on the host (OnCalendar= must be reset first, since
+systemd treats it as additive):
+
+  sudo mkdir -p /etc/systemd/system/snap.${SNAP_NAME}.gravity-sync.timer.d
+  printf '[Timer]\nOnCalendar=\nOnCalendar=Mon *-*-* 02:00:00\nRandomizedDelaySec=0\n' | \\
+    sudo tee /etc/systemd/system/snap.${SNAP_NAME}.gravity-sync.timer.d/override.conf
+  sudo systemctl daemon-reload
+  sudo systemctl restart snap.${SNAP_NAME}.gravity-sync.timer
+
+Verify with: systemctl list-timers 'snap.${SNAP_NAME}.gravity-sync.timer'
+EOF
+    exit 1
+fi
+
 # Migration mapping: "old_key:new_key"
 MIGRATIONS="dns.dnssec:dns.dnssec_enabled"
 

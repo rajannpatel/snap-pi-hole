@@ -41,6 +41,12 @@ LOG="${TEST_TMPDIR}/snapctl.log"
 echo "SNAPCTL:$*" >> "$LOG"
 case "$1" in
     get)
+        if [ "$2" = "-d" ] && [ "$3" = "timer" ]; then
+            # Defaults to empty (unset) so the configure hook's timer-rejection
+            # branch is a no-op unless a test sets SNAPCTL_GET_D_TIMER.
+            echo "${SNAPCTL_GET_D_TIMER:-}"
+            exit 0
+        fi
         if [ "$2" = "-d" ] && [ "$3" = "ftl" ]; then
             current_env="${SNAPCTL_GET_D_FTL:-{}}"
             last_env=""
@@ -252,6 +258,49 @@ teardown() {
 
 @test "configure hook calls pihole-FTL --config for a set key" {
     # Only set webserver.port via JSON
+    export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
+    HOOK="${TEST_TMPDIR}/configure"
+    sed \
+        -e "s|snapctl get|${SNAPCTL} get|g" \
+        -e "s|snapctl services|${SNAPCTL} services|g" \
+        -e "s|snapctl restart|${SNAPCTL} restart|g" \
+        "${REPO_ROOT}/snap/hooks/configure" > "${HOOK}"
+    chmod +x "${HOOK}"
+
+    run "${HOOK}"
+    [ "$status" -eq 0 ]
+    grep -q "FTL:--config webserver.port 8080" "${TEST_TMPDIR}/ftl.log"
+}
+
+@test "configure hook rejects a timer.* key and points at the systemd override" {
+    # A user attempting `snap set ... timer.gravity-sync.schedule=...`
+    export SNAPCTL_GET_D_TIMER='{"gravity-sync":{"schedule":"mon,02:00"}}'
+    export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
+    HOOK="${TEST_TMPDIR}/configure"
+    sed \
+        -e "s|snapctl get|${SNAPCTL} get|g" \
+        -e "s|snapctl services|${SNAPCTL} services|g" \
+        -e "s|snapctl restart|${SNAPCTL} restart|g" \
+        "${REPO_ROOT}/snap/hooks/configure" > "${HOOK}"
+    chmod +x "${HOOK}"
+
+    run "${HOOK}"
+    # Non-zero exit rolls back the whole `snap set` transaction.
+    [ "$status" -eq 1 ]
+    # Clear, actionable guidance pointing at the real (host-side) mechanism.
+    [[ "$output" == *"cannot be changed with 'snap set'"* ]]
+    [[ "$output" == *"snap.${SNAP_NAME}.gravity-sync.timer.d"* ]]
+    [[ "$output" == *"OnCalendar="* ]]
+    # The \n in the printf command must be shown literally, not expanded.
+    [[ "$output" == *'[Timer]\nOnCalendar='* ]]
+    # Rejection must short-circuit before any FTL config is applied.
+    [ ! -f "${TEST_TMPDIR}/ftl.log" ]
+    ! grep -q "restart" "${TEST_TMPDIR}/snapctl.log" 2>/dev/null
+}
+
+@test "configure hook ignores an empty timer namespace and still applies ftl config" {
+    # snapctl returns {} for the timer namespace (no keys) -> not a rejection.
+    export SNAPCTL_GET_D_TIMER='{}'
     export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
     HOOK="${TEST_TMPDIR}/configure"
     sed \
