@@ -32,42 +32,61 @@ else
     echo "Warning: configure hook not found or not executable at ${HOOK_DIR}/configure" >&2
 fi
 
-# Run database schema migration checks
+# Run database schema migrations / gravity rebuilds. Since this requires external
+# internet connectivity to download adlists, failures here are warning-only to
+# prevent transient network outages from triggering false-positive rollbacks.
+# Trade-off: a genuine gravity schema-migration failure is also non-fatal here;
+# it is left to surface on the next gravity-sync timer or manual `pihole -g`
+# rather than rolling back an otherwise-healthy refresh.
 if [ -x "${SNAP:-}/bin/launcher-pihole" ]; then
     echo "Running database schema migrations..."
     if ! "${SNAP:-}/bin/launcher-pihole" -g >/dev/null 2>&1; then
-        echo "Error: Database migration failed! Aborting refresh." >&2
-        exit 1
+        echo "Warning: Database migration/gravity update failed. This may be due to a transient network issue." >&2
     fi
 else
     echo "Warning: launcher-pihole not found or not executable at ${SNAP:-}/bin/launcher-pihole" >&2
 fi
 
-# Give the daemon a moment to settle if it was restarted
-sleep 2
+# Only validate DNS resolution if the FTL service is actually running.
+# We gate on the "Current" state (active), not "Startup" (enabled): a probe is
+# only meaningful when FTL is up. This skips validation when FTL is not running
+# for any reason  -  disabled at install (install-mode: disable), manually
+# stopped by the operator, or mid-restart  -  avoiding false-positive rollbacks.
+# (The configure hook reads the same column to decide whether to restart FTL.)
+FTL_ACTIVE=false
+if snapctl services "${SNAP_NAME:-pihole}".pihole-ftl 2>/dev/null | awk 'NR>1 {print $3}' | grep -qw "active"; then
+    FTL_ACTIVE=true
+fi
 
-# Validate DNS resolution
-# We use dig if available to test local resolution.
-DNS_TARGET="127.0.0.1"
+if [ "$FTL_ACTIVE" = "true" ]; then
+    # Give the daemon a moment to settle if it was restarted
+    sleep 2
 
-echo "Validating DNS resolution on $DNS_TARGET after refresh..."
-if command -v dig >/dev/null 2>&1; then
-    # Test `pi.hole` (local) instead of github.com to avoid false-positive rollbacks
-    # if the upstream internet connection is temporarily down.
-    # We retry a few times to give FTL time to start up.
-    healthy=0
-    for _i in $(seq 1 5); do
-        if dig +short +time=1 +tries=1 @${DNS_TARGET} pi.hole >/dev/null 2>&1; then
-            healthy=1
-            break
+    # Validate DNS resolution
+    # We use dig if available to test local resolution.
+    DNS_TARGET="127.0.0.1"
+
+    echo "Validating DNS resolution on $DNS_TARGET after refresh..."
+    if command -v dig >/dev/null 2>&1; then
+        # Test `pi.hole` (local) instead of github.com to avoid false-positive rollbacks
+        # if the upstream internet connection is temporarily down.
+        # We retry a few times to give FTL time to start up.
+        healthy=0
+        for _i in $(seq 1 5); do
+            if dig +short +time=1 +tries=1 @${DNS_TARGET} pi.hole >/dev/null 2>&1; then
+                healthy=1
+                break
+            fi
+            sleep 1
+        done
+
+        if [ "$healthy" -eq 0 ]; then
+            echo "Error: DNS validation failed after refresh! FTL is unresponsive. Aborting refresh." >&2
+            exit 1
         fi
-        sleep 1
-    done
-
-    if [ "$healthy" -eq 0 ]; then
-        echo "Error: DNS validation failed after refresh! FTL is unresponsive. Aborting refresh." >&2
-        exit 1
+    else
+        echo "Warning: 'dig' not found, skipping deep DNS validation." >&2
     fi
 else
-    echo "Warning: 'dig' not found, skipping deep DNS validation." >&2
+    echo "Warning: FTL service is not running. Skipping DNS validation." >&2
 fi

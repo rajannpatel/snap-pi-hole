@@ -493,6 +493,9 @@ exit 1
 EOF
     chmod +x "${TEST_TMPDIR}/dig"
 
+    # FTL is running, so DNS validation must run (and then fail on the dig stub).
+    export SNAPCTL_SERVICE_STATUS="active"
+
     run "${HOOK}"
     [ "$status" -eq 1 ]
     [[ "$output" == *"DNS validation failed"* ]]
@@ -542,13 +545,16 @@ exit 0
 EOF
     chmod +x "${TEST_TMPDIR}/dig"
 
+    # Normal refresh: FTL is running, so DNS validation runs and passes.
+    export SNAPCTL_SERVICE_STATUS="active"
+
     run "${HOOK}"
     [ "$status" -eq 0 ]
     [ -f "${TEST_TMPDIR}/pihole.log" ]
     grep -q "LAUNCHER_PIHOLE:-g" "${TEST_TMPDIR}/pihole.log"
 }
 
-@test "post-refresh hook fails if database migration check fails" {
+@test "post-refresh hook warns but does not fail if database migration check fails" {
     HOOK="${TEST_TMPDIR}/post-refresh"
     cp "${REPO_ROOT}/snap/hooks/post-refresh" "${HOOK}"
     chmod +x "${HOOK}"
@@ -570,8 +576,92 @@ EOF
     chmod +x "${TEST_TMPDIR}/dig"
 
     export LAUNCHER_PIHOLE_FAIL=1
+    # FTL is running; the gravity failure must stay non-fatal (exit 0) even
+    # though DNS validation itself runs and passes.
+    export SNAPCTL_SERVICE_STATUS="active"
 
     run "${HOOK}"
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"Database migration failed"* ]]
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Database migration/gravity update failed"* ]]
+}
+
+@test "post-refresh hook skips DNS validation if FTL service is disabled" {
+    HOOK="${TEST_TMPDIR}/post-refresh"
+    cp "${REPO_ROOT}/snap/hooks/post-refresh" "${HOOK}"
+    chmod +x "${HOOK}"
+
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+
+    # Create dummy configure hook to prevent failures
+    cat > "${TEST_TMPDIR}/configure" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+    chmod +x "${TEST_TMPDIR}/configure"
+
+    # Overwrite the global snapctl stub to return service startup disabled
+    cat > "${TEST_TMPDIR}/snapctl" <<'EOF'
+#!/bin/sh
+case "$1" in
+    services)
+        printf 'Service         Startup  Current  Notes\n'
+        printf 'pihole-ftl      disabled  inactive -\n'
+        ;;
+    *) exit 0 ;;
+esac
+EOF
+    chmod +x "${TEST_TMPDIR}/snapctl"
+
+    # dig would fail if it ran; proving status 0 means validation was skipped.
+    cat > "${TEST_TMPDIR}/dig" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+    chmod +x "${TEST_TMPDIR}/dig"
+
+    run "${HOOK}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"FTL service is not running. Skipping DNS validation"* ]]
+}
+
+@test "post-refresh hook skips DNS validation when FTL is enabled but stopped" {
+    # Regression guard: a service that is enabled at startup but currently
+    # stopped (Startup=enabled, Current=inactive) must NOT trigger DNS
+    # validation, or a deliberately-stopped FTL would fail an otherwise-healthy
+    # refresh. The gate keys off the Current state, not Startup.
+    HOOK="${TEST_TMPDIR}/post-refresh"
+    cp "${REPO_ROOT}/snap/hooks/post-refresh" "${HOOK}"
+    chmod +x "${HOOK}"
+
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+
+    cat > "${TEST_TMPDIR}/configure" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+    chmod +x "${TEST_TMPDIR}/configure"
+
+    cat > "${TEST_TMPDIR}/snapctl" <<'EOF'
+#!/bin/sh
+case "$1" in
+    services)
+        printf 'Service         Startup  Current  Notes\n'
+        printf 'pihole-ftl      enabled  inactive -\n'
+        ;;
+    *) exit 0 ;;
+esac
+EOF
+    chmod +x "${TEST_TMPDIR}/snapctl"
+
+    # dig fails if invoked; status 0 proves validation was skipped despite
+    # the service being enabled.
+    cat > "${TEST_TMPDIR}/dig" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+    chmod +x "${TEST_TMPDIR}/dig"
+
+    run "${HOOK}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"FTL service is not running. Skipping DNS validation"* ]]
 }

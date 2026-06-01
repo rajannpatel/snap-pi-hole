@@ -540,12 +540,6 @@ EOF
     run "${TEST_TMPDIR}/hook-post-refresh"
     [ "$status" -eq 0 ]
 
-    # Verify database migration script was executed
-    # launcher-pihole is rewritten to call /opt/pihole (which is stubbed to output "PIHOLE:$*")
-    # Wait, post-refresh redirect launcher-pihole stdout/stderr to /dev/null, but we can verify it was called
-    # through the logs or by testing with a failing database migration.
-    # To verify it ran, we can verify that the command ran by checking if we get exit 1 when we fake a failure.
-    
     # Setup database migration failure by stubbing launcher-pihole to fail when -g is passed
     cat > "${SNAP}/bin/launcher-pihole" <<'EOF'
 #!/bin/sh
@@ -556,7 +550,9 @@ exit 0
 EOF
     chmod +x "${SNAP}/bin/launcher-pihole"
 
+    # Verify that a database migration / gravity update failure does NOT cause the hook to fail (exits 0)
+    # but prints a warning message.
     run "${TEST_TMPDIR}/hook-post-refresh"
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"Database migration failed"* ]]
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Database migration/gravity update failed"* ]]
 }
