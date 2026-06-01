@@ -62,7 +62,7 @@ check_udp() {
 
 # If FTL is running, we don't want to flag its own ports as external conflicts.
 FTL_RUNNING=false
-if snapctl services ${SNAP_NAME}.pihole-ftl 2>/dev/null | grep -qw "active"; then
+if snapctl services "${SNAP_NAME}".pihole-ftl 2>/dev/null | grep -qw "active"; then
     FTL_RUNNING=true
 fi
 
@@ -71,8 +71,16 @@ if [ "$FTL_RUNNING" = "true" ]; then
 else
     # Check 53 (DNS TCP/UDP)
     if check_tcp "127.0.0.53" "53"; then
-        echo "  [FAIL] Port 53 (TCP) - systemd-resolved conflict on 127.0.0.53"
-        echo "    -> Remediation: Disable DNSStubListener in /etc/systemd/resolved.conf"
+        # Quoted heredoc: the \n in the printf command must reach the
+        # operator literally (their printf interprets them), so nothing here
+        # may be expanded by this script.
+        cat <<'EOF'
+  [FAIL] Port 53 (TCP) - systemd-resolved conflict on 127.0.0.53
+    -> Remediation: Disable DNSStubListener using a systemd-resolved drop-in:
+       sudo mkdir -p /etc/systemd/resolved.conf.d
+       printf '[Resolve]\nDNS=127.0.0.1\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
+       sudo systemctl restart systemd-resolved
+EOF
     elif check_tcp "127.0.0.1" "53" || check_tcp "0.0.0.0" "53" || check_udp "0035"; then
         echo "  [FAIL] Port 53 - Another DNS server is binding port 53"
         echo "    -> Remediation: Run 'sudo ss -tulpn | grep :53' on your host to identify it."

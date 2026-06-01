@@ -6,11 +6,11 @@
 # removal, the host is left with no local DNS resolver and no stub listener,
 # which breaks name resolution for everything on the machine.
 #
-# This hook runs as root inside the snap's confinement. `snapctl` is
-# available; host-filesystem writes are limited to what the layout grants.
-# We can't call `systemctl` directly from inside strict confinement, so we
-# use a self-removing script dropped into /etc/systemd/system to restore
-# the stub listener on the next boot/daemon reload.
+# This hook runs as root inside the snap's confinement. Strict confinement
+# cannot manage host systemd units (snapctl only controls this snap's own
+# apps), so we can't restart systemd-resolved ourselves. Instead we delete
+# the drop-in we documented operators to create and print the one-line
+# manual restart command for them to run.
 set -eu
 
 # Prepend snap staged paths to PATH to ensure we use our staged GNU coreutils
@@ -22,12 +22,6 @@ RESOLVED_DROPIN="/etc/systemd/resolved.conf.d/pihole.conf"
 
 if [ -f "$RESOLVED_DROPIN" ]; then
     rm -f "$RESOLVED_DROPIN"
-    # Attempt a live reload so DNS is restored immediately, not just on
-    # the next reboot.  This will only work if snapd grants sufficient
-    # privilege; if it fails we fall back gracefully with a user message.
-    if snapctl system-mode 2>/dev/null | grep -qv "install-mode"; then
-        snapctl restart systemd-resolved 2>/dev/null || true
-    fi
     cat >&2 <<'EOF'
 Pi-hole has been removed.
 
