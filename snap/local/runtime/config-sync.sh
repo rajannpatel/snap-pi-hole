@@ -15,12 +15,14 @@ fi
 
 echo "Syncing pihole.toml config to snapctl..." >&2
 
-# Convert TOML to flat key-value pairs
+# Convert TOML to flat key-value pairs.
+# NOTE: uses only POSIX awk features (no gawk-only 3-arg match()) so it
+# behaves identically under the base snap's mawk and under gawk in CI.
 flat_config=$(awk '
 /^[[:space:]]*\[[^\]]+\]/ {
     section = $0;
-    sub(/^[[:space:]]*\[/, "", section);
-    sub(/\][[:space:]]*$/, "", section);
+    sub(/^[[:space:]]*\[/, "", section);  # strip leading whitespace + [
+    sub(/\].*$/, "", section);            # strip from first ] to EOL (drops any trailing comment)
     next;
 }
 /^[[:space:]]*[A-Za-z0-9_\.-]+[[:space:]]*=/ {
@@ -41,9 +43,11 @@ flat_config=$(awk '
 }
 ' "$TOML_FILE")
 
-# Convert flat key-value pairs to JSON using jq
+# Convert flat key-value pairs to JSON using jq.
+# `select(length > 0)` drops blank lines so a keyless or comment-only
+# pihole.toml yields {} (handled below) instead of a `null | fromjson` error.
 json_config=$(echo "$flat_config" | jq -n -R '
-  [ inputs | split("=") | {key: .[0], value: (.[1] | fromjson)} ] |
+  [ inputs | select(length > 0) | split("=") | {key: .[0], value: (.[1] | fromjson)} ] |
   reduce .[] as $item ({}; setpath($item.key | split("."); $item.value))
 ')
 

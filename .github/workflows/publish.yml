@@ -28,6 +28,7 @@ jobs:
           shellcheck \
             snap/local/runtime/launcher-ftl.sh \
             snap/local/runtime/launcher-pihole.sh \
+            snap/local/runtime/config-sync.sh \
             snap/hooks/install \
             snap/hooks/configure \
             snap/hooks/pre-refresh \
