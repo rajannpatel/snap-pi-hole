@@ -29,14 +29,14 @@ if [ -d "${SNAP_DATA}/etc/pihole" ]; then
     ls -1t "${SNAPSHOT_DIR}"/pihole-backup-*.tar.gz 2>/dev/null | tail -n +4 | xargs -I {} rm -f {} || true
 fi
 
-cat >&2 <<'EOF'
+cat >&2 <<EOF
 Pi-hole snap is refreshing. DNS hand-off notice
 -----------------------------------------------
 The running Pi-hole FTL daemon will continue serving DNS for all clients
 on your network while the new snap revision is prepared.
 
 A snapshot of your configuration and Gravity database has been saved to:
-/var/snap/pihole/common/snapshots/
+${SNAP_COMMON}/snapshots/
 
 Once the new revision is ready, snapd will start the updated FTL and
 then gracefully stop the old one (refresh-mode: endure). The hand-off
@@ -47,6 +47,6 @@ window is typically under 5 seconds.
   • No manual intervention is required.
 
 To confirm the new revision is healthy after the refresh:
-  sudo snap logs pihole.pihole-ftl | tail -20
+  sudo snap logs ${SNAP_NAME:-pihole}.pihole-ftl | tail -20
   dig +short @127.0.0.1 example.com
 EOF

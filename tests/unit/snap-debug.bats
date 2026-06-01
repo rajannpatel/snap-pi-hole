@@ -17,7 +17,7 @@ setup() {
     echo '[dns]' >> "${SNAP_DATA}/etc/pihole/pihole.toml"
     echo '  upstreams = ["8.8.8.8"]' >> "${SNAP_DATA}/etc/pihole/pihole.toml"
     
-    echo "Log line 1" > "${SNAP_COMMON}/var/log/pihole/pihole-FTL.log"
+    echo "Log line 1" > "${SNAP_COMMON}/var/log/pihole/FTL.log"
 
     echo "fake db data" > "${SNAP_DATA}/etc/pihole/gravity.db"
     echo "fake db data" > "${SNAP_DATA}/etc/pihole/pihole-FTL.db"

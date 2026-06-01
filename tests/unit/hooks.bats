@@ -212,7 +212,7 @@ teardown() {
 # remove hook
 # ---------------------------------------------------------------------------
 
-@test "remove hook deletes the resolved dropin when it exists" {
+@test "remove hook does not delete the resolved dropin when it exists" {
     DROPIN="${TEST_TMPDIR}/pihole.conf"
     printf '[Resolve]\nDNSStubListener=no\n' > "${DROPIN}"
 
@@ -223,7 +223,7 @@ teardown() {
 
     run "${HOOK}"
     [ "$status" -eq 0 ]
-    [ ! -f "${DROPIN}" ]
+    [ -f "${DROPIN}" ]
 }
 
 @test "remove hook is silent when the dropin does not exist" {
@@ -237,9 +237,10 @@ teardown() {
 
     run "${HOOK}"
     [ "$status" -eq 0 ]
+    [ -z "$output" ]
 }
 
-@test "remove hook prints remediation instructions after cleanup" {
+@test "remove hook prints remediation instructions when the dropin exists" {
     DROPIN="${TEST_TMPDIR}/pihole.conf"
     printf '[Resolve]\nDNSStubListener=no\n' > "${DROPIN}"
 
@@ -249,6 +250,9 @@ teardown() {
     chmod +x "${HOOK}"
 
     run "${HOOK}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Strict snap confinement prevents the snap from modifying host systemd settings"* ]]
+    [[ "$output" == *"sudo rm -f ${DROPIN}"* ]]
     [[ "$output" == *"systemctl restart systemd-resolved"* ]]
 }
 

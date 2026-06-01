@@ -188,12 +188,16 @@ echo ""
 
 # --- DAEMON LOGS ---
 echo "--- TAIL OF FTL LOG ---"
-if [ -f "/var/log/pihole/pihole-FTL.log" ]; then
+if [ -f "/var/log/pihole/FTL.log" ]; then
+    tail -n 30 "/var/log/pihole/FTL.log" | sed 's/^/  /'
+elif [ -f "$SNAP_COMMON/var/log/pihole/FTL.log" ]; then
+    tail -n 30 "$SNAP_COMMON/var/log/pihole/FTL.log" | sed 's/^/  /'
+elif [ -f "/var/log/pihole/pihole-FTL.log" ]; then
     tail -n 30 "/var/log/pihole/pihole-FTL.log" | sed 's/^/  /'
 elif [ -f "$SNAP_COMMON/var/log/pihole/pihole-FTL.log" ]; then
     tail -n 30 "$SNAP_COMMON/var/log/pihole/pihole-FTL.log" | sed 's/^/  /'
 else
-    echo "  [WARN] pihole-FTL.log not found."
+    echo "  [WARN] FTL.log or pihole-FTL.log not found."
 fi
 echo ""
 

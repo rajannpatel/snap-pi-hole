@@ -7,10 +7,11 @@
 # which breaks name resolution for everything on the machine.
 #
 # This hook runs as root inside the snap's confinement. Strict confinement
-# cannot manage host systemd units (snapctl only controls this snap's own
-# apps), so we can't restart systemd-resolved ourselves. Instead we delete
-# the drop-in we documented operators to create and print the one-line
-# manual restart command for them to run.
+# prevents the snap from modifying host systemd settings or drop-ins due to
+# AppArmor write/delete restrictions (though it can read the file, so the
+# check passes). We cannot delete the drop-in conf ourselves, nor can we
+# restart systemd-resolved. Instead, we print a warning and provide instructions
+# for the operator to manually clean up the drop-in and restart the service.
 set -eu
 
 # Prepend snap staged paths to PATH to ensure we use our staged GNU coreutils
@@ -21,16 +22,16 @@ export PATH="${SNAP}/usr/sbin:${SNAP}/usr/bin:${SNAP}/sbin:${SNAP}/bin:${PATH:-}
 RESOLVED_DROPIN="/etc/systemd/resolved.conf.d/pihole.conf"
 
 if [ -f "$RESOLVED_DROPIN" ]; then
-    rm -f "$RESOLVED_DROPIN"
     cat >&2 <<'EOF'
 Pi-hole has been removed.
 
-The systemd-resolved stub listener drop-in (/etc/systemd/resolved.conf.d/pihole.conf)
-has been deleted. To restore full DNS resolution immediately, run:
+Strict snap confinement prevents the snap from modifying host systemd settings.
+To restore your host's DNS resolution immediately, you must manually delete
+the systemd-resolved drop-in and restart the resolver:
 
+    sudo rm -f /etc/systemd/resolved.conf.d/pihole.conf
     sudo systemctl restart systemd-resolved
 
-This restores the systemd-resolved stub listener on 127.0.0.53:53 and
-sets your system's /etc/resolv.conf back to the default nameservers.
+This restores the systemd-resolved stub listener on 127.0.0.53:53.
 EOF
 fi

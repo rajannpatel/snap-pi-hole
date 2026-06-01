@@ -48,14 +48,7 @@ teardown() {
 # ---------------------------------------------------------------------------
 
 @test "creates required directories when they do not exist" {
-    # Bypass the port-53 check. Use a distinct output path to avoid clobbering
-    # LAUNCHER (both were previously ${TEST_TMPDIR}/launcher-ftl).
-    LAUNCHER_NO_PORT="${TEST_TMPDIR}/launcher-no-port"
-    sed 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
-        "${LAUNCHER}" > "${LAUNCHER_NO_PORT}"
-    chmod +x "${LAUNCHER_NO_PORT}"
-
-    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" SNAP_COMMON="${SNAP_COMMON}" bash "${LAUNCHER_NO_PORT}" 2>/dev/null || true
+    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" SNAP_COMMON="${SNAP_COMMON}" bash "${LAUNCHER}" 2>/dev/null || true
 
     [ -d "${SNAP_DATA}/etc/pihole" ]
     [ -d "${SNAP_DATA}/etc/dnsmasq.d" ]
@@ -68,13 +61,7 @@ teardown() {
     TOML="${SNAP_DATA}/etc/pihole/pihole.toml"
     [ ! -f "${TOML}" ]  # pre-condition: does not exist yet
 
-    # Run the launcher bypassing port checks to trigger seeding
-    LAUNCHER_SEED="${TEST_TMPDIR}/launcher-seed"
-    sed 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
-        "${LAUNCHER}" > "${LAUNCHER_SEED}"
-    chmod +x "${LAUNCHER_SEED}"
-
-    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" SNAP_COMMON="${SNAP_COMMON}" bash "${LAUNCHER_SEED}" 2>/dev/null || true
+    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" SNAP_COMMON="${SNAP_COMMON}" bash "${LAUNCHER}" 2>/dev/null || true
 
     [ -f "${TOML}" ]
     grep -q '\[dns\]' "${TOML}"
@@ -87,12 +74,7 @@ teardown() {
     TOML="${SNAP_DATA}/etc/pihole/pihole.toml"
     echo "existing=content" > "${TOML}"
 
-    LAUNCHER_SEED="${TEST_TMPDIR}/launcher-seed2"
-    sed 's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
-        "${LAUNCHER}" > "${LAUNCHER_SEED}"
-    chmod +x "${LAUNCHER_SEED}"
-
-    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" SNAP_COMMON="${SNAP_COMMON}" bash "${LAUNCHER_SEED}" 2>/dev/null || true
+    SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" SNAP_COMMON="${SNAP_COMMON}" bash "${LAUNCHER}" 2>/dev/null || true
 
     # File must still contain the original content and NOT the default upstreams
     grep -q "existing=content" "${TOML}"
@@ -107,18 +89,11 @@ teardown() {
 # ---------------------------------------------------------------------------
 
 @test "exports HOME as SNAP_DATA" {
-    # Build a launcher variant that bypasses port-53 and records the env
-    LAUNCHER_ENV="${TEST_TMPDIR}/launcher-env"
-    sed \
-        's|(exec 3<>/dev/tcp/127.0.0.53/53) 2>/dev/null|false|' \
-        "${LAUNCHER}" > "${LAUNCHER_ENV}"
-    chmod +x "${LAUNCHER_ENV}"
-
     # Replace FTL stub with one that records HOME
     printf '#!/bin/sh\necho "HOME=${HOME}"\n' > "${SNAP}/usr/bin/pihole-FTL"
     chmod +x "${SNAP}/usr/bin/pihole-FTL"
 
-    run bash "${LAUNCHER_ENV}"
+    run bash "${LAUNCHER}"
     [[ "$output" == *"HOME=${SNAP_DATA}"* ]]
 }
 
