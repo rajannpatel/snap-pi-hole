@@ -69,15 +69,24 @@ function clean_comments(s) {
 # Convert flat key-value pairs to JSON using jq.
 # `select(length > 0)` drops blank lines so a keyless or comment-only
 # pihole.toml yields {} (handled below) instead of a `null | fromjson` error.
-json_config=$(echo "$flat_config" | jq -n -R '
+if ! json_config=$(echo "$flat_config" | jq -n -R '
   [ inputs | select(length > 0) | index("=") as $idx | {key: .[0:$idx], value: (.[$idx+1:] | fromjson)} ] |
   reduce .[] as $item ({}; setpath($item.key | split("."); $item.value))
-')
+'); then
+    echo "Error: Failed to parse configuration TOML/JSON" >&2
+    exit 1
+fi
 
 # Set the entire ftl namespace in snapctl
 if [ -n "$json_config" ] && [ "$json_config" != "{}" ]; then
-    snapctl set ftl="$json_config"
+    snapctl set ftl="$json_config" || {
+        echo "Error: Failed to sync configuration to snapctl" >&2
+        exit 2
+    }
 else
     # If the file is empty/has no keys, clear ftl config in snapctl
-    snapctl unset ftl
+    snapctl unset ftl || {
+        echo "Error: Failed to clear configuration in snapctl" >&2
+        exit 2
+    }
 fi

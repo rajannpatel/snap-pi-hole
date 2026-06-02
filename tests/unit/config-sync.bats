@@ -219,3 +219,32 @@ EOF
     [ "$status" -eq 0 ]
 }
 
+@test "config-sync exits 1 on malformed TOML/JSON" {
+    # Provide values that cannot be parsed by jq (e.g. unclosed strings or arrays)
+    cat > "${TOML_FILE}" <<'EOF'
+[dns]
+  upstreams = [ "8.8.8.8",
+EOF
+    run "${CONFIG_SYNC}"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Error: Failed to parse configuration TOML/JSON"* ]]
+}
+
+@test "config-sync exits 2 when snapctl set fails" {
+    # Override snapctl mock to fail on set
+    cat > "${SNAP}/usr/bin/snapctl" <<EOF
+#!/bin/sh
+exit 1
+EOF
+    chmod +x "${SNAP}/usr/bin/snapctl"
+
+    cat > "${TOML_FILE}" <<'EOF'
+[dns]
+  dnssec = true
+EOF
+    run "${CONFIG_SYNC}"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"Error: Failed to sync configuration to snapctl"* ]]
+}
+
+

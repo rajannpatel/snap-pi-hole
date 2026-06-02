@@ -26,6 +26,9 @@ fi
 echo "Pi-hole System Diagnostics"
 echo ""
 
+# Global exit code tracker: 0=success, 1=config error, 2=runtime error
+exit_code=0
+
 # --- INTERFACE CONNECTION STATE ---
 echo "--- INTERFACES ---"
 echo ""
@@ -40,6 +43,7 @@ check_interface() {
             printf "%b[FAIL]%b %s (Disconnected)\n" "${RED}" "${NC}" "${plug}"
             printf "Remediation: Run the following command on your host to connect the plug:\n\n"
             printf "%b%bsudo snap connect %s:%s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME}" "${plug}" "${NC}"
+            exit_code=1
         else
             printf "%b[INFO]%b %s (Disconnected - optional: %s)\n" "${BLUE}" "${NC}" "${plug}" "${desc}"
             printf "Remediation: Run the following command on your host to connect the plug:\n\n"
@@ -61,7 +65,7 @@ check_tcp() {
     local port=$2
     # Allow unit tests to mock TCP checks
     if [ "${MOCK_TCP_CHECK:-}" = "true" ]; then
-        if [[ ",$MOCK_TCP_PORTS_IN_USE," == *",$ip:$port,"* ]]; then
+        if [[ ",${MOCK_TCP_PORTS_IN_USE:-}," == *",$ip:$port,"* ]]; then
             return 0
         fi
         return 1
@@ -82,6 +86,12 @@ check_tcp() {
 # Hex matching for /proc/net/udp: 53 is 0035, 67 is 0043, 546 is 0222
 check_udp() {
     local hex_port=$1
+    if [ "${MOCK_TCP_CHECK:-}" = "true" ]; then
+        if [[ ",${MOCK_UDP_PORTS_IN_USE:-}," == *",$hex_port,"* ]]; then
+            return 0
+        fi
+        return 1
+    fi
     grep -qi ":$hex_port " /proc/net/udp 2>/dev/null || grep -qi ":$hex_port " /proc/net/udp6 2>/dev/null
 }
 
@@ -101,10 +111,12 @@ else
         printf "%b%bsudo mkdir -p /etc/systemd/resolved.conf.d\n" "${BOLD}" "${CYAN}"
         printf "printf '[Resolve]\\\\nDNS=127.0.0.1\\\\nDNSStubListener=no\\\\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf\n"
         printf "sudo systemctl restart systemd-resolved%b\n\n" "${NC}"
+        [ "$exit_code" -eq 0 ] && exit_code=2
     elif check_tcp "127.0.0.1" "53" || check_tcp "0.0.0.0" "53" || check_udp "0035"; then
         printf "%b[FAIL]%b Port 53 - Another DNS server is binding port 53\n" "${RED}" "${NC}"
         printf "Remediation: Run the following command on your host to identify it:\n\n"
         printf "%b%bsudo ss -tulpn | grep :53%b\n\n" "${BOLD}" "${CYAN}" "${NC}"
+        [ "$exit_code" -eq 0 ] && exit_code=2
     else
         printf "%b[OK]%b Port 53 (DNS) is free.\n\n" "${GREEN}" "${NC}"
     fi
@@ -114,6 +126,7 @@ else
         printf "%b[FAIL]%b Port 80 (HTTP) - Another web server is binding port 80\n" "${RED}" "${NC}"
         printf "Remediation: Stop the server, or change Pi-hole's port:\n\n"
         printf "%b%bsudo snap set %s webserver.port=8080%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME}" "${NC}"
+        [ "$exit_code" -eq 0 ] && exit_code=2
     else
         printf "%b[OK]%b Port 80 (HTTP) is free.\n\n" "${GREEN}" "${NC}"
     fi
@@ -147,3 +160,4 @@ else
 fi
 
 echo "Diagnostics complete."
+exit $exit_code
