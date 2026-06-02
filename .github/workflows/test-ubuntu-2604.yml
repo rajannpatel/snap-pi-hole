@@ -1,4 +1,4 @@
-name: Test on Ubuntu 22.04
+name: Test on Ubuntu 26.04
 
 on:
   push:
@@ -11,4 +11,4 @@ jobs:
   test:
     uses: ./.github/workflows/reusable-distro-test.yml
     with:
-      distro: ubuntu-22.04
+      distro: ubuntu-26.04
