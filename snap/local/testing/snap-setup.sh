@@ -45,11 +45,11 @@ echo ""
 
 ALIAS_SET=true
 # Check if the command alias exists on the host
-if [ ! -e "/snap/bin/pihole" ] && [ "${MOCK_ALIAS_CHECK:-}" != "true" ]; then
+if [ "${MOCK_ALIAS_CHECK:-}" = "false" ] || { [ "${MOCK_ALIAS_CHECK:-}" != "true" ] && [ ! -e "/snap/bin/pihole" ]; }; then
     ALIAS_SET=false
-    printf "${YELLOW}[WARN]${NC} Command alias 'pihole' has not been enabled on your host.\n"
+    printf "%b[WARN]%b Command alias 'pihole' has not been enabled on your host.\n" "${YELLOW}" "${NC}"
     printf "Remediation: Run the following command on your host to enable the 'pihole' alias:\n\n"
-    printf "${BOLD}${CYAN}sudo snap alias ${SNAP_NAME:-pihole-by-rajannpatel}.pihole pihole${NC}\n\n"
+    printf "%b%bsudo snap alias %s.pihole pihole%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME:-pihole-by-rajannpatel}" "${NC}"
 fi
 
 if [ "$ALIAS_SET" = "true" ]; then
@@ -92,7 +92,6 @@ if snapctl services "${SNAP_NAME:-pihole}.pihole-ftl" 2>/dev/null | grep -qw "ac
     FTL_RUNNING=true
 fi
 
-PORT_53_CONFLICT=false
 # Pure bash TCP socket check with 1-second timeout
 check_tcp() {
     local ip=$1
@@ -127,27 +126,25 @@ check_udp() {
 }
 
 if [ "$FTL_RUNNING" = "true" ]; then
-    printf "${GREEN}[OK]${NC} pihole-FTL service is currently active.\n\n"
+    printf "%b[OK]%b pihole-FTL service is currently active.\n\n" "${GREEN}" "${NC}"
 else
     # Check for systemd-resolved conflict on 127.0.0.53:53
     if check_tcp "127.0.0.53" "53"; then
-        PORT_53_CONFLICT=true
-        printf "${RED}[FAIL]${NC} Port 53 (TCP) conflict detected (systemd-resolved on 127.0.0.53).\n"
+        printf "%b[FAIL]%b Port 53 (TCP) conflict detected (systemd-resolved on 127.0.0.53).\n" "${RED}" "${NC}"
         printf "Remediation: Run the following commands on your host:\n\n"
-        printf "${BOLD}${CYAN}sudo mkdir -p /etc/systemd/resolved.conf.d\n"
+        printf "%b%bsudo mkdir -p /etc/systemd/resolved.conf.d\n" "${BOLD}" "${CYAN}"
         printf "printf '[Resolve]\\\\nDNS=127.0.0.1\\\\nDNSStubListener=no\\\\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf\n"
         printf "sudo systemctl restart systemd-resolved\n"
-        printf "${REENTER_CMD}${NC}\n\n"
+        printf "%s%b\n\n" "${REENTER_CMD}" "${NC}"
         prompt_fail_exit
     elif check_tcp "127.0.0.1" "53" || check_tcp "0.0.0.0" "53" || check_udp "0035"; then
-        PORT_53_CONFLICT=true
-        printf "${RED}[FAIL]${NC} Port 53 conflict detected. Another process is binding port 53.\n"
+        printf "%b[FAIL]%b Port 53 conflict detected. Another process is binding port 53.\n" "${RED}" "${NC}"
         printf "Remediation: Run the following commands on your host:\n\n"
-        printf "${BOLD}${CYAN}sudo ss -tulpn | grep :53\n"
-        printf "${REENTER_CMD}${NC}\n\n"
+        printf "%b%bsudo ss -tulpn | grep :53\n" "${BOLD}" "${CYAN}"
+        printf "%s%b\n\n" "${REENTER_CMD}" "${NC}"
         prompt_fail_exit
     else
-        printf "${GREEN}[OK]${NC} Port 53 (DNS) is free.\n\n"
+        printf "%b[OK]%b Port 53 (DNS) is free.\n\n" "${GREEN}" "${NC}"
     fi
 fi
 
@@ -160,18 +157,18 @@ check_plug() {
     if ! snapctl is-connected "$plug"; then
         if [ "$required" = "true" ]; then
             DISCONNECTED_PLUGS="${DISCONNECTED_PLUGS} ${plug}"
-            printf "${RED}[FAIL]${NC} Interface plug '${plug}' is disconnected (REQUIRED).\n"
+            printf "%b[FAIL]%b Interface plug '%s' is disconnected (REQUIRED).\n" "${RED}" "${NC}" "${plug}"
             printf "Remediation: Run the following commands on your host:\n\n"
-            printf "${BOLD}${CYAN}sudo snap connect ${SNAP_NAME:-pihole}:${plug}\n"
-            printf "${REENTER_CMD}${NC}\n\n"
+            printf "%b%bsudo snap connect %s:%s\n" "${BOLD}" "${CYAN}" "${SNAP_NAME:-pihole}" "${plug}"
+            printf "%s%b\n\n" "${REENTER_CMD}" "${NC}"
             prompt_fail_exit
         else
-            printf "${BLUE}[INFO]${NC} Interface plug '${plug}' is disconnected (optional: ${desc}).\n"
+            printf "%b[INFO]%b Interface plug '%s' is disconnected (optional: %s).\n" "${BLUE}" "${NC}" "${plug}" "${desc}"
             printf "Remediation: Run the following command on your host to connect the plug:\n\n"
-            printf "${BOLD}${CYAN}sudo snap connect ${SNAP_NAME:-pihole}:${plug}${NC}\n\n"
+            printf "%b%bsudo snap connect %s:%s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME:-pihole}" "${plug}" "${NC}"
         fi
     else
-        printf "${GREEN}[OK]${NC} Interface plug '${plug}' is connected.\n\n"
+        printf "%b[OK]%b Interface plug '%s' is connected.\n\n" "${GREEN}" "${NC}" "${plug}"
     fi
 }
 

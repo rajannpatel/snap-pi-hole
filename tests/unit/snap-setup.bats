@@ -195,7 +195,7 @@ teardown() {
     [ "$status" -eq 1 ]
     [[ "$output" == *"Do you want to exit the wizard and run these commands? (Y/n)"* ]]
     [[ "$output" == *"Aborting setup"* ]]
-    [[ "$output" == *"sudo pihole-by-rajannpatel.pihole -r"* ]]
+    [[ "$output" == *"sudo pihole.pihole -r"* ]]
 }
 
 @test "snap-setup prompts, exits on FAIL, and advises sudo pihole -r when alias is enabled" {

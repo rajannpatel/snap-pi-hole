@@ -34,16 +34,16 @@ check_interface() {
     local required=$2
     local desc=$3
     if snapctl is-connected "$plug"; then
-        printf "${GREEN}[OK]${NC} ${plug} (Connected)\n\n"
+        printf "%b[OK]%b %s (Connected)\n\n" "${GREEN}" "${NC}" "${plug}"
     else
         if [ "$required" = "true" ]; then
-            printf "${RED}[FAIL]${NC} ${plug} (Disconnected)\n"
+            printf "%b[FAIL]%b %s (Disconnected)\n" "${RED}" "${NC}" "${plug}"
             printf "Remediation: Run the following command on your host to connect the plug:\n\n"
-            printf "${BOLD}${CYAN}sudo snap connect ${SNAP_NAME}:${plug}${NC}\n\n"
+            printf "%b%bsudo snap connect %s:%s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME}" "${plug}" "${NC}"
         else
-            printf "${BLUE}[INFO]${NC} ${plug} (Disconnected - optional: ${desc})\n"
+            printf "%b[INFO]%b %s (Disconnected - optional: %s)\n" "${BLUE}" "${NC}" "${plug}" "${desc}"
             printf "Remediation: Run the following command on your host to connect the plug:\n\n"
-            printf "${BOLD}${CYAN}sudo snap connect ${SNAP_NAME}:${plug}${NC}\n\n"
+            printf "%b%bsudo snap connect %s:%s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME}" "${plug}" "${NC}"
         fi
     fi
 }
@@ -92,38 +92,38 @@ if snapctl services "${SNAP_NAME}".pihole-ftl 2>/dev/null | grep -qw "active"; t
 fi
 
 if [ "$FTL_RUNNING" = "true" ]; then
-    printf "${GREEN}[OK]${NC} pihole-FTL is active. Port conflict checks skipped.\n\n"
+    printf "%b[OK]%b pihole-FTL is active. Port conflict checks skipped.\n\n" "${GREEN}" "${NC}"
 else
     # Check 53 (DNS TCP/UDP)
     if check_tcp "127.0.0.53" "53"; then
-        printf "${RED}[FAIL]${NC} Port 53 (TCP) - systemd-resolved conflict on 127.0.0.53\n"
+        printf "%b[FAIL]%b Port 53 (TCP) - systemd-resolved conflict on 127.0.0.53\n" "${RED}" "${NC}"
         printf "Remediation: Disable DNSStubListener using a systemd-resolved drop-in:\n\n"
-        printf "${BOLD}${CYAN}sudo mkdir -p /etc/systemd/resolved.conf.d\n"
+        printf "%b%bsudo mkdir -p /etc/systemd/resolved.conf.d\n" "${BOLD}" "${CYAN}"
         printf "printf '[Resolve]\\\\nDNS=127.0.0.1\\\\nDNSStubListener=no\\\\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf\n"
-        printf "sudo systemctl restart systemd-resolved${NC}\n\n"
+        printf "sudo systemctl restart systemd-resolved%b\n\n" "${NC}"
     elif check_tcp "127.0.0.1" "53" || check_tcp "0.0.0.0" "53" || check_udp "0035"; then
-        printf "${RED}[FAIL]${NC} Port 53 - Another DNS server is binding port 53\n"
+        printf "%b[FAIL]%b Port 53 - Another DNS server is binding port 53\n" "${RED}" "${NC}"
         printf "Remediation: Run the following command on your host to identify it:\n\n"
-        printf "${BOLD}${CYAN}sudo ss -tulpn | grep :53${NC}\n\n"
+        printf "%b%bsudo ss -tulpn | grep :53%b\n\n" "${BOLD}" "${CYAN}" "${NC}"
     else
-        printf "${GREEN}[OK]${NC} Port 53 (DNS) is free.\n\n"
+        printf "%b[OK]%b Port 53 (DNS) is free.\n\n" "${GREEN}" "${NC}"
     fi
 
     # Check 80 (HTTP)
     if check_tcp "127.0.0.1" "80" || check_tcp "0.0.0.0" "80"; then
-        printf "${RED}[FAIL]${NC} Port 80 (HTTP) - Another web server is binding port 80\n"
+        printf "%b[FAIL]%b Port 80 (HTTP) - Another web server is binding port 80\n" "${RED}" "${NC}"
         printf "Remediation: Stop the server, or change Pi-hole's port:\n\n"
-        printf "${BOLD}${CYAN}sudo snap set ${SNAP_NAME} webserver.port=8080${NC}\n\n"
+        printf "%b%bsudo snap set %s webserver.port=8080%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME}" "${NC}"
     else
-        printf "${GREEN}[OK]${NC} Port 80 (HTTP) is free.\n\n"
+        printf "%b[OK]%b Port 80 (HTTP) is free.\n\n" "${GREEN}" "${NC}"
     fi
 
     # Check 67/546 (DHCP)
     if check_udp "0043" || check_udp "0222"; then
-        printf "${YELLOW}[WARN]${NC} Port 67/546 (DHCP) is in use by another process.\n"
+        printf "%b[WARN]%b Port 67/546 (DHCP) is in use by another process.\n" "${YELLOW}" "${NC}"
         printf "Remediation: If enabling Pi-hole DHCP, disable the host's isc-dhcp-server or dnsmasq.\n\n"
     else
-        printf "${GREEN}[OK]${NC} Ports 67/546 (DHCP) are free.\n\n"
+        printf "%b[OK]%b Ports 67/546 (DHCP) are free.\n\n" "${GREEN}" "${NC}"
     fi
 fi
 
@@ -133,17 +133,17 @@ echo ""
 if snapctl is-connected "system-observe"; then
     # Parse dmesg for recent apparmor DENIED logs related to pihole
     if dmesg 2>/dev/null | grep -i "apparmor=\"DENIED\"" | grep -q "snap.${SNAP_NAME}"; then
-        printf "${YELLOW}[WARN]${NC} AppArmor denials detected in dmesg.\n"
+        printf "%b[WARN]%b AppArmor denials detected in dmesg.\n" "${YELLOW}" "${NC}"
         printf "This indicates strict confinement is blocking a daemon action.\n"
         printf "Remediation: Run the following command on your host for details:\n\n"
-        printf "${BOLD}${CYAN}dmesg | grep DENIED | grep ${SNAP_NAME}${NC}\n\n"
+        printf "%b%bdmesg | grep DENIED | grep %s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME}" "${NC}"
     else
-        printf "${GREEN}[OK]${NC} No recent AppArmor denials detected.\n\n"
+        printf "%b[OK]%b No recent AppArmor denials detected.\n\n" "${GREEN}" "${NC}"
     fi
 else
-    printf "${BLUE}[INFO]${NC} 'system-observe' is disconnected (expected for production).\n"
+    printf "%b[INFO]%b 'system-observe' is disconnected (expected for production).\n" "${BLUE}" "${NC}"
     printf "Remediation: Run the following command on your host to connect it for debugging:\n\n"
-    printf "${BOLD}${CYAN}sudo snap connect ${SNAP_NAME}:system-observe${NC}\n\n"
+    printf "%b%bsudo snap connect %s:system-observe%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME}" "${NC}"
 fi
 
 echo "Diagnostics complete."
