@@ -12,6 +12,8 @@ on:
         required: false
         type: string
         default: ""
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
   contents: write
@@ -229,6 +231,8 @@ jobs:
         run: |
           sg lxd -c "
             lxc file push ${{ needs.build.outputs.snap_file }} test-instance/tmp/pihole.snap
+            # Wait for snapd to finish seeding to prevent 'too early for operation' errors
+            lxc exec test-instance -- snap wait system seed.loaded || true
             lxc exec test-instance -- snap install /tmp/pihole.snap --dangerous
             lxc exec test-instance -- snap alias pihole-by-rajannpatel.pihole pihole
             sleep 10
