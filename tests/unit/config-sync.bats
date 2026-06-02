@@ -160,3 +160,48 @@ EOF
     run jq -e '.dns.rateLimit.count == 1000' "${CAPTURED_JSON}"
     [ "$status" -eq 0 ]
 }
+
+@test "config-sync strips inline comments from scalars and arrays" {
+    cat > "${TOML_FILE}" <<'EOF'
+[dns]
+  dnssec = true # Enable DNSSEC validation
+  upstreams = [ # DNS servers
+    "8.8.8.8", # Google primary
+    "1.1.1.1"  # Cloudflare primary
+  ] # End of array
+  password = "my#password#here" # Password with hash signs
+EOF
+    run "${CONFIG_SYNC}"
+    [ "$status" -eq 0 ]
+    [ -f "${CAPTURED_JSON}" ]
+
+    run jq -e '.dns.dnssec == true' "${CAPTURED_JSON}"
+    [ "$status" -eq 0 ]
+    run jq -e '.dns.upstreams == ["8.8.8.8","1.1.1.1"]' "${CAPTURED_JSON}"
+    [ "$status" -eq 0 ]
+    run jq -e '.dns.password == "my#password#here"' "${CAPTURED_JSON}"
+    [ "$status" -eq 0 ]
+}
+
+@test "config-sync comment stripping is mawk-compatible" {
+    _force_awk mawk
+    cat > "${TOML_FILE}" <<'EOF'
+[dns]
+  dnssec = true # Enable DNSSEC validation
+  upstreams = [ # DNS servers
+    "8.8.8.8", # Google primary
+    "1.1.1.1"  # Cloudflare primary
+  ] # End of array
+  password = "my#password#here" # Password with hash signs
+EOF
+    run "${CONFIG_SYNC}"
+    [ "$status" -eq 0 ]
+    [ -f "${CAPTURED_JSON}" ]
+
+    run jq -e '.dns.dnssec == true' "${CAPTURED_JSON}"
+    [ "$status" -eq 0 ]
+    run jq -e '.dns.upstreams == ["8.8.8.8","1.1.1.1"]' "${CAPTURED_JSON}"
+    [ "$status" -eq 0 ]
+    run jq -e '.dns.password == "my#password#here"' "${CAPTURED_JSON}"
+    [ "$status" -eq 0 ]
+}

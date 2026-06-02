@@ -19,6 +19,29 @@ echo "Syncing pihole.toml config to snapctl..." >&2
 # NOTE: uses only POSIX awk features (no gawk-only 3-arg match()) so it
 # behaves identically under the base snap's mawk and under gawk in CI.
 flat_config=$(awk '
+function clean_comments(s) {
+    clean = "";
+    in_quotes = 0;
+    quote_char = "";
+    len = length(s);
+    for (i = 1; i <= len; i++) {
+        ch = substr(s, i, 1);
+        if ((ch == "\"" || ch == "\047") && (i == 1 || substr(s, i - 1, 1) != "\\")) {
+            if (!in_quotes) {
+                in_quotes = 1;
+                quote_char = ch;
+            } else if (ch == quote_char) {
+                in_quotes = 0;
+            }
+        }
+        if (ch == "#" && !in_quotes) {
+            break;
+        }
+        clean = clean ch;
+    }
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", clean);
+    return clean;
+}
 /^[[:space:]]*\[[^\]]+\]/ {
     section = $0;
     sub(/^[[:space:]]*\[/, "", section);  # strip leading whitespace + [
@@ -30,10 +53,10 @@ flat_config=$(awk '
     key = substr($0, 1, idx - 1);
     val = substr($0, idx + 1);
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", key);
-    gsub(/^[[:space:]]+|[[:space:]]+$/, "", val);
+    val = clean_comments(val);
     if (val ~ /^\[/) {
         while (val !~ /\]$/ && (getline line) > 0) {
-            gsub(/^[[:space:]]+|[[:space:]]+$/, "", line);
+            line = clean_comments(line);
             val = val line;
         }
     }
