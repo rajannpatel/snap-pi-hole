@@ -85,6 +85,7 @@ jobs:
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
           unsquashfs -d extracted-snap ${{ steps.snapcraft.outputs.snap }}
           syft scan extracted-snap -o cyclonedx-json=sbom-${{ matrix.arch }}.json
+          python3 snap/local/build/enrich_sbom.py sbom-${{ matrix.arch }}.json extracted-snap
 
       - name: Upload SBOM artefact
         uses: actions/upload-artifact@v4
