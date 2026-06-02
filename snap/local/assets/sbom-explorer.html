@@ -82,7 +82,6 @@
   <section class="p-strip--surround">
     <div class="row">
       <div class="col-12">
-        <a href="../" class="p-link--back">Back to Dashboard</a>
         <h1 class="u-sv1">Software Bill of Materials (SBOM)</h1>
         <p class="p-heading--4">CycloneDX format SBOM reports containing full dependency lists, licensing, and package manifests.</p>
       </div>
@@ -213,8 +212,33 @@ grype sbom-amd64.json</code></pre>
   <!-- Footer -->
   <footer class="p-strip--dark">
     <div class="row">
+      <div class="col-4">
+        <h5>Project Resources</h5>
+        <ul class="p-list">
+          <li><a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">GitHub Repository</a></li>
+          <li><a href="https://github.com/rajannpatel/snap-pi-hole/wiki" class="is-dark">Project Wiki Documentation</a></li>
+          <li><a href="https://snapcraft.io/pihole-by-rajannpatel" class="is-dark">Snap Store Listing</a></li>
+        </ul>
+      </div>
+      <div class="col-4">
+        <h5>CI/CD Pipeline</h5>
+        <ul class="p-list">
+          <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions" class="is-dark">Workflow Execution History</a></li>
+          <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" class="is-dark">Pipeline Definition (YAML)</a></li>
+          <li><a href="../coverage/" class="is-dark">kcov Coverage Reports</a></li>
+        </ul>
+      </div>
+      <div class="col-4">
+        <h5>Security & Confinement</h5>
+        <p class="p-text--small">
+          Built securely on Ubuntu builders. Packaged as a strictly confined Snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
+        </p>
+      </div>
+    </div>
+    <div class="row u-sv2">
       <div class="col-12">
-        <p class="u-align--center">
+        <hr class="is-dark">
+        <p class="u-align--center p-text--small-muted">
           Managed by <a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">rajannpatel/snap-pi-hole</a>. Built with <a href="https://vanillaframework.io/" class="is-dark">Vanilla Framework</a>.
         </p>
       </div>
