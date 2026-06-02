@@ -684,3 +684,55 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" == *"FTL service is not running. Skipping DNS validation"* ]]
 }
+
+@test "configure hook skips calling pihole-FTL --config when the value matches pihole.toml" {
+    # Prepare the config file with a pre-existing value
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    cat > "${SNAP_DATA}/etc/pihole/pihole.toml" << 'EOF'
+[webserver]
+port = 8080
+EOF
+
+    # Set snapctl setting to match
+    export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
+    
+    HOOK="${TEST_TMPDIR}/configure"
+    sed \
+        -e "s|snapctl get|${SNAPCTL} get|g" \
+        -e "s|snapctl services|${SNAPCTL} services|g" \
+        -e "s|snapctl restart|${SNAPCTL} restart|g" \
+        "${REPO_ROOT}/snap/hooks/configure" > "${HOOK}"
+    chmod +x "${HOOK}"
+
+    run "${HOOK}"
+    [ "$status" -eq 0 ]
+    
+    # Verify that FTL was NOT called
+    [ ! -f "${TEST_TMPDIR}/ftl.log" ]
+}
+
+@test "configure hook calls pihole-FTL --config when the value does not match pihole.toml" {
+    # Prepare the config file with a different pre-existing value
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    cat > "${SNAP_DATA}/etc/pihole/pihole.toml" << 'EOF'
+[webserver]
+port = 80
+EOF
+
+    # Set snapctl setting to a different value
+    export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
+    
+    HOOK="${TEST_TMPDIR}/configure"
+    sed \
+        -e "s|snapctl get|${SNAPCTL} get|g" \
+        -e "s|snapctl services|${SNAPCTL} services|g" \
+        -e "s|snapctl restart|${SNAPCTL} restart|g" \
+        "${REPO_ROOT}/snap/hooks/configure" > "${HOOK}"
+    chmod +x "${HOOK}"
+
+    run "${HOOK}"
+    [ "$status" -eq 0 ]
+    
+    # Verify that FTL WAS called
+    grep -q "FTL:--config webserver.port 8080" "${TEST_TMPDIR}/ftl.log"
+}

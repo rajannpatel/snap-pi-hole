@@ -86,10 +86,74 @@ if [ "$need_reload" -eq 1 ]; then
     flat_config=$(get_flat_config "$ftl_json")
 fi
 
+# Fetch flat configuration from the existing pihole.toml file (if present)
+current_toml_flat=""
+if [ -f "${SNAP_DATA:-}/etc/pihole/pihole.toml" ]; then
+    current_toml_flat=$(awk '
+    function clean_comments(s) {
+        clean = "";
+        in_quotes = 0;
+        quote_char = "";
+        len = length(s);
+        for (i = 1; i <= len; i++) {
+            ch = substr(s, i, 1);
+            if ((ch == "\"" || ch == "\047") && (i == 1 || substr(s, i - 1, 1) != "\\")) {
+                if (!in_quotes) {
+                    in_quotes = 1;
+                    quote_char = ch;
+                } else if (ch == quote_char) {
+                    in_quotes = 0;
+                }
+            }
+            if (ch == "#" && !in_quotes) {
+                break;
+            }
+            clean = clean ch;
+        }
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", clean);
+        return clean;
+    }
+    /^[[:space:]]*\[[^\]]+\]/ {
+        section = $0;
+        sub(/^[[:space:]]*\[/, "", section);
+        sub(/\].*$/, "", section);
+        next;
+    }
+    /^[[:space:]]*[A-Za-z0-9_\.-]+[[:space:]]*=/ {
+        idx = index($0, "=");
+        key = substr($0, 1, idx - 1);
+        val = substr($0, idx + 1);
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", key);
+        val = clean_comments(val);
+        if (val ~ /^\[/) {
+            while (val !~ /\]$/ && (getline line) > 0) {
+                line = clean_comments(line);
+                val = val line;
+            }
+        }
+        gsub(/,[[:space:]]*\]/, "]", val);
+        full_key = (section ? section "." key : key);
+        print full_key "=" val;
+    }
+    ' "${SNAP_DATA:-}/etc/pihole/pihole.toml" 2>/dev/null || echo "")
+fi
+
 # Apply migrated configuration to FTL
 if [ -n "$flat_config" ]; then
     while IFS='=' read -r key val; do
         if [ -n "$key" ]; then
+            # Normalize snapctl value: strip spaces and outer quotes
+            norm_val=$(echo "$val" | tr -d '[:space:]' | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+
+            # Extract and normalize the existing value from TOML (if it exists)
+            toml_val=$(echo "$current_toml_flat" | grep -E "^${key}=" | cut -d= -f2- || true)
+            norm_toml_val=$(echo "$toml_val" | tr -d '[:space:]' | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+
+            # If the key exists in current TOML and matches, skip calling FTL config CLI
+            if [ -n "$toml_val" ] && [ "$norm_val" = "$norm_toml_val" ]; then
+                continue
+            fi
+
             "$FTL_BIN" --config "$key" "$val" >/dev/null 2>&1 || {
                 echo "Error applying ftl.$key=$val" >&2
                 exit 1
