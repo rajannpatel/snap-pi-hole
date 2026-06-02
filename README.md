@@ -13,12 +13,18 @@ A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](
 # 1. Install snapd (if not already present on the host)
 # - On Debian:
 #     sudo apt update && sudo apt install -y snapd
-# - On RHEL/Rocky Linux/AlmaLinux:
-#     sudo dnf install -y epel-release && sudo dnf install -y snapd && sudo systemctl enable --now snapd.socket
-# - On Void Linux: 
-#     sudo xbps-install -S snapd && sudo ln -s /etc/sv/snapd /var/service/
-# - On Devuan/MX Linux: 
-#     sudo apt update && sudo apt install -y snapd
+# - On Fedora:
+#     sudo dnf install -y snapd && sudo systemctl enable --now snapd.socket && sudo ln -s /var/lib/snapd/snap /snap
+# - On Rocky Linux/AlmaLinux:
+#     sudo dnf install -y epel-release && sudo dnf install -y snapd && sudo systemctl enable --now snapd.socket && sudo ln -s /var/lib/snapd/snap /snap
+# - On openSUSE Leap:
+#     sudo zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_15.6/system:snappy.repo
+#     sudo zypper install -y snapd && sudo systemctl enable --now snapd && sudo ln -s /var/lib/snapd/snap /snap
+# - On openSUSE Tumbleweed:
+#     sudo zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Tumbleweed/system:snappy.repo
+#     sudo zypper install -y snapd && sudo systemctl enable --now snapd && sudo ln -s /var/lib/snapd/snap /snap
+# - On Arch Linux:
+#     git clone https://aur.archlinux.org/snapd.git && cd snapd && makepkg -si && sudo systemctl enable --now snapd.socket && sudo ln -s /var/lib/snapd/snap /snap
 
 # 2. Install the Pi-hole snap
 sudo snap install pihole-by-rajannpatel

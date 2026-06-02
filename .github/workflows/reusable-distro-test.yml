@@ -98,11 +98,10 @@ jobs:
                               codename = line_str.split(":", 1)[1].strip()
                               print(f"images:debian/{codename}")
                               sys.exit(0)
-                  print("images:debian/bookworm")
-                  sys.exit(0)
               except Exception:
-                  print("images:debian/bookworm")
-                  sys.exit(0)
+                  pass
+              print(prefix)
+              sys.exit(0)
           if ":" not in prefix:
               print(prefix); sys.exit(0)
           remote, family = prefix.split(":", 1)
@@ -233,7 +232,7 @@ jobs:
           echo "Detected: version='$DISPLAY_VERSION'  codename='$DISPLAY_NAME'"
 
           python3 - <<'PYEOF'
-          import os, base64, urllib.request, urllib.error, json
+          import os, base64, urllib.request, urllib.error, json, re
 
           token           = os.environ["GITHUB_TOKEN"]
           repo            = os.environ["GITHUB_REPOSITORY"]
@@ -263,6 +262,12 @@ jobs:
               return "|".join(parts)
 
           new_content = "\n".join(replace_row(l) for l in content.splitlines())
+          if workflow_key == "test-opensuse-leap.yml":
+              new_content = re.sub(
+                  r"(openSUSE_Leap_)[\d.]+(/system:snappy\.repo)",
+                  rf"\g<1>{display_version}\g<2>",
+                  new_content
+              )
           if new_content == content:
               print("README already up to date — nothing to commit.")
               exit(0)
