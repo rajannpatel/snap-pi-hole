@@ -5,11 +5,11 @@
 #
 #   - update-upstream.yml: Python README version bump script
 #   - update-upstream.yml: sed-based snapcraft.yaml source-tag bumps
-#   - publish.yml: port-53 timeout guard logic (both success and failure paths)
-#   - publish.yml: Snap Store channel mapping logic based on Pi-hole tags
+#   - cicd.yml: port-53 timeout guard logic (both success and failure paths)
+#   - cicd.yml: Snap Store channel mapping logic based on Pi-hole tags
 #
 # Run locally:  bats tests/unit/ci-workflows.bats
-# In CI:        see .github/workflows/publish.yml (lint+unit job)
+# In CI:        see .github/workflows/cicd.yml (lint+unit job)
 
 setup() {
     REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -162,7 +162,7 @@ _bump_snapcraft() {
 }
 
 # ---------------------------------------------------------------------------
-# Port-53 timeout guard logic (from publish.yml smoke test)
+# Port-53 timeout guard logic (from cicd.yml smoke test)
 # ---------------------------------------------------------------------------
 
 _run_port53_guard() {
@@ -201,7 +201,7 @@ BASH
 }
 
 # ---------------------------------------------------------------------------
-# Channel mapping logic (from publish.yml)
+# Channel mapping logic (from cicd.yml)
 # ---------------------------------------------------------------------------
 
 _run_channel_mapping() {

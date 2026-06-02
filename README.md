@@ -7,9 +7,13 @@ A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](
 [![Code Coverage](https://img.shields.io/badge/Code%20Coverage-kcov-blue?style=flat-square&logo=github)](https://rajannpatel.github.io/snap-pi-hole/coverage/)
 [![SBOM Reports](https://img.shields.io/badge/SBOM-CycloneDX-blue?style=flat-square&logo=github)](https://rajannpatel.github.io/snap-pi-hole/sbom/)
 
+---
+
 [![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/pihole-by-rajannpatel)
 
-[![Build and Smoke Test](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/publish.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/publish.yml)
+[![CI/CD Pipeline](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml)
+
+---
 
 ## Installation
 
