@@ -439,7 +439,8 @@ jobs:
           fi
           
           # Copy SBOMs from all artifact directories
-          find sbom-artifacts -maxdepth 2 -name "sbom-*.json" -exec cp {} docs/sbom/ \;
+          echo "Finding and copying SBOM files..."
+          find sbom-artifacts -name "sbom-*.json" -exec cp -v {} docs/sbom/ \;
           
           # Create SBOM index.html
           cat > docs/sbom/index.html << 'EOF'
@@ -486,6 +487,21 @@ jobs:
     }
     .p-card__content {
       flex-grow: 1;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .spinner {
+      display: inline-block;
+      width: 1.5rem;
+      height: 1.5rem;
+      border: 3px solid rgba(0,0,0,.1);
+      border-radius: 50%;
+      border-top-color: #e95420;
+      animation: spin 1s ease-in-out infinite;
+      vertical-align: middle;
+      margin-right: 0.5rem;
     }
   </style>
 </head>
@@ -546,6 +562,77 @@ jobs:
       </div>
     </div>
 
+    <!-- Dynamic Package Explorer -->
+    <div class="row u-sv3">
+      <div class="col-12">
+        <hr>
+        <h2 class="p-heading--3">Interactive Package Explorer</h2>
+        <p>Explore, search, and filter components embedded in the built snap packages in real time.</p>
+        
+        <div class="p-button-group" role="group" aria-label="Select Architecture">
+          <button class="p-button is-active" id="tab-amd64" onclick="loadSBOM('amd64')">Intel/AMD (amd64)</button>
+          <button class="p-button" id="tab-arm64" onclick="loadSBOM('arm64')">ARM (arm64)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metadata Section -->
+    <div class="row u-sv2" id="metadata-section" style="display:none;">
+      <div class="col-4">
+        <div class="p-card">
+          <span class="p-text--small-muted">TOTAL COMPONENTS</span>
+          <h4 class="p-card__title" id="meta-total">-</h4>
+        </div>
+      </div>
+      <div class="col-4">
+        <div class="p-card">
+          <span class="p-text--small-muted">SCANNER TOOL</span>
+          <h4 class="p-card__title" id="meta-tool">-</h4>
+        </div>
+      </div>
+      <div class="col-4">
+        <div class="p-card">
+          <span class="p-text--small-muted">GENERATION TIME</span>
+          <h4 class="p-card__title" id="meta-time">-</h4>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search Section -->
+    <div class="row u-sv1" id="search-section" style="display:none;">
+      <div class="col-12">
+        <input class="p-form-validation__input" type="search" id="sbom-search" placeholder="Search by package name, version, or license..." oninput="filterSBOM()">
+      </div>
+    </div>
+
+    <!-- Table Section -->
+    <div class="row">
+      <div class="col-12" style="overflow-x: auto;">
+        <div id="sbom-loading" class="p-text--muted" style="display:none;">
+          <p><span class="spinner"></span> Loading and parsing SBOM dataset...</p>
+        </div>
+        <div id="sbom-error" class="p-notification--negative" style="display:none;">
+          <div class="p-notification__content">
+            <h4 class="p-notification__title">Failed to load SBOM data</h4>
+            <p class="p-notification__message" id="error-message">The JSON file for this architecture is not available.</p>
+          </div>
+        </div>
+        
+        <table class="p-table" id="sbom-table" style="display:none; width: 100%;">
+          <thead>
+            <tr>
+              <th>Package Name</th>
+              <th>Version</th>
+              <th>Type</th>
+              <th>License</th>
+            </tr>
+          </thead>
+          <tbody id="sbom-tbody">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Auditing Guide Section -->
     <div class="row u-sv3">
       <div class="col-12">
@@ -576,6 +663,136 @@ grype sbom-amd64.json</code></pre>
       </div>
     </div>
   </footer>
+
+  <!-- Dynamic SBOM Script -->
+  <script>
+    let currentComponents = [];
+
+    async function loadSBOM(arch) {
+      document.getElementById('tab-amd64').classList.toggle('is-active', arch === 'amd64');
+      document.getElementById('tab-arm64').classList.toggle('is-active', arch === 'arm64');
+      
+      const loading = document.getElementById('sbom-loading');
+      const errorDiv = document.getElementById('sbom-error');
+      const table = document.getElementById('sbom-table');
+      const searchSec = document.getElementById('search-section');
+      const metadataSec = document.getElementById('metadata-section');
+      const tbody = document.getElementById('sbom-tbody');
+      
+      loading.style.display = 'block';
+      errorDiv.style.display = 'none';
+      table.style.display = 'none';
+      searchSec.style.display = 'none';
+      metadataSec.style.display = 'none';
+      tbody.innerHTML = '';
+      
+      try {
+        const response = await fetch(`sbom-${arch}.json`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch sbom-${arch}.json: ${response.status} ${response.statusText}`);
+        }
+        const data = await response.json();
+        currentComponents = data.components || [];
+        
+        // Sort components by name alphabetically
+        currentComponents.sort((a, b) => a.name.localeCompare(b.name));
+        
+        // Fill metadata
+        document.getElementById('meta-total').textContent = currentComponents.length;
+        
+        const syftInfo = data.metadata && data.metadata.tools && data.metadata.tools.components 
+          ? data.metadata.tools.components.map(c => `${c.name} ${c.version}`).join(', ') 
+          : 'Syft';
+        document.getElementById('meta-tool').textContent = syftInfo;
+        
+        const timestampStr = data.metadata && data.metadata.timestamp 
+          ? new Date(data.metadata.timestamp).toLocaleString()
+          : 'N/A';
+        document.getElementById('meta-time').textContent = timestampStr;
+        
+        loading.style.display = 'none';
+        searchSec.style.display = 'block';
+        metadataSec.style.display = 'flex';
+        table.style.display = 'table';
+        
+        document.getElementById('sbom-search').value = '';
+        renderRows(currentComponents);
+      } catch (err) {
+        loading.style.display = 'none';
+        errorDiv.style.display = 'block';
+        document.getElementById('error-message').textContent = err.message;
+      }
+    }
+
+    function renderRows(components) {
+      const tbody = document.getElementById('sbom-tbody');
+      tbody.innerHTML = '';
+      
+      if (components.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="u-align--center p-text--muted">No matching components found</td></tr>`;
+        return;
+      }
+      
+      components.forEach(c => {
+        const tr = document.createElement('tr');
+        
+        let licensesStr = 'None';
+        if (c.licenses && c.licenses.length > 0) {
+          licensesStr = c.licenses.map(l => {
+            if (l.license) {
+              return l.license.id || l.license.name || '';
+            }
+            return '';
+          }).filter(Boolean).join(', ');
+        }
+        
+        tr.innerHTML = `
+          <td><strong>${escapeHtml(c.name)}</strong></td>
+          <td><code>${escapeHtml(c.version)}</code></td>
+          <td><span class="p-text--small">${escapeHtml(c.type || 'library')}</span></td>
+          <td>${escapeHtml(licensesStr)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterSBOM() {
+      const query = document.getElementById('sbom-search').value.toLowerCase().trim();
+      if (!query) {
+        renderRows(currentComponents);
+        return;
+      }
+      
+      const filtered = currentComponents.filter(c => {
+        const nameMatch = c.name.toLowerCase().includes(query);
+        const verMatch = c.version.toLowerCase().includes(query);
+        const typeMatch = (c.type || '').toLowerCase().includes(query);
+        
+        let licensesStr = '';
+        if (c.licenses && c.licenses.length > 0) {
+          licensesStr = c.licenses.map(l => (l.license ? (l.license.id || l.license.name || '') : '')).join(' ');
+        }
+        const licenseMatch = licensesStr.toLowerCase().includes(query);
+        
+        return nameMatch || verMatch || typeMatch || licenseMatch;
+      });
+      
+      renderRows(filtered);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadSBOM('amd64');
+    });
+  </script>
 
 </body>
 </html>
