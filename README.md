@@ -56,7 +56,7 @@ sudo pihole -r
 The snap package is built and integration-tested automatically across various Linux distributions and init configurations:
 
 | | Distribution | Version | Name | Init System | Status |
-| :---: | :--- | :--- | :--- | :--- | :--- |
+| :--- | :--- | :--- | :--- | :--- | :--- |
 | ![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=flat-square&logo=ubuntu&logoColor=white) | Ubuntu | 26.04 LTS | Resolute Raccoon | systemd | [![Test on Ubuntu 26.04](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-2604.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-2604.yml) |
 | ![Ubuntu](https://img.shields.io/badge/Ubuntu_Core-E95420?style=flat-square&logo=ubuntu&logoColor=white) | Ubuntu Core | 26 | Core | systemd-udevd | [![Test on Ubuntu Core](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-core.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-core.yml) |
 | ![Debian](https://img.shields.io/badge/Debian-A81D33?style=flat-square&logo=debian&logoColor=white) | Debian | 12 | Bookworm | systemd | [![Test on Debian 12](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-debian-12.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-debian-12.yml) |
