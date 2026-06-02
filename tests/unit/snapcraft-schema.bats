@@ -354,6 +354,14 @@ if problems:
 PYEOF
 }
 
+@test "snapcraft.yaml passes yamllint validation" {
+    if ! command -v yamllint >/dev/null 2>&1; then
+        skip "yamllint is not installed"
+    fi
+    run yamllint -d "{extends: relaxed, rules: {line-length: disable}}" "${REPO_ROOT}/snap/snapcraft.yaml"
+    [ "$status" -eq 0 ]
+}
+
 # ---------------------------------------------------------------------------
 # 7. Repository file presence
 # ---------------------------------------------------------------------------

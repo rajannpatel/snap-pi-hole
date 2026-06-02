@@ -18,6 +18,6 @@ setup() {
     files=$(find "${REPO_ROOT}/snap" "${REPO_ROOT}/tests" -type f \( -name "*.sh" -o -path "*/snap/hooks/*" \) | sort)
 
     # Run shellcheck on all identified files
-    run shellcheck $files
+    run shellcheck -x $files
     [ "$status" -eq 0 ]
 }

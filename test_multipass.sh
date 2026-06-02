@@ -387,7 +387,7 @@ if [ "$LINT" = "true" ]; then
         local_scripts=$(grep -rl '^#!/.*sh' snap/local/runtime/ snap/local/build/ snap/local/testing/ snap/hooks/ 2>/dev/null || true)
         if [ -n "$local_scripts" ]; then
             # shellcheck disable=SC2086
-            shellcheck $local_scripts
+            shellcheck -x $local_scripts
             log_success "Shellcheck completed successfully."
         else
             log_warn "No shell scripts found for shellcheck."
