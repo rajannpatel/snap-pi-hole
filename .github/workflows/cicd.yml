@@ -83,7 +83,8 @@ jobs:
       - name: Generate SBOM (CycloneDX)
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-          syft scan ${{ steps.snapcraft.outputs.snap }} -o cyclonedx-json=sbom-${{ matrix.arch }}.json
+          unsquashfs -d extracted-snap ${{ steps.snapcraft.outputs.snap }}
+          syft scan extracted-snap -o cyclonedx-json=sbom-${{ matrix.arch }}.json
 
       - name: Upload SBOM artefact
         uses: actions/upload-artifact@v4

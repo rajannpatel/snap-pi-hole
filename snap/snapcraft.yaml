@@ -227,6 +227,12 @@ parts:
       - bin/snap-check
       - bin/snap-debug
       - bin/snap-setup
+    override-prime: |
+      craftctl default
+      mkdir -p "$SNAPCRAFT_PRIME/var/lib/dpkg"
+      if [ -f /var/lib/dpkg/status ]; then
+        cp /var/lib/dpkg/status "$SNAPCRAFT_PRIME/var/lib/dpkg/status"
+      fi
 
 apps:
   # The daemon. Disabled on install so the operator can free port 53 and
