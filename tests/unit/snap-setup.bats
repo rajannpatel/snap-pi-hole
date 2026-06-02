@@ -189,11 +189,25 @@ teardown() {
 @test "snap-setup prompts and exits immediately on FAIL when user accepts (Y)" {
     export MOCK_FTL_ACTIVE="false"
     export MOCK_TCP_PORTS_IN_USE="127.0.0.1:53"
+    export MOCK_ALIAS_CHECK="false"
     unset NON_INTERACTIVE
     run bash -c "echo 'y' | ${SETUP_SCRIPT}"
     [ "$status" -eq 1 ]
     [[ "$output" == *"Do you want to exit the wizard and run these commands? (Y/n)"* ]]
     [[ "$output" == *"Aborting setup"* ]]
+    [[ "$output" == *"sudo pihole-by-rajannpatel.pihole -r"* ]]
+}
+
+@test "snap-setup prompts, exits on FAIL, and advises sudo pihole -r when alias is enabled" {
+    export MOCK_FTL_ACTIVE="false"
+    export MOCK_TCP_PORTS_IN_USE="127.0.0.1:53"
+    export MOCK_ALIAS_CHECK="true"
+    unset NON_INTERACTIVE
+    run bash -c "echo 'y' | ${SETUP_SCRIPT}"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Do you want to exit the wizard and run these commands? (Y/n)"* ]]
+    [[ "$output" == *"Aborting setup"* ]]
+    [[ "$output" == *"sudo pihole -r"* ]]
 }
 
 @test "snap-setup prompts and continues on FAIL when user declines (n)" {

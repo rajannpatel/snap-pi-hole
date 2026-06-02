@@ -43,11 +43,19 @@ fi
 echo "Step 1: System Prerequisite Checks"
 echo ""
 
+ALIAS_SET=true
 # Check if the command alias exists on the host
 if [ ! -e "/snap/bin/pihole" ] && [ "${MOCK_ALIAS_CHECK:-}" != "true" ]; then
+    ALIAS_SET=false
     printf "${YELLOW}[WARN]${NC} Command alias 'pihole' has not been enabled on your host.\n"
     printf "Remediation: Run the following command on your host to enable the 'pihole' alias:\n\n"
     printf "${BOLD}${CYAN}sudo snap alias ${SNAP_NAME:-pihole-by-rajannpatel}.pihole pihole${NC}\n\n"
+fi
+
+if [ "$ALIAS_SET" = "true" ]; then
+    REENTER_CMD="sudo pihole -r"
+else
+    REENTER_CMD="sudo ${SNAP_NAME:-pihole-by-rajannpatel}.pihole -r"
 fi
 
 prompt_fail_exit() {
@@ -61,7 +69,7 @@ prompt_fail_exit() {
                 echo ""
                 ;;
             *)
-                echo "Aborting setup. Please resolve the issues above and run the wizard again."
+                echo "Aborting setup."
                 exit 1
                 ;;
         esac
@@ -128,13 +136,15 @@ else
         printf "Remediation: Run the following commands on your host:\n\n"
         printf "${BOLD}${CYAN}sudo mkdir -p /etc/systemd/resolved.conf.d\n"
         printf "printf '[Resolve]\\\\nDNS=127.0.0.1\\\\nDNSStubListener=no\\\\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf\n"
-        printf "sudo systemctl restart systemd-resolved${NC}\n\n"
+        printf "sudo systemctl restart systemd-resolved\n"
+        printf "${REENTER_CMD}${NC}\n\n"
         prompt_fail_exit
     elif check_tcp "127.0.0.1" "53" || check_tcp "0.0.0.0" "53" || check_udp "0035"; then
         PORT_53_CONFLICT=true
         printf "${RED}[FAIL]${NC} Port 53 conflict detected. Another process is binding port 53.\n"
-        printf "Remediation: Run the following command on your host to identify the process:\n\n"
-        printf "${BOLD}${CYAN}sudo ss -tulpn | grep :53${NC}\n\n"
+        printf "Remediation: Run the following commands on your host:\n\n"
+        printf "${BOLD}${CYAN}sudo ss -tulpn | grep :53\n"
+        printf "${REENTER_CMD}${NC}\n\n"
         prompt_fail_exit
     else
         printf "${GREEN}[OK]${NC} Port 53 (DNS) is free.\n\n"
@@ -151,8 +161,9 @@ check_plug() {
         if [ "$required" = "true" ]; then
             DISCONNECTED_PLUGS="${DISCONNECTED_PLUGS} ${plug}"
             printf "${RED}[FAIL]${NC} Interface plug '${plug}' is disconnected (REQUIRED).\n"
-            printf "Remediation: Run the following command on your host to connect the plug:\n\n"
-            printf "${BOLD}${CYAN}sudo snap connect ${SNAP_NAME:-pihole}:${plug}${NC}\n\n"
+            printf "Remediation: Run the following commands on your host:\n\n"
+            printf "${BOLD}${CYAN}sudo snap connect ${SNAP_NAME:-pihole}:${plug}\n"
+            printf "${REENTER_CMD}${NC}\n\n"
             prompt_fail_exit
         else
             printf "${BLUE}[INFO]${NC} Interface plug '${plug}' is disconnected (optional: ${desc}).\n"
