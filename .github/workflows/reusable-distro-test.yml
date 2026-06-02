@@ -168,11 +168,7 @@ jobs:
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               opensuse-tumbleweed)
-                # Fallback: Add the development repo if snapd was dropped from the main snapshot
-                if ! lxc exec test-instance -- zypper se -x snapd >/dev/null 2>&1; then
-                  echo "snapd not found in main repos. Adding system:snappy development repo..."
-                  lxc exec test-instance -- zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Tumbleweed/system:snappy.repo
-                fi
+                lxc exec test-instance -- zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Tumbleweed/system:snappy.repo
                 lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install snapd fuse squashfuse
                 lxc exec test-instance -- systemctl enable --now snapd
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
