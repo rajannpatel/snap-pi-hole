@@ -286,6 +286,9 @@ jobs:
           VERSION_CODENAME=$(echo "$OS_RELEASE" | grep "^VERSION_CODENAME=" | cut -d= -f2 | tr -d '"')
           PRETTY_NAME=$(echo "$OS_RELEASE"      | grep "^PRETTY_NAME="      | cut -d= -f2 | tr -d '"')
 
+          # Capitalize the codename (e.g. trixie -> Trixie) to ensure proper casing in the README table
+          VERSION_CODENAME="${VERSION_CODENAME^}"
+
           # Rolling distros (Arch, Tumbleweed) have no VERSION_ID — fall back to "Rolling"
           export DISPLAY_VERSION="${VERSION_ID:-Rolling}"
           export DISPLAY_NAME="${VERSION_CODENAME:-${PRETTY_NAME:-}}"
