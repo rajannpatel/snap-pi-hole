@@ -18,7 +18,7 @@ A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](
 # - On Rocky Linux/AlmaLinux:
 #     sudo dnf install -y epel-release && sudo dnf install -y snapd && sudo systemctl enable --now snapd.socket && sudo ln -s /var/lib/snapd/snap /snap
 # - On openSUSE Leap:
-#     sudo zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_15.6/system:snappy.repo
+#     sudo zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_16.0/system:snappy.repo
 #     sudo zypper install -y snapd && sudo systemctl enable --now snapd && sudo ln -s /var/lib/snapd/snap /snap
 # - On openSUSE Tumbleweed:
 #     sudo zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Tumbleweed/system:snappy.repo
