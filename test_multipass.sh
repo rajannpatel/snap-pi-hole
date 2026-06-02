@@ -401,7 +401,7 @@ if [ "$LINT" = "true" ]; then
         if command -v kcov >/dev/null 2>&1; then
             log "kcov detected. Running BATS unit tests with code coverage..."
             mkdir -p coverage
-            kcov --include-path="$PWD/snap/local,$PWD/snap/hooks" --dump-summary "$PWD/coverage" bats -r tests/unit/
+            kcov --include-path="$PWD/snap/local,$PWD/snap/hooks" "$PWD/coverage" bats -r tests/unit/
         else
             bats -r tests/unit/
         fi
