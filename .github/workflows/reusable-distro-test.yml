@@ -161,35 +161,49 @@ jobs:
             set -e
             case '${{ inputs.distro }}' in
               ubuntu*|debian*)
+                lxc exec test-instance -- apt-get clean
                 lxc exec test-instance -- apt-get update
                 lxc exec test-instance -- apt-get install -y snapd fuse squashfuse
                 ;;
               fedora)
+                lxc exec test-instance -- dnf clean all
+                lxc exec test-instance -- dnf makecache
                 lxc exec test-instance -- dnf install -y snapd fuse squashfuse
                 lxc exec test-instance -- systemctl enable --now snapd.socket
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               rockylinux|almalinux)
+                lxc exec test-instance -- dnf clean all
+                lxc exec test-instance -- dnf makecache
                 lxc exec test-instance -- dnf install -y epel-release
+                lxc exec test-instance -- dnf clean all
+                lxc exec test-instance -- dnf makecache
                 lxc exec test-instance -- dnf install -y snapd fuse squashfuse
                 lxc exec test-instance -- systemctl enable --now snapd.socket
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               opensuse-leap*)
+                lxc exec test-instance -- zypper clean --all
+                lxc exec test-instance -- zypper refresh
                 lxc exec test-instance -- zypper addrepo --refresh 'https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_\$releasever/' system_snappy
+                lxc exec test-instance -- zypper refresh
                 lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install snapd fuse squashfuse
                 lxc exec test-instance -- systemctl enable --now snapd
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               opensuse-tumbleweed)
+                lxc exec test-instance -- zypper clean --all
+                lxc exec test-instance -- zypper refresh
                 lxc exec test-instance -- zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Tumbleweed/system:snappy.repo
+                lxc exec test-instance -- zypper refresh
                 lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install snapd fuse squashfuse
                 lxc exec test-instance -- systemctl enable --now snapd
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               archlinux)
                 # Arch requires building snapd from AUR
-                lxc exec test-instance -- pacman -Sy --noconfirm base-devel git squashfuse
+                lxc exec test-instance -- pacman -Scc --noconfirm
+                lxc exec test-instance -- pacman -Syy --noconfirm base-devel git squashfuse
                 lxc exec test-instance -- useradd -m -d /home/builder -s /bin/bash builder
                 lxc exec test-instance -- sh -c 'echo \"builder ALL=(ALL) NOPASSWD: ALL\" >> /etc/sudoers'
                 lxc exec test-instance -- sudo -u builder git clone https://aur.archlinux.org/snapd.git /home/builder/snapd
