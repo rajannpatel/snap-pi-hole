@@ -121,6 +121,15 @@ teardown() {
     [[ "$output" == *"sudo snap connect pihole:network-bind"* ]]
 }
 
+@test "snap-setup handles disconnected optional plugs as INFO and does not fail" {
+    export MOCK_DISCONNECT_system_observe="true"
+    export MOCK_FTL_ACTIVE="true"
+    run "${SETUP_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[INFO] Interface plug 'system-observe' is disconnected (optional"* ]]
+    [[ "$output" != *"Do you want to exit the wizard"* ]]
+}
+
 # Upstream DNS configuration
 
 @test "snap-setup configures preset upstream DNS (Cloudflare default)" {
@@ -197,6 +206,8 @@ teardown() {
     [[ "$output" == *"Continuing setup anyway..."* ]]
     [[ "$output" == *"Step 2: Upstream DNS Configuration"* ]]
 }
+
+# Wizard completion
 
 @test "snap-setup prints web browser administration advice on successful completion" {
     export MOCK_FTL_ACTIVE="true"
