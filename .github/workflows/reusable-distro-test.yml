@@ -103,7 +103,7 @@ jobs:
               print(prefix); sys.exit(0)
           best_v, best_img = None, None
           for img in images:
-              if img.get("type") != "CONTAINER":
+              if img.get("type", "").lower() != "container":
                   continue
               for alias in img.get("aliases", []):
                   name = alias["name"]
