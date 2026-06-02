@@ -57,7 +57,7 @@ The snap package is built and integration-tested automatically across various Li
 
 | | Distribution | Version | Name | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| ![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=flat-square&logo=ubuntu&logoColor=white) | Ubuntu | LTS | - | [![Test on Ubuntu](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu.yml) |
+| ![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=flat-square&logo=ubuntu&logoColor=white) | Ubuntu | 26.04 | resolute | [![Test on Ubuntu](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu.yml) |
 | ![Ubuntu](https://img.shields.io/badge/Ubuntu_Core-E95420?style=flat-square&logo=ubuntu&logoColor=white) | Ubuntu Core | 26 | Core | [![Test on Ubuntu Core](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-core.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-core.yml) |
 | ![Debian](https://img.shields.io/badge/Debian-A81D33?style=flat-square&logo=debian&logoColor=white) | Debian | - | - | [![Test on Debian](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-debian.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-debian.yml) |
 | ![Fedora](https://img.shields.io/badge/Fedora-3C6EB4?style=flat-square&logo=fedora&logoColor=white) | Fedora | - | - | [![Test on Fedora](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-fedora.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-fedora.yml) |
