@@ -256,3 +256,38 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" == *"[WARN] No enabled adlists found in gravity.db"* ]]
 }
+
+@test "flags database locking or corruption errors in FTL log" {
+    echo "SQLite3 message: database is locked (5)" >> "${SNAP_COMMON}/var/log/pihole/FTL.log"
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[FAIL] SQLite database locking/corruption detected!"* ]]
+    [[ "$output" == *"Stop the FTL service"* ]]
+}
+
+@test "flags potential DNS loops in FTL/pihole logs" {
+    echo "Possible DNS loop detected" >> "${SNAP_COMMON}/var/log/pihole/FTL.log"
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[WARN] Potential DNS Loop detected!"* ]]
+}
+
+@test "flags potential DNS loops in pihole.log when FTL log is clean" {
+    echo "maximum number of concurrent DNS queries" >> "${SNAP_COMMON}/var/log/pihole/pihole.log"
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[WARN] Potential DNS Loop detected in pihole.log!"* ]]
+}
+
+@test "flags upstream DNS timeouts in FTL log" {
+    echo "query[AAAA] to 8.8.8.8 timed out" >> "${SNAP_COMMON}/var/log/pihole/FTL.log"
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[WARN] Upstream DNS timeouts detected!"* ]]
+}
+
+@test "outputs OK when no critical patterns are found in logs" {
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[OK] No critical error patterns detected in logs."* ]]
+}

@@ -186,6 +186,77 @@ else
 fi
 echo ""
 
+# --- LOG SCANNER ---
+echo "--- LOG SCAN FOR CRITICAL PATTERNS ---"
+FTL_LOG_PATH=""
+for path in "/var/log/pihole/FTL.log" "$SNAP_COMMON/var/log/pihole/FTL.log" "/var/log/pihole/pihole-FTL.log" "$SNAP_COMMON/var/log/pihole/pihole-FTL.log"; do
+    if [ -f "$path" ]; then
+        FTL_LOG_PATH="$path"
+        break
+    fi
+done
+
+PIHOLE_LOG_PATH=""
+for path in "/var/log/pihole/pihole.log" "$SNAP_COMMON/var/log/pihole/pihole.log"; do
+    if [ -f "$path" ]; then
+        PIHOLE_LOG_PATH="$path"
+        break
+    fi
+done
+
+FOUND_ISSUES=0
+
+if [ -n "$FTL_LOG_PATH" ]; then
+    # 1. Database Locking / Corruption
+    if grep -qEi "database is locked|database disk image is malformed" "$FTL_LOG_PATH"; then
+        FOUND_ISSUES=1
+        echo "  [FAIL] SQLite database locking/corruption detected!"
+        echo "         -> Remediation:"
+        echo "            1. Stop the FTL service:"
+        echo "               'sudo snap stop ${SNAP_NAME}.pihole-ftl'"
+        echo "            2. Run sqlite3 integrity checks or vacuum on the database:"
+        echo "               'sudo ${SNAP_NAME}.pihole-ftl sqlite3 ${SNAP_DATA}/etc/pihole/gravity.db \"PRAGMA integrity_check;\"'"
+        echo "            3. If corrupted, restore from a snapshot or run 'sudo pihole -g' to recreate gravity.db."
+    fi
+
+    # 2. DNS Loops
+    if grep -qEi "DNS mascot loop|Possible DNS loop detected|maximum number of concurrent DNS queries" "$FTL_LOG_PATH"; then
+        FOUND_ISSUES=1
+        echo "  [WARN] Potential DNS Loop detected!"
+        echo "         -> Remediation: Check that your router or clients do not have circular DNS references"
+        echo "            (e.g., Pi-hole pointing to the router for DNS and the router pointing to Pi-hole)."
+        echo "            Verify 'Conditional Forwarding' settings in the Pi-hole web UI."
+    fi
+
+    # 3. Upstream Timeouts
+    if grep -qEi "lost query|reply from .* is lost|timed out|reducing DNSSEC validation trust" "$FTL_LOG_PATH"; then
+        FOUND_ISSUES=1
+        echo "  [WARN] Upstream DNS timeouts detected!"
+        echo "         -> Remediation: Verify host outbound network connectivity to upstream resolvers."
+        echo "            Check for local firewall restrictions or clock drift/skew causing DNSSEC validation failures."
+    fi
+fi
+
+if [ -n "$PIHOLE_LOG_PATH" ]; then
+    # Scan pihole.log for similar loops/timeouts if FTL log didn't catch them or to supplement
+    # DNS Loops in pihole.log
+    if grep -qEi "maximum number of concurrent DNS queries" "$PIHOLE_LOG_PATH"; then
+        # Check if we already logged a DNS Loop warning to avoid duplicate messages
+        if [ -n "$FTL_LOG_PATH" ] && grep -qEi "DNS mascot loop|Possible DNS loop detected|maximum number of concurrent DNS queries" "$FTL_LOG_PATH" >/dev/null 2>&1; then
+            :
+        else
+            FOUND_ISSUES=1
+            echo "  [WARN] Potential DNS Loop detected in pihole.log!"
+            echo "         -> Remediation: Check circular DNS references between Pi-hole and router."
+        fi
+    fi
+fi
+
+if [ "$FOUND_ISSUES" -eq 0 ]; then
+    echo "  [OK] No critical error patterns detected in logs."
+fi
+echo ""
+
 # --- DAEMON LOGS ---
 echo "--- TAIL OF FTL LOG ---"
 if [ -f "/var/log/pihole/FTL.log" ]; then
