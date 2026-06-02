@@ -28,7 +28,7 @@ jobs:
           
           # Wait for the multipass daemon to start completely
           for i in {1..10}; do
-            if multipass version >/dev/null 2>&1; then
+            if sudo multipass version >/dev/null 2>&1; then
               echo "Multipass is ready!"
               exit 0
             fi
@@ -39,17 +39,17 @@ jobs:
       - name: Launch Ubuntu Core VM
         run: |
           echo "Launching Ubuntu Core VM using image: core26"
-          multipass launch core26 --name test-vm --cpus 2 --memory 2G --disk 10G
+          sudo multipass launch core26 --name test-vm --cpus 2 --memory 2G --disk 10G
 
       - name: Transfer and Install Snap
         run: |
           SNAP_FILE=$(ls *.snap | head -n 1)
           
           # Transfer the snap package to the guest VM
-          multipass transfer "$SNAP_FILE" test-vm:/home/ubuntu/pihole.snap
+          sudo multipass transfer "$SNAP_FILE" test-vm:/home/ubuntu/pihole.snap
           
           # Install the snap package
-          multipass exec test-vm -- sudo snap install /home/ubuntu/pihole.snap --dangerous
+          sudo multipass exec test-vm -- sudo snap install /home/ubuntu/pihole.snap --dangerous
           
           # Connect manual interfaces
           plugs=(
@@ -64,18 +64,18 @@ jobs:
             "time-control"
           )
           for plug in "${plugs[@]}"; do
-            multipass exec test-vm -- sudo snap connect "pihole-by-rajannpatel:$plug" || true
+            sudo multipass exec test-vm -- sudo snap connect "pihole-by-rajannpatel:$plug" || true
           done
           
           # Setup command alias
-          multipass exec test-vm -- sudo snap alias pihole-by-rajannpatel.pihole pihole
+          sudo multipass exec test-vm -- sudo snap alias pihole-by-rajannpatel.pihole pihole
 
       - name: Verify Confinement
         run: |
           # Run the diagnostics tool
-          multipass exec test-vm -- pihole snap-check
+          sudo multipass exec test-vm -- pihole snap-check
 
       - name: Cleanup VM
         if: always()
         run: |
-          multipass delete --purge test-vm || true
+          sudo multipass delete --purge test-vm || true
