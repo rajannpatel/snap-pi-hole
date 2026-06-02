@@ -59,6 +59,13 @@ printf 'STUB_SNAP_DEBUG:%s\n' "$*"
 exit 0
 EOF
     chmod +x "${SNAP}/bin/snap-debug"
+
+    cat > "${SNAP}/bin/snap-setup" <<'EOF'
+#!/bin/sh
+printf 'STUB_SNAP_SETUP:%s\n' "$*"
+exit 0
+EOF
+    chmod +x "${SNAP}/bin/snap-setup"
 }
 
 teardown() {
@@ -92,16 +99,16 @@ teardown() {
     [[ "$output" == *"snap refresh pihole"* ]]
 }
 
-@test "block -r and point at snap revert" {
+@test "route -r to snap-setup" {
     run "${LAUNCHER}" -r
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"snap revert pihole"* ]]
+    [ "$status" -eq 0 ]
+    [[ "$output" == "STUB_SNAP_SETUP:" ]]
 }
 
-@test "block repair and point at snap revert" {
+@test "route repair to snap-setup" {
     run "${LAUNCHER}" repair
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"snap revert pihole"* ]]
+    [ "$status" -eq 0 ]
+    [[ "$output" == "STUB_SNAP_SETUP:" ]]
 }
 
 @test "block uninstall and point at snap remove" {
@@ -152,7 +159,7 @@ teardown() {
 echo "BUG: blocked subcommand reached upstream script with args: $*" >&2
 exit 0
 EOF
-    for cmd in -up updatePihole updatechecker checkout -r repair uninstall; do
+    for cmd in -up updatePihole updatechecker checkout uninstall; do
         run "${LAUNCHER}" "$cmd"
         [ "$status" -eq 1 ]
         [[ "$output" != *"BUG:"* ]]

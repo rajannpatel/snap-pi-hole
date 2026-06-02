@@ -4,9 +4,8 @@
 
 set -eu
 
-echo "=========================================================="
-echo "              PI-HOLE SNAP DIAGNOSTIC DUMP              "
-echo "=========================================================="
+echo "PI-HOLE SNAP DIAGNOSTIC DUMP"
+echo ""
 echo "Purpose: This tool captures a snapshot of the snap's runtime"
 echo "environment, including network interfaces, port conflicts,"
 echo "confinement logs, and daemon configuration."
@@ -14,7 +13,7 @@ echo ""
 echo "Usage: Run this when experiencing deployment issues, DNS"
 echo "failures, or crashes. Copy the ENTIRE output of this command"
 echo "and provide it when opening a bug report."
-echo "=========================================================="
+echo ""
 echo "Date: $(date)"
 echo "Snap Version: $(snapctl get version || echo 'Unknown')"
 echo ""
@@ -272,9 +271,7 @@ else
 fi
 echo ""
 
-echo "=========================================================="
-echo "                END OF DIAGNOSTIC DUMP                  "
-echo "=========================================================="
+echo "END OF DIAGNOSTIC DUMP"
 echo ""
 echo "Please copy the output above and submit it along with your"
 echo "issue description to the GitHub repository:"

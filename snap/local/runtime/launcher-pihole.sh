@@ -16,9 +16,6 @@ usage_snap_equivalent() {
         -up|updatePihole|updatechecker|checkout)
             echo "  Use: sudo snap refresh pihole" >&2
             ;;
-        -r|repair)
-            echo "  Use: sudo snap revert pihole   # then re-refresh if needed" >&2
-            ;;
         uninstall)
             echo "  Use: sudo snap remove pihole" >&2
             ;;
@@ -26,7 +23,10 @@ usage_snap_equivalent() {
 }
 
 case "${1:-}" in
-    -up|updatePihole|-r|repair|uninstall|checkout|updatechecker)
+    -r|repair)
+        exec "${SNAP}/bin/snap-setup" "${@:2}"
+        ;;
+    -up|updatePihole|uninstall|checkout|updatechecker)
         echo "Error: 'pihole $1' is not supported in the snap." >&2
         usage_snap_equivalent "$1"
         exit 1
