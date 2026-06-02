@@ -79,7 +79,8 @@ jobs:
         if: inputs.distro != 'ubuntu-core'
         run: |
           sg lxd -c '
-            for i in {1..30}; do
+            i=1
+            while [ $i -le 30 ]; do
               if lxc exec test-vm -- systemctl is-system-running 2>/dev/null | grep -qE "running|degraded"; then
                 echo "VM is fully booted!"
                 exit 0
@@ -91,6 +92,7 @@ jobs:
               fi
               echo "Waiting for VM boot..."
               sleep 5
+              i=$((i + 1))
             done
             echo "VM failed to boot"
             exit 1
@@ -174,14 +176,15 @@ jobs:
           sudo snap connect multipass:kvm || true
           sudo multipass set local.driver=qemu
           
-          # Wait for the multipass daemon to start completely
-          for i in {1..20}; do
+          i=1
+          while [ $i -le 20 ]; do
             if sudo multipass list >/dev/null 2>&1; then
               echo "Multipass is ready!"
               exit 0
             fi
             echo "Waiting for Multipass daemon..."
             sleep 3
+            i=$((i + 1))
           done
           
           echo "Multipass daemon failed to start. Logs:"
