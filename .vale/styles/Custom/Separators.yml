@@ -1,0 +1,5 @@
+extends: existence
+message: "Avoid using repeating character separators (like '====' or '----') in prose. They are read aloud by screen readers and disrupt visually impaired users."
+level: error
+tokens:
+  - '(={4,}|-{4,}|\*{4,}|_{4,})'

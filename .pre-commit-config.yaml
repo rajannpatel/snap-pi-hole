@@ -4,3 +4,12 @@ repos:
     hooks:
       - id: shellcheck
         files: ^(snap/hooks/|snap/local/runtime/|snap/local/build/|snap/local/testing/|test_multipass\.sh)
+
+  - repo: local
+    hooks:
+      - id: no-repeating-separators
+        name: Check CLI accessibility (No repeating delimiters)
+        entry: '(={4,}|-{4,}|\*{4,}|_{4,})'
+        language: pygrep
+        files: \.(sh|py|bats|yaml|yml)$
+
