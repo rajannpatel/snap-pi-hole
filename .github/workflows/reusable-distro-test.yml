@@ -431,6 +431,12 @@ jobs:
       - name: Install and Verify Snap (Multipass)
         if: inputs.distro == 'ubuntu-core'
         run: |
+          # Free port 53 inside the Ubuntu Core VM by disabling DNSStubListener
+          sudo multipass exec test-instance -- sudo mkdir -p /etc/systemd/resolved.conf.d
+          sudo multipass exec test-instance -- bash -c "printf '[Resolve]\nDNS=127.0.0.1\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf"
+          sudo multipass exec test-instance -- sudo systemctl restart systemd-resolved
+
+          # Transfer and install the snap
           sudo multipass transfer ${{ needs.build.outputs.snap_file }} test-instance:/home/ubuntu/pihole.snap
           sudo multipass exec test-instance -- sudo snap install /home/ubuntu/pihole.snap --dangerous
 
@@ -440,6 +446,9 @@ jobs:
           done
 
           sudo multipass exec test-instance -- sudo snap alias pihole-by-rajannpatel.pihole pihole
+          
+          # Start and enable the daemon (required since it installs disabled by default)
+          sudo multipass exec test-instance -- sudo snap start --enable pihole-by-rajannpatel.pihole-ftl
 
       - name: Run Snap Diagnostics (Multipass)
         if: inputs.distro == 'ubuntu-core'
