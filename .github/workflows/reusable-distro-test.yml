@@ -87,15 +87,19 @@ jobs:
           # (e.g. images:opensuse/tumbleweed) are passed through unchanged.
           cat > /tmp/resolve_image.py << 'PYEOF'
           import json, re, subprocess, sys, urllib.request
-          prefix = sys.argv[1]
+          prefix = sys.argv[1].strip()
           if prefix == "images:debian/stable":
               try:
-                  req = urllib.request.Request("https://www.debian.org/releases/stable/", method="HEAD")
+                  req = urllib.request.Request("https://deb.debian.org/debian/dists/stable/Release")
                   with urllib.request.urlopen(req) as resp:
-                      url = resp.geturl()
-                      codename = url.strip("/").split("/")[-1]
-                      print(f"images:debian/{codename}")
-                      sys.exit(0)
+                      for line in resp:
+                          line_str = line.decode("utf-8")
+                          if line_str.startswith("Codename:"):
+                              codename = line_str.split(":", 1)[1].strip()
+                              print(f"images:debian/{codename}")
+                              sys.exit(0)
+                  print("images:debian/bookworm")
+                  sys.exit(0)
               except Exception:
                   print("images:debian/bookworm")
                   sys.exit(0)
@@ -173,7 +177,7 @@ jobs:
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               opensuse-leap*)
-                lxc exec test-instance -- zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_\\\$releasever/system:snappy.repo
+                lxc exec test-instance -- zypper addrepo --refresh 'https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_\$releasever/' system_snappy
                 lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install snapd fuse squashfuse
                 lxc exec test-instance -- systemctl enable --now snapd
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
