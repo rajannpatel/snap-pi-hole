@@ -64,6 +64,10 @@ jobs:
         run: |
           sudo groupadd --force --system lxd
           sudo usermod -a -G lxd $USER
+          # GHA runners have Docker installed which sets iptables FORWARD policy
+          # to DROP, blocking NAT traffic from LXD containers. Setting it to
+          # ACCEPT restores outbound internet access for containers.
+          sudo iptables -P FORWARD ACCEPT
           sudo lxd init --auto
 
       - name: Launch Container (LXD)
