@@ -116,7 +116,7 @@ jobs:
           PYEOF
           IMAGE=$(python3 /tmp/resolve_image.py "${{ inputs.lxd_image }}")
           echo "Resolved image: $IMAGE"
-          sg lxd -c "lxc launch \"$IMAGE\" test-instance"
+          sg lxd -c "lxc launch \"$IMAGE\" test-instance -c security.nesting=true"
 
       - name: Wait for Container to Be Ready (LXD)
         if: inputs.distro != 'ubuntu-core'
@@ -148,33 +148,33 @@ jobs:
             case '${{ inputs.distro }}' in
               ubuntu|debian)
                 lxc exec test-instance -- apt-get update
-                lxc exec test-instance -- apt-get install -y snapd
+                lxc exec test-instance -- apt-get install -y snapd fuse squashfuse
                 ;;
               fedora)
-                lxc exec test-instance -- dnf install -y snapd
+                lxc exec test-instance -- dnf install -y snapd fuse squashfuse
                 lxc exec test-instance -- systemctl enable --now snapd.socket
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               rockylinux|almalinux)
                 lxc exec test-instance -- dnf install -y epel-release
-                lxc exec test-instance -- dnf install -y snapd
+                lxc exec test-instance -- dnf install -y snapd fuse squashfuse
                 lxc exec test-instance -- systemctl enable --now snapd.socket
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               opensuse-leap*)
                 lxc exec test-instance -- zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_15.6/system:snappy.repo
-                lxc exec test-instance -- zypper --non-interactive install snapd
+                lxc exec test-instance -- zypper --non-interactive install snapd fuse squashfuse
                 lxc exec test-instance -- systemctl enable --now snapd
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               opensuse-tumbleweed)
-                lxc exec test-instance -- zypper --non-interactive install snapd
+                lxc exec test-instance -- zypper --non-interactive install snapd fuse
                 lxc exec test-instance -- systemctl enable --now snapd
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               archlinux)
                 # Arch requires building snapd from AUR
-                lxc exec test-instance -- pacman -Sy --noconfirm base-devel git
+                lxc exec test-instance -- pacman -Sy --noconfirm base-devel git squashfuse
                 lxc exec test-instance -- useradd -m -d /home/builder -s /bin/bash builder
                 lxc exec test-instance -- sh -c 'echo \"builder ALL=(ALL) NOPASSWD: ALL\" >> /etc/sudoers'
                 lxc exec test-instance -- sudo -u builder git clone https://aur.archlinux.org/snapd.git /home/builder/snapd
@@ -185,7 +185,7 @@ jobs:
               alpine)
                 lxc exec test-instance -- sh -c 'echo \"http://dl-cdn.alpinelinux.org/alpine/edge/community\" >> /etc/apk/repositories'
                 lxc exec test-instance -- apk update
-                lxc exec test-instance -- apk add snapd
+                lxc exec test-instance -- apk add snapd fuse squashfuse
                 lxc exec test-instance -- rc-update add snapd
                 lxc exec test-instance -- rc-service snapd start
                 ;;
