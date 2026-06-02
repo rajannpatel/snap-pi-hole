@@ -11,8 +11,19 @@ setup() {
     export SNAP="${TMPDIR}/snap"
     
     mkdir -p "${SNAP_DATA}/etc/pihole"
-    mkdir -p "${SNAP_COMMON}"
     mkdir -p "${SNAP}/bin"
+    mkdir -p "${SNAP}/usr/bin"
+
+    # Set up FTL mock log and binary
+    export MOCK_FTL_LOG="${TMPDIR}/ftl_log"
+    touch "${MOCK_FTL_LOG}"
+    cat > "${SNAP}/usr/bin/pihole-FTL" <<'EOF'
+#!/bin/bash
+echo "$*" >> "${MOCK_FTL_LOG}"
+exit 0
+EOF
+    chmod +x "${SNAP}/usr/bin/pihole-FTL"
+
 
     # Create mock snapctl script to monitor interactions
     export MOCK_BIN="${TMPDIR}/bin"
@@ -148,6 +159,8 @@ teardown() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"Applying upstream DNS: [\"1.1.1.1\",\"1.0.0.1\"]"* ]]
     run grep -q "set ftl.dns.upstreams=\[\"1.1.1.1\",\"1.0.0.1\"\]" "${SNAPCTL_LOG}"
+    [ "$status" -eq 0 ]
+    run grep -q "\-\-config dns.upstreams \[\"1.1.1.1\",\"1.0.0.1\"\]" "${MOCK_FTL_LOG}"
     [ "$status" -eq 0 ]
 }
 

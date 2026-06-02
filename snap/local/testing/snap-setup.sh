@@ -282,6 +282,8 @@ case "$DNS_CHOICE" in
 esac
 
 echo "Applying upstream DNS: $UPSTREAMS"
+# Write directly to pihole.toml using FTL CLI to ensure it persists immediately before the service starts
+"${SNAP:-}/usr/bin/pihole-FTL" --config dns.upstreams "$UPSTREAMS" >/dev/null 2>&1 || true
 snapctl set ftl.dns.upstreams="$UPSTREAMS"
 echo "Upstream DNS configured successfully."
 echo ""

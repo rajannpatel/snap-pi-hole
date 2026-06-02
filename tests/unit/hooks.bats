@@ -381,7 +381,7 @@ teardown() {
 }
 
 @test "configure hook maps dns.upstreams array correctly" {
-    export SNAPCTL_GET_D_FTL='{"dns": {"upstreams": ["8.8.8.8", "8.8.4.4"]}}'
+    export SNAPCTL_GET_D_FTL='{"dns": {"upstreams": ["1.1.1.1", "1.0.0.1"]}}'
     HOOK="${TEST_TMPDIR}/configure"
     sed \
         -e "s|snapctl get|${SNAPCTL} get|g" \
@@ -392,7 +392,7 @@ teardown() {
 
     run "${HOOK}"
     [ "$status" -eq 0 ]
-    grep -q 'FTL:--config dns.upstreams \["8.8.8.8","8.8.4.4"\]' "${TEST_TMPDIR}/ftl.log"
+    grep -q 'FTL:--config dns.upstreams \["1.1.1.1","1.0.0.1"\]' "${TEST_TMPDIR}/ftl.log"
 }
 
 @test "configure hook restarts daemon when it is active and a key is set" {
@@ -743,4 +743,30 @@ EOF
 
     # Verify that restart WAS called because config changed
     grep -q "restart" "${TEST_TMPDIR}/snapctl.log"
+}
+
+@test "configure hook seeds pihole.toml if it is absent" {
+    # Ensure pihole.toml does not exist
+    rm -f "${SNAP_DATA}/etc/pihole/pihole.toml"
+
+    # Set snapctl setting
+    export SNAPCTL_GET_D_FTL='{}'
+    export SNAPCTL_SERVICE_STATUS=inactive
+
+    HOOK="${TEST_TMPDIR}/configure"
+    sed \
+        -e "s|snapctl get|${SNAPCTL} get|g" \
+        -e "s|snapctl services|${SNAPCTL} services|g" \
+        -e "s|snapctl restart|${SNAPCTL} restart|g" \
+        "${REPO_ROOT}/snap/hooks/configure" > "${HOOK}"
+    chmod +x "${HOOK}"
+
+    run "${HOOK}"
+    [ "$status" -eq 0 ]
+
+    # Verify that pihole.toml was seeded
+    [ -f "${SNAP_DATA}/etc/pihole/pihole.toml" ]
+    grep -q "upstreams = \[" "${SNAP_DATA}/etc/pihole/pihole.toml"
+    grep -q "8.8.8.8" "${SNAP_DATA}/etc/pihole/pihole.toml"
+    grep -q "8.8.4.4" "${SNAP_DATA}/etc/pihole/pihole.toml"
 }

@@ -86,6 +86,18 @@ if [ "$need_reload" -eq 1 ]; then
     flat_config=$(get_flat_config "$ftl_json")
 fi
 
+# Ensure pihole.toml is seeded first if it doesn't exist, so FTL has a valid file to read/modify.
+if [ ! -f "${SNAP_DATA:-}/etc/pihole/pihole.toml" ]; then
+    mkdir -p "${SNAP_DATA:-}/etc/pihole"
+    cat > "${SNAP_DATA:-}/etc/pihole/pihole.toml" <<EOF
+[dns]
+  upstreams = [
+    "8.8.8.8",
+    "8.8.4.4"
+  ]
+EOF
+fi
+
 # Fetch flat configuration from the existing pihole.toml file (if present)
 current_toml_flat=""
 if [ -f "${SNAP_DATA:-}/etc/pihole/pihole.toml" ]; then
