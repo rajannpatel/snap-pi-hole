@@ -80,6 +80,19 @@ jobs:
           snapcraft-channel: 9.x/candidate
           snapcraft-args: --build-for ${{ matrix.arch }}
 
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          unsquashfs -d extracted-snap ${{ steps.snapcraft.outputs.snap }}
+          syft scan extracted-snap -o cyclonedx-json=sbom-${{ matrix.arch }}.json
+
+      - name: Upload SBOM artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.arch }}
+          path: sbom-${{ matrix.arch }}.json
+          if-no-files-found: error
+
       - name: Upload snap artefact
         uses: actions/upload-artifact@v4
         with:
