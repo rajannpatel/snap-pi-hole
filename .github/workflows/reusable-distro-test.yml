@@ -176,7 +176,7 @@ jobs:
           
           # Wait for the multipass daemon to start completely
           for i in {1..20}; do
-            if multipass list >/dev/null 2>&1; then
+            if sudo multipass list >/dev/null 2>&1; then
               echo "Multipass is ready!"
               exit 0
             fi
@@ -192,7 +192,7 @@ jobs:
         if: inputs.distro == 'ubuntu-core'
         run: |
           echo "Launching Ubuntu Core VM using image: core26"
-          multipass launch core26 --name test-vm --cpus 2 --memory 4G --disk 10G
+          sudo multipass launch core26 --name test-vm --cpus 2 --memory 4G --disk 10G
 
       - name: Wait for Ubuntu Core stability
         if: inputs.distro == 'ubuntu-core'
@@ -203,23 +203,23 @@ jobs:
               local max_idle_checks=3
               
               while [ $idle_checks -lt $max_idle_checks ]; do
-                  if ! multipass exec test-vm -- echo "Online" >/dev/null 2>&1; then
+                  if ! sudo multipass exec test-vm -- echo "Online" >/dev/null 2>&1; then
                       echo "VM is offline/rebooting. Waiting for it to come online..."
                       sleep 10
                       idle_checks=0
                       continue
                   fi
                   
-                  if multipass exec test-vm -- test -f /run/systemd/shutdown/scheduled 2>/dev/null; then
+                  if sudo multipass exec test-vm -- test -f /run/systemd/shutdown/scheduled 2>/dev/null; then
                       echo "A system reboot is scheduled by snapd. Rebooting immediately..."
-                      multipass exec test-vm -- sudo reboot || true
+                      sudo multipass exec test-vm -- sudo reboot || true
                       echo "Waiting for VM to go offline..."
                       sleep 10
                       idle_checks=0
                       continue
                   fi
                   
-                  if multipass exec test-vm -- snap changes 2>/dev/null | grep -q "Doing"; then
+                  if sudo multipass exec test-vm -- snap changes 2>/dev/null | grep -q "Doing"; then
                       echo "Snapd is busy. Waiting 10 seconds..."
                       sleep 10
                       idle_checks=0
@@ -239,10 +239,10 @@ jobs:
         if: inputs.distro == 'ubuntu-core'
         run: |
           # Transfer the snap package to the guest VM
-          multipass transfer ${{ needs.build.outputs.snap_file }} test-vm:/home/ubuntu/pihole.snap
+          sudo multipass transfer ${{ needs.build.outputs.snap_file }} test-vm:/home/ubuntu/pihole.snap
           
           # Install the snap package
-          multipass exec test-vm -- sudo snap install /home/ubuntu/pihole.snap --dangerous
+          sudo multipass exec test-vm -- sudo snap install /home/ubuntu/pihole.snap --dangerous
           
           # Connect manual interfaces
           plugs=(
@@ -257,19 +257,19 @@ jobs:
             "time-control"
           )
           for plug in "${plugs[@]}"; do
-            multipass exec test-vm -- sudo snap connect "pihole-by-rajannpatel:$plug" || true
+            sudo multipass exec test-vm -- sudo snap connect "pihole-by-rajannpatel:$plug" || true
           done
           
           # Setup command alias
-          multipass exec test-vm -- sudo snap alias pihole-by-rajannpatel.pihole pihole
+          sudo multipass exec test-vm -- sudo snap alias pihole-by-rajannpatel.pihole pihole
 
       - name: Verify Confinement (Ubuntu Core)
         if: inputs.distro == 'ubuntu-core'
         run: |
           # Run the diagnostics tool
-          multipass exec test-vm -- pihole snap-check
+          sudo multipass exec test-vm -- pihole snap-check
 
       - name: Cleanup VM
         if: always() && inputs.distro == 'ubuntu-core'
         run: |
-          multipass delete --purge test-vm || true
+          sudo multipass delete --purge test-vm || true
