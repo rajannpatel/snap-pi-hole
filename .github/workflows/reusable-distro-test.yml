@@ -59,70 +59,48 @@ jobs:
 
       # ── LXD path (all distros except ubuntu-core) ──────────────────────────
 
-      - name: Initialize LXD Hypervisor
+      - name: Initialize LXD
         if: inputs.distro != 'ubuntu-core'
         run: |
           sudo groupadd --force --system lxd
           sudo usermod -a -G lxd $USER
           sudo lxd init --auto
 
-      - name: Launch Instance (LXD)
+      - name: Launch Container (LXD)
         if: inputs.distro != 'ubuntu-core'
         run: |
-          IMAGE="${{ inputs.lxd_image }}"
+          # All tested distros have container images on the images: remote.
+          # Containers route through the host bridge NAT and have working
+          # internet access on GHA runners, unlike LXD VMs.
+          sg lxd -c "lxc launch \"${{ inputs.lxd_image }}\" test-instance"
 
-          # Probe whether a container image is available on the remote.
-          # Fall back to --vm only when no container variant exists.
-          LAUNCH_FLAGS=""
-          INSTANCE_TYPE="container"
-          if sg lxd -c "lxc image list \"$IMAGE\" --format json" 2>/dev/null \
-              | python3 -c "
-          import sys, json
-          imgs = json.load(sys.stdin)
-          has_container = any(
-              i.get('type', 'CONTAINER') == 'CONTAINER'
-              for i in imgs
-          )
-          exit(0 if has_container else 1)
-          " 2>/dev/null; then
-            echo "Container image available — launching as container."
-          else
-            echo "No container image found — falling back to VM."
-            LAUNCH_FLAGS="--vm"
-            INSTANCE_TYPE="VM"
-          fi
-
-          echo "INSTANCE_TYPE=$INSTANCE_TYPE" >> "$GITHUB_ENV"
-          sg lxd -c "lxc launch \"$IMAGE\" test-instance $LAUNCH_FLAGS"
-          echo "$INSTANCE_TYPE launched successfully."
-
-      - name: Wait for Instance to Be Ready (LXD)
+      - name: Wait for Container to Be Ready (LXD)
         if: inputs.distro != 'ubuntu-core'
         run: |
-          INSTANCE_TYPE="${{ env.INSTANCE_TYPE }}"
           sg lxd -c "
             i=1
             while [ \$i -le 30 ]; do
               if lxc exec test-instance -- systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded'; then
-                echo \"$INSTANCE_TYPE is ready (systemd)!\"
+                echo \"Container is ready (systemd)!\"
                 exit 0
               fi
               if lxc exec test-instance -- rc-status 2>/dev/null | grep -q 'Runlevel'; then
-                echo \"$INSTANCE_TYPE is ready (OpenRC)!\"
+                echo \"Container is ready (OpenRC)!\"
                 exit 0
               fi
-              echo \"Waiting for $INSTANCE_TYPE to be ready...\"
+              echo \"Waiting for container to be ready...\"
               sleep 5
               i=\$((\$i + 1))
             done
-            echo \"$INSTANCE_TYPE failed to become ready\"
+            echo \"Container failed to become ready\"
             exit 1
           "
 
-      - name: Install snapd inside Instance (LXD)
+      - name: Install snapd inside Container (LXD)
         if: inputs.distro != 'ubuntu-core'
         run: |
           sg lxd -c "
+            set -e
             case '${{ inputs.distro }}' in
               ubuntu|debian)
                 lxc exec test-instance -- apt-get update
@@ -170,7 +148,7 @@ jobs:
             esac
           "
 
-      - name: Install and Verify Snap (LXD)
+      - name: Install and Verify Snap on Container (LXD)
         if: inputs.distro != 'ubuntu-core'
         run: |
           sg lxd -c "
