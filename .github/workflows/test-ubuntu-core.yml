@@ -8,74 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-core:
-    name: Test on Ubuntu Core VM
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Build Snap
-        uses: snapcore/action-build@v1
-        id: snapcraft
-        with:
-          snapcraft-channel: 9.x/candidate
-
-      - name: Install Multipass
-        run: |
-          sudo snap install multipass
-          sudo multipass set local.driver=qemu
-          
-          # Wait for the multipass daemon to start completely
-          for i in {1..10}; do
-            if sudo multipass version >/dev/null 2>&1; then
-              echo "Multipass is ready!"
-              exit 0
-            fi
-            sleep 3
-          done
-          exit 1
-
-      - name: Launch Ubuntu Core VM
-        run: |
-          echo "Launching Ubuntu Core VM using image: core26"
-          sudo multipass launch core26 --name test-vm --cpus 2 --memory 2G --disk 10G
-
-      - name: Transfer and Install Snap
-        run: |
-          SNAP_FILE=$(ls *.snap | head -n 1)
-          
-          # Transfer the snap package to the guest VM
-          sudo multipass transfer "$SNAP_FILE" test-vm:/home/ubuntu/pihole.snap
-          
-          # Install the snap package
-          sudo multipass exec test-vm -- sudo snap install /home/ubuntu/pihole.snap --dangerous
-          
-          # Connect manual interfaces
-          plugs=(
-            "network-bind"
-            "network-control"
-            "firewall-control"
-            "network-observe"
-            "system-observe"
-            "hardware-observe"
-            "mount-observe"
-            "process-control"
-            "time-control"
-          )
-          for plug in "${plugs[@]}"; do
-            sudo multipass exec test-vm -- sudo snap connect "pihole-by-rajannpatel:$plug" || true
-          done
-          
-          # Setup command alias
-          sudo multipass exec test-vm -- sudo snap alias pihole-by-rajannpatel.pihole pihole
-
-      - name: Verify Confinement
-        run: |
-          # Run the diagnostics tool
-          sudo multipass exec test-vm -- pihole snap-check
-
-      - name: Cleanup VM
-        if: always()
-        run: |
-          sudo multipass delete --purge test-vm || true
+  test:
+    uses: ./.github/workflows/reusable-distro-test.yml
+    with:
+      distro: ubuntu-core
