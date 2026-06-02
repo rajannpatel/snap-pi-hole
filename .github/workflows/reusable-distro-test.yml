@@ -4,8 +4,17 @@ on:
   workflow_call:
     inputs:
       distro:
+        description: "Unique distro key matching the workflow filename (e.g. debian-12). Used to locate the correct README row."
         required: true
         type: string
+      lxd_image:
+        description: "LXD image reference (e.g. images:debian or ubuntu:26.04). Containers are preferred; VMs are used as a fallback."
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -48,6 +57,8 @@ jobs:
         with:
           name: built-snap-${{ inputs.distro }}
 
+      # ── LXD path (all distros except ubuntu-core) ──────────────────────────
+
       - name: Initialize LXD Hypervisor
         if: inputs.distro != 'ubuntu-core'
         run: |
@@ -55,96 +66,106 @@ jobs:
           sudo usermod -a -G lxd $USER
           sudo lxd init --auto
 
-      - name: Launch VM (LXD)
+      - name: Launch Instance (LXD)
         if: inputs.distro != 'ubuntu-core'
         run: |
-          case "${{ inputs.distro }}" in
-            ubuntu-26.04) IMAGE="ubuntu:26.04" ;;
-            debian-12) IMAGE="images:debian/12" ;;
-            debian-11) IMAGE="images:debian/11" ;;
-            fedora-40) IMAGE="images:fedora/40" ;;
-            fedora-39) IMAGE="images:fedora/39" ;;
-            rockylinux-9) IMAGE="images:rockylinux/9" ;;
-            almalinux-9) IMAGE="images:almalinux/9" ;;
-            opensuse-15.5) IMAGE="images:opensuse/15.5" ;;
-            opensuse-tumbleweed) IMAGE="images:opensuse/tumbleweed" ;;
-            archlinux) IMAGE="images:archlinux" ;;
-            alpine-3.19) IMAGE="images:alpine/3.19" ;;
-          esac
-          
-          # Launch LXD with VM flag to get a full virtual machine with kernel/systemd
-          sg lxd -c "lxc launch $IMAGE test-vm --vm"
+          IMAGE="${{ inputs.lxd_image }}"
 
-      - name: Wait for VM to Boot (LXD)
+          # Probe whether a container image is available on the remote.
+          # Fall back to --vm only when no container variant exists.
+          LAUNCH_FLAGS=""
+          INSTANCE_TYPE="container"
+          if sg lxd -c "lxc image list \"$IMAGE\" --format json" 2>/dev/null \
+              | python3 -c "
+          import sys, json
+          imgs = json.load(sys.stdin)
+          has_container = any(
+              i.get('type', 'CONTAINER') == 'CONTAINER'
+              for i in imgs
+          )
+          exit(0 if has_container else 1)
+          " 2>/dev/null; then
+            echo "Container image available — launching as container."
+          else
+            echo "No container image found — falling back to VM."
+            LAUNCH_FLAGS="--vm"
+            INSTANCE_TYPE="VM"
+          fi
+
+          echo "INSTANCE_TYPE=$INSTANCE_TYPE" >> "$GITHUB_ENV"
+          sg lxd -c "lxc launch \"$IMAGE\" test-instance $LAUNCH_FLAGS"
+          echo "$INSTANCE_TYPE launched successfully."
+
+      - name: Wait for Instance to Be Ready (LXD)
         if: inputs.distro != 'ubuntu-core'
         run: |
-          sg lxd -c '
+          INSTANCE_TYPE="${{ env.INSTANCE_TYPE }}"
+          sg lxd -c "
             i=1
-            while [ $i -le 30 ]; do
-              if lxc exec test-vm -- systemctl is-system-running 2>/dev/null | grep -qE "running|degraded"; then
-                echo "VM is fully booted!"
+            while [ \$i -le 30 ]; do
+              if lxc exec test-instance -- systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded'; then
+                echo \"$INSTANCE_TYPE is ready (systemd)!\"
                 exit 0
               fi
-              # For Alpine/OpenRC:
-              if lxc exec test-vm -- rc-status 2>/dev/null | grep -q "Runlevel"; then
-                echo "Alpine VM is booted!"
+              if lxc exec test-instance -- rc-status 2>/dev/null | grep -q 'Runlevel'; then
+                echo \"$INSTANCE_TYPE is ready (OpenRC)!\"
                 exit 0
               fi
-              echo "Waiting for VM boot..."
+              echo \"Waiting for $INSTANCE_TYPE to be ready...\"
               sleep 5
-              i=$((i + 1))
+              i=\$((\$i + 1))
             done
-            echo "VM failed to boot"
+            echo \"$INSTANCE_TYPE failed to become ready\"
             exit 1
-          '
+          "
 
-      - name: Install snapd inside VM (LXD)
+      - name: Install snapd inside Instance (LXD)
         if: inputs.distro != 'ubuntu-core'
         run: |
           sg lxd -c "
             case '${{ inputs.distro }}' in
               ubuntu-*|debian-*)
-                lxc exec test-vm -- apt-get update
-                lxc exec test-vm -- apt-get install -y snapd
+                lxc exec test-instance -- apt-get update
+                lxc exec test-instance -- apt-get install -y snapd
                 ;;
               fedora-*)
-                lxc exec test-vm -- dnf install -y snapd
-                lxc exec test-vm -- systemctl enable --now snapd.socket
-                lxc exec test-vm -- ln -s /var/lib/snapd/snap /snap
+                lxc exec test-instance -- dnf install -y snapd
+                lxc exec test-instance -- systemctl enable --now snapd.socket
+                lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               rockylinux-*|almalinux-*)
-                lxc exec test-vm -- dnf install -y epel-release
-                lxc exec test-vm -- dnf install -y snapd
-                lxc exec test-vm -- systemctl enable --now snapd.socket
-                lxc exec test-vm -- ln -s /var/lib/snapd/snap /snap
+                lxc exec test-instance -- dnf install -y epel-release
+                lxc exec test-instance -- dnf install -y snapd
+                lxc exec test-instance -- systemctl enable --now snapd.socket
+                lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
-              opensuse-15.5)
-                lxc exec test-vm -- zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_15.5/system:snappy.repo
-                lxc exec test-vm -- zypper --non-interactive install snapd
-                lxc exec test-vm -- systemctl enable --now snapd
-                lxc exec test-vm -- ln -s /var/lib/snapd/snap /snap
+              opensuse-15*)
+                lxc exec test-instance -- zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_15.5/system:snappy.repo
+                lxc exec test-instance -- zypper --non-interactive install snapd
+                lxc exec test-instance -- systemctl enable --now snapd
+                lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               opensuse-tumbleweed)
-                lxc exec test-vm -- zypper --non-interactive install snapd
-                lxc exec test-vm -- systemctl enable --now snapd
-                lxc exec test-vm -- ln -s /var/lib/snapd/snap /snap
+                lxc exec test-instance -- zypper --non-interactive install snapd
+                lxc exec test-instance -- systemctl enable --now snapd
+                lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               archlinux)
                 # Arch requires building snapd from AUR
-                lxc exec test-vm -- pacman -Sy --noconfirm base-devel git
-                lxc exec test-vm -- useradd -m -d /home/builder -s /bin/bash builder
-                lxc exec test-vm -- sh -c 'echo \"builder ALL=(ALL) NOPASSWD: ALL\" >> /etc/sudoers'
-                lxc exec test-vm -- sudo -u builder git clone https://aur.archlinux.org/snapd.git /home/builder/snapd
-                lxc exec test-vm -- sh -c 'cd /home/builder/snapd && sudo -u builder makepkg -si --noconfirm'
-                lxc exec test-vm -- systemctl enable --now snapd.socket
-                lxc exec test-vm -- ln -s /var/lib/snapd/snap /snap
+                lxc exec test-instance -- pacman -Sy --noconfirm base-devel git
+                lxc exec test-instance -- useradd -m -d /home/builder -s /bin/bash builder
+                lxc exec test-instance -- sh -c 'echo \"builder ALL=(ALL) NOPASSWD: ALL\" >> /etc/sudoers'
+                lxc exec test-instance -- sudo -u builder git clone https://aur.archlinux.org/snapd.git /home/builder/snapd
+                lxc exec test-instance -- sh -c 'cd /home/builder/snapd && sudo -u builder makepkg -si --noconfirm'
+                lxc exec test-instance -- systemctl enable --now snapd.socket
+                lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
-              alpine-3.19)
-                lxc exec test-vm -- sh -c 'echo \"http://dl-cdn.alpinelinux.org/alpine/edge/community\" >> /etc/apk/repositories'
-                lxc exec test-vm -- apk update
-                lxc exec test-vm -- apk add snapd
-                lxc exec test-vm -- rc-update add snapd
-                lxc exec test-vm -- rc-service snapd start
+              alpine-*)
+                lxc exec test-instance -- sh -c 'echo \"http://dl-cdn.alpinelinux.org/alpine/edge/community\" >> /etc/apk/repositories'
+                lxc exec test-instance -- apk update
+                lxc exec test-instance -- apk add snapd
+                lxc exec test-instance -- rc-update add snapd
+                lxc exec test-instance -- rc-service snapd start
                 ;;
             esac
           "
@@ -153,21 +174,89 @@ jobs:
         if: inputs.distro != 'ubuntu-core'
         run: |
           sg lxd -c "
-            # Transfer the built snap to the VM
-            lxc file push ${{ needs.build.outputs.snap_file }} test-vm/tmp/pihole.snap
-            
-            # Install the snap package
-            lxc exec test-vm -- snap install /tmp/pihole.snap --dangerous
-            
-            # Setup command alias
-            lxc exec test-vm -- snap alias pihole-by-rajannpatel.pihole pihole
-            
-            # Wait for snap services to stabilize
+            lxc file push ${{ needs.build.outputs.snap_file }} test-instance/tmp/pihole.snap
+            lxc exec test-instance -- snap install /tmp/pihole.snap --dangerous
+            lxc exec test-instance -- snap alias pihole-by-rajannpatel.pihole pihole
             sleep 10
-            
-            # Run the diagnostics tool to assert connected ports and interfaces
-            lxc exec test-vm -- pihole snap-check
+            lxc exec test-instance -- pihole snap-check
           "
+
+      - name: Detect OS Version and Update README (LXD)
+        if: inputs.distro != 'ubuntu-core' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          WORKFLOW_KEY: test-${{ inputs.distro }}.yml
+        run: |
+          # Read /etc/os-release from inside the instance
+          OS_RELEASE=$(sg lxd -c "lxc exec test-instance -- cat /etc/os-release" 2>/dev/null || echo "")
+
+          VERSION_ID=$(echo "$OS_RELEASE"       | grep "^VERSION_ID="       | cut -d= -f2 | tr -d '"')
+          VERSION_CODENAME=$(echo "$OS_RELEASE" | grep "^VERSION_CODENAME=" | cut -d= -f2 | tr -d '"')
+          PRETTY_NAME=$(echo "$OS_RELEASE"      | grep "^PRETTY_NAME="      | cut -d= -f2 | tr -d '"')
+
+          # Rolling distros (Arch, Tumbleweed) have no VERSION_ID — fall back to "Rolling"
+          export DISPLAY_VERSION="${VERSION_ID:-Rolling}"
+          export DISPLAY_NAME="${VERSION_CODENAME:-${PRETTY_NAME:-}}"
+
+          echo "Detected: version='$DISPLAY_VERSION'  codename='$DISPLAY_NAME'"
+
+          python3 - <<'PYEOF'
+          import os, base64, urllib.request, urllib.error, json
+
+          token           = os.environ["GITHUB_TOKEN"]
+          repo            = os.environ["GITHUB_REPOSITORY"]
+          workflow_key    = os.environ["WORKFLOW_KEY"]
+          display_version = os.environ["DISPLAY_VERSION"]
+          display_name    = os.environ["DISPLAY_NAME"]
+
+          api     = f"https://api.github.com/repos/{repo}/contents/README.md"
+          headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+
+          with urllib.request.urlopen(urllib.request.Request(api, headers=headers)) as r:
+              data = json.loads(r.read())
+
+          content = base64.b64decode(data["content"]).decode()
+          sha     = data["sha"]
+
+          # Row format: | badge | Distro | VERSION | NAME | status-badge |
+          # The workflow filename appears uniquely in each row's status-badge URL.
+          def replace_row(line):
+              if workflow_key not in line:
+                  return line
+              parts = line.split("|")
+              if len(parts) >= 6:
+                  parts[3] = f" {display_version} "
+                  if display_name:
+                      parts[4] = f" {display_name} "
+              return "|".join(parts)
+
+          new_content = "\n".join(replace_row(l) for l in content.splitlines())
+          if new_content == content:
+              print("README already up to date — nothing to commit.")
+              exit(0)
+
+          body = json.dumps({
+              "message": f"ci: update tested version for {workflow_key} -> {display_version}",
+              "content": base64.b64encode(new_content.encode()).decode(),
+              "sha": sha,
+              "branch": "main",
+          }).encode()
+
+          req = urllib.request.Request(
+              api, data=body,
+              headers={**headers, "Content-Type": "application/json"},
+              method="PUT",
+          )
+          try:
+              with urllib.request.urlopen(req) as r:
+                  print("README updated successfully.")
+          except urllib.error.HTTPError as e:
+              print(f"GitHub API error {e.code}: {e.read().decode()}")
+              exit(1)
+          PYEOF
+
+      # ── Multipass path (ubuntu-core only) ──────────────────────────────────
 
       - name: Initialize Multipass Hypervisor
         if: inputs.distro == 'ubuntu-core'
@@ -175,7 +264,7 @@ jobs:
           sudo snap install multipass
           sudo snap connect multipass:kvm || true
           sudo multipass set local.driver=qemu
-          
+
           i=1
           while [ $i -le 20 ]; do
             if sudo multipass list >/dev/null 2>&1; then
@@ -186,7 +275,7 @@ jobs:
             sleep 3
             i=$((i + 1))
           done
-          
+
           echo "Multipass daemon failed to start. Logs:"
           sudo journalctl -n 50 -u snap.multipass.multipassd.service
           exit 1
@@ -195,7 +284,7 @@ jobs:
         if: inputs.distro == 'ubuntu-core'
         run: |
           echo "Launching Ubuntu Core VM using image: core26"
-          sudo multipass launch core26 --name test-vm --cpus 2 --memory 4G --disk 10G
+          sudo multipass launch core26 --name test-instance --cpus 2 --memory 4G --disk 10G
 
       - name: Wait for VM to Boot (Multipass)
         if: inputs.distro == 'ubuntu-core'
@@ -204,75 +293,59 @@ jobs:
               echo "Ensuring snapd is completely stable and idle..."
               local idle_checks=0
               local max_idle_checks=3
-              
+
               while [ $idle_checks -lt $max_idle_checks ]; do
-                  if ! sudo multipass exec test-vm -- echo "Online" >/dev/null 2>&1; then
+                  if ! sudo multipass exec test-instance -- echo "Online" >/dev/null 2>&1; then
                       echo "VM is offline/rebooting. Waiting for it to come online..."
                       sleep 10
                       idle_checks=0
                       continue
                   fi
-                  
-                  if sudo multipass exec test-vm -- test -f /run/systemd/shutdown/scheduled 2>/dev/null; then
+
+                  if sudo multipass exec test-instance -- test -f /run/systemd/shutdown/scheduled 2>/dev/null; then
                       echo "A system reboot is scheduled by snapd. Rebooting immediately..."
-                      sudo multipass exec test-vm -- sudo reboot || true
+                      sudo multipass exec test-instance -- sudo reboot || true
                       echo "Waiting for VM to go offline..."
                       sleep 10
                       idle_checks=0
                       continue
                   fi
-                  
-                  if sudo multipass exec test-vm -- snap changes 2>/dev/null | grep -q "Doing"; then
+
+                  if sudo multipass exec test-instance -- snap changes 2>/dev/null | grep -q "Doing"; then
                       echo "Snapd is busy. Waiting 10 seconds..."
                       sleep 10
                       idle_checks=0
                       continue
                   fi
-                  
+
                   idle_checks=$((idle_checks + 1))
                   echo "Snapd is idle (check $idle_checks/$max_idle_checks)..."
                   sleep 5
               done
               echo "Snapd is fully stable and idle!"
           }
-          
+
           wait_for_snapd_stability
 
       - name: Install and Verify Snap (Multipass)
         if: inputs.distro == 'ubuntu-core'
         run: |
-          # Transfer the snap package to the guest VM
-          sudo multipass transfer ${{ needs.build.outputs.snap_file }} test-vm:/home/ubuntu/pihole.snap
-          
-          # Install the snap package
-          sudo multipass exec test-vm -- sudo snap install /home/ubuntu/pihole.snap --dangerous
-          
-          # Connect manual interfaces
-          plugs=(
-            "network-bind"
-            "network-control"
-            "firewall-control"
-            "network-observe"
-            "system-observe"
-            "hardware-observe"
-            "mount-observe"
-            "process-control"
-            "time-control"
-          )
-          for plug in "${plugs[@]}"; do
-            sudo multipass exec test-vm -- sudo snap connect "pihole-by-rajannpatel:$plug" || true
+          sudo multipass transfer ${{ needs.build.outputs.snap_file }} test-instance:/home/ubuntu/pihole.snap
+          sudo multipass exec test-instance -- sudo snap install /home/ubuntu/pihole.snap --dangerous
+
+          for plug in network-bind network-control firewall-control network-observe \
+                      system-observe hardware-observe mount-observe process-control time-control; do
+            sudo multipass exec test-instance -- sudo snap connect "pihole-by-rajannpatel:$plug" || true
           done
-          
-          # Setup command alias
-          sudo multipass exec test-vm -- sudo snap alias pihole-by-rajannpatel.pihole pihole
+
+          sudo multipass exec test-instance -- sudo snap alias pihole-by-rajannpatel.pihole pihole
 
       - name: Run Snap Diagnostics (Multipass)
         if: inputs.distro == 'ubuntu-core'
         run: |
-          # Run the diagnostics tool
-          sudo multipass exec test-vm -- pihole snap-check
+          sudo multipass exec test-instance -- pihole snap-check
 
       - name: Cleanup VM (Multipass)
         if: always() && inputs.distro == 'ubuntu-core'
         run: |
-          sudo multipass delete --purge test-vm || true
+          sudo multipass delete --purge test-instance || true

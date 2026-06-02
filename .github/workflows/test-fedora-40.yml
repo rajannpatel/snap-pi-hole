@@ -10,5 +10,7 @@ on:
 jobs:
   test:
     uses: ./.github/workflows/reusable-distro-test.yml
+    secrets: inherit
     with:
       distro: fedora-40
+      lxd_image: images:fedora/40

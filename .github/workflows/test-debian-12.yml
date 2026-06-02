@@ -10,5 +10,7 @@ on:
 jobs:
   test:
     uses: ./.github/workflows/reusable-distro-test.yml
+    secrets: inherit
     with:
       distro: debian-12
+      lxd_image: images:debian/12

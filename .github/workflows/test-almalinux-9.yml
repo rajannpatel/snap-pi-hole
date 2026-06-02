@@ -10,5 +10,7 @@ on:
 jobs:
   test:
     uses: ./.github/workflows/reusable-distro-test.yml
+    secrets: inherit
     with:
       distro: almalinux-9
+      lxd_image: images:almalinux/9

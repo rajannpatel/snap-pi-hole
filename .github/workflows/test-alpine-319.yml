@@ -10,5 +10,7 @@ on:
 jobs:
   test:
     uses: ./.github/workflows/reusable-distro-test.yml
+    secrets: inherit
     with:
       distro: alpine-3.19
+      lxd_image: images:alpine/3.19

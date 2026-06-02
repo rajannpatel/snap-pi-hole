@@ -10,5 +10,7 @@ on:
 jobs:
   test:
     uses: ./.github/workflows/reusable-distro-test.yml
+    secrets: inherit
     with:
       distro: opensuse-tumbleweed
+      lxd_image: images:opensuse/tumbleweed
