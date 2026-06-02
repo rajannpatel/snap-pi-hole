@@ -16,4 +16,4 @@ jobs:
     secrets: inherit
     with:
       distro: almalinux
-      lxd_image: images:almalinux/9
+      lxd_image: images:almalinux

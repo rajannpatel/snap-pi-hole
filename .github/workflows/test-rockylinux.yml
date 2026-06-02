@@ -16,4 +16,4 @@ jobs:
     secrets: inherit
     with:
       distro: rockylinux
-      lxd_image: images:rockylinux/9
+      lxd_image: images:rockylinux

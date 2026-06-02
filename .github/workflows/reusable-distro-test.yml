@@ -73,10 +73,44 @@ jobs:
       - name: Launch Container (LXD)
         if: inputs.distro != 'ubuntu-core'
         run: |
-          # All tested distros have container images on the images: remote.
-          # Containers route through the host bridge NAT and have working
-          # internet access on GHA runners, unlike LXD VMs.
-          sg lxd -c "lxc launch \"${{ inputs.lxd_image }}\" test-instance"
+          # Resolve the latest available container image for this distro family.
+          # For images: remote entries without a version (e.g. images:debian,
+          # images:rockylinux), query the LXD remote at runtime and pick the
+          # highest numeric release — no hardcoded version numbers required.
+          # Non-images: remotes (e.g. ubuntu:lts) and already-qualified paths
+          # (e.g. images:opensuse/tumbleweed) are passed through unchanged.
+          cat > /tmp/resolve_image.py << 'PYEOF'
+          import json, re, subprocess, sys
+          prefix = sys.argv[1]
+          if ":" not in prefix:
+              print(prefix); sys.exit(0)
+          remote, family = prefix.split(":", 1)
+          if remote != "images" or "/" in family:
+              print(prefix); sys.exit(0)
+          proc = subprocess.run(
+              ["sg", "lxd", "-c", f"lxc image list images:{family} --format json"],
+              capture_output=True, text=True
+          )
+          try:
+              images = json.loads(proc.stdout)
+          except (json.JSONDecodeError, ValueError):
+              print(prefix); sys.exit(0)
+          best_v, best_img = None, None
+          for img in images:
+              if img.get("type") != "CONTAINER":
+                  continue
+              for alias in img.get("aliases", []):
+                  name = alias["name"]
+                  m = re.fullmatch(rf'{re.escape(family)}/(\d[\d.]*)', name)
+                  if m:
+                      v = tuple(int(x) for x in m.group(1).split("."))
+                      if best_v is None or v > best_v:
+                          best_v, best_img = v, f"images:{name}"
+          print(best_img or prefix)
+          PYEOF
+          IMAGE=$(python3 /tmp/resolve_image.py "${{ inputs.lxd_image }}")
+          echo "Resolved image: $IMAGE"
+          sg lxd -c "lxc launch \"$IMAGE\" test-instance"
 
       - name: Wait for Container to Be Ready (LXD)
         if: inputs.distro != 'ubuntu-core'

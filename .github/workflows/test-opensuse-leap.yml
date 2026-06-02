@@ -16,4 +16,4 @@ jobs:
     secrets: inherit
     with:
       distro: opensuse-leap
-      lxd_image: images:opensuse/15.6
+      lxd_image: images:opensuse
