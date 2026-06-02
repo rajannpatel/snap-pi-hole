@@ -187,7 +187,12 @@ jobs:
                 lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys refresh
                 lxc exec test-instance -- zypper --non-interactive addrepo --refresh 'https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_\$releasever/' system_snappy
                 lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys refresh
-                lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install snapd fuse squashfuse
+                if ! lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install snapd fuse squashfuse; then
+                  echo "Standard installation failed (likely due to unresolved selinux-policy dependency). Attempting nodeps workaround..."
+                  lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install fuse squashfuse
+                  lxc exec test-instance -- zypper --non-interactive download snapd
+                  lxc exec test-instance -- sh -c 'rpm -ivh --nodeps /var/cache/zypp/packages/system_snappy/*/*.rpm'
+                fi
                 lxc exec test-instance -- systemctl enable --now snapd
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
@@ -196,7 +201,12 @@ jobs:
                 lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys refresh
                 lxc exec test-instance -- zypper --non-interactive addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Tumbleweed/system:snappy.repo
                 lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys refresh
-                lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install snapd fuse squashfuse
+                if ! lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install snapd fuse squashfuse; then
+                  echo "Standard installation failed (likely due to unresolved selinux-policy dependency). Attempting nodeps workaround..."
+                  lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install fuse squashfuse
+                  lxc exec test-instance -- zypper --non-interactive download snapd
+                  lxc exec test-instance -- sh -c 'rpm -ivh --nodeps /var/cache/zypp/packages/system_snappy/*/*.rpm'
+                fi
                 lxc exec test-instance -- systemctl enable --now snapd
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
