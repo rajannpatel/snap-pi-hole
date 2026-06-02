@@ -232,7 +232,15 @@ jobs:
             lxc exec test-instance -- snap wait system seed.loaded || true
             lxc exec test-instance -- snap install /tmp/pihole.snap --dangerous
             lxc exec test-instance -- snap alias pihole-by-rajannpatel.pihole pihole
-            sleep 10
+            # Wait for pihole-ftl service to become active
+            echo "Waiting for pihole-ftl service to start..."
+            for i in {1..30}; do
+              if lxc exec test-instance -- snap services pihole-by-rajannpatel.pihole-ftl 2>/dev/null | grep -qw 'active'; then
+                echo "pihole-ftl is active!"
+                break
+              fi
+              sleep 1
+            done
             lxc exec test-instance -- pihole snap-check
           "
 
@@ -404,6 +412,15 @@ jobs:
       - name: Run Snap Diagnostics (Multipass)
         if: inputs.distro == 'ubuntu-core'
         run: |
+          # Wait for pihole-ftl service to become active
+          echo "Waiting for pihole-ftl service to start..."
+          for i in {1..30}; do
+            if sudo multipass exec test-instance -- snap services pihole-by-rajannpatel.pihole-ftl 2>/dev/null | grep -qw 'active'; then
+              echo "pihole-ftl is active!"
+              break
+            fi
+            sleep 1
+          done
           sudo multipass exec test-instance -- pihole snap-check
 
       - name: Cleanup VM (Multipass)
