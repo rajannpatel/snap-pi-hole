@@ -49,7 +49,7 @@ sudo pihole -r
 | **[pi-hole (core)](https://github.com/pi-hole/pi-hole)** | v6.4.2 |
 | **[web](https://github.com/pi-hole/web)** | v6.5 |
 
-> These versions are automatically tracked and updated by a daily GitHub Actions bot.
+> These upstream components are automatically tracked and the snap is repackaged to include the latest stable versions by a daily GitHub Actions bot.
 
 ## Supported Linux distributions
 
