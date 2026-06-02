@@ -68,6 +68,17 @@ prompt_fail_exit() {
     fi
 }
 
+get_local_ips() {
+    local ips=""
+    if command -v ip >/dev/null 2>&1; then
+        ips=$(ip -4 -o addr show up 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | grep -v '^127\.' | paste -sd ',' - | sed 's/,/, /g')
+    fi
+    if [ -z "$ips" ] && command -v hostname >/dev/null 2>&1; then
+        ips=$(hostname -I 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/[[:space:]][[:space:]]*/, /g')
+    fi
+    echo "${ips:-}"
+}
+
 FTL_RUNNING=false
 if snapctl services "${SNAP_NAME:-pihole}.pihole-ftl" 2>/dev/null | grep -qw "active"; then
     FTL_RUNNING=true
@@ -283,3 +294,10 @@ echo ""
 echo "CONFIGURATION WIZARD COMPLETE"
 echo ""
 echo "Pi-hole snap setup/repair has completed successfully."
+echo ""
+echo "in a web browser, go to http://<Pi-hole-IP>/admin"
+local_ips=$(get_local_ips)
+if [ -n "$local_ips" ]; then
+    echo "  (Detected local IP(s): ${local_ips})"
+fi
+echo ""

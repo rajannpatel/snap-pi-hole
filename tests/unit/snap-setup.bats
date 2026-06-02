@@ -197,3 +197,12 @@ teardown() {
     [[ "$output" == *"Continuing setup anyway..."* ]]
     [[ "$output" == *"Step 2: Upstream DNS Configuration"* ]]
 }
+
+@test "snap-setup prints web browser administration advice on successful completion" {
+    export MOCK_FTL_ACTIVE="true"
+    export MOCK_DNS_CHOICE="1"
+    run "${SETUP_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"in a web browser, go to http://<Pi-hole-IP>/admin"* ]]
+    [[ "$output" == *"Detected local IP(s):"* ]]
+}
