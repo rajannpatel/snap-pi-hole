@@ -403,63 +403,63 @@ jobs:
             exit $RC
           fi
 
-deploy-pages:
-  name: Deploy reports to GitHub Pages
-  needs: [lint, build]
-  runs-on: ubuntu-latest
-  if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-  permissions:
-    contents: read
-    pages: write
-    id-token: write
-  steps:
-    - uses: actions/checkout@v4
+  deploy-pages:
+    name: Deploy reports to GitHub Pages
+    needs: [lint, build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Download coverage report
-      uses: actions/download-artifact@v4
-      with:
-        name: code-coverage-report
-        path: coverage-report
+      - name: Download coverage report
+        uses: actions/download-artifact@v4
+        with:
+          name: code-coverage-report
+          path: coverage-report
 
-    - name: Download SBOMs
-      uses: actions/download-artifact@v4
-      with:
-        path: sbom-artifacts
+      - name: Download SBOMs
+        uses: actions/download-artifact@v4
+        with:
+          path: sbom-artifacts
 
-    - name: Organize files for GitHub Pages
-      run: |
-        # Create docs directory structure
-        mkdir -p docs/coverage docs/sbom
-        
-        # Copy coverage report (kcov creates index.html automatically)
-        if [ -d coverage-report/index ]; then
-          cp -r coverage-report/index/* docs/coverage/
-        else
-          cp -r coverage-report/* docs/coverage/ || true
-        fi
-        
-        # Copy SBOMs from all artifact directories
-        find sbom-artifacts -maxdepth 2 -name "sbom-*.json" -exec cp {} docs/sbom/ \;
-        
-        # Create SBOM index.html
-        cat > docs/sbom/index.html << 'EOF'
-        [Beautiful SBOM HTML page - see file content above]
-        EOF
+      - name: Organize files for GitHub Pages
+        run: |
+          # Create docs directory structure
+          mkdir -p docs/coverage docs/sbom
+          
+          # Copy coverage report (kcov creates index.html automatically)
+          if [ -d coverage-report/index ]; then
+            cp -r coverage-report/index/* docs/coverage/
+          else
+            cp -r coverage-report/* docs/coverage/ || true
+          fi
+          
+          # Copy SBOMs from all artifact directories
+          find sbom-artifacts -maxdepth 2 -name "sbom-*.json" -exec cp {} docs/sbom/ \;
+          
+          # Create SBOM index.html
+          cat > docs/sbom/index.html << 'EOF'
+          [Beautiful SBOM HTML page - see file content above]
+          EOF
 
-    - name: Create root index.html
-      run: |
-        cat > docs/index.html << 'EOF'
-        [Beautiful root dashboard HTML - see file content above]
-        EOF
+      - name: Create root index.html
+        run: |
+          cat > docs/index.html << 'EOF'
+          [Beautiful root dashboard HTML - see file content above]
+          EOF
 
-    - name: Setup Pages
-      uses: actions/configure-pages@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
 
-    - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: docs
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
 
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
