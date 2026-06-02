@@ -51,6 +51,15 @@ EOF
     export MOCK_TCP_PORTS_IN_USE=""
     export MOCK_IPV6_CONNECTIVITY="false"
     
+    # Create mock pihole script
+    export MOCK_PIHOLE_BINARY="${MOCK_BIN}/pihole"
+    cat > "${MOCK_PIHOLE_BINARY}" <<'EOF'
+#!/bin/bash
+echo "mock-pihole called with: $*"
+exit 0
+EOF
+    chmod +x "${MOCK_PIHOLE_BINARY}"
+
     export SETUP_SCRIPT="${REPO_ROOT}/snap/local/testing/snap-setup.sh"
 }
 
@@ -183,14 +192,39 @@ teardown() {
 
 # Security / Password configuration
 
-@test "snap-setup updates password when requested" {
-    export MOCK_SET_PASSWORD="y"
+@test "snap-setup updates password by default when requested (non-interactive)" {
+    # MOCK_SET_PASSWORD is unset, so it should default to y
     run "${SETUP_SCRIPT}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Setting mock password..."* ]]
     [[ "$output" == *"Web Admin password updated"* ]]
     run grep -q "password = \"mocked_password_hash\"" "${SNAP_DATA}/etc/pihole/pihole.toml"
     [ "$status" -eq 0 ]
+}
+
+@test "snap-setup skips password configuration when chosen not to (non-interactive)" {
+    export MOCK_SET_PASSWORD="n"
+    run "${SETUP_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Skipping password configuration"* ]]
+    if [ -f "${SNAP_DATA}/etc/pihole/pihole.toml" ]; then
+        ! grep -q "password =" "${SNAP_DATA}/etc/pihole/pihole.toml"
+    fi
+}
+
+@test "snap-setup prompts and changes password by default when user presses enter (interactive)" {
+    export MOCK_FTL_ACTIVE="false"
+    export MOCK_ALIAS_CHECK="true"
+    unset NON_INTERACTIVE
+    # Input sequence:
+    # 1. 'n' for Exit prompt (do not exit)
+    # 2. '1' for DNS provider (Cloudflare)
+    # 3. '' (Enter) for password prompt (should default to yes)
+    # 4. 'n' for FTL start prompt (do not start)
+    run bash -c "printf 'n\n1\n\nn\n' | ${SETUP_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Web Admin password updated"* ]]
+    [[ "$output" == *"mock-pihole called with: setpassword"* ]]
 }
 
 # Service management

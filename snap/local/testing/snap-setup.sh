@@ -289,13 +289,17 @@ echo ""
 # 3. SECURITY / ADMIN PASSWORD
 echo "Step 3: Web Admin Password"
 echo ""
-SET_PASSWORD="n"
+SET_PASSWORD="y"
 if [ "${NON_INTERACTIVE:-}" = "true" ]; then
-    SET_PASSWORD="${MOCK_SET_PASSWORD:-n}"
+    SET_PASSWORD="${MOCK_SET_PASSWORD:-y}"
 else
-    read -r -p "Do you want to set/change the Web Admin password? (y/N): " pw_choice
+    read -r -p "Do you want to set/change the Web Admin password? (Y/n): " pw_choice
+    pw_choice="${pw_choice:-y}"
     case "$pw_choice" in
-        [yY][eE][sS]|[yY])
+        [nN][oO]|[nN])
+            SET_PASSWORD="n"
+            ;;
+        *)
             SET_PASSWORD="y"
             ;;
     esac
@@ -308,7 +312,7 @@ if [ "$SET_PASSWORD" = "y" ]; then
         echo 'password = "mocked_password_hash"' >> "${SNAP_DATA:-}/etc/pihole/pihole.toml"
     else
         export HOME="${SNAP_DATA:-}"
-        /opt/pihole/pihole setpassword
+        "${MOCK_PIHOLE_BINARY:-/opt/pihole/pihole}" setpassword
     fi
     echo "Web Admin password updated."
 else
