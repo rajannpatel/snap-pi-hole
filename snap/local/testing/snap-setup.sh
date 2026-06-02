@@ -26,6 +26,9 @@ fi
 # Prepend snap staged paths to PATH to ensure we use our staged GNU coreutils, jq, etc.
 export PATH="${SNAP:-}/usr/sbin:${SNAP:-}/usr/bin:${SNAP:-}/sbin:${SNAP:-}/bin:${PATH:-}"
 
+echo ""
+echo ""
+echo ""
 echo "PI-HOLE SNAP CONFIGURATION WIZARD"
 echo ""
 echo "This wizard will guide you through setting up or repairing"
@@ -117,7 +120,7 @@ check_tcp() {
         return 1
     fi
     (
-        bash -c "exec 3<>/dev/tcp/$ip/$port" &
+        bash -c "exec 3<>/dev/tcp/$ip/$port" 2>/dev/null &
         pid=$!
         (sleep 1; kill $pid 2>/dev/null) &
         killer_pid=$!
