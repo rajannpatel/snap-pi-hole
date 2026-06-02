@@ -4,9 +4,6 @@ on:
     - cron: '0 0 * * *' # Run daily at midnight
   workflow_dispatch: # Allow manual triggering
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   update-tags:
     runs-on: ubuntu-latest
