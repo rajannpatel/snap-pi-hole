@@ -83,8 +83,7 @@ jobs:
       - name: Generate SBOM (CycloneDX)
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-          unsquashfs -d extracted-snap ${{ steps.snapcraft.outputs.snap }}
-          syft scan extracted-snap -o cyclonedx-json=sbom-${{ matrix.arch }}.json
+          syft scan ${{ steps.snapcraft.outputs.snap }} -o cyclonedx-json=sbom-${{ matrix.arch }}.json
 
       - name: Upload SBOM artefact
         uses: actions/upload-artifact@v4
@@ -449,6 +448,9 @@ jobs:
           # Copy HTML templates from snap assets
           cp snap/local/assets/dashboard.html docs/index.html
           cp snap/local/assets/sbom-explorer.html docs/sbom/index.html
+
+          # Copy native Pi-hole logo for header display
+          cp snap/gui/pihole.png docs/pihole.png
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

@@ -57,6 +57,11 @@
       vertical-align: middle;
       margin-right: 0.5rem;
     }
+    .p-button-group .p-button.is-active {
+      background-color: #e95420 !important;
+      color: white !important;
+      border-color: #e95420 !important;
+    }
   </style>
 </head>
 <body>
@@ -65,12 +70,10 @@
   <header id="navigation" class="p-navigation is-dark">
     <div class="p-navigation__row">
       <div class="p-navigation__banner">
-        <div class="p-navigation__tagged-logo">
-          <a class="p-navigation__link" href="../">
-            <span class="p-navigation__tag">Snap</span>
-            <span style="color: white; font-weight: 700; font-size: 1.2rem;">Pi-hole</span>
-          </a>
-        </div>
+        <a class="p-navigation__link" href="../" style="display: flex; align-items: center; gap: 12px; text-decoration: none;">
+          <img src="../pihole.png" alt="Pi-hole Logo" style="height: 32px; width: 32px;">
+          <span style="color: white; font-weight: 700; font-size: 1.3rem; letter-spacing: 0.5px;">Pi-hole Snap</span>
+        </a>
       </div>
     </div>
   </header>
@@ -153,7 +156,7 @@
     </div>
 
     <!-- Search Section -->
-    <div class="row u-sv1" id="search-section" style="display:none;">
+    <div class="row u-sv3" id="search-section" style="display:none;">
       <div class="col-12">
         <input class="p-form-validation__input" type="search" id="sbom-search" placeholder="Search by package name, version, or license..." oninput="filterSBOM()">
       </div>
@@ -318,13 +321,22 @@ grype sbom-amd64.json</code></pre>
       }
       
       const filtered = currentComponents.filter(c => {
-        const nameMatch = c.name.toLowerCase().includes(query);
-        const verMatch = c.version.toLowerCase().includes(query);
+        const nameMatch = (c.name || '').toLowerCase().includes(query);
+        const verMatch = (c.version || '').toLowerCase().includes(query);
         const typeMatch = (c.type || '').toLowerCase().includes(query);
         
         let licensesStr = '';
-        if (c.licenses && c.licenses.length > 0) {
-          licensesStr = c.licenses.map(l => (l.license ? (l.license.id || l.license.name || '') : '')).join(' ');
+        if (c.licenses && Array.isArray(c.licenses)) {
+          licensesStr = c.licenses.map(l => {
+            if (!l) return '';
+            if (l.license) {
+              return (l.license.id || l.license.name || '');
+            }
+            if (l.expression) {
+              return l.expression;
+            }
+            return '';
+          }).filter(Boolean).join(' ');
         }
         const licenseMatch = licensesStr.toLowerCase().includes(query);
         
