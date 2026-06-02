@@ -158,6 +158,17 @@ jobs:
         run: |
           sg lxd -c "
             set -e
+            zypper_refresh() {
+              local n=0
+              until [ \"\$n\" -ge 5 ]; do
+                lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys refresh && return 0
+                n=\$((\$n+1))
+                echo \"Repository refresh failed. Retrying in 30 seconds (\$n/5)...\"
+                sleep 30
+              done
+              echo \"Failed to refresh repositories after 5 attempts.\"
+              return 1
+            }
             case '${{ inputs.distro }}' in
               ubuntu*|debian*)
                 lxc exec test-instance -- apt-get clean
@@ -183,9 +194,9 @@ jobs:
                 ;;
               opensuse-leap*)
                 lxc exec test-instance -- zypper --non-interactive clean --all
-                lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys refresh
+                zypper_refresh
                 lxc exec test-instance -- zypper --non-interactive addrepo --refresh 'https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_\$releasever/' system_snappy
-                lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys refresh
+                zypper_refresh
                 if ! lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install snapd fuse squashfuse squashfs libapparmor1; then
                   echo 'Standard installation failed (likely due to unresolved selinux-policy dependency). Attempting nodeps workaround...'
                   lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install fuse squashfuse squashfs libapparmor1
@@ -197,9 +208,9 @@ jobs:
                 ;;
               opensuse-tumbleweed)
                 lxc exec test-instance -- zypper --non-interactive clean --all
-                lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys refresh
+                zypper_refresh
                 lxc exec test-instance -- zypper --non-interactive addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Tumbleweed/system:snappy.repo
-                lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys refresh
+                zypper_refresh
                 if ! lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install snapd fuse squashfuse squashfs libapparmor1; then
                   echo 'Standard installation failed (likely due to unresolved selinux-policy dependency). Attempting nodeps workaround...'
                   lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install fuse squashfuse squashfs libapparmor1
