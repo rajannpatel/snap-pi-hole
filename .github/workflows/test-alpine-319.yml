@@ -1,0 +1,14 @@
+name: Test on Alpine 3.19
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/reusable-distro-test.yml
+    with:
+      distro: alpine-3.19

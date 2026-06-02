@@ -1,0 +1,14 @@
+name: Test on openSUSE Leap 15.5
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/reusable-distro-test.yml
+    with:
+      distro: opensuse-15.5

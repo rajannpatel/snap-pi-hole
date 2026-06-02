@@ -1,0 +1,14 @@
+name: Test on Fedora 40
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/reusable-distro-test.yml
+    with:
+      distro: fedora-40

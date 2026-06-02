@@ -8,6 +8,37 @@ A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](
 
 [![Build and Smoke Test](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/publish.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/publish.yml)
 
+
+```bash
+# 1. Install snapd (if not already present on the host)
+# - On Debian:
+#     sudo apt update && sudo apt install -y snapd
+# - On RHEL/Rocky Linux/AlmaLinux:
+#     sudo dnf install -y epel-release && sudo dnf install -y snapd && sudo systemctl enable --now snapd.socket
+# - On Alpine: 
+#     sudo apk add snapd && sudo rc-update add snapd && sudo rc-service snapd start
+# - On Void Linux: 
+#     sudo xbps-install -S snapd && sudo ln -s /etc/sv/snapd /var/service/
+# - On Devuan/MX Linux: 
+#     sudo apt update && sudo apt install -y snapd
+
+# 2. Install the Pi-hole snap
+sudo snap install pihole-by-rajannpatel
+
+# 3. Create the command alias
+sudo snap alias pihole-by-rajannpatel.pihole pihole
+
+# 4. Free port 53
+if systemctl is-active --quiet systemd-resolved; then
+    sudo mkdir -p /etc/systemd/resolved.conf.d
+    printf '[Resolve]\nDNS=127.0.0.1\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
+    sudo systemctl restart systemd-resolved
+fi
+
+# 5. Use the wizard
+sudo pihole -r
+```
+
 > [!NOTE]
 > Pi-hole FTL v6.6.x dropped support for mbedTLS 2.x and now strictly requires mbedTLS ≥ 3.5.0 and Nettle ≥ 3.9. The Ubuntu Core 24 snap base (`core24`) ships older versions of both libraries, so the package was bumped to Ubuntu Core 26 (`core26`).
 
@@ -19,6 +50,26 @@ A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](
 | **[web](https://github.com/pi-hole/web)** | v6.5 |
 
 > These versions are automatically tracked and updated by a daily GitHub Actions bot.
+
+## Supported Linux distributions
+
+The snap package is built and integration-tested automatically across various Linux distributions and init configurations:
+
+| | Distribution | Version | Init System | Confinement | Status |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| ![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=flat-square&logo=ubuntu&logoColor=white) | **Ubuntu** | 24.04 LTS | systemd | Strict | [![Test on Ubuntu 24.04](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-2404.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-2404.yml) |
+| ![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=flat-square&logo=ubuntu&logoColor=white) | **Ubuntu** | 22.04 LTS | systemd | Strict | [![Test on Ubuntu 22.04](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-2204.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-2204.yml) |
+| ![Ubuntu](https://img.shields.io/badge/Ubuntu_Core-E95420?style=flat-square&logo=ubuntu&logoColor=white) | **Ubuntu Core** | 26 | systemd-udevd | Strict | [![Test on Ubuntu Core](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-core.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-core.yml) |
+| ![Debian](https://img.shields.io/badge/Debian-A81D33?style=flat-square&logo=debian&logoColor=white) | **Debian** | 12 (Bookworm) | systemd | Strict | [![Test on Debian 12](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-debian-12.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-debian-12.yml) |
+| ![Debian](https://img.shields.io/badge/Debian-A81D33?style=flat-square&logo=debian&logoColor=white) | **Debian** | 11 (Bullseye) | systemd | Strict | [![Test on Debian 11](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-debian-11.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-debian-11.yml) |
+| ![Fedora](https://img.shields.io/badge/Fedora-3C6EB4?style=flat-square&logo=fedora&logoColor=white) | **Fedora** | 40 | systemd | Strict | [![Test on Fedora 40](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-fedora-40.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-fedora-40.yml) |
+| ![Fedora](https://img.shields.io/badge/Fedora-3C6EB4?style=flat-square&logo=fedora&logoColor=white) | **Fedora** | 39 | systemd | Strict | [![Test on Fedora 39](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-fedora-39.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-fedora-39.yml) |
+| ![Rocky Linux](https://img.shields.io/badge/Rocky_Linux-10B981?style=flat-square&logo=rockylinux&logoColor=white) | **Rocky Linux** | 9 | systemd | Strict | [![Test on Rocky Linux 9](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-rockylinux-9.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-rockylinux-9.yml) |
+| ![AlmaLinux](https://img.shields.io/badge/AlmaLinux-F43F5E?style=flat-square&logo=almalinux&logoColor=white) | **AlmaLinux** | 9 | systemd | Strict | [![Test on AlmaLinux 9](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-almalinux-9.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-almalinux-9.yml) |
+| ![openSUSE](https://img.shields.io/badge/openSUSE-73BA25?style=flat-square&logo=opensuse&logoColor=white) | **openSUSE** | Leap 15.5 | systemd | Strict | [![Test on openSUSE Leap 15.5](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-opensuse-155.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-opensuse-155.yml) |
+| ![openSUSE](https://img.shields.io/badge/openSUSE-73BA25?style=flat-square&logo=opensuse&logoColor=white) | **openSUSE** | Tumbleweed | systemd | Strict | [![Test on openSUSE Tumbleweed](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-opensuse-tumbleweed.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-opensuse-tumbleweed.yml) |
+| ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white) | **Arch Linux** | Rolling | systemd | Strict | [![Test on Arch Linux](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-archlinux.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-archlinux.yml) |
+| ![Alpine Linux](https://img.shields.io/badge/Alpine_Linux-0D597F?style=flat-square&logo=alpinelinux&logoColor=white) | **Alpine Linux** | 3.19 | OpenRC | Strict | [![Test on Alpine 3.19](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-alpine-319.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-alpine-319.yml) |
 
 ## More information
 

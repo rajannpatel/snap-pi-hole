@@ -1,0 +1,162 @@
+name: Reusable Distro Test
+
+on:
+  workflow_call:
+    inputs:
+      distro:
+        required: true
+        type: string
+
+jobs:
+  build:
+    name: Build Snap Package
+    runs-on: ubuntu-24.04
+    outputs:
+      snap_file: ${{ steps.find_snap.outputs.snap_file }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Build Snap
+        uses: snapcore/action-build@v1
+        id: snapcraft
+
+      - name: Find Built Snap File
+        id: find_snap
+        run: |
+          SNAP_PATH=$(ls *.snap | head -n 1)
+          echo "snap_file=$SNAP_PATH" >> $GITHUB_OUTPUT
+
+      - name: Upload Snap Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-snap-${{ inputs.distro }}
+          path: *.snap
+
+  distro-test:
+    name: Test Confinement
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Snap Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: built-snap-${{ inputs.distro }}
+
+      - name: Initialize LXD on Runner
+        run: |
+          sudo groupadd --force --system lxd
+          sudo usermod -a -G lxd $USER
+          sudo lxd init --auto
+
+      - name: Launch LXD Virtual Machine
+        run: |
+          case "${{ inputs.distro }}" in
+            ubuntu-24.04) IMAGE="ubuntu:24.04" ;;
+            ubuntu-22.04) IMAGE="ubuntu:22.04" ;;
+            debian-12) IMAGE="images:debian/12" ;;
+            debian-11) IMAGE="images:debian/11" ;;
+            fedora-40) IMAGE="images:fedora/40" ;;
+            fedora-39) IMAGE="images:fedora/39" ;;
+            rockylinux-9) IMAGE="images:rockylinux/9" ;;
+            almalinux-9) IMAGE="images:almalinux/9" ;;
+            opensuse-15.5) IMAGE="images:opensuse/15.5" ;;
+            opensuse-tumbleweed) IMAGE="images:opensuse/tumbleweed" ;;
+            archlinux) IMAGE="images:archlinux" ;;
+            alpine-3.19) IMAGE="images:alpine/3.19" ;;
+          esac
+          
+          # Launch LXD with VM flag to get a full virtual machine with kernel/systemd
+          sg lxd -c "lxc launch $IMAGE test-vm --vm"
+
+      - name: Wait for VM to Boot
+        run: |
+          sg lxd -c '
+            for i in {1..30}; do
+              if lxc exec test-vm -- systemctl is-system-running 2>/dev/null | grep -qE "running|degraded"; then
+                echo "VM is fully booted!"
+                exit 0
+              fi
+              # For Alpine/OpenRC:
+              if lxc exec test-vm -- rc-status 2>/dev/null | grep -q "Runlevel"; then
+                echo "Alpine VM is booted!"
+                exit 0
+              fi
+              echo "Waiting for VM boot..."
+              sleep 5
+            done
+            echo "VM failed to boot"
+            exit 1
+          '
+
+      - name: Install snapd inside VM
+        run: |
+          sg lxd -c "
+            case '${{ inputs.distro }}' in
+              ubuntu-*|debian-*)
+                lxc exec test-vm -- apt-get update
+                lxc exec test-vm -- apt-get install -y snapd
+                ;;
+              fedora-*)
+                lxc exec test-vm -- dnf install -y snapd
+                lxc exec test-vm -- systemctl enable --now snapd.socket
+                lxc exec test-vm -- ln -s /var/lib/snapd/snap /snap
+                ;;
+              rockylinux-*|almalinux-*)
+                lxc exec test-vm -- dnf install -y epel-release
+                lxc exec test-vm -- dnf install -y snapd
+                lxc exec test-vm -- systemctl enable --now snapd.socket
+                lxc exec test-vm -- ln -s /var/lib/snapd/snap /snap
+                ;;
+              opensuse-15.5)
+                lxc exec test-vm -- zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_15.5/system:snappy.repo
+                lxc exec test-vm -- zypper --non-interactive install snapd
+                lxc exec test-vm -- systemctl enable --now snapd
+                lxc exec test-vm -- ln -s /var/lib/snapd/snap /snap
+                ;;
+              opensuse-tumbleweed)
+                lxc exec test-vm -- zypper --non-interactive install snapd
+                lxc exec test-vm -- systemctl enable --now snapd
+                lxc exec test-vm -- ln -s /var/lib/snapd/snap /snap
+                ;;
+              archlinux)
+                # Arch requires building snapd from AUR
+                lxc exec test-vm -- pacman -Sy --noconfirm base-devel git
+                lxc exec test-vm -- useradd -m -d /home/builder -s /bin/bash builder
+                lxc exec test-vm -- sh -c 'echo \"builder ALL=(ALL) NOPASSWD: ALL\" >> /etc/sudoers'
+                lxc exec test-vm -- sudo -u builder git clone https://aur.archlinux.org/snapd.git /home/builder/snapd
+                lxc exec test-vm -- sh -c 'cd /home/builder/snapd && sudo -u builder makepkg -si --noconfirm'
+                lxc exec test-vm -- systemctl enable --now snapd.socket
+                lxc exec test-vm -- ln -s /var/lib/snapd/snap /snap
+                ;;
+              alpine-3.19)
+                lxc exec test-vm -- sh -c 'echo \"http://dl-cdn.alpinelinux.org/alpine/edge/community\" >> /etc/apk/repositories'
+                lxc exec test-vm -- apk update
+                lxc exec test-vm -- apk add snapd
+                lxc exec test-vm -- rc-update add snapd
+                lxc exec test-vm -- rc-service snapd start
+                ;;
+            esac
+          "
+
+      - name: Install and Verify Snap
+        run: |
+          sg lxd -c "
+            # Transfer the built snap to the VM
+            lxc file push ${{ needs.build.outputs.snap_file }} test-vm/tmp/pihole.snap
+            
+            # Install the snap package
+            lxc exec test-vm -- snap install /tmp/pihole.snap --dangerous
+            
+            # Setup command alias
+            lxc exec test-vm -- snap alias pihole-by-rajannpatel.pihole pihole
+            
+            # Wait for snap services to stabilize
+            sleep 10
+            
+            # Run the diagnostics tool to assert connected ports and interfaces
+            lxc exec test-vm -- pihole snap-check
+          "
