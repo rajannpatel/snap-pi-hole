@@ -49,6 +49,7 @@ EOF
     export MOCK_ROOT_CHECK="true"
     export MOCK_TCP_CHECK="true"
     export MOCK_TCP_PORTS_IN_USE=""
+    export MOCK_IPV6_CONNECTIVITY="false"
     
     export SETUP_SCRIPT="${REPO_ROOT}/snap/local/testing/snap-setup.sh"
 }
@@ -157,6 +158,26 @@ teardown() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"Applying upstream DNS: [\"8.8.8.8\",\"4.2.2.2\"]"* ]]
     run grep -q "set ftl.dns.upstreams=\[\"8.8.8.8\",\"4.2.2.2\"\]" "${SNAPCTL_LOG}"
+    [ "$status" -eq 0 ]
+}
+
+@test "snap-setup configures Cloudflare DNS with IPv6 when IPv6 is available" {
+    export MOCK_DNS_CHOICE="1"
+    export MOCK_IPV6_CONNECTIVITY="true"
+    run "${SETUP_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Applying upstream DNS: [\"1.1.1.1\",\"1.0.0.1\",\"2606:4700:4700::1111\",\"2606:4700:4700::1001\"]"* ]]
+    run grep -q "set ftl.dns.upstreams=\[\"1.1.1.1\",\"1.0.0.1\",\"2606:4700:4700::1111\",\"2606:4700:4700::1001\"\]" "${SNAPCTL_LOG}"
+    [ "$status" -eq 0 ]
+}
+
+@test "snap-setup configures Quad9 DNS with IPv6 when IPv6 is available" {
+    export MOCK_DNS_CHOICE="2"
+    export MOCK_IPV6_CONNECTIVITY="true"
+    run "${SETUP_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Applying upstream DNS: [\"9.9.9.9\",\"149.112.112.112\",\"2620:fe::fe\",\"2620:fe::9\"]"* ]]
+    run grep -q "set ftl.dns.upstreams=\[\"9.9.9.9\",\"149.112.112.112\",\"2620:fe::fe\",\"2620:fe::9\"\]" "${SNAPCTL_LOG}"
     [ "$status" -eq 0 ]
 }
 

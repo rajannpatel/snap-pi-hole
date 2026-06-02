@@ -76,10 +76,24 @@ prompt_fail_exit() {
     fi
 }
 
+has_ipv6_connectivity() {
+    if [ "${MOCK_IPV6_CONNECTIVITY:-}" = "true" ]; then
+        return 0
+    elif [ "${MOCK_IPV6_CONNECTIVITY:-}" = "false" ]; then
+        return 1
+    fi
+    if command -v ip >/dev/null 2>&1; then
+        if ip -6 route show default 2>/dev/null | grep -q "^default"; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
 get_local_ips() {
     local ips=""
     if command -v ip >/dev/null 2>&1; then
-        ips=$(ip -4 -o addr show up 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | grep -v '^127\.' | paste -sd ',' - | sed 's/,/, /g')
+        ips=$(ip -o addr show up 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | grep -E -v '^127\.|^::1|^fe80' | paste -sd ',' - | sed 's/,/, /g')
     fi
     if [ -z "$ips" ] && command -v hostname >/dev/null 2>&1; then
         ips=$(hostname -I 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/[[:space:]][[:space:]]*/, /g')
@@ -211,11 +225,40 @@ else
 fi
 
 UPSTREAMS=""
+has_ipv6=false
+if has_ipv6_connectivity; then
+    has_ipv6=true
+fi
+
 case "$DNS_CHOICE" in
-    1) UPSTREAMS='["1.1.1.1","1.0.0.1"]' ;;
-    2) UPSTREAMS='["9.9.9.9","149.112.112.112"]' ;;
-    3) UPSTREAMS='["8.8.8.8","8.8.4.4"]' ;;
-    4) UPSTREAMS='["94.140.14.14","94.140.15.15"]' ;;
+    1)
+        if [ "$has_ipv6" = "true" ]; then
+            UPSTREAMS='["1.1.1.1","1.0.0.1","2606:4700:4700::1111","2606:4700:4700::1001"]'
+        else
+            UPSTREAMS='["1.1.1.1","1.0.0.1"]'
+        fi
+        ;;
+    2)
+        if [ "$has_ipv6" = "true" ]; then
+            UPSTREAMS='["9.9.9.9","149.112.112.112","2620:fe::fe","2620:fe::9"]'
+        else
+            UPSTREAMS='["9.9.9.9","149.112.112.112"]'
+        fi
+        ;;
+    3)
+        if [ "$has_ipv6" = "true" ]; then
+            UPSTREAMS='["8.8.8.8","8.8.4.4","2001:4860:4860::8888","2001:4860:4860::8844"]'
+        else
+            UPSTREAMS='["8.8.8.8","8.8.4.4"]'
+        fi
+        ;;
+    4)
+        if [ "$has_ipv6" = "true" ]; then
+            UPSTREAMS='["94.140.14.14","94.140.15.15","2a10:50c0::ad1:ff","2a10:50c0::ad2:ff"]'
+        else
+            UPSTREAMS='["94.140.14.14","94.140.15.15"]'
+        fi
+        ;;
     5)
         if [ "${NON_INTERACTIVE:-}" = "true" ]; then
             UPSTREAMS="${MOCK_CUSTOM_DNS:-[\"8.8.8.8\"]}"
