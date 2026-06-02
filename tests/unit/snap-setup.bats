@@ -205,6 +205,44 @@ teardown() {
     [ "$status" -eq 0 ]
 }
 
+@test "snap-setup enables and starts FTL by default when stopped (non-interactive)" {
+    export MOCK_FTL_ACTIVE="false"
+    # MOCK_START_FTL is unset, so it should default to y
+    run "${SETUP_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Enabling and starting pihole-ftl service"* ]]
+    run grep -q "start --enable pihole.pihole-ftl" "${SNAPCTL_LOG}"
+    [ "$status" -eq 0 ]
+}
+
+@test "snap-setup does not start FTL if chosen not to when stopped (non-interactive)" {
+    export MOCK_FTL_ACTIVE="false"
+    export MOCK_START_FTL="n"
+    run "${SETUP_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"To start the service manually later, run"* ]]
+    [[ "$output" != *"Enabling and starting pihole-ftl service"* ]]
+    run grep -q "start --enable pihole.pihole-ftl" "${SNAPCTL_LOG}"
+    [ "$status" -ne 0 ]
+}
+
+@test "snap-setup prompts and starts FTL by default when user presses enter (interactive)" {
+    export MOCK_FTL_ACTIVE="false"
+    export MOCK_ALIAS_CHECK="true"
+    unset NON_INTERACTIVE
+    # Input sequence:
+    # 1. 'n' for Exit prompt (do not exit)
+    # 2. '1' for DNS provider (Cloudflare)
+    # 3. 'n' for password prompt (do not change password)
+    # 4. '' (Enter) for FTL start prompt (should default to yes)
+    run bash -c "printf 'n\n1\nn\n\n' | ${SETUP_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Enabling and starting pihole-ftl service..."* ]]
+    run grep -q "start --enable pihole.pihole-ftl" "${SNAPCTL_LOG}"
+    [ "$status" -eq 0 ]
+}
+
+
 # Interactive Fail/Exit Prompts
 
 @test "snap-setup prompts and exits immediately on FAIL when user accepts (Y)" {

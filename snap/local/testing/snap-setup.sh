@@ -319,13 +319,17 @@ echo ""
 if [ "$FTL_RUNNING" = "true" ]; then
     echo "pihole-FTL service is already active and running."
 else
-    START_FTL="n"
+    START_FTL="y"
     if [ "${NON_INTERACTIVE:-}" = "true" ]; then
-        START_FTL="${MOCK_START_FTL:-n}"
+        START_FTL="${MOCK_START_FTL:-y}"
     else
-        read -r -p "Do you want to enable and start the pihole-ftl service now? (y/N): " start_choice
+        read -r -p "Do you want to enable and start the pihole-ftl service now? (Y/n): " start_choice
+        start_choice="${start_choice:-y}"
         case "$start_choice" in
-            [yY][eE][sS]|[yY])
+            [nN][oO]|[nN])
+                START_FTL="n"
+                ;;
+            *)
                 START_FTL="y"
                 ;;
         esac
