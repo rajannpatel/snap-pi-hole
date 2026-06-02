@@ -120,7 +120,7 @@ parts:
     stage-packages:
       # --- Standalone Tools ---
       # Staging GNU coreutils bundles standard commands (mkdir, cp, timeout, truncate)
-      # inside the snap, avoiding AppArmor execution denials triggered by the base 
+      # inside the snap, avoiding AppArmor execution denials triggered by the base
       # snap's rust-coreutils (/usr/lib/cargo/bin/coreutils/...) path.
       - coreutils
       - bind9-dnsutils
