@@ -48,14 +48,14 @@ jobs:
         with:
           name: built-snap-${{ inputs.distro }}
 
-      - name: Initialize LXD on Runner
+      - name: Initialize LXD Hypervisor
         if: inputs.distro != 'ubuntu-core'
         run: |
           sudo groupadd --force --system lxd
           sudo usermod -a -G lxd $USER
           sudo lxd init --auto
 
-      - name: Launch LXD Virtual Machine
+      - name: Launch VM (LXD)
         if: inputs.distro != 'ubuntu-core'
         run: |
           case "${{ inputs.distro }}" in
@@ -75,7 +75,7 @@ jobs:
           # Launch LXD with VM flag to get a full virtual machine with kernel/systemd
           sg lxd -c "lxc launch $IMAGE test-vm --vm"
 
-      - name: Wait for VM to Boot
+      - name: Wait for VM to Boot (LXD)
         if: inputs.distro != 'ubuntu-core'
         run: |
           sg lxd -c '
@@ -98,7 +98,7 @@ jobs:
             exit 1
           '
 
-      - name: Install snapd inside VM
+      - name: Install snapd inside VM (LXD)
         if: inputs.distro != 'ubuntu-core'
         run: |
           sg lxd -c "
@@ -149,7 +149,7 @@ jobs:
             esac
           "
 
-      - name: Install and Verify Snap
+      - name: Install and Verify Snap (LXD)
         if: inputs.distro != 'ubuntu-core'
         run: |
           sg lxd -c "
@@ -169,7 +169,7 @@ jobs:
             lxc exec test-vm -- pihole snap-check
           "
 
-      - name: Install Multipass
+      - name: Initialize Multipass Hypervisor
         if: inputs.distro == 'ubuntu-core'
         run: |
           sudo snap install multipass
@@ -191,13 +191,13 @@ jobs:
           sudo journalctl -n 50 -u snap.multipass.multipassd.service
           exit 1
 
-      - name: Launch Ubuntu Core VM
+      - name: Launch VM (Multipass)
         if: inputs.distro == 'ubuntu-core'
         run: |
           echo "Launching Ubuntu Core VM using image: core26"
           sudo multipass launch core26 --name test-vm --cpus 2 --memory 4G --disk 10G
 
-      - name: Wait for Ubuntu Core stability
+      - name: Wait for VM to Boot (Multipass)
         if: inputs.distro == 'ubuntu-core'
         run: |
           wait_for_snapd_stability() {
@@ -238,7 +238,7 @@ jobs:
           
           wait_for_snapd_stability
 
-      - name: Transfer and Install Snap (Ubuntu Core)
+      - name: Install and Verify Snap (Multipass)
         if: inputs.distro == 'ubuntu-core'
         run: |
           # Transfer the snap package to the guest VM
@@ -266,13 +266,13 @@ jobs:
           # Setup command alias
           sudo multipass exec test-vm -- sudo snap alias pihole-by-rajannpatel.pihole pihole
 
-      - name: Verify Confinement (Ubuntu Core)
+      - name: Run Snap Diagnostics (Multipass)
         if: inputs.distro == 'ubuntu-core'
         run: |
           # Run the diagnostics tool
           sudo multipass exec test-vm -- pihole snap-check
 
-      - name: Cleanup VM
+      - name: Cleanup VM (Multipass)
         if: always() && inputs.distro == 'ubuntu-core'
         run: |
           sudo multipass delete --purge test-vm || true
