@@ -51,7 +51,7 @@ sudo pihole -r
 
 ## Supported Linux distributions
 
-The snap package is built and integration-tested automatically across various Linux distributions and init configurations:
+This snap package is built and integration-tested automatically across various Linux distributions.
 
 | | Distribution | Version | Name | Status |
 | :--- | :--- | :--- | :--- | :--- |
