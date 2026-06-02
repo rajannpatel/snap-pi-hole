@@ -15,8 +15,6 @@ A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](
 #     sudo apt update && sudo apt install -y snapd
 # - On RHEL/Rocky Linux/AlmaLinux:
 #     sudo dnf install -y epel-release && sudo dnf install -y snapd && sudo systemctl enable --now snapd.socket
-# - On Alpine: 
-#     sudo apk add snapd && sudo rc-update add snapd && sudo rc-service snapd start
 # - On Void Linux: 
 #     sudo xbps-install -S snapd && sudo ln -s /etc/sv/snapd /var/service/
 # - On Devuan/MX Linux: 
@@ -66,7 +64,6 @@ The snap package is built and integration-tested automatically across various Li
 | ![openSUSE](https://img.shields.io/badge/openSUSE-73BA25?style=flat-square&logo=opensuse&logoColor=white) | openSUSE | Leap | - | [![Test on openSUSE Leap](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-opensuse-leap.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-opensuse-leap.yml) |
 | ![openSUSE](https://img.shields.io/badge/openSUSE-73BA25?style=flat-square&logo=opensuse&logoColor=white) | openSUSE | Rolling | Tumbleweed | [![Test on openSUSE Tumbleweed](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-opensuse-tumbleweed.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-opensuse-tumbleweed.yml) |
 | ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white) | Arch Linux | Rolling | Arch Linux | [![Test on Arch Linux](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-archlinux.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-archlinux.yml) |
-| ![Alpine Linux](https://img.shields.io/badge/Alpine_Linux-0D597F?style=flat-square&logo=alpinelinux&logoColor=white) | Alpine Linux | - | - | [![Test on Alpine Linux](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-alpine.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-alpine.yml) |
 
 ## More information
 

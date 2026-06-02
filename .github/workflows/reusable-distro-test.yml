@@ -163,12 +163,12 @@ jobs:
                 ;;
               opensuse-leap*)
                 lxc exec test-instance -- zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_15.6/system:snappy.repo
-                lxc exec test-instance -- zypper --non-interactive install snapd fuse squashfuse
+                lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install snapd fuse squashfuse
                 lxc exec test-instance -- systemctl enable --now snapd
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
               opensuse-tumbleweed)
-                lxc exec test-instance -- zypper --non-interactive install snapd fuse
+                lxc exec test-instance -- zypper --non-interactive --gpg-auto-import-keys install snapd fuse
                 lxc exec test-instance -- systemctl enable --now snapd
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
@@ -181,13 +181,6 @@ jobs:
                 lxc exec test-instance -- sh -c 'cd /home/builder/snapd && sudo -u builder makepkg -si --noconfirm'
                 lxc exec test-instance -- systemctl enable --now snapd.socket
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
-                ;;
-              alpine)
-                lxc exec test-instance -- sh -c 'echo \"http://dl-cdn.alpinelinux.org/alpine/edge/community\" >> /etc/apk/repositories'
-                lxc exec test-instance -- apk update
-                lxc exec test-instance -- apk add snapd fuse squashfuse
-                lxc exec test-instance -- rc-update add snapd
-                lxc exec test-instance -- rc-service snapd start
                 ;;
             esac
           "
