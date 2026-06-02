@@ -120,7 +120,7 @@ check_tcp() {
         return 1
     fi
     (
-        bash -c "exec 3<>/dev/tcp/$ip/$port" 2>/dev/null &
+        bash -c "exec 2>/dev/null 3<>/dev/tcp/$ip/$port" &
         pid=$!
         (sleep 1; kill $pid 2>/dev/null) &
         killer_pid=$!

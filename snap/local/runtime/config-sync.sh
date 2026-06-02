@@ -70,7 +70,7 @@ function clean_comments(s) {
 # `select(length > 0)` drops blank lines so a keyless or comment-only
 # pihole.toml yields {} (handled below) instead of a `null | fromjson` error.
 json_config=$(echo "$flat_config" | jq -n -R '
-  [ inputs | select(length > 0) | split("=") | {key: .[0], value: (.[1] | fromjson)} ] |
+  [ inputs | select(length > 0) | index("=") as $idx | {key: .[0:$idx], value: (.[$idx+1:] | fromjson)} ] |
   reduce .[] as $item ({}; setpath($item.key | split("."); $item.value))
 ')
 

@@ -138,6 +138,8 @@ if [ -f "${SNAP_DATA:-}/etc/pihole/pihole.toml" ]; then
     ' "${SNAP_DATA:-}/etc/pihole/pihole.toml" 2>/dev/null || echo "")
 fi
 
+config_changed=0
+
 # Apply migrated configuration to FTL
 if [ -n "$flat_config" ]; then
     while IFS='=' read -r key val; do
@@ -158,6 +160,7 @@ if [ -n "$flat_config" ]; then
                 echo "Error applying ftl.$key=$val" >&2
                 exit 1
             }
+            config_changed=1
         fi
     done <<EOF
 $flat_config
@@ -165,6 +168,8 @@ EOF
 fi
 
 # Restart the daemon if it's currently running, so changes take effect immediately
-if snapctl services "${SNAP_NAME}".pihole-ftl 2>/dev/null | awk 'NR>1 {print $3}' | grep -qx active; then
-    snapctl restart "${SNAP_NAME}".pihole-ftl
+if [ "$config_changed" -eq 1 ]; then
+    if snapctl services "${SNAP_NAME}".pihole-ftl 2>/dev/null | awk 'NR>1 {print $3}' | grep -qx active; then
+        snapctl restart "${SNAP_NAME}".pihole-ftl
+    fi
 fi

@@ -205,3 +205,17 @@ EOF
     run jq -e '.dns.password == "my#password#here"' "${CAPTURED_JSON}"
     [ "$status" -eq 0 ]
 }
+
+@test "config-sync parses values containing equal signs correctly (e.g. password hashes)" {
+    cat > "${TOML_FILE}" <<'EOF'
+[webserver.api]
+  pwhash = "$BALLOON-SHA256$v=1$s=1024,t=32$qn+MtbcDA2jMljkTmilPRg==$xrLkXnfiQVA5SnHVnCV0ItHoqpYyIV+SAJ1E2lmzPYc="
+EOF
+    run "${CONFIG_SYNC}"
+    [ "$status" -eq 0 ]
+    [ -f "${CAPTURED_JSON}" ]
+
+    run jq -e '.webserver.api.pwhash == "$BALLOON-SHA256$v=1$s=1024,t=32$qn+MtbcDA2jMljkTmilPRg==$xrLkXnfiQVA5SnHVnCV0ItHoqpYyIV+SAJ1E2lmzPYc="' "${CAPTURED_JSON}"
+    [ "$status" -eq 0 ]
+}
+

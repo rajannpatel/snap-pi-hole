@@ -695,6 +695,7 @@ EOF
 
     # Set snapctl setting to match
     export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
+    export SNAPCTL_SERVICE_STATUS=active
     
     HOOK="${TEST_TMPDIR}/configure"
     sed \
@@ -709,6 +710,9 @@ EOF
     
     # Verify that FTL was NOT called
     [ ! -f "${TEST_TMPDIR}/ftl.log" ]
+
+    # Verify that restart was NOT called because config did not change
+    ! grep -q "restart" "${TEST_TMPDIR}/snapctl.log"
 }
 
 @test "configure hook calls pihole-FTL --config when the value does not match pihole.toml" {
@@ -721,6 +725,7 @@ EOF
 
     # Set snapctl setting to a different value
     export SNAPCTL_GET_D_FTL='{"webserver": {"port": 8080}}'
+    export SNAPCTL_SERVICE_STATUS=active
     
     HOOK="${TEST_TMPDIR}/configure"
     sed \
@@ -735,4 +740,7 @@ EOF
     
     # Verify that FTL WAS called
     grep -q "FTL:--config webserver.port 8080" "${TEST_TMPDIR}/ftl.log"
+
+    # Verify that restart WAS called because config changed
+    grep -q "restart" "${TEST_TMPDIR}/snapctl.log"
 }
