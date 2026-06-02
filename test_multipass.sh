@@ -398,7 +398,13 @@ if [ "$LINT" = "true" ]; then
     
     if command -v bats >/dev/null 2>&1; then
         log "Running BATS unit tests..."
-        bats -r tests/
+        if command -v kcov >/dev/null 2>&1; then
+            log "kcov detected. Running BATS unit tests with code coverage..."
+            mkdir -p coverage
+            kcov --include-path="$PWD/snap/local,$PWD/snap/hooks" --dump-summary "$PWD/coverage" bats -r tests/unit/
+        else
+            bats -r tests/unit/
+        fi
         log_success "BATS tests completed successfully."
     else
         log_warn "bats not found on host. Skipping BATS unit tests."
