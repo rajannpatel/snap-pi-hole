@@ -131,7 +131,7 @@ jobs:
             || sudo snap refresh snapd
           sudo snap install core26 || true
           sudo snap install --dangerous ./${{ env.SNAP_NAME }}_*.snap
-          
+
           # Explicitly connect network interfaces and required system plugs
           sudo snap connect ${{ env.SNAP_NAME }}:network-bind
           sudo snap connect ${{ env.SNAP_NAME }}:system-observe
@@ -139,7 +139,7 @@ jobs:
           sudo snap connect ${{ env.SNAP_NAME }}:mount-observe
           sudo snap connect ${{ env.SNAP_NAME }}:network-control
           sudo snap connect ${{ env.SNAP_NAME }}:firewall-control
-          
+
           # Private /dev/shm for FTL locks. --dangerous installs don't
           # always auto-connect; connecting explicitly is a no-op if
           # snapd already connected it.
@@ -165,13 +165,13 @@ jobs:
       - name: Start daemon and wait for DNS
         run: |
           sudo snap start --enable ${{ env.SNAP_NAME }}.pihole-ftl
-          
+
           bound=0
           echo "Waiting for pihole-FTL to bind to port 53 and respond..."
           for i in $(seq 1 60); do
               echo "--- ss output at ${i}s ---"
               sudo ss -lnup | grep ':53' || true
-              
+
               # Check port is bound AND resolver answers any query (even SERVFAIL
               # means FTL is alive; pi.hole may not resolve until fully booted).
               if sudo ss -lnup | grep -q ':53 ' && \
@@ -182,7 +182,7 @@ jobs:
               fi
               sleep 1
           done
-          
+
           if [ "$bound" -eq 0 ]; then
               echo "::error::FTL failed to bind port 53 within 60 seconds" >&2
               sudo snap logs ${{ env.SNAP_NAME }}.pihole-ftl | tail -50 || true
@@ -243,19 +243,19 @@ jobs:
           echo "Simulating an over-the-top snap refresh..."
           # Re-installing an existing local snap triggers the refresh pathway
           sudo snap install --dangerous ./${{ env.SNAP_NAME }}_*.snap
-          
+
           echo "Verifying pre-refresh snapshot generation..."
           if ! sudo ls /var/snap/${{ env.SNAP_NAME }}/common/snapshots/pihole-backup-*.tar.gz >/dev/null 2>&1; then
               echo "::error::pre-refresh snapshot was not generated!" >&2
               exit 1
           fi
-          
+
           echo "Verifying post-refresh data persistence..."
           if ! sudo grep -E '8123' /var/snap/${{ env.SNAP_NAME }}/current/etc/pihole/pihole.toml; then
               echo "::error::Data migration failed! web.port=8123 did not persist across refresh." >&2
               exit 1
           fi
-          
+
           echo "Verifying daemon health after refresh..."
           sudo ${{ env.SNAP_NAME }}.pihole status
           dig +short +time=1 +tries=1 @127.0.0.1 . NS 2>/dev/null | grep -q '.'
@@ -272,7 +272,7 @@ jobs:
           # ---------------------------------------------------------------------
           # This smoke test enforces strict zero-tolerance for unexpected AppArmor
           # denials to ensure confinement doesn't silently break core functionality.
-          # However, certain utilities inherently probe for elevated capabilities 
+          # However, certain utilities inherently probe for elevated capabilities
           # that they do not strictly require for basic operation. We explicitly
           # filter these benign, non-fatal requests to prevent false test failures.
           #
@@ -334,18 +334,18 @@ jobs:
         run: |
           SNAP_FILE=$(ls ${{ env.SNAP_NAME }}_*.snap | head -n1)
           echo "file=${SNAP_FILE}" >> $GITHUB_OUTPUT
-          
+
           # Extract the version from the snap filename (e.g., pihole-by-rajannpatel_v6.6.2_amd64.snap -> v6.6.2)
           SNAP_VERSION=$(echo "$SNAP_FILE" | cut -d'_' -f2)
-          
+
           # Strip leading 'v' if present and get the major version number (e.g., v6.6.2 -> 6)
           MAJOR_VERSION=$(echo "${SNAP_VERSION#v}" | cut -d'.' -f1)
           echo "track=${MAJOR_VERSION}" >> $GITHUB_OUTPUT
-          
+
           # Map Pi-hole versioning to Snap Store channels
           # Set to true once you request and receive the major version track (e.g., '6' or '7') from the Snapcraft forum
           ENABLE_TRACKS=false
-          
+
           # If the version has commits past a tag (contains -g followed by hex) or is alpha, it's a dev build
           if [[ "$SNAP_VERSION" == *"-alpha"* ]] || [[ "$SNAP_VERSION" =~ -g[0-9a-f]+ ]]; then
             CHANNELS="latest/edge"
@@ -368,36 +368,36 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         run: |
           sudo snap install --classic snapcraft
-          
+
           MAX_ATTEMPTS=3
           attempt=1
           success=0
-          
+
           while [ $attempt -le $MAX_ATTEMPTS ]; do
             echo "Uploading snap (attempt $attempt of $MAX_ATTEMPTS)..."
             set +e
             UPLOAD_OUT=$(/snap/bin/snapcraft upload "${{ steps.snap.outputs.file }}" --release "${{ steps.snap.outputs.channels }}" 2>&1)
             RC=$?
             set -e
-            
+
             echo "$UPLOAD_OUT"
-            
+
             if [ $RC -eq 0 ]; then
               success=1
               break
             fi
-            
+
             if echo "$UPLOAD_OUT" | grep -q "A file with this exact same content has already been uploaded"; then
               echo "::notice::Snap with the same content is already uploaded. Skipping duplicate upload."
               success=1
               break
             fi
-            
+
             echo "::warning::Snapcraft upload attempt $attempt failed with exit code $RC. Retrying in 15 seconds..."
             attempt=$((attempt + 1))
             sleep 15
           done
-          
+
           if [ $success -ne 1 ]; then
             echo "::error::Snapcraft upload failed after $MAX_ATTEMPTS attempts."
             exit $RC
@@ -430,496 +430,21 @@ jobs:
         run: |
           # Create docs directory structure
           mkdir -p docs/coverage docs/sbom
-          
+
           # Copy coverage report (kcov creates index.html automatically)
           if [ -d coverage-report/index ]; then
             cp -r coverage-report/index/* docs/coverage/
           else
             cp -r coverage-report/* docs/coverage/ || true
           fi
-          
+
           # Copy SBOMs from all artifact directories
           echo "Finding and copying SBOM files..."
           find sbom-artifacts -name "sbom-*.json" -exec cp -v {} docs/sbom/ \;
-          
-          # Create SBOM index.html
-          cat > docs/sbom/index.html << 'EOF'
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Software Bill of Materials (SBOM) - Snap Pi-hole</title>
-  <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla-framework-4.18.1.min.css" />
-  <style>
-    body {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-      background-color: #f7f7f7;
-    }
-    main {
-      flex-grow: 1;
-    }
-    .p-navigation__tagged-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .p-navigation__tag {
-      background-color: #e95420;
-      color: white;
-      padding: 2px 8px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      border-radius: 4px;
-      text-transform: uppercase;
-    }
-    .p-card {
-      transition: box-shadow 0.2s ease, border-color 0.2s ease;
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-    }
-    .p-card:hover {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      border-color: #aeaeae;
-    }
-    .p-card__content {
-      flex-grow: 1;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    .spinner {
-      display: inline-block;
-      width: 1.5rem;
-      height: 1.5rem;
-      border: 3px solid rgba(0,0,0,.1);
-      border-radius: 50%;
-      border-top-color: #e95420;
-      animation: spin 1s ease-in-out infinite;
-      vertical-align: middle;
-      margin-right: 0.5rem;
-    }
-  </style>
-</head>
-<body>
 
-  <!-- Navigation Header -->
-  <header id="navigation" class="p-navigation is-dark">
-    <div class="p-navigation__row">
-      <div class="p-navigation__banner">
-        <div class="p-navigation__tagged-logo">
-          <a class="p-navigation__link" href="../">
-            <span class="p-navigation__tag">Snap</span>
-            <span style="color: white; font-weight: 700; font-size: 1.2rem;">Pi-hole</span>
-          </a>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Hero Section -->
-  <section class="p-strip--surround">
-    <div class="row">
-      <div class="col-12">
-        <a href="../" class="p-link--back">Back to Dashboard</a>
-        <h1 class="u-sv1">Software Bill of Materials (SBOM)</h1>
-        <p class="p-heading--4">CycloneDX format SBOM reports containing full dependency lists, licensing, and package manifests.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Downloads & Instructions -->
-  <main class="p-strip">
-    <div class="row">
-      <div class="col-6">
-        <div class="p-card">
-          <span class="p-text--small-muted">ARCHITECTURE</span>
-          <h3 class="p-card__title">Intel / AMD 64-bit (amd64)</h3>
-          <p class="p-card__content">
-            Software bill of materials in CycloneDX JSON format, generated dynamically at build time for the x86_64 CPU architecture.
-          </p>
-          <div class="p-card__footer">
-            <a class="p-button--brand" href="sbom-amd64.json" download>Download JSON</a>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-6">
-        <div class="p-card">
-          <span class="p-text--small-muted">ARCHITECTURE</span>
-          <h3 class="p-card__title">ARM 64-bit (arm64)</h3>
-          <p class="p-card__content">
-            Software bill of materials in CycloneDX JSON format, generated dynamically at build time for the arm64 CPU architecture (AArch64 / Raspberry Pi 4/5).
-          </p>
-          <div class="p-card__footer">
-            <a class="p-button--brand" href="sbom-arm64.json" download>Download JSON</a>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Dynamic Package Explorer -->
-    <div class="row u-sv3">
-      <div class="col-12">
-        <hr>
-        <h2 class="p-heading--3">Interactive Package Explorer</h2>
-        <p>Explore, search, and filter components embedded in the built snap packages in real time.</p>
-        
-        <div class="p-button-group" role="group" aria-label="Select Architecture">
-          <button class="p-button is-active" id="tab-amd64" onclick="loadSBOM('amd64')">Intel/AMD (amd64)</button>
-          <button class="p-button" id="tab-arm64" onclick="loadSBOM('arm64')">ARM (arm64)</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Metadata Section -->
-    <div class="row u-sv2" id="metadata-section" style="display:none;">
-      <div class="col-4">
-        <div class="p-card">
-          <span class="p-text--small-muted">TOTAL COMPONENTS</span>
-          <h4 class="p-card__title" id="meta-total">-</h4>
-        </div>
-      </div>
-      <div class="col-4">
-        <div class="p-card">
-          <span class="p-text--small-muted">SCANNER TOOL</span>
-          <h4 class="p-card__title" id="meta-tool">-</h4>
-        </div>
-      </div>
-      <div class="col-4">
-        <div class="p-card">
-          <span class="p-text--small-muted">GENERATION TIME</span>
-          <h4 class="p-card__title" id="meta-time">-</h4>
-        </div>
-      </div>
-    </div>
-
-    <!-- Search Section -->
-    <div class="row u-sv1" id="search-section" style="display:none;">
-      <div class="col-12">
-        <input class="p-form-validation__input" type="search" id="sbom-search" placeholder="Search by package name, version, or license..." oninput="filterSBOM()">
-      </div>
-    </div>
-
-    <!-- Table Section -->
-    <div class="row">
-      <div class="col-12" style="overflow-x: auto;">
-        <div id="sbom-loading" class="p-text--muted" style="display:none;">
-          <p><span class="spinner"></span> Loading and parsing SBOM dataset...</p>
-        </div>
-        <div id="sbom-error" class="p-notification--negative" style="display:none;">
-          <div class="p-notification__content">
-            <h4 class="p-notification__title">Failed to load SBOM data</h4>
-            <p class="p-notification__message" id="error-message">The JSON file for this architecture is not available.</p>
-          </div>
-        </div>
-        
-        <table class="p-table" id="sbom-table" style="display:none; width: 100%;">
-          <thead>
-            <tr>
-              <th>Package Name</th>
-              <th>Version</th>
-              <th>Type</th>
-              <th>License</th>
-            </tr>
-          </thead>
-          <tbody id="sbom-tbody">
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Auditing Guide Section -->
-    <div class="row u-sv3">
-      <div class="col-12">
-        <div class="p-notification--information">
-          <div class="p-notification__content">
-            <h4 class="p-notification__title">How to audit these SBOMs</h4>
-            <p class="p-notification__message">
-              You can parse and scan these SBOM files using any CycloneDX-compliant security auditor or vulnerability scanner. For example, to scan the downloaded <code>amd64</code> SBOM using Anchore's <code>grype</code>:
-            </p>
-            <pre class="p-code-copyable u-sv1"><code># Install the grype scanner utility
-curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-
-# Scan the SBOM document for CVE vulnerabilities
-grype sbom-amd64.json</code></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- Footer -->
-  <footer class="p-strip--dark">
-    <div class="row">
-      <div class="col-12">
-        <p class="u-align--center">
-          Managed by <a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">rajannpatel/snap-pi-hole</a>. Built with <a href="https://vanillaframework.io/" class="is-dark">Vanilla Framework</a>.
-        </p>
-      </div>
-    </div>
-  </footer>
-
-  <!-- Dynamic SBOM Script -->
-  <script>
-    let currentComponents = [];
-
-    async function loadSBOM(arch) {
-      document.getElementById('tab-amd64').classList.toggle('is-active', arch === 'amd64');
-      document.getElementById('tab-arm64').classList.toggle('is-active', arch === 'arm64');
-      
-      const loading = document.getElementById('sbom-loading');
-      const errorDiv = document.getElementById('sbom-error');
-      const table = document.getElementById('sbom-table');
-      const searchSec = document.getElementById('search-section');
-      const metadataSec = document.getElementById('metadata-section');
-      const tbody = document.getElementById('sbom-tbody');
-      
-      loading.style.display = 'block';
-      errorDiv.style.display = 'none';
-      table.style.display = 'none';
-      searchSec.style.display = 'none';
-      metadataSec.style.display = 'none';
-      tbody.innerHTML = '';
-      
-      try {
-        const response = await fetch(`sbom-${arch}.json`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch sbom-${arch}.json: ${response.status} ${response.statusText}`);
-        }
-        const data = await response.json();
-        currentComponents = data.components || [];
-        
-        // Sort components by name alphabetically
-        currentComponents.sort((a, b) => a.name.localeCompare(b.name));
-        
-        // Fill metadata
-        document.getElementById('meta-total').textContent = currentComponents.length;
-        
-        const syftInfo = data.metadata && data.metadata.tools && data.metadata.tools.components 
-          ? data.metadata.tools.components.map(c => `${c.name} ${c.version}`).join(', ') 
-          : 'Syft';
-        document.getElementById('meta-tool').textContent = syftInfo;
-        
-        const timestampStr = data.metadata && data.metadata.timestamp 
-          ? new Date(data.metadata.timestamp).toLocaleString()
-          : 'N/A';
-        document.getElementById('meta-time').textContent = timestampStr;
-        
-        loading.style.display = 'none';
-        searchSec.style.display = 'block';
-        metadataSec.style.display = 'flex';
-        table.style.display = 'table';
-        
-        document.getElementById('sbom-search').value = '';
-        renderRows(currentComponents);
-      } catch (err) {
-        loading.style.display = 'none';
-        errorDiv.style.display = 'block';
-        document.getElementById('error-message').textContent = err.message;
-      }
-    }
-
-    function renderRows(components) {
-      const tbody = document.getElementById('sbom-tbody');
-      tbody.innerHTML = '';
-      
-      if (components.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="u-align--center p-text--muted">No matching components found</td></tr>`;
-        return;
-      }
-      
-      components.forEach(c => {
-        const tr = document.createElement('tr');
-        
-        let licensesStr = 'None';
-        if (c.licenses && c.licenses.length > 0) {
-          licensesStr = c.licenses.map(l => {
-            if (l.license) {
-              return l.license.id || l.license.name || '';
-            }
-            return '';
-          }).filter(Boolean).join(', ');
-        }
-        
-        tr.innerHTML = `
-          <td><strong>${escapeHtml(c.name)}</strong></td>
-          <td><code>${escapeHtml(c.version)}</code></td>
-          <td><span class="p-text--small">${escapeHtml(c.type || 'library')}</span></td>
-          <td>${escapeHtml(licensesStr)}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function filterSBOM() {
-      const query = document.getElementById('sbom-search').value.toLowerCase().trim();
-      if (!query) {
-        renderRows(currentComponents);
-        return;
-      }
-      
-      const filtered = currentComponents.filter(c => {
-        const nameMatch = c.name.toLowerCase().includes(query);
-        const verMatch = c.version.toLowerCase().includes(query);
-        const typeMatch = (c.type || '').toLowerCase().includes(query);
-        
-        let licensesStr = '';
-        if (c.licenses && c.licenses.length > 0) {
-          licensesStr = c.licenses.map(l => (l.license ? (l.license.id || l.license.name || '') : '')).join(' ');
-        }
-        const licenseMatch = licensesStr.toLowerCase().includes(query);
-        
-        return nameMatch || verMatch || typeMatch || licenseMatch;
-      });
-      
-      renderRows(filtered);
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      loadSBOM('amd64');
-    });
-  </script>
-
-</body>
-</html>
-EOF
-
-      - name: Create root index.html
-        run: |
-          cat > docs/index.html << 'EOF'
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Snap Pi-hole CI/CD Reports</title>
-  <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla-framework-4.18.1.min.css" />
-  <style>
-    body {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-      background-color: #f7f7f7;
-    }
-    main {
-      flex-grow: 1;
-    }
-    .p-navigation__tagged-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .p-navigation__tag {
-      background-color: #e95420;
-      color: white;
-      padding: 2px 8px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      border-radius: 4px;
-      text-transform: uppercase;
-    }
-    .p-card {
-      transition: box-shadow 0.2s ease, border-color 0.2s ease;
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-    }
-    .p-card:hover {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      border-color: #aeaeae;
-    }
-    .p-card__content {
-      flex-grow: 1;
-    }
-    .p-card__footer {
-      margin-top: auto;
-      padding-top: 1rem;
-    }
-  </style>
-</head>
-<body>
-
-  <!-- Navigation Header -->
-  <header id="navigation" class="p-navigation is-dark">
-    <div class="p-navigation__row">
-      <div class="p-navigation__banner">
-        <div class="p-navigation__tagged-logo">
-          <a class="p-navigation__link" href="https://github.com/rajannpatel/snap-pi-hole">
-            <span class="p-navigation__tag">Snap</span>
-            <span style="color: white; font-weight: 700; font-size: 1.2rem;">Pi-hole</span>
-          </a>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Hero Section -->
-  <section class="p-strip--surround">
-    <div class="row">
-      <div class="col-8">
-        <h1>CI/CD Reports Dashboard</h1>
-        <p class="p-heading--4">Diagnostic, coverage, and Software Bill of Materials (SBOM) outputs generated during automated pipeline runs.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Cards Grid -->
-  <main class="p-strip">
-    <div class="row">
-      <div class="col-6">
-        <div class="p-card">
-          <h3 class="p-card__title">📊 Code Coverage Report</h3>
-          <p class="p-card__content">
-            Detailed statement and branch coverage reports generated by <code>kcov</code> during automated BATS unit testing execution on the Ubuntu test runner.
-          </p>
-          <div class="p-card__footer">
-            <a class="p-button--brand" href="coverage/">View Coverage Report</a>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-6">
-        <div class="p-card">
-          <h3 class="p-card__title">🛡️ Software Bill of Materials</h3>
-          <p class="p-card__content">
-            CycloneDX SBOM reports generated automatically with <code>syft</code> for multiple CPU architectures (<code>amd64</code>, <code>arm64</code>) on every release push.
-          </p>
-          <div class="p-card__footer">
-            <a class="p-button" href="sbom/">Explore SBOM Reports</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- Footer -->
-  <footer class="p-strip--dark">
-    <div class="row">
-      <div class="col-12">
-        <p class="u-align--center">
-          Managed by <a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">rajannpatel/snap-pi-hole</a>. Built with <a href="https://vanillaframework.io/" class="is-dark">Vanilla Framework</a>.
-        </p>
-      </div>
-    </div>
-  </footer>
-
-</body>
-</html>
-EOF
+          # Copy HTML templates from snap assets
+          cp snap/local/assets/dashboard.html docs/index.html
+          cp snap/local/assets/sbom-explorer.html docs/sbom/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
