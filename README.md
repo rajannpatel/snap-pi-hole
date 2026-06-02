@@ -4,10 +4,14 @@
 
 A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole.
 
+[![Code Coverage](https://img.shields.io/badge/Code%20Coverage-kcov-blue?style=flat-square&logo=github)](https://rajannpatel.github.io/snap-pi-hole/coverage/)
+[![SBOM Reports](https://img.shields.io/badge/SBOM-CycloneDX-blue?style=flat-square&logo=github)](https://rajannpatel.github.io/snap-pi-hole/sbom/)
+
 [![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/pihole-by-rajannpatel)
 
 [![Build and Smoke Test](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/publish.yml/badge.svg)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/publish.yml)
 
+## Installation
 
 ```bash
 # 1. Install snapd (if not already present on the host)
