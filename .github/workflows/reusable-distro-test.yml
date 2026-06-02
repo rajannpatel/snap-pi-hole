@@ -57,6 +57,16 @@ jobs:
         with:
           name: built-snap-${{ inputs.distro }}
 
+      # ── Hypervisor network fix (all distros) ───────────────────────────────
+
+      - name: Fix Hypervisor Network Forwarding
+        run: |
+          # GHA runners have Docker installed, which sets the iptables FORWARD
+          # chain default policy to DROP. This blocks NAT-routed traffic from
+          # both LXD containers (lxdbr0) and Multipass VMs (mpqemubr0), cutting
+          # off outbound internet access for any guest regardless of hypervisor.
+          sudo iptables -P FORWARD ACCEPT
+
       # ── LXD path (all distros except ubuntu-core) ──────────────────────────
 
       - name: Initialize LXD
@@ -64,10 +74,6 @@ jobs:
         run: |
           sudo groupadd --force --system lxd
           sudo usermod -a -G lxd $USER
-          # GHA runners have Docker installed which sets iptables FORWARD policy
-          # to DROP, blocking NAT traffic from LXD containers. Setting it to
-          # ACCEPT restores outbound internet access for containers.
-          sudo iptables -P FORWARD ACCEPT
           sudo lxd init --auto
 
       - name: Launch Container (LXD)
