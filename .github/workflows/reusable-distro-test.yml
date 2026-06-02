@@ -86,8 +86,19 @@ jobs:
           # Non-images: remotes (e.g. ubuntu:lts) and already-qualified paths
           # (e.g. images:opensuse/tumbleweed) are passed through unchanged.
           cat > /tmp/resolve_image.py << 'PYEOF'
-          import json, re, subprocess, sys
+          import json, re, subprocess, sys, urllib.request
           prefix = sys.argv[1]
+          if prefix == "images:debian/stable":
+              try:
+                  req = urllib.request.Request("https://www.debian.org/releases/stable/", method="HEAD")
+                  with urllib.request.urlopen(req) as resp:
+                      url = resp.geturl()
+                      codename = url.strip("/").split("/")[-1]
+                      print(f"images:debian/{codename}")
+                      sys.exit(0)
+              except Exception:
+                  print("images:debian/bookworm")
+                  sys.exit(0)
           if ":" not in prefix:
               print(prefix); sys.exit(0)
           remote, family = prefix.split(":", 1)
@@ -146,7 +157,7 @@ jobs:
           sg lxd -c "
             set -e
             case '${{ inputs.distro }}' in
-              ubuntu|debian)
+              ubuntu*|debian*)
                 lxc exec test-instance -- apt-get update
                 lxc exec test-instance -- apt-get install -y snapd fuse squashfuse
                 ;;

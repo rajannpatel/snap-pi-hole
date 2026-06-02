@@ -1,0 +1,19 @@
+name: Test on Debian Stable
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/reusable-distro-test.yml
+    secrets: inherit
+    with:
+      distro: debian-stable
+      lxd_image: images:debian/stable
