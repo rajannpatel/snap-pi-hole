@@ -1,4 +1,4 @@
-name: Test on Rocky Linux 9
+name: Test on Fedora
 
 on:
   push:
@@ -15,5 +15,5 @@ jobs:
     uses: ./.github/workflows/reusable-distro-test.yml
     secrets: inherit
     with:
-      distro: rockylinux-9
-      lxd_image: images:rockylinux/9
+      distro: fedora
+      lxd_image: images:fedora

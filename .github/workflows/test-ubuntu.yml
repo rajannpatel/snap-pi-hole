@@ -1,4 +1,4 @@
-name: Test on Debian 12
+name: Test on Ubuntu
 
 on:
   push:
@@ -15,5 +15,5 @@ jobs:
     uses: ./.github/workflows/reusable-distro-test.yml
     secrets: inherit
     with:
-      distro: debian-12
-      lxd_image: images:debian/12
+      distro: ubuntu
+      lxd_image: ubuntu:lts

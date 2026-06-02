@@ -1,4 +1,4 @@
-name: Test on openSUSE Leap 15.5
+name: Test on Debian
 
 on:
   push:
@@ -15,5 +15,5 @@ jobs:
     uses: ./.github/workflows/reusable-distro-test.yml
     secrets: inherit
     with:
-      distro: opensuse-15.5
-      lxd_image: images:opensuse/15.5
+      distro: debian
+      lxd_image: images:debian

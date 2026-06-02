@@ -1,4 +1,4 @@
-name: Test on AlmaLinux 9
+name: Test on openSUSE Leap
 
 on:
   push:
@@ -15,5 +15,5 @@ jobs:
     uses: ./.github/workflows/reusable-distro-test.yml
     secrets: inherit
     with:
-      distro: almalinux-9
-      lxd_image: images:almalinux/9
+      distro: opensuse-leap
+      lxd_image: images:opensuse/15.6

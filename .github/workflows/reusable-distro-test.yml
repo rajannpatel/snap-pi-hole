@@ -124,23 +124,23 @@ jobs:
         run: |
           sg lxd -c "
             case '${{ inputs.distro }}' in
-              ubuntu-*|debian-*)
+              ubuntu|debian)
                 lxc exec test-instance -- apt-get update
                 lxc exec test-instance -- apt-get install -y snapd
                 ;;
-              fedora-*)
+              fedora)
                 lxc exec test-instance -- dnf install -y snapd
                 lxc exec test-instance -- systemctl enable --now snapd.socket
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
-              rockylinux-*|almalinux-*)
+              rockylinux|almalinux)
                 lxc exec test-instance -- dnf install -y epel-release
                 lxc exec test-instance -- dnf install -y snapd
                 lxc exec test-instance -- systemctl enable --now snapd.socket
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
-              opensuse-15*)
-                lxc exec test-instance -- zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_15.5/system:snappy.repo
+              opensuse-leap*)
+                lxc exec test-instance -- zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_15.6/system:snappy.repo
                 lxc exec test-instance -- zypper --non-interactive install snapd
                 lxc exec test-instance -- systemctl enable --now snapd
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
@@ -160,7 +160,7 @@ jobs:
                 lxc exec test-instance -- systemctl enable --now snapd.socket
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
                 ;;
-              alpine-*)
+              alpine)
                 lxc exec test-instance -- sh -c 'echo \"http://dl-cdn.alpinelinux.org/alpine/edge/community\" >> /etc/apk/repositories'
                 lxc exec test-instance -- apk update
                 lxc exec test-instance -- apk add snapd

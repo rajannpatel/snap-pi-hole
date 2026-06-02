@@ -1,4 +1,4 @@
-name: Test on Ubuntu 26.04
+name: Test on AlmaLinux
 
 on:
   push:
@@ -15,5 +15,5 @@ jobs:
     uses: ./.github/workflows/reusable-distro-test.yml
     secrets: inherit
     with:
-      distro: ubuntu-26.04
-      lxd_image: ubuntu:26.04
+      distro: almalinux
+      lxd_image: images:almalinux/9

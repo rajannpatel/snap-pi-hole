@@ -1,4 +1,4 @@
-name: Test on Alpine 3.19
+name: Test on Rocky Linux
 
 on:
   push:
@@ -15,5 +15,5 @@ jobs:
     uses: ./.github/workflows/reusable-distro-test.yml
     secrets: inherit
     with:
-      distro: alpine-3.19
-      lxd_image: images:alpine/3.19
+      distro: rockylinux
+      lxd_image: images:rockylinux/9

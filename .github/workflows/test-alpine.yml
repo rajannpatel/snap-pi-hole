@@ -1,4 +1,4 @@
-name: Test on Fedora 40
+name: Test on Alpine Linux
 
 on:
   push:
@@ -15,5 +15,5 @@ jobs:
     uses: ./.github/workflows/reusable-distro-test.yml
     secrets: inherit
     with:
-      distro: fedora-40
-      lxd_image: images:fedora/40
+      distro: alpine
+      lxd_image: images:alpine
