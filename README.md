@@ -5,8 +5,8 @@
 A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole.
 
 [![CI/CD Pipeline](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/cicd.yml?branch=main&style=flat-square&label=CI/CD%20Pipeline)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml)
-[![Code Coverage](https://img.shields.io/badge/Code%20Coverage-kcov-blue?style=flat-square&logo=github)](https://rajannpatel.github.io/snap-pi-hole/coverage/)
-[![SBOM Reports](https://img.shields.io/badge/SBOM-CycloneDX-blue?style=flat-square&logo=github)](https://rajannpatel.github.io/snap-pi-hole/sbom/)
+[![SBOM Reports](https://img.shields.io/badge/SBOM-CycloneDX-blue?style=flat-square)](https://rajannpatel.github.io/snap-pi-hole/sbom/)
+[![Reports Dashboard](https://img.shields.io/badge/Reports%20Dashboard-GitHub%20Pages-2ea44f?style=flat-square)](https://rajannpatel.github.io/snap-pi-hole/)
 
 [![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/pihole-by-rajannpatel)
 
