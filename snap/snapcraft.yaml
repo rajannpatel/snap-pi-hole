@@ -229,10 +229,8 @@ parts:
       - bin/snap-setup
     override-prime: |
       craftctl default
-      mkdir -p "$SNAPCRAFT_PRIME/var/lib/dpkg"
-      if [ -f /var/lib/dpkg/status ]; then
-        cp /var/lib/dpkg/status "$SNAPCRAFT_PRIME/var/lib/dpkg/status"
-      fi
+      python3 "$CRAFT_PROJECT_DIR/snap/local/build/filter_dpkg_status.py" "$SNAPCRAFT_PRIME"
+
 
 apps:
   # The daemon. Disabled on install so the operator can free port 53 and

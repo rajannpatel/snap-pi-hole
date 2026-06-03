@@ -113,3 +113,52 @@ assert not components["missing-package"].get("licenses"), "Expected no license f
 print("All assertions passed!")
 PYEOF
 }
+
+@test "filter_dpkg_status.py successfully filters dpkg status file" {
+    # 1. Setup mock dpkg status file
+    cat <<EOF > "${TEST_DIR}/status"
+Package: keep-me
+Status: install ok installed
+Section: utils
+Architecture: amd64
+
+Package: delete-me
+Status: install ok installed
+Section: libs
+Architecture: amd64
+
+Package: keep-me-too:amd64
+Status: install ok installed
+Section: libs
+Architecture: amd64
+EOF
+
+    # 2. Setup mock prime directory
+    mkdir -p "${TEST_DIR}/prime/usr/share/doc/keep-me"
+    mkdir -p "${TEST_DIR}/prime/usr/share/doc/keep-me-too"
+
+    # 3. Run filter_dpkg_status.py
+    export DPKG_STATUS_PATH="${TEST_DIR}/status"
+    run python3 "${REPO_ROOT}/snap/local/build/filter_dpkg_status.py" "${TEST_DIR}/prime"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Filtered dpkg status: kept 2 of 3 packages."* ]]
+
+    # 4. Verify output status file contents
+    python3 - <<PYEOF
+import os
+with open("${TEST_DIR}/prime/var/lib/dpkg/status") as f:
+    content = f.read()
+
+packages = []
+for block in content.split("\n\n"):
+    for line in block.splitlines():
+        if line.startswith("Package: "):
+            packages.append(line[len("Package: "):].strip())
+
+assert "keep-me" in packages, "Expected keep-me to be preserved"
+assert "keep-me-too:amd64" in packages, "Expected keep-me-too:amd64 to be preserved"
+assert "delete-me" not in packages, "Expected delete-me to be filtered out"
+print("Filter status assertions passed!")
+PYEOF
+}
+
