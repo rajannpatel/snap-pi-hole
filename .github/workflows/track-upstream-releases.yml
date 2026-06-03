@@ -92,7 +92,7 @@ jobs:
         if: steps.check_updates.outputs.updated == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.PAT_FOR_PRS }}
+          token: ${{ github.token }}
           commit-message: "chore: track upstream Pi-hole releases"
           title: "Track Upstream Pi-hole Components"
           body: ${{ steps.check_updates.outputs.pr_body }}
