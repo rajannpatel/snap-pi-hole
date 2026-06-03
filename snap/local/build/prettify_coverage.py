@@ -79,7 +79,6 @@ def prettify_file(filepath, is_root):
         <div class="p-navigation__banner" style="margin: 0 !important; height: 56px !important; display: flex !important; align-items: center !important;">
           <a class="p-navigation__link" href="{home_href}" style="display: flex; align-items: center; text-decoration: none; gap: 12px; padding: 0; margin: 0; line-height: 1;">
             <img src="{logo_src}" alt="Pi-hole Logo" style="height: 32px; width: 32px; display: block;">
-            <span style="font-weight: 300; font-size: 1.25rem; color: #ffffff; letter-spacing: -0.02em; line-height: 1;">Pi-hole <span style="font-weight: 500;">Snap Coverage</span></span>
           </a>
         </div>
       </div>

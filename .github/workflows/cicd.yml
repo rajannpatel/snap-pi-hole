@@ -454,6 +454,7 @@ jobs:
 
           # Copy native Pi-hole logo for header display
           cp snap/gui/pihole.png docs/pihole.png
+          cp snap/gui/pihole.png docs/coverage/pihole.png
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
