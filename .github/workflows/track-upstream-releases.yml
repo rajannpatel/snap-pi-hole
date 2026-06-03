@@ -10,7 +10,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      
+
     steps:
       - uses: actions/checkout@v4
 
@@ -21,29 +21,29 @@ jobs:
         id: check_updates
         run: |
           set -e
-          
+
           # Fetch latest tags from GitHub API
           get_latest_tag() {
             curl -s "https://api.github.com/repos/pi-hole/$1/releases/latest" | jq -r .tag_name
           }
-          
+
           LATEST_FTL=$(get_latest_tag "FTL")
           LATEST_PIHOLE=$(get_latest_tag "pi-hole")
           LATEST_WEB=$(get_latest_tag "web")
-          
+
           echo "Latest FTL: $LATEST_FTL"
           echo "Latest Pi-hole: $LATEST_PIHOLE"
           echo "Latest Web: $LATEST_WEB"
-          
+
           # Current tags in snapcraft.yaml
           CURRENT_FTL=$(yq '.parts.ftl.source-tag' snap/snapcraft.yaml)
           CURRENT_PIHOLE=$(yq '.parts.pi_hole.source-tag' snap/snapcraft.yaml)
           CURRENT_WEB=$(yq '.parts.web.source-tag' snap/snapcraft.yaml)
-          
+
           echo "Current FTL: $CURRENT_FTL"
           echo "Current Pi-hole: $CURRENT_PIHOLE"
           echo "Current Web: $CURRENT_WEB"
-          
+
           UPDATED=false
           BODY_FILE=$(mktemp)
           echo "Automated PR to update upstream Pi-hole components." > "$BODY_FILE"
@@ -52,40 +52,40 @@ jobs:
           echo "### Component Updates" >> "$BODY_FILE"
           echo "| Component | Previous Tag | New Tag | Release Details |" >> "$BODY_FILE"
           echo "| :--- | :--- | :--- | :--- |" >> "$BODY_FILE"
-          
+
           if [ "$LATEST_FTL" != "null" ] && [ "$LATEST_FTL" != "$CURRENT_FTL" ]; then
             yq -i ".parts.ftl.source-tag = \"$LATEST_FTL\"" snap/snapcraft.yaml
             UPDATED=true
             echo "| **FTL** | \`$CURRENT_FTL\` | \`$LATEST_FTL\` | [Release Notes](https://github.com/pi-hole/FTL/releases/tag/$LATEST_FTL) |" >> "$BODY_FILE"
           fi
-          
+
           if [ "$LATEST_PIHOLE" != "null" ] && [ "$LATEST_PIHOLE" != "$CURRENT_PIHOLE" ]; then
             yq -i ".parts.pi_hole.source-tag = \"$LATEST_PIHOLE\"" snap/snapcraft.yaml
             UPDATED=true
             echo "| **pi-hole (core)** | \`$CURRENT_PIHOLE\` | \`$LATEST_PIHOLE\` | [Release Notes](https://github.com/pi-hole/pi-hole/releases/tag/$LATEST_PIHOLE) |" >> "$BODY_FILE"
           fi
-          
+
           if [ "$LATEST_WEB" != "null" ] && [ "$LATEST_WEB" != "$CURRENT_WEB" ]; then
             yq -i ".parts.web.source-tag = \"$LATEST_WEB\"" snap/snapcraft.yaml
             UPDATED=true
             echo "| **web (admin)** | \`$CURRENT_WEB\` | \`$LATEST_WEB\` | [Release Notes](https://github.com/pi-hole/web/releases/tag/$LATEST_WEB) |" >> "$BODY_FILE"
           fi
-          
+
           echo "" >> "$BODY_FILE"
-          echo "_This PR was generated automatically by the Update Upstream Tags GitHub Action workflow._" >> "$BODY_FILE"
+          echo "_This PR was generated automatically by the Track Upstream Releases GitHub Action workflow._" >> "$BODY_FILE"
 
           echo "updated=$UPDATED" >> $GITHUB_OUTPUT
-          
+
           if [ "$UPDATED" = "true" ]; then
             # Update the version table in README.md
-            python3 -c 'import re, sys; ftl, pi, web = sys.argv[1:4]; r = open("README.md").read(); r = re.sub(r"(github\.com/pi-hole/FTL\)[*| ]+\| )v[\d.]+", rf"\g<1>{ftl}", r); r = re.sub(r"(github\.com/pi-hole/pi-hole\)[*| ]+\| )v[\d.]+", rf"\g<1>{pi}", r); r = re.sub(r"(github\.com/pi-hole/web\)[*| ]+\| )v[\d.]+", rf"\g<1>{web}", r); open("README.md", "w").write(r)' "$LATEST_FTL" "$LATEST_PIHOLE" "$LATEST_WEB"
-
-            {
-              echo "pr_body<<EOF"
-              cat "$BODY_FILE"
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
+            python3 -c 'import re, sys; ftl, pi, web = sys.argv[1:4]; r = open("README.md").read(); r = re.sub(r"(github\.com/pi-hole/FTL)[*| ]+\| )v[\d.]+", rf"\g<1>{ftl}", r); r = re.sub(r"(github\.com/pi-hole/pi-hole)[*| ]+\| )v[\d.]+", rf"\g<1>{pi}", r); r = re.sub(r"(github\.com/pi-hole/web)[*| ]+\| )v[\d.]+", rf"\g<1>{web}", r); open("README.md", "w").write(r)' "$LATEST_FTL" "$LATEST_PIHOLE" "$LATEST_WEB"
           fi
+
+          { 
+            echo "pr_body<<EOF"
+            cat "$BODY_FILE"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
           rm -f "$BODY_FILE"
 
       - name: Create Pull Request
@@ -93,8 +93,8 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.PAT_FOR_PRS }}
-          commit-message: "chore: update upstream Pi-hole tags"
-          title: "Update Upstream Pi-hole Components"
+          commit-message: "chore: track upstream Pi-hole releases"
+          title: "Track Upstream Pi-hole Components"
           body: ${{ steps.check_updates.outputs.pr_body }}
-          branch: update-pihole-tags
+          branch: track-upstream-releases
           delete-branch: true
