@@ -174,6 +174,44 @@ def display_vulnerability_id(vulnerability_id):
     return vulnerability_id.removeprefix("UBUNTU-")
 
 
+def normalize_architecture_label(architecture):
+    arch = str(architecture).strip().lower()
+    if arch == "amd64":
+        return "AMD64"
+    if arch == "arm64":
+        return "ARM64"
+    return arch.upper()
+
+
+def format_publication_date(value):
+    text_value = str(value or "").strip()
+    if not text_value:
+        return "", "Unknown"
+
+    normalized = text_value.replace("Z", "+00:00")
+    try:
+        published_at = datetime.fromisoformat(normalized)
+    except ValueError:
+        return text_value, text_value
+
+    if published_at.tzinfo is None:
+        published_at = published_at.replace(tzinfo=timezone.utc)
+
+    published_utc = published_at.astimezone(timezone.utc)
+    return (
+        published_utc.isoformat(timespec="seconds").replace("+00:00", "Z"),
+        published_utc.strftime("%Y-%m-%d"),
+    )
+
+
+def architecture_chip(architecture):
+    return (
+        '<span class="p-chip vulnerability-architecture">'
+        f'<span class="p-chip__value">{html.escape(normalize_architecture_label(architecture))}</span>'
+        "</span>"
+    )
+
+
 def vulnerability_entry(vulnerability):
     aliases = vulnerability.get("aliases", [])
     return {
@@ -256,7 +294,7 @@ def write_markdown(summary, output_path):
         ])
 
         if report["packages"]:
-            lines.append("| Package | Version | Vulnerability | Severity | Priority |")
+            lines.append("| Package | Version | Vulnerability | CVSS 3 | Priority |")
             lines.append("| --- | --- | --- | --- | --- |")
             for package in report["packages"]:
                 for vulnerability in package["vulnerabilities"]:
@@ -278,7 +316,7 @@ def write_markdown(summary, output_path):
 
 def write_html(summary, output_path):
     summary_cards = []
-    detail_rows = []
+    detail_rows_by_key = {}
 
     for report in summary["reports"]:
         summary_cards.extend([
@@ -309,32 +347,82 @@ def write_html(summary, output_path):
 
         for package in report["packages"]:
             for vulnerability in package["vulnerabilities"]:
-                vuln_id = html.escape(display_vulnerability_id(vulnerability["id"]))
+                vuln_id_text = display_vulnerability_id(vulnerability["id"])
+                vuln_id = html.escape(vuln_id_text)
                 if vulnerability["url"]:
                     vuln_cell = (
                         f"<a href=\"{html.escape(vulnerability['url'])}\">{vuln_id}</a>"
                     )
                 else:
                     vuln_cell = vuln_id
-                row_search = " ".join(
-                    [
-                        package["name"],
-                        package["version"],
-                        display_vulnerability_id(vulnerability["id"]),
-                        vulnerability["severity"],
-                        vulnerability["priority"],
-                    ]
-                ).lower()
 
-                detail_rows.append(
-                    f'<tr data-search="{html.escape(row_search)}">'
-                    f"<td>{html.escape(package['name'])}</td>"
-                    f"<td>{html.escape(package['version'])}</td>"
-                    f"<td>{vuln_cell}</td>"
-                    f"<td>{severity_icon(vulnerability['severity'])}</td>"
-                    f"<td>{priority_icon(vulnerability['priority'])}</td>"
-                    "</tr>"
+                publication_iso, publication_label = format_publication_date(
+                    vulnerability.get("published") or vulnerability.get("modified")
                 )
+                detail_key = (
+                    package["name"],
+                    package["version"],
+                    vuln_id_text,
+                    vulnerability["url"],
+                    vulnerability["severity"],
+                    vulnerability["priority"],
+                    publication_iso,
+                    publication_label,
+                )
+                if detail_key not in detail_rows_by_key:
+                    detail_rows_by_key[detail_key] = {
+                        "package_name": package["name"],
+                        "package_version": package["version"],
+                        "vulnerability_cell": vuln_cell,
+                        "vulnerability_id": vuln_id_text,
+                        "severity": vulnerability["severity"],
+                        "priority": vulnerability["priority"],
+                        "publication_iso": publication_iso,
+                        "publication_label": publication_label,
+                        "architectures": set(),
+                    }
+                detail_rows_by_key[detail_key]["architectures"].add(report["architecture"])
+
+    detail_rows = []
+    architecture_order = {"AMD64": 0, "ARM64": 1}
+    for row_data in detail_rows_by_key.values():
+        architecture_labels = sorted(
+            {normalize_architecture_label(arch) for arch in row_data["architectures"]},
+            key=lambda label: (architecture_order.get(label, 99), label),
+        )
+        architecture_cells = " ".join(
+            architecture_chip(architecture) for architecture in architecture_labels
+        )
+        publication_label = row_data["publication_label"]
+        publication_cell = html.escape(publication_label)
+        if row_data["publication_iso"]:
+            publication_cell = (
+                f'<time datetime="{html.escape(row_data["publication_iso"])}">'
+                f"{html.escape(publication_label)}</time>"
+            )
+
+        row_search = " ".join(
+            [
+                row_data["package_name"],
+                row_data["package_version"],
+                row_data["vulnerability_id"],
+                row_data["severity"],
+                row_data["priority"],
+                publication_label,
+                " ".join(architecture_labels),
+            ]
+        ).lower()
+        detail_rows.append(
+            f'<tr data-search="{html.escape(row_search)}">'
+            f"<td>{html.escape(row_data['package_name'])}</td>"
+            f"<td>{html.escape(row_data['package_version'])}</td>"
+            f"<td>{row_data['vulnerability_cell']}</td>"
+            f"<td>{severity_icon(row_data['severity'])}</td>"
+            f"<td>{priority_icon(row_data['priority'])}</td>"
+            f"<td>{publication_cell}</td>"
+            f"<td>{architecture_cells}</td>"
+            "</tr>"
+        )
 
     summary_cards_html = "\n".join(
         (
@@ -354,7 +442,7 @@ def write_html(summary, output_path):
         '</article></div>'
     )
     detail_body_rows = "\n".join(detail_rows) or (
-        '<tr><td colspan="5">No known vulnerabilities reported by OSV-Scanner.</td></tr>'
+        '<tr><td colspan="7">No known vulnerabilities reported by OSV-Scanner.</td></tr>'
     )
     output_path.write_text(f"""<!DOCTYPE html>
 <html lang="en">
@@ -414,22 +502,30 @@ def write_html(summary, output_path):
     }}
     .vulnerability-details th:nth-child(1),
     .vulnerability-details td:nth-child(1) {{
-      width: 22%;
+      width: 16%;
     }}
     .vulnerability-details th:nth-child(2),
     .vulnerability-details td:nth-child(2) {{
-      width: 22%;
+      width: 15%;
     }}
     .vulnerability-details th:nth-child(3),
     .vulnerability-details td:nth-child(3) {{
-      width: 22%;
+      width: 18%;
     }}
     .vulnerability-details th:nth-child(4),
     .vulnerability-details td:nth-child(4) {{
-      width: 18%;
+      width: 13%;
     }}
     .vulnerability-details th:nth-child(5),
     .vulnerability-details td:nth-child(5) {{
+      width: 12%;
+    }}
+    .vulnerability-details th:nth-child(6),
+    .vulnerability-details td:nth-child(6) {{
+      width: 12%;
+    }}
+    .vulnerability-details th:nth-child(7),
+    .vulnerability-details td:nth-child(7) {{
       width: 16%;
     }}
     .vulnerability-details td:nth-child(2),
@@ -442,6 +538,15 @@ def write_html(summary, output_path):
       white-space: nowrap;
     }}
     .vulnerability-severity .p-chip__value {{
+      font-size: 12px;
+      font-weight: 550;
+    }}
+    .vulnerability-architecture {{
+      margin-bottom: 0;
+      margin-right: 0.3rem;
+      white-space: nowrap;
+    }}
+    .vulnerability-architecture .p-chip__value {{
       font-size: 12px;
       font-weight: 550;
     }}
@@ -505,8 +610,8 @@ def write_html(summary, output_path):
           <div class="row vulnerability-table-controls">
             <div class="col-12">
               <form class="p-search-box" onsubmit="event.preventDefault(); filterVulnerabilities();" style="margin-bottom: 0;">
-                <label class="u-off-screen" for="vulnerability-search">Search by package, version, vulnerability, severity, or priority</label>
-                <input type="search" id="vulnerability-search" class="p-search-box__input" placeholder="Search by package, version, vulnerability, severity, or priority..." oninput="filterVulnerabilities()" autocomplete="off">
+                <label class="u-off-screen" for="vulnerability-search">Search by package, version, vulnerability, CVSS 3, priority, publication date, or architecture</label>
+                <input type="search" id="vulnerability-search" class="p-search-box__input" placeholder="Search by package, version, vulnerability, CVSS 3, priority, publication date, or architecture..." oninput="filterVulnerabilities()" autocomplete="off">
                 <button type="reset" class="p-search-box__reset" onclick="document.getElementById('vulnerability-search').value=''; filterVulnerabilities();"><i class="p-icon--close">Clear</i></button>
                 <button type="submit" class="p-search-box__button"><i class="p-icon--search">Search</i></button>
               </form>
@@ -520,8 +625,10 @@ def write_html(summary, output_path):
                   <th><button type="button" class="vulnerability-sort-button" data-column="0" aria-sort="none" onclick="sortVulnerabilities(0)">Package</button></th>
                   <th><button type="button" class="vulnerability-sort-button" data-column="1" aria-sort="none" onclick="sortVulnerabilities(1)">Version</button></th>
                   <th><button type="button" class="vulnerability-sort-button" data-column="2" aria-sort="none" onclick="sortVulnerabilities(2)">Vulnerability</button></th>
-                  <th><button type="button" class="vulnerability-sort-button" data-column="3" aria-sort="none" onclick="sortVulnerabilities(3)">Severity</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="3" aria-sort="none" onclick="sortVulnerabilities(3)">CVSS 3</button></th>
                   <th><button type="button" class="vulnerability-sort-button" data-column="4" aria-sort="none" onclick="sortVulnerabilities(4)">Priority</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="5" aria-sort="none" onclick="sortVulnerabilities(5)">Publication Date</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="6" aria-sort="none" onclick="sortVulnerabilities(6)">Architectures</button></th>
                 </tr>
               </thead>
               <tbody id="vulnerability-tbody">
