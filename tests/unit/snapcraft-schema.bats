@@ -495,3 +495,20 @@ assert 'systemctl is-active "\${i}"' in pull, "missing patch-rot guard for syste
 assert "systemctl status --full --no-pager" in pull, "missing patch-rot guard for FTL systemctl full status check"
 PYEOF
 }
+
+@test "HTML dashboard templates exist and footer links are updated from coverage to SBOM" {
+    local html_files=(
+        "snap/local/assets/dashboard.html"
+        "snap/local/assets/sbom-explorer.html"
+        "local-sbom/index.html"
+    )
+    for file in "${html_files[@]}"; do
+        local path="${REPO_ROOT}/${file}"
+        [ -f "$path" ] || { echo "missing HTML template: $file"; return 1; }
+        # Verify the footer does not contain the old kcov coverage URL
+        ! grep -q "/coverage/" "$path" || { echo "HTML template $file still contains deprecated coverage link"; return 1; }
+        # Verify the footer contains the SBOM URL
+        grep -q "/sbom/" "$path" || { echo "HTML template $file is missing the SBOM footer link"; return 1; }
+    done
+}
+
