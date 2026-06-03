@@ -7,12 +7,15 @@ def prettify_file(filepath, is_root):
         content = f.read()
 
     # 1. Inject Google Fonts and Vanilla Framework CSS links into <head>
+    viewport_meta = '  <meta name="viewport" content="width=device-width, initial-scale=1.0">'
     fonts_links = (
         '  <link rel="preconnect" href="https://fonts.googleapis.com">\n'
         '  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
         '  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">'
     )
     vanilla_css = '  <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />'
+    if 'name="viewport"' not in content:
+        content = content.replace('<head>', f'<head>\n{viewport_meta}', 1)
     if 'fonts.googleapis.com' not in content:
         content = content.replace('</head>', f'{fonts_links}\n</head>')
     if vanilla_css not in content:
@@ -60,7 +63,7 @@ def prettify_file(filepath, is_root):
               <li class="p-breadcrumbs__item">
                 <a href="{dashboard_href}">Reports Dashboard</a>
               </li>
-              <li class="p-breadcrumbs__item">
+              <li class="p-breadcrumbs__item" aria-current="page">
                 Coverage Report
               </li>
             </ol>
@@ -88,7 +91,7 @@ def prettify_file(filepath, is_root):
               <li class="p-breadcrumbs__item">
                 <a href="../index.html">Coverage Report</a>
               </li>
-              <li class="p-breadcrumbs__item">
+              <li class="p-breadcrumbs__item" aria-current="page">
                 {detail_name}
               </li>
             </ol>
@@ -100,7 +103,7 @@ def prettify_file(filepath, is_root):
     <footer class="p-strip--dark" style="padding-top: 2rem !important; padding-bottom: 2rem !important; margin-top: 3rem;">
       <div class="row">
         <div class="col-4">
-          <h5>Project Resources</h5>
+          <h2 class="p-heading--5">Project Resources</h2>
           <ul class="p-list">
             <li><a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">GitHub Repository</a></li>
             <li><a href="https://github.com/rajannpatel/snap-pi-hole/wiki" class="is-dark">Project Wiki Documentation</a></li>
@@ -108,7 +111,7 @@ def prettify_file(filepath, is_root):
           </ul>
         </div>
         <div class="col-4">
-          <h5>CI/CD Pipeline</h5>
+          <h2 class="p-heading--5">CI/CD Pipeline</h2>
           <ul class="p-list">
             <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions" class="is-dark">Workflow Execution History</a></li>
             <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" class="is-dark">Pipeline Definition (YAML)</a></li>
@@ -117,10 +120,11 @@ def prettify_file(filepath, is_root):
           </ul>
         </div>
         <div class="col-4">
-          <h5>Security & Confinement</h5>
+          <h2 class="p-heading--5">Security & Confinement</h2>
           <p class="p-text--small">
             Built securely on Ubuntu builders. Packaged as a strictly confined Snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
           </p>
+        </div>
       </div>
     </footer>
 """
@@ -129,32 +133,32 @@ def prettify_file(filepath, is_root):
     if is_detail_page:
         explanations_html = """
           <!-- Terminology Explanations -->
-          <div class="row u-equal-height" style="margin-bottom: 2rem;">
+          <section class="row u-equal-height" style="margin-bottom: 2rem;" aria-label="Coverage terminology">
             <div class="col-3">
-              <div class="p-card">
+              <article class="p-card">
                 <h4 class="p-card__title">Instrumented Lines</h4>
                 <p class="p-card__content" style="font-size: 0.9rem; color: #666666;">The total lines of code that are executable and monitored for coverage.</p>
-              </div>
+              </article>
             </div>
             <div class="col-3">
-              <div class="p-card">
+              <article class="p-card">
                 <h4 class="p-card__title">Hits</h4>
                 <p class="p-card__content" style="font-size: 0.9rem; color: #666666;">The exact number of times a specific line of code was executed.</p>
-              </div>
+              </article>
             </div>
             <div class="col-3">
-              <div class="p-card">
+              <article class="p-card">
                 <h4 class="p-card__title">Executed Lines</h4>
                 <p class="p-card__content" style="font-size: 0.9rem; color: #666666;">The number of instrumented lines that were run at least once during tests.</p>
-              </div>
+              </article>
             </div>
             <div class="col-3">
-              <div class="p-card">
+              <article class="p-card">
                 <h4 class="p-card__title">Order</h4>
                 <p class="p-card__content" style="font-size: 0.9rem; color: #666666;">The sequence index indicating when a line was executed relative to others.</p>
-              </div>
+              </article>
             </div>
-          </div>
+          </section>
 """
     else:
         explanations_html = ""
@@ -179,29 +183,29 @@ def prettify_file(filepath, is_root):
           {breadcrumbs_html}
           
           <!-- Semantic Header -->
-          <div class="row" style="margin-bottom: 2rem;">
+          <section class="row" style="margin-bottom: 2rem;" aria-labelledby="coverage-title">
             <div class="col-12">
-              <h1 class="p-heading--2" style="margin-bottom: 1.5rem;">Coverage Report</h1>
+              <h1 class="p-heading--2" id="coverage-title" style="margin-bottom: 1.5rem;">Coverage Report</h1>
               <div class="row">
                 <div class="col-4">
-                  <div class="p-card">
+                  <article class="p-card">
                     <span class="p-text--small-muted">COMMAND</span>
                     <h4 class="p-card__title" id="header-command" style="font-family: monospace;">???</h4>
-                  </div>
+                  </article>
                 </div>
                 <div class="col-4">
-                  <div class="p-card">
+                  <article class="p-card">
                     <span class="p-text--small-muted">GENERATION TIME</span>
                     <h4 class="p-card__title"><time id="header-date"></time></h4>
-                  </div>
+                  </article>
                 </div>
               </div>
             </div>
-          </div>
+          </section>
           <hr class="is-muted" style="margin: 1.5rem 0;">
 
           <!-- Data Spotlight Statistics -->
-          <div class="row p-equal-height-row--wrap u-sv3" style="margin-bottom: 2rem;">
+          <section class="row p-equal-height-row--wrap u-sv3" style="margin-bottom: 2rem;" aria-label="Coverage summary">
             <div class="col-4 p-equal-height-row__col u-no-margin--bottom p-data-spotlight__block">
               <div class="p-equal-height-row__item">
                 <hr class="p-rule--highlight" style="margin: 0 0 1rem 0 !important;">
@@ -223,7 +227,7 @@ def prettify_file(filepath, is_root):
               </div>
               <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Executed Lines</p>
             </div>
-          </div>
+          </section>
           <hr class="is-muted" style="margin: 1.5rem 0;">
           {explanations_html}
 

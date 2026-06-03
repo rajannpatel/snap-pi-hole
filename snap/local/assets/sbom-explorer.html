@@ -73,7 +73,7 @@
       color: #b6b6b6 !important;
     }
     
-    footer.p-strip--dark h5 {
+    footer.p-strip--dark h2 {
       color: #eaeaea !important;
       font-weight: 500 !important;
     }
@@ -109,36 +109,37 @@
       </div>
     </header>
 
-    <!-- Hero Section -->
-    <section class="p-strip--surround" style="padding-top: 1.5rem !important; padding-bottom: 2rem !important;">
-      <div class="row" style="margin-bottom: 1rem;">
-        <div class="col-12">
-          <nav class="p-breadcrumbs" aria-label="Breadcrumbs">
-            <ol class="p-breadcrumbs__items">
-              <li class="p-breadcrumbs__item">
-                <a href="../">Reports Dashboard</a>
-              </li>
-              <li class="p-breadcrumbs__item">
-                SBOM Explorer
-              </li>
-            </ol>
-          </nav>
+    <main>
+      <!-- Hero Section -->
+      <section class="p-strip--surround" style="padding-top: 1.5rem !important; padding-bottom: 2rem !important;" aria-labelledby="sbom-title">
+        <div class="row" style="margin-bottom: 1rem;">
+          <div class="col-12">
+            <nav class="p-breadcrumbs" aria-label="Breadcrumbs">
+              <ol class="p-breadcrumbs__items">
+                <li class="p-breadcrumbs__item">
+                  <a href="../">Reports Dashboard</a>
+                </li>
+                <li class="p-breadcrumbs__item" aria-current="page">
+                  SBOM Explorer
+                </li>
+              </ol>
+            </nav>
+          </div>
         </div>
-      </div>
-      <div class="row">
-        <div class="col-12">
-          <h1 class="u-sv1">Software Bill of Materials (SBOM)</h1>
-          <p class="p-heading--4">CycloneDX format SBOM reports containing full dependency lists, licensing, and package
-            manifests.</p>
+        <div class="row">
+          <div class="col-12">
+            <h1 class="u-sv1" id="sbom-title">Software Bill of Materials (SBOM)</h1>
+            <p class="p-heading--4">CycloneDX format SBOM reports containing full dependency lists, licensing, and package
+              manifests.</p>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Downloads & Instructions -->
-    <main class="p-strip">
-      <div class="row--50-50">
+      <!-- Downloads & Instructions -->
+      <section class="p-strip" aria-label="SBOM downloads and explorer">
+        <div class="row--50-50">
         <div class="col">
-          <div class="p-card">
+          <article class="p-card">
             <span class="p-text--small-muted">ARCHITECTURE</span>
             <h3 class="p-card__title">Intel / AMD 64-bit (amd64)</h3>
             <p class="p-card__content">
@@ -148,11 +149,11 @@
             <div class="p-card__footer">
               <a class="p-button--brand" href="sbom-amd64.json" download>Download JSON</a>
             </div>
-          </div>
+          </article>
         </div>
 
         <div class="col">
-          <div class="p-card">
+          <article class="p-card">
             <span class="p-text--small-muted">ARCHITECTURE</span>
             <h3 class="p-card__title">ARM 64-bit (arm64)</h3>
             <p class="p-card__content">
@@ -162,20 +163,19 @@
             <div class="p-card__footer">
               <a class="p-button--brand" href="sbom-arm64.json" download>Download JSON</a>
             </div>
-          </div>
+          </article>
         </div>
       </div>
 
       <!-- Dynamic Package Explorer -->
       <div class="row u-sv3">
-        <div class="col-12">
-          <br><br><br><br>
+        <div class="col-12" style="padding-top: 4rem;">
           <h2 class="p-heading--3">Interactive Package Explorer</h2>
           <p>Explore, search, and filter components embedded in the built snap packages in real time.</p>
 
           <div class="p-button-group" role="group" aria-label="Select Architecture">
-            <button class="p-button is-active" id="tab-amd64" onclick="loadSBOM('amd64')">Intel/AMD (amd64)</button>
-            <button class="p-button" id="tab-arm64" onclick="loadSBOM('arm64')">ARM (arm64)</button>
+            <button class="p-button is-active" id="tab-amd64" onclick="loadSBOM('amd64')" aria-pressed="true">Intel/AMD (amd64)</button>
+            <button class="p-button" id="tab-arm64" onclick="loadSBOM('arm64')" aria-pressed="false">ARM (arm64)</button>
           </div>
         </div>
       </div>
@@ -252,6 +252,7 @@
           </div>
 
           <table class="p-table" id="sbom-table" style="display:none; width: 100%;">
+            <caption class="u-off-screen">SBOM package components for the selected architecture</caption>
             <thead>
               <tr>
                 <th>Package Name</th>
@@ -285,13 +286,14 @@ grype sbom-amd64.json</code></pre>
           </div>
         </div>
       </div>
+      </section>
     </main>
 
     <!-- Footer -->
     <footer class="p-strip--dark">
       <div class="row">
         <div class="col-4">
-          <h5>Project Resources</h5>
+          <h2 class="p-heading--5">Project Resources</h2>
           <ul class="p-list">
             <li><a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">GitHub Repository</a></li>
             <li><a href="https://github.com/rajannpatel/snap-pi-hole/wiki" class="is-dark">Project Wiki
@@ -300,7 +302,7 @@ grype sbom-amd64.json</code></pre>
           </ul>
         </div>
         <div class="col-4">
-          <h5>CI/CD Pipeline</h5>
+          <h2 class="p-heading--5">CI/CD Pipeline</h2>
           <ul class="p-list">
             <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions" class="is-dark">Workflow Execution History</a></li>
             <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" class="is-dark">Pipeline Definition (YAML)</a></li>
@@ -309,12 +311,13 @@ grype sbom-amd64.json</code></pre>
           </ul>
         </div>
         <div class="col-4">
-          <h5>Security & Confinement</h5>
+          <h2 class="p-heading--5">Security & Confinement</h2>
           <p class="p-text--small">
             Built securely on Ubuntu builders. Packaged as a strictly confined Snap, ensuring isolated execution and
             sandboxed system interactions for Pi-hole Core services.
           </p>
         </div>
+      </div>
     </footer>
   </div>
 
@@ -325,6 +328,8 @@ grype sbom-amd64.json</code></pre>
     async function loadSBOM(arch) {
       document.getElementById('tab-amd64').classList.toggle('is-active', arch === 'amd64');
       document.getElementById('tab-arm64').classList.toggle('is-active', arch === 'arm64');
+      document.getElementById('tab-amd64').setAttribute('aria-pressed', arch === 'amd64' ? 'true' : 'false');
+      document.getElementById('tab-arm64').setAttribute('aria-pressed', arch === 'arm64' ? 'true' : 'false');
 
       const loading = document.getElementById('sbom-loading');
       const errorDiv = document.getElementById('sbom-error');

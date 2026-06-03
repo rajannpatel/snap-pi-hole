@@ -99,6 +99,10 @@ assert_warn() {
     
     # 2. Assert index.html has breadcrumbs
     assert_warn "grep -q 'p-breadcrumbs' '${TMP_DIR}/index.html'" "index.html is missing Vanilla Framework breadcrumbs"
+    assert_warn "grep -q 'aria-current=\"page\"' '${TMP_DIR}/index.html'" "index.html breadcrumb is missing aria-current page state"
+
+    # 2a. Assert index.html has mobile viewport metadata
+    assert_warn "grep -q 'name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"' '${TMP_DIR}/index.html'" "index.html is missing mobile viewport metadata"
     
     # 3. Assert index.html has Data Spotlight Statistics layout
     assert_warn "grep -q 'p-data-spotlight__block' '${TMP_DIR}/index.html'" "index.html is missing Data Spotlight Statistics"
@@ -118,13 +122,16 @@ assert_warn() {
     
     # 8. Assert details page contains horizontal legend cards grid
     assert_warn "grep -q 'Instrumented Lines' '${TMP_DIR}/bats.e38fe61c8733e2cd/snap-debug.sh.a7834a16.html'" "Detail page is missing Instrumented Lines explanation"
-    assert_warn "grep -q 'class=\"p-card\"' '${TMP_DIR}/bats.e38fe61c8733e2cd/snap-debug.sh.a7834a16.html'" "Detail page is missing explanation cards"
+    assert_warn "grep -q '<article class=\"p-card\"' '${TMP_DIR}/bats.e38fe61c8733e2cd/snap-debug.sh.a7834a16.html'" "Detail page is missing semantic explanation cards"
     assert_warn "grep -q 'u-equal-height' '${TMP_DIR}/bats.e38fe61c8733e2cd/snap-debug.sh.a7834a16.html'" "Detail page is missing equal-height utility class on card row"
 }
 
 @test "sbom-explorer.html layout and styling requirements (non-blocking warning)" {
     # 1. Assert sbom-explorer.html contains the semantic <time id="meta-time"> tag
     assert_warn "grep -q 'time id=\"meta-time\"' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing semantic <time> tag"
+    assert_warn "grep -q '<main>' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing semantic main landmark"
+    assert_warn "grep -q '<caption class=\"u-off-screen\">' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing accessible table caption"
+    assert_warn "grep -q 'aria-pressed=\"true\"' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html architecture selector is missing pressed state"
     
     # 2. Assert sbom-explorer.html contains unified footer background color (#2d2d2d)
     assert_warn "grep -q 'background-color: #2d2d2d' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing unified dark footer background (#2d2d2d)"
@@ -145,6 +152,8 @@ assert_warn() {
     
     # 3. Assert dashboard.html has breadcrumbs element
     assert_warn "grep -q 'p-breadcrumbs' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing Vanilla Framework breadcrumbs"
+    assert_warn "grep -q '<main>' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing semantic main landmark"
+    assert_warn "grep -q '<article class=\"p-card\"' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing semantic report cards"
     
     # 4. Assert dashboard.html contains unified footer background color (#2d2d2d)
     assert_warn "grep -q 'background-color: #2d2d2d' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing unified dark footer background (#2d2d2d)"
