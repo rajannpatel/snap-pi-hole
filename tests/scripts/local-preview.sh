@@ -83,7 +83,8 @@ run_sbom() {
     rm -rf local-sbom
     mkdir -p local-sbom
     cp snap/local/assets/sbom-explorer.html local-sbom/index.html
-    cp snap/gui/pihole.png pihole.png
+    cp snap/gui/pihole.png local-sbom/pihole.png
+    python3 -c "import pathlib; p = pathlib.Path('local-sbom/index.html'); p.write_text(p.read_text().replace('../pihole.png', 'pihole.png'))"
     cp local-sbom.json local-sbom/sbom-amd64.json
     cp local-sbom.json local-sbom/sbom-arm64.json
 
