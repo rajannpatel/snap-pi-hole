@@ -48,9 +48,6 @@ fi
 sudo pihole -r
 ```
 
-> [!NOTE]
-> Pi-hole FTL v6.6.x dropped support for mbedTLS 2.x and now strictly requires mbedTLS ≥ 3.5.0 and Nettle ≥ 3.9. The Ubuntu Core 24 snap base (`core24`) ships older versions of both libraries, so the package was bumped to Ubuntu Core 26 (`core26`).
-
 | Upstream Component | Current Version |
 | :--- | :--- |
 | | [![Track Upstream Releases](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-tags.yml/badge.svg?style=flat-square)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-tags.yml) |
@@ -59,6 +56,8 @@ sudo pihole -r
 | **[web](https://github.com/pi-hole/web)** | v6.5 |
 
 > These upstream components are automatically tracked and the snap is repackaged to include the latest stable versions by a daily GitHub Actions bot.
+
+---
 
 ## Supported Linux distributions
 
@@ -77,6 +76,8 @@ This snap package is built and integration-tested automatically across various L
 | ![openSUSE](https://img.shields.io/badge/-%20-73BA25?style=flat-square&logo=opensuse&logoColor=white) | openSUSE | 16.0 | openSUSE Leap 16.0 | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-opensuse-leap.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-opensuse-leap.yml) |
 | ![openSUSE](https://img.shields.io/badge/-%20-73BA25?style=flat-square&logo=opensuse&logoColor=white) | openSUSE | 20260516 | openSUSE Tumbleweed | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-opensuse-tumbleweed.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-opensuse-tumbleweed.yml) |
 | ![Arch Linux](https://img.shields.io/badge/-%20-1793D1?style=flat-square&logo=archlinux&logoColor=white) | Arch Linux | Rolling | Arch Linux | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-archlinux.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-archlinux.yml) |
+
+---
 
 ## More information
 
