@@ -441,7 +441,7 @@ jobs:
           # Apply kcov-override styling and Vanilla layouts to docs/coverage
           echo "Applying Vanilla Framework layout structures and stylesheet overrides to kcov reports..."
           python3 snap/local/build/prettify_coverage.py docs/coverage
-          find docs/coverage/ -name "*.css" -exec sh -c "cat snap/local/assets/kcov-override.css >> {}" \;
+          find docs/coverage/ -name "*.css" -exec sh -c "cat snap/local/assets/kcov-override.css > {}" \;
 
           # Copy SBOMs from all artifact directories
           echo "Finding and copying SBOM files..."

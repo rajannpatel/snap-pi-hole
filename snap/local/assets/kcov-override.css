@@ -6,60 +6,38 @@
 @import url('https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
 
 /* Typography & Reset */
-html {
-  background-color: #f7f7f7 !important;
-}
-
-body {
-  font-family: "Ubuntu", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif !important;
-  color: #111111 !important;
-  background-color: #ffffff !important;
-  max-width: 1040px !important; /* Standard Vanilla grid width */
-  margin: 3rem auto !important;
-  padding: 2.5rem !important;
-  border-radius: 4px !important;
-  border: 1px solid #dbdbdb !important;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.03) !important;
-  line-height: 1.6 !important;
-}
-
-td, th, p, a, span {
-  font-family: "Ubuntu", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif !important;
-}
-
-/* Links */
-a, a:link, a:visited, a:active {
-  color: #004b99 !important;
-  text-decoration: none !important;
-}
-
-a:hover {
-  color: #004080 !important;
-  text-decoration: underline !important;
-}
-
-/* Headers & Titles */
-h1, h2, h3, .title, td.title {
-  color: #111111 !important;
-  font-family: "Ubuntu", sans-serif !important;
-  border-bottom: none !important;
-  margin-top: 1.5rem !important;
-}
-
-h1, .title, td.title {
-  font-size: 2.5rem !important;
-  font-weight: 300 !important;
-  letter-spacing: -0.02em !important;
-  margin-bottom: 1.5rem !important;
-  line-height: 1.2 !important;
-  text-align: left !important;
+html, body {
+  margin: 0 !important;
   padding: 0 !important;
 }
 
-h2 {
-  font-size: 1.75rem !important;
-  font-weight: 300 !important;
-  margin-bottom: 1rem !important;
+body {
+  background-color: #ffffff !important;
+}
+
+td, th {
+  font-family: "Ubuntu", -apple-system, sans-serif !important;
+}
+
+/* Links in dark footer or dark elements */
+.is-dark a, a.is-dark, .p-strip--dark a, footer.p-strip--dark a {
+  color: #ffffff !important;
+}
+
+.is-dark a:hover, a.is-dark:hover, .p-strip--dark a:hover, footer.p-strip--dark a:hover {
+  color: #e95420 !important;
+  text-decoration: underline !important;
+}
+
+/* Spotlight coverage status colors based on kcov classes */
+.p-heading--1 .coverPerLeftHi {
+  color: #0e8a16 !important; /* Green */
+}
+.p-heading--1 .coverPerLeftMed {
+  color: #b08a00 !important; /* Yellow/Orange */
+}
+.p-heading--1 .coverPerLeftLo {
+  color: #d11a2a !important; /* Red */
 }
 
 /* Navigation bar styled exactly like Vanilla's p-navigation is-dark */

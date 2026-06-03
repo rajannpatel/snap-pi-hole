@@ -45,6 +45,49 @@ def prettify_file(filepath, is_root):
     sbom_href = '../sbom/' if is_root else '../../sbom/'
     coverage_href = 'index.html' if is_root else '../index.html'
 
+    if is_root:
+        dashboard_href = '../'
+        breadcrumbs_html = f"""
+          <nav class="p-breadcrumbs" aria-label="Breadcrumbs" style="margin-bottom: 1.5rem;">
+            <ol class="p-breadcrumbs__items">
+              <li class="p-breadcrumbs__item">
+                <a href="{dashboard_href}">Reports Dashboard</a>
+              </li>
+              <li class="p-breadcrumbs__item">
+                Coverage Report
+              </li>
+            </ol>
+          </nav>
+"""
+    else:
+        dashboard_href = '../../'
+        base = os.path.basename(filepath)
+        if base == 'index.html':
+            parent_dir = os.path.basename(os.path.dirname(filepath))
+            if parent_dir.startswith('bats'):
+                detail_name = 'BATS Test Suite'
+            else:
+                detail_name = parent_dir
+        else:
+            detail_name = re.sub(r'\.[a-f0-9]{8}\.html$', '', base)
+            detail_name = re.sub(r'\.html$', '', detail_name)
+
+        breadcrumbs_html = f"""
+          <nav class="p-breadcrumbs" aria-label="Breadcrumbs" style="margin-bottom: 1.5rem;">
+            <ol class="p-breadcrumbs__items">
+              <li class="p-breadcrumbs__item">
+                <a href="{dashboard_href}">Reports Dashboard</a>
+              </li>
+              <li class="p-breadcrumbs__item">
+                <a href="../index.html">Coverage Report</a>
+              </li>
+              <li class="p-breadcrumbs__item">
+                {detail_name}
+              </li>
+            </ol>
+          </nav>
+"""
+
     footer_html = f"""
     <!-- Footer -->
     <footer class="p-strip--dark" style="padding-top: 2rem !important; padding-bottom: 2rem !important; margin-top: 3rem;">
@@ -71,15 +114,6 @@ def prettify_file(filepath, is_root):
           <p class="p-text--small">
             Built securely on Ubuntu builders. Packaged as a strictly confined Snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
           </p>
-        </div>
-      </div>
-      <div class="row u-sv2">
-        <div class="col-12">
-          <hr class="is-dark">
-          <p class="u-align--center p-text--small-muted" style="margin-bottom: 0;">
-            Maintained by <a href="https://github.com/rajannpatel" class="is-dark">rajannpatel</a> / <a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">snap-pi-hole</a>. Built with <a href="https://vanillaframework.io/" class="is-dark">Vanilla Framework</a>.
-          </p>
-        </div>
       </div>
     </footer>
 """
@@ -129,30 +163,48 @@ def prettify_file(filepath, is_root):
     <main class="p-strip" style="background-color: #ffffff; flex-grow: 1; padding-top: 2rem !important; padding-bottom: 2rem !important;">
       <div class="row">
         <div class="col-12">
+          {breadcrumbs_html}
           
           <!-- Semantic Header -->
           <div class="row" style="margin-bottom: 2rem;">
-            <div class="col-6">
-              <h1 class="p-heading--2" style="margin-bottom: 1.5rem;">Coverage Report</h1>
-              <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1.5rem; align-items: baseline; font-size: 0.875rem;">
-                <span style="font-weight: 500; color: #666666;">Command:</span>
-                <span id="header-command" style="font-family: monospace;">???</span>
-                
-                <span style="font-weight: 500; color: #666666;">Date:</span>
-                <span id="header-date"></span>
-                
-                <span style="font-weight: 500; color: #666666;">Code covered:</span>
-                <span id="header-percent-covered" style="font-weight: 500; padding: 2px 6px; border-radius: 4px; display: inline-block; width: fit-content;">???</span>
+            <div class="col-12">
+              <h1 class="p-heading--2" style="margin-bottom: 1rem;">Coverage Report</h1>
+              <div style="display: flex; gap: 2rem; font-size: 0.875rem;">
+                <div>
+                  <span style="font-weight: 500; color: #666666; margin-right: 0.5rem;">Command:</span>
+                  <span id="header-command" style="font-family: monospace;">???</span>
+                </div>
+                <div>
+                  <span style="font-weight: 500; color: #666666; margin-right: 0.5rem;">Date:</span>
+                  <span id="header-date"></span>
+                </div>
               </div>
             </div>
-            <div class="col-6 u-align--right" style="display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end; gap: 0.75rem;">
-              <div style="display: grid; grid-template-columns: auto auto; gap: 0.5rem 1rem; font-size: 0.875rem; text-align: right;">
-                <span style="color: #666666;">Instrumented lines:</span>
-                <strong id="header-instrumented">???</strong>
-                
-                <span style="color: #666666;">Executed lines:</span>
-                <strong id="header-covered">???</strong>
+          </div>
+          <hr class="is-muted" style="margin: 1.5rem 0;">
+
+          <!-- Data Spotlight Statistics -->
+          <div class="row p-equal-height-row--wrap u-sv3" style="margin-bottom: 2rem;">
+            <div class="col-4 p-equal-height-row__col u-no-margin--bottom p-data-spotlight__block">
+              <div class="p-equal-height-row__item">
+                <hr class="p-rule--highlight" style="margin: 0 0 1rem 0 !important;">
+                <p class="p-heading--1 u-no-margin u-no-padding"><span id="header-percent-covered">???</span></p>
               </div>
+              <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Code Covered</p>
+            </div>
+            <div class="col-4 p-equal-height-row__col u-no-margin--bottom p-data-spotlight__block">
+              <div class="p-equal-height-row__item">
+                <hr class="p-rule--highlight" style="margin: 0 0 1rem 0 !important;">
+                <p class="p-heading--1 u-no-margin u-no-padding"><span id="header-instrumented">???</span></p>
+              </div>
+              <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Instrumented Lines</p>
+            </div>
+            <div class="col-4 p-equal-height-row__col u-no-margin--bottom p-data-spotlight__block">
+              <div class="p-equal-height-row__item">
+                <hr class="p-rule--highlight" style="margin: 0 0 1rem 0 !important;">
+                <p class="p-heading--1 u-no-margin u-no-padding"><span id="header-covered">???</span></p>
+              </div>
+              <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Executed Lines</p>
             </div>
           </div>
           <hr class="is-muted" style="margin: 1.5rem 0;">

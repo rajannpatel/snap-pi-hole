@@ -39,7 +39,7 @@ run_kcov() {
 
     echo "Applying Vanilla Framework styles and layouts..."
     cp snap/gui/pihole.png local-coverage/pihole.png
-    find local-coverage -name "*.css" -exec sh -c 'cat snap/local/assets/kcov-override.css >> "$1"' _ {} \;
+    find local-coverage -name "*.css" -exec sh -c 'cat snap/local/assets/kcov-override.css > "$1"' _ {} \;
     python3 snap/local/build/prettify_coverage.py local-coverage
 
     echo "Success! View report locally at: file://${REPO_ROOT}/local-coverage/index.html"
