@@ -79,7 +79,16 @@ run_sbom() {
     # Clean up extracted directory
     rm -rf local-extracted-snap
 
+    echo "Setting up local SBOM explorer preview..."
+    rm -rf local-sbom
+    mkdir -p local-sbom
+    cp snap/local/assets/sbom-explorer.html local-sbom/index.html
+    cp snap/gui/pihole.png pihole.png
+    cp local-sbom.json local-sbom/sbom-amd64.json
+    cp local-sbom.json local-sbom/sbom-arm64.json
+
     echo "Success! Local enriched SBOM generated at: local-sbom.json"
+    echo "View SBOM explorer locally at: file://${REPO_ROOT}/local-sbom/index.html"
 }
 
 case "$1" in

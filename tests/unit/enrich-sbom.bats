@@ -77,6 +77,10 @@ EOF
       "name": "missing-package",
       "version": "1.0",
       "licenses": []
+    },
+    {
+      "type": "file",
+      "name": "/home/runner/work/snap-pi-hole/snap-pi-hole/extracted-snap/usr/bin/curl"
     }
   ]
 }
@@ -85,6 +89,7 @@ EOF
     # 3. Execute the enrich script
     run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}/extracted"
     [ "$status" -eq 0 ]
+    [[ "$output" == *"Removed 1 file-type components"* ]]
     [[ "$output" == *"Successfully enriched 3 components"* ]]
 
     # 4. Verify results inside JSON
@@ -109,6 +114,9 @@ assert ftl_lic.get("id") == "GPL-3.0-only", f"Expected GPL-3.0-only, got {ftl_li
 
 # Verify missing-package remains unchanged
 assert not components["missing-package"].get("licenses"), "Expected no license for missing-package"
+
+# Verify file-type component was filtered out
+assert "/home/runner/work/snap-pi-hole/snap-pi-hole/extracted-snap/usr/bin/curl" not in components, "Expected file-type component to be filtered out"
 
 print("All assertions passed!")
 PYEOF

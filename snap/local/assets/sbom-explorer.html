@@ -162,11 +162,38 @@
         </div>
       </div>
 
-      <!-- Search Section -->
+      <!-- Search & Filter Section -->
       <div class="row" id="search-section" style="margin-top: 2rem; margin-bottom: 2rem; display:none;">
         <div class="col-12">
-          <input class="p-form-validation__input" type="search" id="sbom-search"
-            placeholder="Search by package name, version, or license..." oninput="filterSBOM()">
+          <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between; width: 100%;">
+            <!-- Search Box -->
+            <div style="flex: 1 1 400px;">
+              <form class="p-search-box" onsubmit="event.preventDefault(); filterSBOM();" style="margin-bottom: 0;">
+                <label class="u-off-screen" for="sbom-search">Search by package name, version, or license</label>
+                <input type="search" id="sbom-search" class="p-search-box__input" placeholder="Search by package name, version, or license..." oninput="filterSBOM()" autocomplete="off">
+                <button type="reset" class="p-search-box__reset" onclick="document.getElementById('sbom-search').value=''; filterSBOM();"><i class="p-icon--close">Clear</i></button>
+                <button type="submit" class="p-search-box__button"><i class="p-icon--search">Search</i></button>
+              </form>
+            </div>
+            <!-- Type Filter -->
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <label for="filter-type" style="margin-bottom: 0; white-space: nowrap;"><strong>Type:</strong></label>
+              <select id="filter-type" onchange="filterSBOM()" style="margin-bottom: 0; min-width: 150px;">
+                <option value="all">All Types</option>
+                <option value="library">Library</option>
+                <option value="application">Application</option>
+              </select>
+            </div>
+            <!-- License Filter -->
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <label for="filter-license" style="margin-bottom: 0; white-space: nowrap;"><strong>License:</strong></label>
+              <select id="filter-license" onchange="filterSBOM()" style="margin-bottom: 0; min-width: 180px;">
+                <option value="all">All Licenses</option>
+                <option value="copyleft">Copyleft (GPL / LGPL)</option>
+                <option value="permissive">Permissive (MIT / Apache / BSD / ISC / public-domain)</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -315,6 +342,8 @@ grype sbom-amd64.json</code></pre>
         table.style.display = 'table';
 
         document.getElementById('sbom-search').value = '';
+        document.getElementById('filter-type').value = 'all';
+        document.getElementById('filter-license').value = 'all';
         renderRows(currentComponents);
       } catch (err) {
         loading.style.display = 'none';
@@ -357,32 +386,74 @@ grype sbom-amd64.json</code></pre>
 
     function filterSBOM() {
       const query = document.getElementById('sbom-search').value.toLowerCase().trim();
-      if (!query) {
-        renderRows(currentComponents);
-        return;
-      }
+      const typeFilter = document.getElementById('filter-type').value;
+      const licenseFilter = document.getElementById('filter-license').value;
 
       const filtered = currentComponents.filter(c => {
-        const nameMatch = (c.name || '').toLowerCase().includes(query);
-        const verMatch = (c.version || '').toLowerCase().includes(query);
-        const typeMatch = (c.type || '').toLowerCase().includes(query);
+        // 1. Search Query Match
+        let searchMatch = true;
+        if (query) {
+          const nameMatch = (c.name || '').toLowerCase().includes(query);
+          const verMatch = (c.version || '').toLowerCase().includes(query);
+          const typeMatch = (c.type || '').toLowerCase().includes(query);
 
-        let licensesStr = '';
-        if (c.licenses && Array.isArray(c.licenses)) {
-          licensesStr = c.licenses.map(l => {
-            if (!l) return '';
-            if (l.license) {
-              return (l.license.id || l.license.name || '');
-            }
-            if (l.expression) {
-              return l.expression;
-            }
-            return '';
-          }).filter(Boolean).join(' ');
+          let licensesStr = '';
+          if (c.licenses && Array.isArray(c.licenses)) {
+            licensesStr = c.licenses.map(l => {
+              if (!l) return '';
+              if (l.license) {
+                return (l.license.id || l.license.name || '');
+              }
+              if (l.expression) {
+                return l.expression;
+              }
+              return '';
+            }).filter(Boolean).join(' ');
+          }
+          const licenseMatch = licensesStr.toLowerCase().includes(query);
+          searchMatch = nameMatch || verMatch || typeMatch || licenseMatch;
         }
-        const licenseMatch = licensesStr.toLowerCase().includes(query);
 
-        return nameMatch || verMatch || typeMatch || licenseMatch;
+        // 2. Type Filter Match
+        let typeMatch = true;
+        if (typeFilter !== 'all') {
+          typeMatch = (c.type || 'library').toLowerCase() === typeFilter;
+        }
+
+        // 3. License Filter Match
+        let licenseMatch = true;
+        if (licenseFilter !== 'all') {
+          let licensesStr = '';
+          if (c.licenses && Array.isArray(c.licenses)) {
+            licensesStr = c.licenses.map(l => {
+              if (!l) return '';
+              if (l.license) {
+                return (l.license.id || l.license.name || '');
+              }
+              if (l.expression) {
+                return l.expression;
+              }
+              return '';
+            }).filter(Boolean).join(' ').toLowerCase();
+          }
+
+          const hasGpl = licensesStr.includes('gpl') || licensesStr.includes('lgpl');
+          const hasPermissive = licensesStr.includes('mit') || 
+                                licensesStr.includes('apache') || 
+                                licensesStr.includes('bsd') || 
+                                licensesStr.includes('isc') || 
+                                licensesStr.includes('public-domain') || 
+                                licensesStr.includes('expat') ||
+                                licensesStr.includes('openldap');
+
+          if (licenseFilter === 'copyleft') {
+            licenseMatch = hasGpl;
+          } else if (licenseFilter === 'permissive') {
+            licenseMatch = hasPermissive;
+          }
+        }
+
+        return searchMatch && typeMatch && licenseMatch;
       });
 
       renderRows(filtered);
