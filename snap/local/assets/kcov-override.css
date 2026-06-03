@@ -435,3 +435,16 @@ td.coverPer span {
   display: inline-block !important;
   width: auto !important;
 }
+
+/* Premium Card Hover Effects matching SBOM Explorer */
+.p-card {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+
+.p-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  border-color: #aeaeae !important;
+}

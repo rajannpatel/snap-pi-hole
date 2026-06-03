@@ -129,23 +129,29 @@ def prettify_file(filepath, is_root):
     if is_detail_page:
         explanations_html = """
           <!-- Terminology Explanations -->
-          <div style="background-color: #f7f7f7; border: 1px solid #dbdbdb; border-radius: 4px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.875rem; color: #666666; line-height: 1.4;">
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
-              <div>
-                <strong style="color: #111111; font-weight: 500; display: block; margin-bottom: 2px;">Instrumented Lines</strong>
-                The total lines of code that are executable and monitored for coverage.
+          <div class="row u-equal-height" style="margin-bottom: 2rem;">
+            <div class="col-3">
+              <div class="p-card">
+                <h4 class="p-card__title">Instrumented Lines</h4>
+                <p class="p-card__content" style="font-size: 0.9rem; color: #666666;">The total lines of code that are executable and monitored for coverage.</p>
               </div>
-              <div>
-                <strong style="color: #111111; font-weight: 500; display: block; margin-bottom: 2px;">Executed Lines</strong>
-                The number of instrumented lines that were run at least once during tests.
+            </div>
+            <div class="col-3">
+              <div class="p-card">
+                <h4 class="p-card__title">Hits</h4>
+                <p class="p-card__content" style="font-size: 0.9rem; color: #666666;">The exact number of times a specific line of code was executed.</p>
               </div>
-              <div>
-                <strong style="color: #111111; font-weight: 500; display: block; margin-bottom: 2px;">Hits</strong>
-                The exact number of times a specific line of code was executed.
+            </div>
+            <div class="col-3">
+              <div class="p-card">
+                <h4 class="p-card__title">Executed Lines</h4>
+                <p class="p-card__content" style="font-size: 0.9rem; color: #666666;">The number of instrumented lines that were run at least once during tests.</p>
               </div>
-              <div>
-                <strong style="color: #111111; font-weight: 500; display: block; margin-bottom: 2px;">Order</strong>
-                The sequence index indicating when a line was executed relative to others.
+            </div>
+            <div class="col-3">
+              <div class="p-card">
+                <h4 class="p-card__title">Order</h4>
+                <p class="p-card__content" style="font-size: 0.9rem; color: #666666;">The sequence index indicating when a line was executed relative to others.</p>
               </div>
             </div>
           </div>
