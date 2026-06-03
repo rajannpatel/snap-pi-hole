@@ -24,6 +24,7 @@ teardown() {
     # 1. Setup mock extracted snap tree with copyright files
     mkdir -p "${TEST_DIR}/extracted/usr/share/doc/curl"
     mkdir -p "${TEST_DIR}/extracted/usr/share/doc/libc6"
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/librtmp1"
     mkdir -p "${TEST_DIR}/extracted/usr/share/doc/missing-package"
 
     # DEP-5 machine-readable format
@@ -38,6 +39,16 @@ EOF
     cat <<EOF > "${TEST_DIR}/extracted/usr/share/doc/libc6/copyright"
 This package is part of the GNU C Library.
 Released under the terms of the GNU Lesser General Public License, version 2.1 or later.
+EOF
+
+    # Multiple licenses DEP-5 format
+    cat <<EOF > "${TEST_DIR}/extracted/usr/share/doc/librtmp1/copyright"
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Files: *
+License: GPL-2+
+
+Files: librtmp/*
+License: LGPL-2.1+
 EOF
 
     # 2. Setup mock input CycloneDX SBOM JSON
@@ -85,6 +96,12 @@ EOF
       ]
     },
     {
+      "type": "library",
+      "name": "librtmp1",
+      "version": "2.4",
+      "licenses": []
+    },
+    {
       "type": "application",
       "name": "pihole-ftl",
       "version": "v6.6.2",
@@ -109,7 +126,7 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" == *"Removed 1 file-type components"* ]]
     [[ "$output" == *"Removed 2 duplicate components"* ]]
-    [[ "$output" == *"Successfully enriched 2 components"* ]]
+    [[ "$output" == *"Successfully enriched 3 components"* ]]
 
     # 4. Verify results inside JSON
     python3 - <<PYEOF
@@ -128,9 +145,15 @@ components = {c["name"]: c for c in data["components"]}
 curl_lic = components["curl"]["licenses"][0]["license"]
 assert curl_lic.get("id") == "MIT", f"Expected MIT, got {curl_lic}"
 
-# Verify libc6 (Heuristic fallback parsed)
-libc_lic = components["libc6:amd64"]["licenses"][0]["license"]
-assert libc_lic.get("id") == "LGPL-2.1-or-later", f"Expected LGPL-2.1-or-later, got {libc_lic}"
+# Verify libc6 (Heuristic fallback parsed with multiple licenses)
+libc_lics = components["libc6:amd64"]["licenses"]
+libc_ids = sorted([l["license"].get("id") for l in libc_lics])
+assert libc_ids == ["LGPL-2.1-only", "LGPL-2.1-or-later"], f"Expected LGPL-2.1-only and LGPL-2.1-or-later, got {libc_ids}"
+
+# Verify librtmp1 (DEP-5 multiple licenses parsed and normalized)
+rtmp_lics = components["librtmp1"]["licenses"]
+rtmp_ids = sorted([l["license"].get("id") for l in rtmp_lics])
+assert rtmp_ids == ["GPL-2.0-only", "GPL-2.0-or-later", "LGPL-2.1-only", "LGPL-2.1-or-later"], f"Expected 4 normalized licenses, got {rtmp_ids}"
 
 # Verify pihole-ftl (Static fallback project license)
 ftl_lic = components["pihole-ftl"]["licenses"][0]["license"]

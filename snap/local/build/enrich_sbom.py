@@ -124,6 +124,31 @@ INJECTED_COMPONENTS = [
     }
 ]
 
+def normalize_license(lic_str):
+    # Normalize common license shorthand strings to SPDX identifiers
+    mapping = {
+        "gpl-2": ["GPL-2.0-only"],
+        "gpl-2+": ["GPL-2.0-only", "GPL-2.0-or-later"],
+        "gpl-2.0+": ["GPL-2.0-only", "GPL-2.0-or-later"],
+        "gpl-3": ["GPL-3.0-only"],
+        "gpl-3+": ["GPL-3.0-only", "GPL-3.0-or-later"],
+        "gpl-3.0+": ["GPL-3.0-only", "GPL-3.0-or-later"],
+        "lgpl-2": ["LGPL-2.0-only"],
+        "lgpl-2+": ["LGPL-2.0-only", "LGPL-2.0-or-later"],
+        "lgpl-2.0+": ["LGPL-2.0-only", "LGPL-2.0-or-later"],
+        "lgpl-2.1": ["LGPL-2.1-only"],
+        "lgpl-2.1+": ["LGPL-2.1-only", "LGPL-2.1-or-later"],
+        "lgpl-3": ["LGPL-3.0-only"],
+        "lgpl-3+": ["LGPL-3.0-only", "LGPL-3.0-or-later"],
+        "lgpl-3.0+": ["LGPL-3.0-only", "LGPL-3.0-or-later"],
+        "bsd-3-clause": ["BSD-3-Clause"],
+        "bsd-2-clause": ["BSD-2-Clause"],
+        "mit": ["MIT"],
+        "apache-2.0": ["Apache-2.0"],
+    }
+    key = lic_str.strip().lower()
+    return mapping.get(key, [lic_str])
+
 def find_license_in_copyright(extracted_snap_dir, package_name):
     # Normalize package name (e.g., "libssl3:amd64" -> "libssl3")
     name = package_name.split(':')[0].lower()
@@ -140,44 +165,59 @@ def find_license_in_copyright(extracted_snap_dir, package_name):
                 with open(path, 'r', encoding='utf-8', errors='ignore') as f:
                     content = f.read()
 
+                found_licenses = set()
                 # 1. Try to find DEP-5 machine-readable License field
                 for line in content.splitlines():
                     line_strip = line.strip()
                     if line_strip.lower().startswith("license:"):
                         lic = line_strip[len("license:"):].strip()
                         if lic and lic.upper() not in ("", "NONE", "NULL", "UNKNOWN"):
-                            return lic
+                            for part in re.split(r'\s+(?:or|and)\s+|,\s*|/\s*', lic, flags=re.IGNORECASE):
+                                part = part.strip()
+                                if part:
+                                    for normalized in normalize_license(part):
+                                        found_licenses.add(normalized)
+
+                if found_licenses:
+                    return sorted(list(found_licenses))
 
                 # 2. Heuristic fallback: Search text content for standard license names
                 content_lower = content.lower()
+                heuristics = []
                 if "gnu general public license" in content_lower:
                     if "version 3" in content_lower:
-                        return "GPL-3.0-or-later"
+                        heuristics.extend(["GPL-3.0-only", "GPL-3.0-or-later"])
                     elif "version 2" in content_lower:
-                        return "GPL-2.0-or-later"
-                    return "GPL"
+                        heuristics.extend(["GPL-2.0-only", "GPL-2.0-or-later"])
+                    else:
+                        heuristics.append("GPL")
                 if "gnu lesser general public license" in content_lower or "gnu library general public license" in content_lower:
                     if "version 3" in content_lower:
-                        return "LGPL-3.0-or-later"
+                        heuristics.extend(["LGPL-3.0-only", "LGPL-3.0-or-later"])
                     elif "version 2" in content_lower:
-                        return "LGPL-2.1-or-later"
-                    return "LGPL"
+                        heuristics.extend(["LGPL-2.1-only", "LGPL-2.1-or-later"])
+                    else:
+                        heuristics.append("LGPL")
                 if "mit license" in content_lower or "mit/x11" in content_lower or "permission is hereby granted, free of charge" in content_lower:
-                    return "MIT"
+                    heuristics.append("MIT")
                 if "apache license" in content_lower:
                     if "2.0" in content_lower:
-                        return "Apache-2.0"
-                    return "Apache"
+                        heuristics.append("Apache-2.0")
+                    else:
+                        heuristics.append("Apache")
                 if "bsd 3-clause" in content_lower or "3-clause bsd" in content_lower:
-                    return "BSD-3-Clause"
+                    heuristics.append("BSD-3-Clause")
                 if "bsd 2-clause" in content_lower or "2-clause bsd" in content_lower:
-                    return "BSD-2-Clause"
+                    heuristics.append("BSD-2-Clause")
                 if "mozilla public license" in content_lower or "mpl" in content_lower:
-                    return "MPL-2.0"
+                    heuristics.append("MPL-2.0")
                 if "openssl license" in content_lower:
-                    return "OpenSSL"
+                    heuristics.append("OpenSSL")
                 if "zlib license" in content_lower:
-                    return "Zlib"
+                    heuristics.append("Zlib")
+
+                if heuristics:
+                    return sorted(list(set(heuristics)))
             except Exception as e:
                 print(f"Warning: Failed to read copyright file for {dir_name}: {e}", file=sys.stderr)
         return None
@@ -186,9 +226,9 @@ def find_license_in_copyright(extracted_snap_dir, package_name):
     all_dirs = [d for d in os.listdir(doc_dir) if os.path.isdir(os.path.join(doc_dir, d))]
     for d in all_dirs:
         if d.lower() == name:
-            lic = check_dir(d)
-            if lic:
-                return lic
+            lics = check_dir(d)
+            if lics:
+                return lics
 
     # Step 2: Try checking directories that share a common stem
     for d in all_dirs:
@@ -206,9 +246,9 @@ def find_license_in_copyright(extracted_snap_dir, package_name):
         d_stem = get_stem(d_lower)
 
         if name_stem and d_stem and len(name_stem) >= 2 and name_stem == d_stem:
-            lic = check_dir(d)
-            if lic:
-                return lic
+            lics = check_dir(d)
+            if lics:
+                return lics
 
     # Step 3: Specific fallbacks
     special_mappings = {
@@ -220,9 +260,9 @@ def find_license_in_copyright(extracted_snap_dir, package_name):
         if key in name:
             for d in all_dirs:
                 if val in d.lower():
-                    lic = check_dir(d)
-                    if lic:
-                        return lic
+                    lics = check_dir(d)
+                    if lics:
+                        return lics
 
     return None
 
@@ -319,26 +359,29 @@ def enrich_sbom(file_path, extracted_snap_dir):
                     break
 
         if not has_valid_license:
-            matched_license = None
+            matched_licenses = None
             normalized_name = name.lower()
 
             # 1. Project primary components check
             if normalized_name in PROJECT_LICENSES:
-                matched_license = PROJECT_LICENSES[normalized_name]
+                matched_licenses = [PROJECT_LICENSES[normalized_name]]
             else:
                 # 2. Resolve dynamically from Debian/Ubuntu copyright files
-                matched_license = find_license_in_copyright(extracted_snap_dir, name)
+                matched_licenses = find_license_in_copyright(extracted_snap_dir, name)
 
-            if matched_license:
+            if matched_licenses:
                 # Set CycloneDX license structure
-                comp["licenses"] = [{
-                    "license": {
-                        "id": matched_license if " OR " not in matched_license and " WITH " not in matched_license and matched_license not in ("GPL", "LGPL", "Apache") else None,
-                        "name": matched_license
+                comp["licenses"] = [
+                    {
+                        "license": {
+                            "id": lic if " OR " not in lic and " WITH " not in lic and lic not in ("GPL", "LGPL", "Apache") else None,
+                            "name": lic
+                        }
                     }
-                }]
+                    for lic in matched_licenses
+                ]
                 modified_count += 1
-                print(f"Enriched: {name} -> {matched_license}")
+                print(f"Enriched: {name} -> {', '.join(matched_licenses)}")
 
     data["components"] = filtered_components
 
