@@ -42,6 +42,47 @@ def prettify_file(filepath, is_root):
     # Determine paths based on depth
     home_href = 'index.html' if is_root else '../index.html'
     logo_src = 'pihole.png' if is_root else '../pihole.png'
+    sbom_href = '../sbom/' if is_root else '../../sbom/'
+    coverage_href = 'index.html' if is_root else '../index.html'
+
+    footer_html = f"""
+    <!-- Footer -->
+    <footer class="p-strip--dark" style="padding-top: 2rem !important; padding-bottom: 2rem !important; margin-top: 3rem;">
+      <div class="row">
+        <div class="col-4">
+          <h5>Project Resources</h5>
+          <ul class="p-list">
+            <li><a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">GitHub Repository</a></li>
+            <li><a href="https://github.com/rajannpatel/snap-pi-hole/wiki" class="is-dark">Project Wiki Documentation</a></li>
+            <li><a href="https://snapcraft.io/pihole-by-rajannpatel" class="is-dark">Snap Store Listing</a></li>
+          </ul>
+        </div>
+        <div class="col-4">
+          <h5>CI/CD Pipeline</h5>
+          <ul class="p-list">
+            <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions" class="is-dark">Workflow Execution History</a></li>
+            <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" class="is-dark">Pipeline Definition (YAML)</a></li>
+            <li><a href="{sbom_href}" class="is-dark">Software Bill of Materials (SBOM)</a></li>
+            <li><a href="{coverage_href}" class="is-dark">Code Coverage Reports</a></li>
+          </ul>
+        </div>
+        <div class="col-4">
+          <h5>Security & Confinement</h5>
+          <p class="p-text--small">
+            Built securely on Ubuntu builders. Packaged as a strictly confined Snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
+          </p>
+        </div>
+      </div>
+      <div class="row u-sv2">
+        <div class="col-12">
+          <hr class="is-dark">
+          <p class="u-align--center p-text--small-muted" style="margin-bottom: 0;">
+            Maintained by <a href="https://github.com/rajannpatel" class="is-dark">rajannpatel</a> / <a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">snap-pi-hole</a>. Built with <a href="https://vanillaframework.io/" class="is-dark">Vanilla Framework</a>.
+          </p>
+        </div>
+      </div>
+    </footer>
+"""
 
     is_detail_page = '<pre class="source"' in content
     if is_detail_page:
@@ -124,6 +165,8 @@ def prettify_file(filepath, is_root):
         </div>
       </div>
     </main>
+
+    {footer_html}
   </div>
 """
 

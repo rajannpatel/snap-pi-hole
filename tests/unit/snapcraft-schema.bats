@@ -496,18 +496,19 @@ assert "systemctl status --full --no-pager" in pull, "missing patch-rot guard fo
 PYEOF
 }
 
-@test "HTML dashboard templates exist and footer links are updated from coverage to SBOM" {
-    local html_files=(
-        "snap/local/assets/dashboard.html"
-        "snap/local/assets/sbom-explorer.html"
-    )
-    for file in "${html_files[@]}"; do
-        local path="${REPO_ROOT}/${file}"
-        [ -f "$path" ] || { echo "missing HTML template: $file"; return 1; }
-        # Verify the footer does not contain the old kcov coverage URL
-        ! grep -q "/coverage/" "$path" || { echo "HTML template $file still contains deprecated coverage link"; return 1; }
-        # Verify the footer contains the SBOM URL
-        grep -q "/sbom/" "$path" || { echo "HTML template $file is missing the SBOM footer link"; return 1; }
-    done
+@test "HTML dashboard templates exist and footer links are correctly configured" {
+    local dash_path="${REPO_ROOT}/snap/local/assets/dashboard.html"
+    local sbom_path="${REPO_ROOT}/snap/local/assets/sbom-explorer.html"
+
+    [ -f "$dash_path" ] || { echo "missing dashboard.html"; return 1; }
+    [ -f "$sbom_path" ] || { echo "missing sbom-explorer.html"; return 1; }
+
+    # Verify dashboard.html links (root level relative paths)
+    grep -q 'href="sbom/"' "$dash_path" || { echo "dashboard.html is missing the sbom/ footer link"; return 1; }
+    grep -q 'href="coverage/"' "$dash_path" || { echo "dashboard.html is missing the coverage/ footer link"; return 1; }
+
+    # Verify sbom-explorer.html links (sub-folder relative paths)
+    grep -q 'href="../sbom/"' "$sbom_path" || { echo "sbom-explorer.html is missing the ../sbom/ footer link"; return 1; }
+    grep -q 'href="../coverage/"' "$sbom_path" || { echo "sbom-explorer.html is missing the ../coverage/ footer link"; return 1; }
 }
 
