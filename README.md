@@ -50,7 +50,7 @@ sudo pihole -r
 
 | Upstream Component | Current Version |
 | :--- | :--- |
-| | [![Track Upstream Releases](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-tags.yml/badge.svg?style=flat-square)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/update-tags.yml) |
+| | [![Track Upstream Releases](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/track-upstream-releases.yml/badge.svg?style=flat-square)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/track-upstream-releases.yml) |
 | **[FTL](https://github.com/pi-hole/FTL)** | v6.6.2 |
 | **[pi-hole (core)](https://github.com/pi-hole/pi-hole)** | v6.4.2 |
 | **[web](https://github.com/pi-hole/web)** | v6.5 |
