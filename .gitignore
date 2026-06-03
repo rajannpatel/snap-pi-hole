@@ -19,3 +19,7 @@ snap/.snapcraft/
 scratch/
 network-cache/
 
+# Local preview reports
+local-coverage/
+local-sbom.json
+local-extracted-snap/
