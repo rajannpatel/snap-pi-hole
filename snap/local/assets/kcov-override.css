@@ -19,13 +19,34 @@ td, th {
   font-family: "Ubuntu", -apple-system, sans-serif !important;
 }
 
-/* Links in dark footer or dark elements */
-.is-dark a, a.is-dark, .p-strip--dark a, footer.p-strip--dark a {
-  color: #ffffff !important;
+.p-heading--1, .p-heading--2, .p-heading--3 {
+  font-family: "Ubuntu", -apple-system, sans-serif !important;
+  font-weight: 300 !important;
 }
 
-.is-dark a:hover, a.is-dark:hover, .p-strip--dark a:hover, footer.p-strip--dark a:hover {
-  color: #e95420 !important;
+/* Footer Styling - Inspiration from ubuntu.com/desktop */
+footer.p-strip--dark {
+  background-color: #2d2d2d !important;
+  color: #b6b6b6 !important;
+}
+
+footer.p-strip--dark h5 {
+  color: #eaeaea !important;
+  font-weight: 500 !important;
+}
+
+footer.p-strip--dark p, footer.p-strip--dark li, footer.p-strip--dark span {
+  color: #b6b6b6 !important;
+}
+
+footer.p-strip--dark a, footer.p-strip--dark a.is-dark {
+  color: rgb(102, 153, 204) !important;
+  text-decoration: none !important;
+  transition: color 0.15s ease !important;
+}
+
+footer.p-strip--dark a:hover, footer.p-strip--dark a.is-dark:hover {
+  color: #e95420 !important; /* Ubuntu Orange */
   text-decoration: underline !important;
 }
 

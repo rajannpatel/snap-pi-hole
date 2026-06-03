@@ -6,10 +6,17 @@ def prettify_file(filepath, is_root):
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # 1. Inject Vanilla Framework CSS link into <head>
-    vanilla_css = '<link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />'
+    # 1. Inject Google Fonts and Vanilla Framework CSS links into <head>
+    fonts_links = (
+        '  <link rel="preconnect" href="https://fonts.googleapis.com">\n'
+        '  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+        '  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">'
+    )
+    vanilla_css = '  <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />'
+    if 'fonts.googleapis.com' not in content:
+        content = content.replace('</head>', f'{fonts_links}\n</head>')
     if vanilla_css not in content:
-        content = content.replace('</head>', f'  {vanilla_css}\n</head>')
+        content = content.replace('</head>', f'{vanilla_css}\n</head>')
 
     # 2. Extract kcov's handlebars template and placeholder
     template_match = re.search(r'(<script id="(?:files|lines)-template".*?</script>)', content, re.DOTALL | re.IGNORECASE)
@@ -168,15 +175,19 @@ def prettify_file(filepath, is_root):
           <!-- Semantic Header -->
           <div class="row" style="margin-bottom: 2rem;">
             <div class="col-12">
-              <h1 class="p-heading--2" style="margin-bottom: 1rem;">Coverage Report</h1>
-              <div style="display: flex; gap: 2rem; font-size: 0.875rem;">
-                <div>
-                  <span style="font-weight: 500; color: #666666; margin-right: 0.5rem;">Command:</span>
-                  <span id="header-command" style="font-family: monospace;">???</span>
+              <h1 class="p-heading--2" style="margin-bottom: 1.5rem;">Coverage Report</h1>
+              <div class="row">
+                <div class="col-4">
+                  <div class="p-card">
+                    <span class="p-text--small-muted">COMMAND</span>
+                    <h4 class="p-card__title" id="header-command" style="font-family: monospace;">???</h4>
+                  </div>
                 </div>
-                <div>
-                  <span style="font-weight: 500; color: #666666; margin-right: 0.5rem;">Date:</span>
-                  <span id="header-date"></span>
+                <div class="col-4">
+                  <div class="p-card">
+                    <span class="p-text--small-muted">GENERATION TIME</span>
+                    <h4 class="p-card__title"><time id="header-date"></time></h4>
+                  </div>
                 </div>
               </div>
             </div>
@@ -220,6 +231,32 @@ def prettify_file(filepath, is_root):
 
     {footer_html}
   </div>
+  <script>
+    // Ensure the <time> elements are fully compliant with datetime attribute
+    (function() {{
+      function updateDatetime() {{
+        var dateEl = document.getElementById('header-date');
+        if (dateEl && dateEl.innerHTML && dateEl.innerHTML.trim() !== 'N/A') {{
+          var dt = dateEl.innerHTML.trim().replace(' ', 'T');
+          dateEl.setAttribute('datetime', dt);
+          return true;
+        }}
+        return false;
+      }}
+
+      // Try immediately if already populated
+      if (!updateDatetime()) {{
+        // Fall back to wrapping window.onload
+        var oldOnload = window.onload;
+        window.onload = function() {{
+          if (oldOnload) {{
+            oldOnload();
+          }}
+          updateDatetime();
+        }};
+      }}
+    }})();
+  </script>
 """
 
     # Replace <body> tag content

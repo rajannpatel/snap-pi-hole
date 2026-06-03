@@ -66,6 +66,32 @@
       color: white !important;
       border-color: #e95420 !important;
     }
+
+    /* Footer Styling - Inspiration from ubuntu.com/desktop */
+    footer.p-strip--dark {
+      background-color: #2d2d2d !important;
+      color: #b6b6b6 !important;
+    }
+    
+    footer.p-strip--dark h5 {
+      color: #eaeaea !important;
+      font-weight: 500 !important;
+    }
+    
+    footer.p-strip--dark p, footer.p-strip--dark li, footer.p-strip--dark span {
+      color: #b6b6b6 !important;
+    }
+    
+    footer.p-strip--dark a, footer.p-strip--dark a.is-dark {
+      color: rgb(102, 153, 204) !important;
+      text-decoration: none !important;
+      transition: color 0.15s ease !important;
+    }
+    
+    footer.p-strip--dark a:hover, footer.p-strip--dark a.is-dark:hover {
+      color: #e95420 !important; /* Ubuntu Orange */
+      text-decoration: underline !important;
+    }
   </style>
 </head>
 
@@ -171,7 +197,7 @@
         <div class="col-4">
           <div class="p-card">
             <span class="p-text--small-muted">GENERATION TIME</span>
-            <h4 class="p-card__title" id="meta-time">-</h4>
+            <h4 class="p-card__title"><time id="meta-time">-</time></h4>
           </div>
         </div>
       </div>
@@ -333,10 +359,15 @@ grype sbom-amd64.json</code></pre>
           : 'Syft';
         document.getElementById('meta-tool').textContent = syftInfo;
 
-        const timestampStr = data.metadata && data.metadata.timestamp
-          ? new Date(data.metadata.timestamp).toLocaleString()
-          : 'N/A';
-        document.getElementById('meta-time').textContent = timestampStr;
+        const timestampStr = data.metadata && data.metadata.timestamp ? data.metadata.timestamp : '';
+        const timeEl = document.getElementById('meta-time');
+        if (timestampStr) {
+          timeEl.setAttribute('datetime', timestampStr);
+          timeEl.textContent = new Date(timestampStr).toLocaleString();
+        } else {
+          timeEl.removeAttribute('datetime');
+          timeEl.textContent = 'N/A';
+        }
 
         loading.style.display = 'none';
         searchSec.style.display = 'block';
