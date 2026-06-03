@@ -100,6 +100,72 @@ jobs:
           path: ${{ steps.snapcraft.outputs.snap }}
           if-no-files-found: error
 
+  vulnerability-scan:
+    name: vulnerability scan
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download SBOMs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sbom-*
+          path: sbom-input
+          merge-multiple: true
+
+      - name: Install OSV-Scanner
+        run: |
+          go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.3.8
+          echo "${HOME}/go/bin" >> "$GITHUB_PATH"
+
+      - name: Scan SBOMs with OSV-Scanner
+        run: |
+          mkdir -p osv-sbom-input vulnerability-reports
+          scanner_error=0
+
+          for sbom in sbom-input/sbom-*.json; do
+            arch="${sbom##*/sbom-}"
+            arch="${arch%.json}"
+            scan_input="osv-sbom-input/sbom-${arch}.cdx.json"
+            report="vulnerability-reports/osv-${arch}.json"
+
+            cp "$sbom" "$scan_input"
+            echo "Scanning $scan_input..."
+
+            set +e
+            osv-scanner scan --format json -L "$scan_input" --output-file "$report"
+            rc=$?
+            set -e
+
+            case "$rc" in
+              0)
+                echo "::notice title=OSV-Scanner::No known vulnerabilities found in ${arch} SBOM."
+                ;;
+              1)
+                echo "::warning title=OSV-Scanner::Known vulnerabilities found in ${arch} SBOM. See uploaded reports."
+                ;;
+              *)
+                echo "::error title=OSV-Scanner::Scan failed for ${arch} SBOM with exit code ${rc}."
+                scanner_error=1
+                ;;
+            esac
+          done
+
+          python3 snap/local/build/summarize_osv_reports.py vulnerability-reports
+
+          if [ "$scanner_error" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Upload vulnerability reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vulnerability-reports
+          path: vulnerability-reports/
+          if-no-files-found: error
+
 
   smoke:
     name: smoke test (${{ matrix.arch }})
@@ -405,7 +471,7 @@ jobs:
 
   deploy-pages:
     name: Deploy reports to GitHub Pages
-    needs: [lint, build]
+    needs: [lint, build, vulnerability-scan]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
@@ -424,12 +490,20 @@ jobs:
       - name: Download SBOMs
         uses: actions/download-artifact@v4
         with:
+          pattern: sbom-*
           path: sbom-artifacts
+          merge-multiple: true
+
+      - name: Download vulnerability reports
+        uses: actions/download-artifact@v4
+        with:
+          name: vulnerability-reports
+          path: vulnerability-reports
 
       - name: Organize files for GitHub Pages
         run: |
           # Create docs directory structure
-          mkdir -p docs/coverage docs/sbom
+          mkdir -p docs/coverage docs/sbom docs/vulnerabilities
 
           # Copy coverage report (kcov creates index.html automatically)
           if [ -d coverage-report/index ]; then
@@ -446,6 +520,9 @@ jobs:
           # Copy SBOMs from all artifact directories
           echo "Finding and copying SBOM files..."
           find sbom-artifacts -name "sbom-*.json" -exec cp -v {} docs/sbom/ \;
+
+          # Copy vulnerability reports generated from SBOM artifacts
+          cp -r vulnerability-reports/* docs/vulnerabilities/
 
           # Copy HTML templates from snap assets
           cp snap/local/assets/dashboard.html docs/index.html

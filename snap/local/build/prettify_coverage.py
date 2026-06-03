@@ -53,6 +53,7 @@ def prettify_file(filepath, is_root):
     home_href = 'index.html' if is_root else '../index.html'
     logo_src = 'pihole.png' if is_root else '../pihole.png'
     sbom_href = '../sbom/' if is_root else '../../sbom/'
+    vulnerabilities_href = '../vulnerabilities/' if is_root else '../../vulnerabilities/'
     coverage_href = 'index.html' if is_root else '../index.html'
 
     if is_root:
@@ -116,6 +117,7 @@ def prettify_file(filepath, is_root):
             <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions" class="is-dark">Workflow Execution History</a></li>
             <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" class="is-dark">Pipeline Definition (YAML)</a></li>
             <li><a href="{sbom_href}" class="is-dark">Software Bill of Materials (SBOM)</a></li>
+            <li><a href="{vulnerabilities_href}" class="is-dark">Vulnerability Reports</a></li>
             <li><a href="{coverage_href}" class="is-dark">Code Coverage Reports</a></li>
           </ul>
         </div>

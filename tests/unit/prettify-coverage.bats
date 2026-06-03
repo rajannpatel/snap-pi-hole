@@ -154,6 +154,8 @@ assert_warn() {
     assert_warn "grep -q 'p-breadcrumbs' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing Vanilla Framework breadcrumbs"
     assert_warn "grep -q '<main>' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing semantic main landmark"
     assert_warn "grep -q '<article class=\"p-card\"' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing semantic report cards"
+    assert_warn "grep -q 'class=\"p-button\" href=\"sbom/\"' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html SBOM button is not using the default button style"
+    assert_warn "grep -q 'href=\"vulnerabilities/\"' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing vulnerability reports link"
     
     # 4. Assert dashboard.html contains unified footer background color (#2d2d2d)
     assert_warn "grep -q 'background-color: #2d2d2d' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing unified dark footer background (#2d2d2d)"

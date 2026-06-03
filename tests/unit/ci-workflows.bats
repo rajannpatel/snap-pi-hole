@@ -270,3 +270,17 @@ BASH
     [ "$status" -eq 0 ]
     [ "$output" = "latest/stable,latest/candidate,latest/beta,latest/edge,6/stable,6/candidate,6/beta,6/edge" ]
 }
+
+@test "cicd workflow scans SBOM artifacts with OSV-Scanner" {
+    local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
+    grep -q "vulnerability-scan:" "$workflow"
+    grep -q "github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.3.8" "$workflow"
+    grep -q "osv-scanner scan --format json -L" "$workflow"
+}
+
+@test "cicd workflow publishes vulnerability reports to Pages" {
+    local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
+    grep -q "name: vulnerability-reports" "$workflow"
+    grep -q "docs/vulnerabilities" "$workflow"
+    grep -q "cp -r vulnerability-reports/\\* docs/vulnerabilities/" "$workflow"
+}
