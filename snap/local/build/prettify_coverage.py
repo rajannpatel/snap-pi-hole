@@ -162,11 +162,11 @@ def prettify_file(filepath, is_root):
     new_body = f"""
   <div class="l-site">
     <!-- Navigation Header -->
-    <header class="p-navigation is-dark" style="margin-bottom: 0 !important; border-bottom: none !important;">
-      <div class="p-navigation__row" style="padding: 0 1.5rem !important;">
-        <div class="p-navigation__banner" style="margin: 0 !important; height: 56px !important; display: flex !important; align-items: center !important;">
-          <a class="p-navigation__link" href="{home_href}" style="display: flex; align-items: center; text-decoration: none; gap: 12px; padding: 0; margin: 0; line-height: 1;">
-            <img src="{logo_src}" alt="Pi-hole Logo" style="height: 32px; width: 32px; display: block;">
+    <header id="navigation" class="p-navigation is-dark">
+      <div class="p-navigation__row">
+        <div class="p-navigation__banner">
+          <a class="p-navigation__link" href="{dashboard_href}" style="display: flex; align-items: center; text-decoration: none;">
+            <img src="{logo_src}" alt="Pi-hole Logo" style="height: 32px; width: 32px;">
           </a>
         </div>
       </div>
