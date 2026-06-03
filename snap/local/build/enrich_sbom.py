@@ -86,26 +86,6 @@ def normalize_license(lic_str):
     if not cleaned:
         return []
 
-    # Check for compound license structure to normalize component parts
-    standardized = cleaned
-    standardized = re.sub(r'\s+with\s+', ' WITH ', standardized, flags=re.IGNORECASE)
-    standardized = re.sub(r'\s+or\s+', ' OR ', standardized, flags=re.IGNORECASE)
-    standardized = re.sub(r'\s+and\s+', ' AND ', standardized, flags=re.IGNORECASE)
-
-    parts = re.split(r'(\s+(?:OR|AND|WITH)\s+)', standardized)
-    if len(parts) > 1:
-        new_parts = []
-        for p in parts:
-            if p.strip() in ("OR", "AND", "WITH"):
-                new_parts.append(p)
-            else:
-                norm_sub = normalize_license(p)
-                if norm_sub:
-                    new_parts.append(norm_sub[0])
-                else:
-                    new_parts.append(p.strip())
-        return ["".join(new_parts)]
-
     # Normalize common license shorthand strings to SPDX identifiers
     mapping = {
         "gpl-2": ["GPL-2.0-only"],
@@ -128,10 +108,6 @@ def normalize_license(lic_str):
         "apache-2.0": ["Apache-2.0"],
     }
     
-    key = cleaned.lower()
-    if key in mapping:
-        return mapping[key]
-
     custom_normalization = {
         "unicode": ["Unicode-DFS-2016"],
         "unicode-dfs-2016": ["Unicode-DFS-2016"],
@@ -185,9 +161,48 @@ def normalize_license(lic_str):
         "gpl3+ with autoconf exception": ["GPL-3.0-or-later WITH Autoconf-exception-3.0"],
     }
     
+    key = cleaned.lower()
+    if key in mapping:
+        return mapping[key]
     if key in custom_normalization:
         return custom_normalization[key]
-        
+
+    # Check if a space-separated string is a list of individual licenses (e.g. "GPL-2+ LGPL-2.1+")
+    if ' ' in cleaned and not any(w in cleaned.lower() for w in ('with', 'exception', 'clause', 'license', 'public', 'domain', 'all-permissive', 'rsa-md')):
+        parts = cleaned.split()
+        if len(parts) > 1:
+            all_parts_known = True
+            for p in parts:
+                p_lower = p.lower()
+                if p_lower not in mapping and p_lower not in custom_normalization and not any(v.lower() == p_lower for v in VALID_SPDX_IDS):
+                    all_parts_known = False
+                    break
+            if all_parts_known:
+                results = []
+                for p in parts:
+                    results.extend(normalize_license(p))
+                return results
+
+    # Check for compound license structure to normalize component parts
+    standardized = cleaned
+    standardized = re.sub(r'\s+with\s+', ' WITH ', standardized, flags=re.IGNORECASE)
+    standardized = re.sub(r'\s+or\s+', ' OR ', standardized, flags=re.IGNORECASE)
+    standardized = re.sub(r'\s+and\s+', ' AND ', standardized, flags=re.IGNORECASE)
+
+    parts = re.split(r'(\s+(?:OR|AND|WITH)\s+)', standardized)
+    if len(parts) > 1:
+        new_parts = []
+        for p in parts:
+            if p.strip() in ("OR", "AND", "WITH"):
+                new_parts.append(p)
+            else:
+                norm_sub = normalize_license(p)
+                if norm_sub:
+                    new_parts.append(norm_sub[0])
+                else:
+                    new_parts.append(p.strip())
+        return ["".join(new_parts)]
+
     return [cleaned]
 
 def find_license_in_copyright(extracted_snap_dir, package_name):
