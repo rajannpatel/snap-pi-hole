@@ -27,6 +27,17 @@ teardown() {
     mkdir -p "${TEST_DIR}/extracted/usr/share/doc/librtmp1"
     mkdir -p "${TEST_DIR}/extracted/usr/share/doc/missing-package"
 
+    # Mock versions template
+    mkdir -p "${TEST_DIR}/extracted/opt/pihole/templates"
+    cat <<EOF > "${TEST_DIR}/extracted/opt/pihole/templates/versions"
+CORE_VERSION=v6.4.2
+CORE_BRANCH=snap
+WEB_VERSION=v6.5
+WEB_BRANCH=snap
+FTL_VERSION=v6.6.2
+FTL_BRANCH=snap
+EOF
+
     # DEP-5 machine-readable format
     cat <<EOF > "${TEST_DIR}/extracted/usr/share/doc/curl/copyright"
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
@@ -125,7 +136,8 @@ EOF
     run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}/extracted"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Removed 1 file-type components"* ]]
-    [[ "$output" == *"Removed 1 duplicate components"* ]]
+    [[ "$output" == *"Removed 2 duplicate components"* ]]
+    [[ "$output" == *"Injected 3 dynamically discovered components"* ]]
 
     # 4. Verify results inside JSON
     python3 - <<PYEOF
@@ -154,9 +166,20 @@ rtmp_lics = components["librtmp1"]["licenses"]
 rtmp_ids = sorted([l["license"].get("id") for l in rtmp_lics])
 assert rtmp_ids == ["GPL-2.0-only", "GPL-2.0-or-later", "LGPL-2.1-only", "LGPL-2.1-or-later"], f"Expected 4 normalized licenses, got {rtmp_ids}"
 
-# Verify pihole-ftl (Static fallback project license)
+# Verify pihole-ftl (Static fallback project license and dynamic discovery)
 ftl_lic = components["pihole-ftl"]["licenses"][0]["license"]
 assert ftl_lic.get("id") == "GPL-3.0-only", f"Expected GPL-3.0-only, got {ftl_lic}"
+assert components["pihole-ftl"]["version"] == "v6.6.2", f"Expected v6.6.2, got {components['pihole-ftl']['version']}"
+
+# Verify pi-hole (Discovered primary component)
+assert "pi-hole" in components, "pi-hole missing from SBOM"
+assert components["pi-hole"]["version"] == "v6.4.2"
+assert components["pi-hole"]["licenses"][0]["license"].get("id") == "GPL-3.0-only"
+
+# Verify web (Discovered primary component)
+assert "web" in components, "web missing from SBOM"
+assert components["web"]["version"] == "v6.5"
+assert components["web"]["licenses"][0]["license"].get("id") == "MIT"
 
 # Verify missing-package remains unchanged
 assert not components["missing-package"].get("licenses"), "Expected no license for missing-package"

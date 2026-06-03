@@ -458,6 +458,57 @@ def discover_web_frontend_dependencies(extracted_snap_dir):
     return components
 
 
+def discover_primary_components(extracted_snap_dir):
+    """Read version metadata from the templates/versions file inside the snap
+    to dynamically discover the primary components (pi-hole, pihole-ftl, web)."""
+    versions_path = os.path.join(extracted_snap_dir, "opt", "pihole", "templates", "versions")
+    if not os.path.isfile(versions_path):
+        # Fallback to etc/.pihole/advanced/Scripts/templates/versions
+        versions_path = os.path.join(extracted_snap_dir, "etc", ".pihole", "advanced", "Scripts", "templates", "versions")
+        if not os.path.isfile(versions_path):
+            print(f"Warning: versions template not found in extracted snap; skipping primary component discovery.", file=sys.stderr)
+            return []
+
+    versions = {}
+    try:
+        with open(versions_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if '=' in line:
+                    k, v = line.strip().split('=', 1)
+                    versions[k] = v
+    except Exception as e:
+        print(f"Warning: failed to read versions template: {e}", file=sys.stderr)
+        return []
+
+    core_ver = versions.get("CORE_VERSION", "0.0")
+    web_ver = versions.get("WEB_VERSION", "0.0")
+    ftl_ver = versions.get("FTL_VERSION", "0.0")
+
+    return [
+        {
+            "type": "application",
+            "name": "pihole-ftl",
+            "version": ftl_ver,
+            "licenses": [{"license": {"id": "GPL-3.0-only", "name": "GPL-3.0-only"}}],
+            "purl": f"pkg:github/pi-hole/ftl@{ftl_ver}"
+        },
+        {
+            "type": "application",
+            "name": "pi-hole",
+            "version": core_ver,
+            "licenses": [{"license": {"id": "GPL-3.0-only", "name": "GPL-3.0-only"}}],
+            "purl": f"pkg:github/pi-hole/pi-hole@{core_ver}"
+        },
+        {
+            "type": "application",
+            "name": "web",
+            "version": web_ver,
+            "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
+            "purl": f"pkg:github/pi-hole/web@{web_ver}"
+        }
+    ]
+
+
 def enrich_sbom(file_path, extracted_snap_dir):
     if not os.path.exists(file_path):
         print(f"Error: file not found: {file_path}", file=sys.stderr)
@@ -472,6 +523,10 @@ def enrich_sbom(file_path, extracted_snap_dir):
 
     components = data.get("components", [])
     injected_count = 0
+    # Dynamically discover primary components (pi-hole, pihole-ftl, web)
+    primary_comps = discover_primary_components(extracted_snap_dir)
+    components.extend(primary_comps)
+    injected_count += len(primary_comps)
     # Dynamically discover libraries bundled with pihole-FTL at build time
     ftl_deps = discover_ftl_embedded_dependencies(extracted_snap_dir)
     components.extend(ftl_deps)
