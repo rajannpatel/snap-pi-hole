@@ -20,6 +20,7 @@ scratch/
 network-cache/
 
 # Local preview reports
+coverage/
 local-coverage/
 local-sbom/
 local-sbom.json

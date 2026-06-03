@@ -500,7 +500,6 @@ PYEOF
     local html_files=(
         "snap/local/assets/dashboard.html"
         "snap/local/assets/sbom-explorer.html"
-        "local-sbom/index.html"
     )
     for file in "${html_files[@]}"; do
         local path="${REPO_ROOT}/${file}"
