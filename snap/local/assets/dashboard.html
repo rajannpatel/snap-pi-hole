@@ -4,8 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Snap Pi-hole CI/CD Reports</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />
   <style>
+    body {
+      font-family: 'Ubuntu', -apple-system, sans-serif !important;
+      font-weight: 300 !important;
+    }
+    h1, h2, h3, h4, h5 {
+      font-family: 'Ubuntu', -apple-system, sans-serif !important;
+      font-weight: 300 !important;
+    }
     .p-navigation__tagged-logo {
       display: flex;
       align-items: center;
@@ -37,6 +48,27 @@
       margin-top: auto;
       padding-top: 1rem;
     }
+
+    /* Standardized Footer Styles */
+    footer.p-strip--dark {
+      background-color: #2d2d2d !important;
+      color: #b6b6b6 !important;
+      padding-top: 2rem !important;
+      padding-bottom: 2rem !important;
+      margin-top: 3rem;
+    }
+    footer.p-strip--dark h5 {
+      color: #eaeaea !important;
+    }
+    footer.p-strip--dark a {
+      color: rgb(102, 153, 204) !important;
+      text-decoration: none;
+      transition: color 0.2s ease, text-decoration 0.2s ease;
+    }
+    footer.p-strip--dark a:hover {
+      color: #e95420 !important;
+      text-decoration: underline !important;
+    }
   </style>
 </head>
 <body>
@@ -54,9 +86,16 @@
     </header>
 
     <!-- Hero Section -->
-    <section class="p-strip--surround">
+    <section class="p-strip--surround" style="padding-top: 1.5rem !important;">
       <div class="row">
         <div class="col-8">
+          <nav class="p-breadcrumbs" aria-label="Breadcrumbs" style="margin-bottom: 1.5rem;">
+            <ol class="p-breadcrumbs__items">
+              <li class="p-breadcrumbs__item">
+                Reports Dashboard
+              </li>
+            </ol>
+          </nav>
           <h1>CI/CD Reports Dashboard</h1>
           <p class="p-heading--4">Diagnostic, coverage, and Software Bill of Materials (SBOM) outputs generated during automated pipeline runs.</p>
         </div>

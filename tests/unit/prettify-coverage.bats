@@ -135,3 +135,23 @@ assert_warn() {
     # 4. Assert sbom-explorer.html contains hover transition to Ubuntu Orange (#e95420)
     assert_warn "grep -q 'color: #e95420' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing hover color transition to Ubuntu Orange (#e95420)"
 }
+
+@test "dashboard.html layout and styling requirements (non-blocking warning)" {
+    # 1. Assert dashboard.html contains the Google Fonts preconnect/stylesheet links
+    assert_warn "grep -q 'fonts.googleapis.com' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing Google Fonts link"
+    
+    # 2. Assert dashboard.html has custom typography configuration
+    assert_warn "grep -q 'font-family: '\''Ubuntu'\''' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing Ubuntu font styling"
+    
+    # 3. Assert dashboard.html has breadcrumbs element
+    assert_warn "grep -q 'p-breadcrumbs' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing Vanilla Framework breadcrumbs"
+    
+    # 4. Assert dashboard.html contains unified footer background color (#2d2d2d)
+    assert_warn "grep -q 'background-color: #2d2d2d' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing unified dark footer background (#2d2d2d)"
+    
+    # 5. Assert dashboard.html contains custom link color (rgb(102, 153, 204))
+    assert_warn "grep -q 'color: rgb(102, 153, 204)' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing custom link color rgb(102, 153, 204)"
+    
+    # 6. Assert dashboard.html contains hover transition to Ubuntu Orange (#e95420)
+    assert_warn "grep -q 'color: #e95420' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing hover color transition to Ubuntu Orange (#e95420)"
+}
