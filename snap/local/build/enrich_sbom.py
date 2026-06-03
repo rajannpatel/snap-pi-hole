@@ -3,6 +3,8 @@ import json
 import sys
 import os
 import re
+import gzip
+import subprocess
 
 PROJECT_LICENSES = {
     "pihole-ftl": "GPL-3.0-only",
@@ -27,102 +29,11 @@ APPLICATION_PACKAGES = {
     "web",
 }
 
-INJECTED_COMPONENTS = [
-    # Primary Applications
-    {
-        "type": "application",
-        "name": "pihole-ftl",
-        "version": "v6.6.2",
-        "licenses": [{"license": {"id": "GPL-3.0-only", "name": "GPL-3.0-only"}}],
-        "purl": "pkg:github/pi-hole/ftl@v6.6.2"
-    },
-    {
-        "type": "application",
-        "name": "pi-hole",
-        "version": "v6.4.2",
-        "licenses": [{"license": {"id": "GPL-3.0-only", "name": "GPL-3.0-only"}}],
-        "purl": "pkg:github/pi-hole/pi-hole@v6.4.2"
-    },
-    {
-        "type": "application",
-        "name": "web",
-        "version": "v6.5",
-        "licenses": [{"license": {"id": "EUPL-1.2", "name": "EUPL-1.2"}}],
-        "purl": "pkg:github/pi-hole/web@v6.5"
-    },
-    # FTL Embedded Dependencies
-    {
-        "type": "library",
-        "name": "dnsmasq",
-        "version": "2.90",
-        "licenses": [{"license": {"id": "GPL-2.0-only", "name": "GPL-2.0-only"}}],
-        "purl": "pkg:generic/dnsmasq@2.90"
-    },
-    {
-        "type": "library",
-        "name": "civetweb",
-        "version": "1.16",
-        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
-        "purl": "pkg:generic/civetweb@1.16"
-    },
-    # Web Frontend Dependencies
-    {
-        "type": "library",
-        "name": "bootstrap",
-        "version": "3.4.1",
-        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
-        "purl": "pkg:npm/bootstrap@3.4.1"
-    },
-    {
-        "type": "library",
-        "name": "jquery",
-        "version": "3.7.1",
-        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
-        "purl": "pkg:npm/jquery@3.7.1"
-    },
-    {
-        "type": "library",
-        "name": "admin-lte",
-        "version": "2.4.18",
-        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
-        "purl": "pkg:npm/admin-lte@2.4.18"
-    },
-    {
-        "type": "library",
-        "name": "chart.js",
-        "version": "4.5.1",
-        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
-        "purl": "pkg:npm/chart.js@4.5.1"
-    },
-    {
-        "type": "library",
-        "name": "@fortawesome/fontawesome-free",
-        "version": "6.7.2",
-        "licenses": [{"license": {"id": "OFL-1.1 AND MIT", "name": "OFL-1.1 AND MIT"}}],
-        "purl": "pkg:npm/%40fortawesome/fontawesome-free@6.7.2"
-    },
-    {
-        "type": "library",
-        "name": "moment",
-        "version": "2.30.1",
-        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
-        "purl": "pkg:npm/moment@2.30.1"
-    },
-    {
-        "type": "library",
-        "name": "select2",
-        "version": "4.0.13",
-        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
-        "purl": "pkg:npm/select2@4.0.13"
-    },
-    {
-        "type": "library",
-        "name": "datatables.net-bs",
-        "version": "1.10.21",
-        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
-        "purl": "pkg:npm/datatables.net-bs@1.10.21"
-    }
-]
+
+# NOTE: INJECTED_COMPONENTS was removed. All components are now discovered
+# dynamically at runtime: FTL shared-library dependencies via `ldd`, and
+# web frontend dependencies via the package.json shipped inside the snap.
+
 
 def normalize_license(lic_str):
     # Normalize common license shorthand strings to SPDX identifiers
@@ -172,7 +83,8 @@ def find_license_in_copyright(extracted_snap_dir, package_name):
                     if line_strip.lower().startswith("license:"):
                         lic = line_strip[len("license:"):].strip()
                         if lic and lic.upper() not in ("", "NONE", "NULL", "UNKNOWN"):
-                            for part in re.split(r'\s+(?:or|and)\s+|,\s*|/\s*', lic, flags=re.IGNORECASE):
+                            # Split on "or"/"and" keywords, comma, slash, or plain whitespace
+                            for part in re.split(r'(?:\s+(?:or|and)\s+)|,\s*|/\s*|\s+', lic, flags=re.IGNORECASE):
                                 part = part.strip()
                                 if part:
                                     for normalized in normalize_license(part):
@@ -266,6 +178,141 @@ def find_license_in_copyright(extracted_snap_dir, package_name):
 
     return None
 
+
+def resolve_version_from_status(name, extracted_snap_dir):
+    """Look up the installed version of `name` from the extracted dpkg/status file.
+    Falls back to parsing changelog.Debian.gz when dpkg/status has no entry."""
+    status_path = os.path.join(extracted_snap_dir, "var", "lib", "dpkg", "status")
+    if os.path.exists(status_path):
+        try:
+            with open(status_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+            current_pkg = None
+            for line in content.splitlines():
+                if line.startswith("Package:"):
+                    current_pkg = line.split(":", 1)[1].strip().lower()
+                elif line.startswith("Version:") and current_pkg == name.lower():
+                    return line.split(":", 1)[1].strip()
+        except Exception as e:
+            print(f"Warning: failed to read dpkg status for {name}: {e}", file=sys.stderr)
+
+    # Fallback: parse the first line of changelog.Debian.gz
+    changelog_path = os.path.join(
+        extracted_snap_dir, "usr", "share", "doc", name, "changelog.Debian.gz"
+    )
+    if os.path.exists(changelog_path):
+        try:
+            with gzip.open(changelog_path, 'rt', encoding='utf-8', errors='ignore') as f:
+                first_line = f.readline()
+            # Format: "pkgname (version) suite; urgency=..."
+            m = re.match(r'^\S+\s+\(([^)]+)\)', first_line)
+            if m:
+                return m.group(1)
+        except Exception as e:
+            print(f"Warning: failed to read changelog for {name}: {e}", file=sys.stderr)
+
+    return None
+
+
+def discover_ftl_embedded_dependencies(extracted_snap_dir):
+    """Scan the pihole-FTL binary with ldd to find its shared-library dependencies,
+    then resolve version and license for each one from the extracted snap filesystem.
+    Returns a list of CycloneDX component dicts."""
+    ftl_path = os.path.join(extracted_snap_dir, "usr", "sbin", "pihole-FTL")
+    if not os.path.isfile(ftl_path):
+        print(f"Warning: pihole-FTL not found at {ftl_path}; skipping FTL dependency discovery.",
+              file=sys.stderr)
+        return []
+
+    try:
+        proc = subprocess.run(
+            ["ldd", ftl_path],
+            capture_output=True, text=True, check=False
+        )
+    except FileNotFoundError:
+        print("Warning: ldd not available; skipping FTL dependency discovery.", file=sys.stderr)
+        return []
+
+    # Parse ldd output: each useful line looks like
+    #   libfoo.so.2 => /path/to/libfoo.so.2 (0x…)
+    deps = set()
+    for line in proc.stdout.splitlines():
+        parts = line.split("=>")
+        if len(parts) == 2:
+            lib_path = parts[1].strip().split()[0]
+            if lib_path and lib_path != "not" and lib_path.startswith("/"):
+                deps.add(os.path.basename(lib_path))
+
+    components = []
+    for lib_filename in sorted(deps):
+        # Derive a clean component name: strip leading "lib" and trailing ".so*"
+        name = lib_filename
+        if name.startswith("lib"):
+            name = name[3:]
+        name = re.split(r'\.so', name)[0]
+        if not name:
+            continue
+
+        version = resolve_version_from_status(name, extracted_snap_dir) or "0.0"
+        license_ids = find_license_in_copyright(extracted_snap_dir, name) or []
+        licenses = [
+            {"license": {"id": lic, "name": lic}}
+            for lic in license_ids
+        ]
+
+        components.append({
+            "type": "library",
+            "name": name,
+            "version": version,
+            "licenses": licenses,
+            "purl": f"pkg:generic/{name}@{version}"
+        })
+        print(f"Discovered FTL dependency: {name} {version}")
+
+    return components
+
+
+def discover_web_frontend_dependencies(extracted_snap_dir):
+    """Read the web admin's package.json from the extracted snap to discover
+    all npm dependencies (name, version, license) and return CycloneDX component dicts.
+    The package.json lives at var/www/html/admin/package.json inside the snap."""
+    pkg_json_path = os.path.join(
+        extracted_snap_dir, "var", "www", "html", "admin", "package.json"
+    )
+    if not os.path.isfile(pkg_json_path):
+        print(
+            f"Warning: web package.json not found at {pkg_json_path}; "
+            "skipping web frontend dependency discovery.",
+            file=sys.stderr,
+        )
+        return []
+
+    try:
+        with open(pkg_json_path, "r", encoding="utf-8") as f:
+            pkg = json.load(f)
+    except Exception as e:
+        print(f"Warning: failed to read {pkg_json_path}: {e}", file=sys.stderr)
+        return []
+
+    components = []
+    for name, version in pkg.get("dependencies", {}).items():
+        # version strings may start with ^ or ~ ; strip them for the SBOM
+        version = version.lstrip("^~>= ")
+        # Build a purl; percent-encode leading @ for scoped packages
+        purl_name = name.replace("@", "%40").replace("/", "%2F") if name.startswith("@") else name
+        purl = f"pkg:npm/{purl_name}@{version}"
+        components.append({
+            "type": "library",
+            "name": name,
+            "version": version,
+            "licenses": [],   # will be enriched in the main loop via copyright lookup
+            "purl": purl,
+        })
+        print(f"Discovered web frontend dependency: {name}@{version}")
+
+    return components
+
+
 def enrich_sbom(file_path, extracted_snap_dir):
     if not os.path.exists(file_path):
         print(f"Error: file not found: {file_path}", file=sys.stderr)
@@ -279,8 +326,15 @@ def enrich_sbom(file_path, extracted_snap_dir):
         data = json.load(f)
 
     components = data.get("components", [])
-    # Inject primary applications and their embedded/frontend dependencies
-    components.extend(INJECTED_COMPONENTS)
+    injected_count = 0
+    # Dynamically discover libraries bundled with pihole-FTL at build time
+    ftl_deps = discover_ftl_embedded_dependencies(extracted_snap_dir)
+    components.extend(ftl_deps)
+    injected_count += len(ftl_deps)
+    # Dynamically discover web frontend dependencies from the admin package.json
+    web_deps = discover_web_frontend_dependencies(extracted_snap_dir)
+    components.extend(web_deps)
+    injected_count += len(web_deps)
 
     filtered_components = []
     modified_count = 0
@@ -385,9 +439,11 @@ def enrich_sbom(file_path, extracted_snap_dir):
 
     data["components"] = filtered_components
 
-    if modified_count > 0 or removed_files_count > 0 or deduped_removed_count > 0:
+    if modified_count > 0 or removed_files_count > 0 or deduped_removed_count > 0 or injected_count > 0:
         with open(file_path, 'w') as f:
             json.dump(data, f, indent=2)
+        if injected_count > 0:
+            print(f"Injected {injected_count} dynamically discovered components.")
         if removed_files_count > 0:
             print(f"Removed {removed_files_count} file-type components.")
         if deduped_removed_count > 0:

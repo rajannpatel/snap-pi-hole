@@ -125,8 +125,7 @@ EOF
     run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}/extracted"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Removed 1 file-type components"* ]]
-    [[ "$output" == *"Removed 2 duplicate components"* ]]
-    [[ "$output" == *"Successfully enriched 3 components"* ]]
+    [[ "$output" == *"Removed 1 duplicate components"* ]]
 
     # 4. Verify results inside JSON
     python3 - <<PYEOF
@@ -165,21 +164,428 @@ assert not components["missing-package"].get("licenses"), "Expected no license f
 # Verify file-type component was filtered out
 assert "/home/runner/work/snap-pi-hole/snap-pi-hole/extracted-snap/usr/bin/curl" not in components, "Expected file-type component to be filtered out"
 
-# Verify injected core application and its dependency
-assert "web" in components, "Expected injected web component to be present"
-assert components["web"]["type"] == "application", "Expected web to be an application"
-assert components["web"]["licenses"][0]["license"]["id"] == "EUPL-1.2", "Expected EUPL-1.2 license for web"
-
-assert "jquery" in components, "Expected injected jquery component to be present"
-assert components["jquery"]["type"] == "library", "Expected jquery to be a library"
-assert components["jquery"]["licenses"][0]["license"]["id"] == "MIT", "Expected MIT license for jquery"
-
 print("All assertions passed!")
+PYEOF
+}
+
+@test "enrich_sbom.py discovers web frontend dependencies from package.json" {
+    # 1. Create the web admin directory inside the extracted snap
+    mkdir -p "${TEST_DIR}/extracted/var/www/html/admin"
+
+    # 2. Write a minimal but realistic package.json (mirrors pi-hole/web structure)
+    cat > "${TEST_DIR}/extracted/var/www/html/admin/package.json" <<'EOF'
+{
+  "name": "pi-hole-web-interface",
+  "version": "1.0.0",
+  "license": "EUPL-1.2",
+  "dependencies": {
+    "bootstrap":     "3.4.1",
+    "jquery":        "3.7.1",
+    "chart.js":      "4.5.1",
+    "@fortawesome/fontawesome-free": "6.7.2"
+  }
+}
+EOF
+
+    # 3. Minimal SBOM JSON (no pre-existing web components)
+    cat > "${TEST_DIR}/sbom.json" <<'EOF'
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "serialNumber": "urn:uuid:web-test",
+  "version": 1,
+  "components": []
+}
+EOF
+
+    # 4. Run enrichment (no pihole-FTL binary present — FTL discovery will warn and skip)
+    run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}/extracted"
+    [ "$status" -eq 0 ]
+    # Discovery print lines should appear in output
+    [[ "$output" == *"Discovered web frontend dependency: bootstrap@3.4.1"* ]]
+    [[ "$output" == *"Discovered web frontend dependency: jquery@3.7.1"* ]]
+    [[ "$output" == *"Discovered web frontend dependency: @fortawesome/fontawesome-free@6.7.2"* ]]
+
+    # 5. Verify the SBOM JSON contains all four components
+    python3 - <<PYEOF
+import json
+with open("${TEST_DIR}/sbom.json") as f:
+    data = json.load(f)
+components = {c["name"]: c for c in data["components"]}
+
+assert "bootstrap" in components, "bootstrap missing from SBOM"
+assert components["bootstrap"]["version"] == "3.4.1", f"bootstrap version wrong: {components['bootstrap']['version']}"
+assert components["bootstrap"]["purl"] == "pkg:npm/bootstrap@3.4.1", f"bootstrap purl wrong"
+
+assert "jquery" in components, "jquery missing from SBOM"
+assert components["jquery"]["version"] == "3.7.1"
+
+assert "chart.js" in components, "chart.js missing from SBOM"
+
+scoped = "@fortawesome/fontawesome-free"
+assert scoped in components, f"{scoped} missing from SBOM"
+assert components[scoped]["purl"] == "pkg:npm/%40fortawesome%2Ffontawesome-free@6.7.2", \
+    f"scoped purl wrong: {components[scoped]['purl']}"
+
+print("Web frontend discovery assertions passed!")
+PYEOF
+}
+
+
+@test "enrich_sbom.py handles edge cases and dynamic discovery" {
+    # Setup extracted snap with various edge‑case copyright files
+
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/singleline"
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/shorthand"
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/unknown"
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/rtmp"
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/changelogpkg"
+    mkdir -p "${TEST_DIR}/extracted/var/lib/dpkg"
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/duplicatelic"
+
+    # 1. Single line with multiple SPDX IDs
+    cat <<EOF > "${TEST_DIR}/extracted/usr/share/doc/singleline/copyright"
+License: GPL-2+ LGPL-2.1+
+EOF
+
+    # 2. Shorthand without plus
+    cat <<EOF > "${TEST_DIR}/extracted/usr/share/doc/shorthand/copyright"
+License: GPL-2
+EOF
+
+    # 3. Unknown license
+    cat <<EOF > "${TEST_DIR}/extracted/usr/share/doc/unknown/copyright"
+License: FooBar
+EOF
+
+    # 4. Special mapping (rtmpdump -> rtmp) with multiple licenses
+    cat <<EOF > "${TEST_DIR}/extracted/usr/share/doc/rtmp/copyright"
+License: GPL-2+
+License: LGPL-2.1+
+EOF
+
+    # 5. Duplicate component – one with license, one without
+    cat <<EOF > "${TEST_DIR}/extracted/usr/share/doc/duplicatelic/copyright"
+License: MIT
+EOF
+
+    # 6. Changelog fallback – no dpkg status entry, but changelog provides version
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/changelogpkg"
+    gzip -c > "${TEST_DIR}/extracted/usr/share/doc/changelogpkg/changelog.Debian.gz" <<EOF
+changelogpkg (1.2.3-1) unstable; urgency=low
+
+  * Initial release.
+EOF
+
+    # 7. Minimal dpkg status file for other packages (optional)
+    cat <<EOF > "${TEST_DIR}/extracted/var/lib/dpkg/status"
+Package: duplicatelic
+Version: 9.9.9
+Description: duplicate test package
+
+Package: otherpkg
+Version: 0.1
+Description: placeholder
+EOF
+
+    # 2. Setup mock SBOM JSON with entries for all these packages (empty licenses)
+    cat <<EOF > "${TEST_DIR}/sbom.json"
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "serialNumber": "urn:uuid:test",
+  "version": 1,
+  "components": [
+    {"type": "library", "name": "singleline", "version": "0.0", "licenses": []},
+    {"type": "library", "name": "shorthand", "version": "0.0", "licenses": []},
+    {"type": "library", "name": "unknown", "version": "0.0", "licenses": []},
+    {"type": "library", "name": "rtmpdump", "version": "0.0", "licenses": []},
+    {"type": "library", "name": "duplicatelic", "version": "0.0", "licenses": []},
+    {"type": "library", "name": "duplicatelic", "version": "0.0-dup", "licenses": []},
+    {"type": "library", "name": "changelogpkg", "version": "0.0", "licenses": []}
+  ]
+}
+EOF
+
+    # 3. Run enrichment
+    run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}/extracted"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Successfully enriched"* ]]
+
+    # 4. Verify results
+    python3 - <<PYEOF
+import json
+with open("${TEST_DIR}/sbom.json") as f:
+    data = json.load(f)
+components = {c["name"]: c for c in data["components"]}
+
+# singleline should have four normalized IDs
+sl = sorted([l["license"]["id"] for l in components["singleline"]["licenses"]])
+assert sl == ["GPL-2.0-only", "GPL-2.0-or-later", "LGPL-2.1-only", "LGPL-2.1-or-later"], f"singleline licenses mismatch: {sl}"
+
+# shorthand should map to GPL-2.0-only
+sh = components["shorthand"]["licenses"][0]["license"]["id"]
+assert sh == "GPL-2.0-only", f"shorthand license mismatch: {sh}"
+
+# unknown should retain raw name and have id equal to name
+unk = components["unknown"]["licenses"][0]["license"]
+assert unk.get("name") == "FooBar", f"unknown name mismatch: {unk}"
+assert unk.get("id") == "FooBar", f"unknown id mismatch: {unk}"
+
+# rtmpdump (special mapping) should have four licenses
+rt = sorted([l["license"]["id"] for l in components["rtmpdump"]["licenses"]])
+assert rt == ["GPL-2.0-only", "GPL-2.0-or-later", "LGPL-2.1-only", "LGPL-2.1-or-later"], f"rtmpdump licenses mismatch: {rt}"
+
+# duplicate lic: the entry with MIT should win
+dup = components["duplicatelic"]["licenses"][0]["license"]["id"]
+assert dup == "MIT", f"duplicate license mismatch: {dup}"
+
+# changelog fallback: the enrichment loop enriches licenses only, not versions.
+# The version field on pre-existing SBOM entries is preserved as-is ("0.0").
+# resolve_version_from_status() changelog fallback is used by FTL/web discovery.
+ch = components["changelogpkg"]
+assert ch["version"] == "0.0", f"pre-existing version should be unchanged: {ch['version']}"
+PYEOF
+}
+
+@test "enrich_sbom.py discovers FTL embedded dependencies via ldd" {
+    # 1. Create a fake pihole-FTL binary (empty file; content irrelevant – ldd is shimmed)
+    mkdir -p "${TEST_DIR}/extracted/usr/sbin"
+    touch "${TEST_DIR}/extracted/usr/sbin/pihole-FTL"
+
+    # 2. Shim `ldd` so it returns controlled output regardless of the binary
+    mkdir -p "${TEST_DIR}/bin"
+    cat > "${TEST_DIR}/bin/ldd" <<'LDDEOF'
+#!/usr/bin/env bash
+echo "        libdnsmasq.so.2 => /usr/lib/x86_64-linux-gnu/libdnsmasq.so.2 (0x00007f0000000000)"
+echo "        libcivetweb.so.1 => /usr/lib/x86_64-linux-gnu/libcivetweb.so.1 (0x00007f0000100000)"
+echo "        linux-vdso.so.1 (0x00007ffd00000000)"
+LDDEOF
+    chmod +x "${TEST_DIR}/bin/ldd"
+    export PATH="${TEST_DIR}/bin:${PATH}"
+
+    # 3. Minimal dpkg/status entries for the two discovered libs
+    mkdir -p "${TEST_DIR}/extracted/var/lib/dpkg"
+    cat > "${TEST_DIR}/extracted/var/lib/dpkg/status" <<'EOF'
+Package: dnsmasq
+Version: 2.91
+Description: dnsmasq mock
+
+Package: civetweb
+Version: 1.17
+Description: civetweb mock
+EOF
+
+    # 4. Copyright files providing license information
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/dnsmasq"
+    printf 'License: GPL-2+\n' > "${TEST_DIR}/extracted/usr/share/doc/dnsmasq/copyright"
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/civetweb"
+    printf 'License: MIT\n' > "${TEST_DIR}/extracted/usr/share/doc/civetweb/copyright"
+
+    # 5. Minimal SBOM (only a primary component; FTL libs should be injected by discovery)
+    cat > "${TEST_DIR}/sbom.json" <<'EOF'
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "serialNumber": "urn:uuid:ftl-test",
+  "version": 1,
+  "components": [
+    {"type": "application", "name": "pihole-ftl", "version": "6.0", "licenses": []}
+  ]
+}
+EOF
+
+    # 6. Run enrichment
+    run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}/extracted"
+    [ "$status" -eq 0 ]
+
+    # 7. Verify discovered components
+    python3 - <<PYEOF
+import json, sys
+
+with open("${TEST_DIR}/sbom.json") as f:
+    data = json.load(f)
+components = {c["name"]: c for c in data["components"]}
+
+# dnsmasq must be present with version from dpkg/status and GPL-2.0-only/GPL-2.0-or-later license
+assert "dnsmasq" in components, "dnsmasq not found in SBOM"
+assert components["dnsmasq"]["version"] == "2.91", \
+    f"dnsmasq version expected 2.91, got {components['dnsmasq']['version']}"
+dnsmasq_ids = sorted([l["license"]["id"] for l in components["dnsmasq"]["licenses"]])
+assert "GPL-2.0-only" in dnsmasq_ids, f"GPL-2.0-only missing from dnsmasq licenses: {dnsmasq_ids}"
+
+# civetweb must be present with MIT license and version from dpkg/status
+assert "civetweb" in components, "civetweb not found in SBOM"
+assert components["civetweb"]["version"] == "1.17", \
+    f"civetweb version expected 1.17, got {components['civetweb']['version']}"
+civetweb_ids = sorted([l["license"]["id"] for l in components["civetweb"]["licenses"]])
+assert "MIT" in civetweb_ids, f"MIT missing from civetweb licenses: {civetweb_ids}"
+
+# vdso (linux-vdso) is a virtual DSO with no real path; it must NOT be injected
+assert "vdso" not in components, f"linux-vdso should not be injected as a component"
+
+print("FTL discovery assertions passed!")
+PYEOF
+}
+
+@test "enrich_sbom.py resolves version from changelog.Debian.gz when dpkg/status has no entry" {
+    # This exercises the changelog fallback branch of resolve_version_from_status,
+    # reached via discover_ftl_embedded_dependencies when dpkg/status lacks the lib.
+
+    # 1. Fake pihole-FTL binary + ldd shim that reports one library
+    mkdir -p "${TEST_DIR}/extracted/usr/sbin"
+    touch "${TEST_DIR}/extracted/usr/sbin/pihole-FTL"
+    mkdir -p "${TEST_DIR}/bin"
+    cat > "${TEST_DIR}/bin/ldd" <<'LDDEOF'
+#!/usr/bin/env bash
+echo "        libchangelogonly.so.1 => /usr/lib/libchangelogonly.so.1 (0x00007f0000000000)"
+LDDEOF
+    chmod +x "${TEST_DIR}/bin/ldd"
+    export PATH="${TEST_DIR}/bin:${PATH}"
+
+    # 2. dpkg/status exists but does NOT have an entry for changelogonly
+    mkdir -p "${TEST_DIR}/extracted/var/lib/dpkg"
+    cat > "${TEST_DIR}/extracted/var/lib/dpkg/status" <<'EOF'
+Package: otherpkg
+Version: 9.9.9
+Description: unrelated
+EOF
+
+    # 3. Provide a changelog.Debian.gz for changelogonly
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/changelogonly"
+    printf 'changelogonly (3.14.0-2) unstable; urgency=low\n\n  * Initial.\n' \
+        | gzip -c > "${TEST_DIR}/extracted/usr/share/doc/changelogonly/changelog.Debian.gz"
+
+    # 4. Minimal SBOM
+    cat > "${TEST_DIR}/sbom.json" <<'EOF'
+{"bomFormat":"CycloneDX","specVersion":"1.4","serialNumber":"urn:uuid:changelog-test","version":1,"components":[]}
+EOF
+
+    run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}/extracted"
+    [ "$status" -eq 0 ]
+
+    python3 - <<PYEOF
+import json
+with open("${TEST_DIR}/sbom.json") as f:
+    data = json.load(f)
+components = {c["name"]: c for c in data["components"]}
+assert "changelogonly" in components, "changelogonly not in SBOM"
+assert components["changelogonly"]["version"] == "3.14.0-2", \
+    f"changelog version wrong: {components['changelogonly']['version']}"
+PYEOF
+}
+
+@test "enrich_sbom.py resolves license via stem matching (libcurl4 -> curl dir)" {
+    # Exercises find_license_in_copyright Step 2: stem matching.
+    # libcurl4: strip "lib" -> "curl4", strip numeric suffix -> stem "curl"
+    # doc dir "curl": no "lib" prefix, no numeric suffix -> stem "curl"
+    # Both stems match, so the copyright in "curl/" is found for "libcurl4".
+
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/curl"
+    printf 'License: MIT\n' > "${TEST_DIR}/extracted/usr/share/doc/curl/copyright"
+
+    cat > "${TEST_DIR}/sbom.json" <<'EOF'
+{
+  "bomFormat": "CycloneDX", "specVersion": "1.4",
+  "serialNumber": "urn:uuid:stem-test", "version": 1,
+  "components": [
+    {"type": "library", "name": "libcurl4", "version": "8.5", "licenses": []}
+  ]
+}
+EOF
+
+    run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}/extracted"
+    [ "$status" -eq 0 ]
+
+    python3 - <<PYEOF
+import json
+with open("${TEST_DIR}/sbom.json") as f:
+    data = json.load(f)
+components = {c["name"]: c for c in data["components"]}
+assert "libcurl4" in components, "libcurl4 not found"
+ids = [l["license"]["id"] for l in components["libcurl4"]["licenses"]]
+assert "MIT" in ids, f"Expected MIT via stem match (libcurl4 -> curl), got {ids}"
+PYEOF
+}
+
+@test "enrich_sbom.py does not overwrite an already-valid license" {
+    # Exercises the has_valid_license guard: components whose license is already
+    # populated with a non-empty, non-NONE value must not be modified.
+
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/curl"
+    # Provide a copyright that would give "MIT" if the guard were bypassed
+    printf 'License: Apache-2.0\n' > "${TEST_DIR}/extracted/usr/share/doc/curl/copyright"
+
+    cat > "${TEST_DIR}/sbom.json" <<'EOF'
+{
+  "bomFormat": "CycloneDX", "specVersion": "1.4",
+  "serialNumber": "urn:uuid:guard-test", "version": 1,
+  "components": [
+    {
+      "type": "library", "name": "curl", "version": "8.5.0",
+      "licenses": [{"license": {"id": "MIT", "name": "MIT"}}]
+    }
+  ]
+}
+EOF
+
+    run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}/extracted"
+    [ "$status" -eq 0 ]
+    # Script must NOT print an "Enriched: curl" line since the license was already set
+    [[ "$output" != *"Enriched: curl"* ]]
+
+    python3 - <<PYEOF
+import json
+with open("${TEST_DIR}/sbom.json") as f:
+    data = json.load(f)
+components = {c["name"]: c for c in data["components"]}
+ids = [l["license"]["id"] for l in components["curl"]["licenses"]]
+assert ids == ["MIT"], f"License was overwritten; expected ['MIT'], got {ids}"
+PYEOF
+}
+
+@test "enrich_sbom.py strips semver prefix characters from web package.json versions" {
+    # Exercises the version.lstrip("^~>= ") path in discover_web_frontend_dependencies.
+    # devDependencies use ^ and ~ prefixes; dependencies in pi-hole/web are pinned,
+    # but the stripping must work correctly regardless.
+
+    mkdir -p "${TEST_DIR}/extracted/var/www/html/admin"
+    cat > "${TEST_DIR}/extracted/var/www/html/admin/package.json" <<'EOF'
+{
+  "name": "test-web",
+  "version": "1.0.0",
+  "dependencies": {
+    "moment":  "~2.30.1",
+    "lodash":  "^4.17.21",
+    "react":   ">=18.0.0",
+    "vue":     "3.4.0"
+  }
+}
+EOF
+
+    cat > "${TEST_DIR}/sbom.json" <<'EOF'
+{"bomFormat":"CycloneDX","specVersion":"1.4","serialNumber":"urn:uuid:semver-test","version":1,"components":[]}
+EOF
+
+    run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}/extracted"
+    [ "$status" -eq 0 ]
+
+    python3 - <<PYEOF
+import json
+with open("${TEST_DIR}/sbom.json") as f:
+    data = json.load(f)
+components = {c["name"]: c for c in data["components"]}
+
+assert components["moment"]["version"]  == "2.30.1",  f"moment: {components['moment']['version']}"
+assert components["lodash"]["version"]  == "4.17.21", f"lodash: {components['lodash']['version']}"
+assert components["react"]["version"]   == "18.0.0",  f"react: {components['react']['version']}"
+assert components["vue"]["version"]     == "3.4.0",   f"vue: {components['vue']['version']}"
 PYEOF
 }
 
 @test "filter_dpkg_status.py successfully filters dpkg status file" {
     # 1. Setup mock dpkg status file
+
     cat <<EOF > "${TEST_DIR}/status"
 Package: keep-me
 Status: install ok installed
