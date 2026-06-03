@@ -679,6 +679,57 @@ def write_html(summary, output_path):
       return cell ? cell.textContent.trim().toLowerCase() : '';
     }}
 
+    function vulnerabilityCvssScore(value) {{
+      const match = value.match(/\\d+(?:\\.\\d+)?/);
+      return match ? Number(match[0]) : null;
+    }}
+
+    function vulnerabilityPriorityRank(value) {{
+      const normalized = value.toLowerCase();
+      if (normalized.includes('critical')) return 5;
+      if (normalized.includes('high')) return 4;
+      if (normalized.includes('medium')) return 3;
+      if (normalized.includes('low')) return 2;
+      if (normalized.includes('negligible')) return 1;
+      if (normalized.includes('unknown')) return null;
+      return null;
+    }}
+
+    function vulnerabilityRankValue(row, column) {{
+      const value = vulnerabilityCellValue(row, column);
+      if (column === 3) {{
+        return vulnerabilityCvssScore(value);
+      }}
+      if (column === 4) {{
+        return vulnerabilityPriorityRank(value);
+      }}
+      return null;
+    }}
+
+    function compareVulnerabilityRows(firstRow, secondRow, column, direction) {{
+      const firstRank = vulnerabilityRankValue(firstRow, column);
+      const secondRank = vulnerabilityRankValue(secondRow, column);
+      if (firstRank !== null || secondRank !== null || column === 3 || column === 4) {{
+        if (firstRank === null && secondRank === null) {{
+          const firstText = vulnerabilityCellValue(firstRow, column);
+          const secondText = vulnerabilityCellValue(secondRow, column);
+          return firstText.localeCompare(secondText, undefined, {{ numeric: true, sensitivity: 'base' }});
+        }}
+        if (firstRank === null) {{
+          return 1;
+        }}
+        if (secondRank === null) {{
+          return -1;
+        }}
+        return direction === 'ascending' ? firstRank - secondRank : secondRank - firstRank;
+      }}
+
+      const firstText = vulnerabilityCellValue(firstRow, column);
+      const secondText = vulnerabilityCellValue(secondRow, column);
+      const lexical = firstText.localeCompare(secondText, undefined, {{ numeric: true, sensitivity: 'base' }});
+      return direction === 'ascending' ? lexical : -lexical;
+    }}
+
     function filterVulnerabilities() {{
       const searchInput = document.getElementById('vulnerability-search');
       const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
@@ -698,15 +749,7 @@ def write_html(summary, output_path):
         vulnerabilitySortDirection = 'ascending';
       }}
 
-      rows.sort((a, b) => {{
-        const first = vulnerabilityCellValue(a, column);
-        const second = vulnerabilityCellValue(b, column);
-        return first.localeCompare(second, undefined, {{ numeric: true, sensitivity: 'base' }});
-      }});
-
-      if (vulnerabilitySortDirection === 'descending') {{
-        rows.reverse();
-      }}
+      rows.sort((a, b) => compareVulnerabilityRows(a, b, column, vulnerabilitySortDirection));
 
       rows.forEach(row => tbody.appendChild(row));
       document.querySelectorAll('.vulnerability-sort-button').forEach(button => {{
