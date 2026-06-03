@@ -2,47 +2,65 @@
    Vanilla Framework Override for Kcov Coverage Reports
    ========================================================================== */
 
+/* Load Ubuntu and Ubuntu Mono fonts from Google Fonts API */
+@import url('https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
 /* Typography & Reset */
-body, td, th, p, a, span {
-  font-family: "Ubuntu", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif !important;
-  color: #111 !important;
+html {
+  background-color: #f7f7f7 !important;
 }
 
 body {
-  background-color: #f7f7f7 !important;
-  padding: 1.5rem !important;
+  font-family: "Ubuntu", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif !important;
+  color: #111 !important;
+  background-color: #ffffff !important;
+  max-width: 1200px !important;
+  margin: 2rem auto !important;
+  padding: 2rem !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+  border-radius: 4px !important;
+  border: 1px solid #e0e0e0 !important;
+}
+
+td, th, p, a, span {
+  font-family: "Ubuntu", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif !important;
+  color: #111 !important;
 }
 
 /* Headers and Navigation */
 h1, h2, h3, .title {
   color: #111 !important;
   font-weight: 300 !important;
-  border-bottom: 1px solid #e0e0e0 !important;
-  padding-bottom: 0.5rem !important;
+  font-family: "Ubuntu", sans-serif !important;
+  border-bottom: 1px solid #dbdbdb !important;
+  padding-bottom: 0.75rem !important;
   margin-top: 1.5rem !important;
 }
 
-/* Clean up Kcov's default navigation bar */
+/* Kcov's top navigation bar styled like a Vanilla Navigation Header */
 .navigation {
-  background-color: #2c2c2c !important;
-  color: white !important;
-  padding: 0.75rem 1rem !important;
+  background-color: #262626 !important;
+  color: #888888 !important;
+  padding: 0.75rem 1.5rem !important;
   border-radius: 4px !important;
-  margin-bottom: 1.5rem !important;
+  margin-bottom: 2rem !important;
+  font-size: 0.9rem !important;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
 }
 
 .navigation a {
-  color: #fff !important;
+  color: #ffffff !important;
   text-decoration: none !important;
-  font-weight: 500 !important;
+  font-weight: 400 !important;
+  transition: color 0.2s ease !important;
 }
 
 .navigation a:hover {
-  text-decoration: underline !important;
+  color: #e95420 !important; /* Ubuntu Orange */
+  text-decoration: none !important;
 }
 
-/* Clean, Premium Tables */
+/* Clean, Premium Tables conforming to Vanilla Framework specs */
 table {
   width: 100% !important;
   border-collapse: collapse !important;
@@ -50,48 +68,47 @@ table {
   background: white !important;
   border-radius: 4px !important;
   overflow: hidden !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
-  border: 1px solid #cdcdcd !important;
+  border: 1px solid #dbdbdb !important;
 }
 
 th {
   background-color: #f7f7f7 !important;
-  border-bottom: 2px solid #cdcdcd !important;
-  color: #111 !important;
-  font-weight: 600 !important;
+  border-bottom: 2px solid #dbdbdb !important;
+  color: #666666 !important;
+  font-weight: 400 !important;
   text-transform: uppercase !important;
-  font-size: 0.8rem !important;
-  letter-spacing: 0.05em !important;
-  padding: 10px 16px !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.08em !important;
+  padding: 12px 16px !important;
+  text-align: left !important;
 }
 
 td {
-  padding: 10px 16px !important;
-  border-bottom: 1px solid #eeeeee !important;
+  padding: 12px 16px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
   font-size: 0.9rem !important;
   vertical-align: middle !important;
 }
 
 tr:hover td {
-  background-color: #fdfdfd !important;
+  background-color: #fafafa !important;
 }
 
-/* Coverage Bars & Badges */
+/* Coverage Percentage Indicators and Bar Overrides */
 .header-name, .header-value {
   padding: 8px !important;
 }
 
-/* Override kcov's color classes for percentages */
 .bar-low {
-  background-color: #f43f5e !important; /* Rose Red */
+  background-color: #c7162b !important; /* Vanilla Red */
 }
 
 .bar-med {
-  background-color: #f59e0b !important; /* Amber Orange */
+  background-color: #deb100 !important; /* Vanilla Yellow */
 }
 
 .bar-high {
-  background-color: #0e966e !important; /* Emerald Green */
+  background-color: #007a5e !important; /* Vanilla Green */
 }
 
 .bar-bg {
@@ -100,35 +117,45 @@ tr:hover td {
   overflow: hidden !important;
 }
 
-/* Source Code View Styling */
-pre, code, .line-number {
-  font-family: "Ubuntu Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace !important;
+/* Source Code View Styling (Ubuntu Monospace Font) */
+pre, code, .line-number, td.line-number, td.code, td.line, pre.code, code.code {
+  font-family: "Ubuntu Monospace", "Ubuntu Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace !important;
   font-size: 0.85rem !important;
+  line-height: 1.4 !important;
+}
+
+pre {
+  background-color: #f7f7f7 !important;
+  border: 1px solid #dbdbdb !important;
+  border-radius: 4px !important;
+  padding: 1rem !important;
+  overflow-x: auto !important;
 }
 
 .line-number {
   color: #aeaeae !important;
   background-color: #f7f7f7 !important;
-  border-right: 1px solid #cdcdcd !important;
-  padding-right: 8px !important;
+  border-right: 1px solid #dbdbdb !important;
+  padding-right: 12px !important;
   text-align: right !important;
+  user-select: none !important;
 }
 
-/* Code coverage highlight bands */
+/* Highlight bands for covered/uncovered source lines */
 .covered {
-  background-color: rgba(14, 150, 110, 0.08) !important;
+  background-color: rgba(0, 122, 94, 0.06) !important;
 }
 
 .uncovered {
-  background-color: rgba(244, 63, 94, 0.08) !important;
+  background-color: rgba(199, 22, 43, 0.06) !important;
 }
 
 .covered .line-number {
-  background-color: rgba(14, 150, 110, 0.15) !important;
-  color: #0e966e !important;
+  background-color: rgba(0, 122, 94, 0.12) !important;
+  color: #007a5e !important;
 }
 
 .uncovered .line-number {
-  background-color: rgba(244, 63, 94, 0.15) !important;
-  color: #f43f5e !important;
+  background-color: rgba(199, 22, 43, 0.12) !important;
+  color: #c7162b !important;
 }
