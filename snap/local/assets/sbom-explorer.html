@@ -237,7 +237,7 @@
                 scanner. For example, to scan the downloaded <code>amd64</code> SBOM using Anchore's <code>grype</code>:
               </p>
               <pre class="p-code-copyable u-sv1"><code># Install the grype scanner utility
-curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+sudo snap install grype
  
 # Scan the SBOM document for CVE vulnerabilities
 grype sbom-amd64.json</code></pre>

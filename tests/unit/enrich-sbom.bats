@@ -52,6 +52,24 @@ EOF
       "type": "library",
       "name": "curl",
       "version": "8.5.0",
+      "properties": [
+        {
+          "name": "syft:package:foundBy",
+          "value": "dpkg-db-cataloger"
+        }
+      ],
+      "licenses": []
+    },
+    {
+      "type": "library",
+      "name": "curl",
+      "version": "8.5.0-duplicate",
+      "properties": [
+        {
+          "name": "syft:package:foundBy",
+          "value": "snap-cataloger"
+        }
+      ],
       "licenses": []
     },
     {
@@ -90,13 +108,19 @@ EOF
     run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}/extracted"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Removed 1 file-type components"* ]]
-    [[ "$output" == *"Successfully enriched 3 components"* ]]
+    [[ "$output" == *"Removed 2 duplicate components"* ]]
+    [[ "$output" == *"Successfully enriched 2 components"* ]]
 
     # 4. Verify results inside JSON
     python3 - <<PYEOF
 import json
 with open("${TEST_DIR}/sbom.json") as f:
     data = json.load(f)
+
+# Count components named curl
+curls = [c for c in data["components"] if c["name"] == "curl"]
+assert len(curls) == 1, f"Expected exactly 1 curl component, got {len(curls)}"
+assert curls[0]["version"] == "8.5.0", f"Expected version 8.5.0 (priority), got {curls[0]['version']}"
 
 components = {c["name"]: c for c in data["components"]}
 
@@ -117,6 +141,15 @@ assert not components["missing-package"].get("licenses"), "Expected no license f
 
 # Verify file-type component was filtered out
 assert "/home/runner/work/snap-pi-hole/snap-pi-hole/extracted-snap/usr/bin/curl" not in components, "Expected file-type component to be filtered out"
+
+# Verify injected core application and its dependency
+assert "web" in components, "Expected injected web component to be present"
+assert components["web"]["type"] == "application", "Expected web to be an application"
+assert components["web"]["licenses"][0]["license"]["id"] == "EUPL-1.2", "Expected EUPL-1.2 license for web"
+
+assert "jquery" in components, "Expected injected jquery component to be present"
+assert components["jquery"]["type"] == "library", "Expected jquery to be a library"
+assert components["jquery"]["licenses"][0]["license"]["id"] == "MIT", "Expected MIT license for jquery"
 
 print("All assertions passed!")
 PYEOF

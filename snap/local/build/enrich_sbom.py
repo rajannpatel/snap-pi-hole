@@ -12,6 +12,118 @@ PROJECT_LICENSES = {
     "rust-coreutils": "MIT",
 }
 
+APPLICATION_PACKAGES = {
+    "bind9",
+    "coreutils",
+    "curl",
+    "iproute2",
+    "jq",
+    "rtmpdump",
+    "rust-coreutils",
+    "sqlite3",
+    "pihole-ftl",
+    "pi-hole",
+    "pihole",
+    "web",
+}
+
+INJECTED_COMPONENTS = [
+    # Primary Applications
+    {
+        "type": "application",
+        "name": "pihole-ftl",
+        "version": "v6.6.2",
+        "licenses": [{"license": {"id": "GPL-3.0-only", "name": "GPL-3.0-only"}}],
+        "purl": "pkg:github/pi-hole/ftl@v6.6.2"
+    },
+    {
+        "type": "application",
+        "name": "pi-hole",
+        "version": "v6.4.2",
+        "licenses": [{"license": {"id": "GPL-3.0-only", "name": "GPL-3.0-only"}}],
+        "purl": "pkg:github/pi-hole/pi-hole@v6.4.2"
+    },
+    {
+        "type": "application",
+        "name": "web",
+        "version": "v6.5",
+        "licenses": [{"license": {"id": "EUPL-1.2", "name": "EUPL-1.2"}}],
+        "purl": "pkg:github/pi-hole/web@v6.5"
+    },
+    # FTL Embedded Dependencies
+    {
+        "type": "library",
+        "name": "dnsmasq",
+        "version": "2.90",
+        "licenses": [{"license": {"id": "GPL-2.0-only", "name": "GPL-2.0-only"}}],
+        "purl": "pkg:generic/dnsmasq@2.90"
+    },
+    {
+        "type": "library",
+        "name": "civetweb",
+        "version": "1.16",
+        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
+        "purl": "pkg:generic/civetweb@1.16"
+    },
+    # Web Frontend Dependencies
+    {
+        "type": "library",
+        "name": "bootstrap",
+        "version": "3.4.1",
+        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
+        "purl": "pkg:npm/bootstrap@3.4.1"
+    },
+    {
+        "type": "library",
+        "name": "jquery",
+        "version": "3.7.1",
+        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
+        "purl": "pkg:npm/jquery@3.7.1"
+    },
+    {
+        "type": "library",
+        "name": "admin-lte",
+        "version": "2.4.18",
+        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
+        "purl": "pkg:npm/admin-lte@2.4.18"
+    },
+    {
+        "type": "library",
+        "name": "chart.js",
+        "version": "4.5.1",
+        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
+        "purl": "pkg:npm/chart.js@4.5.1"
+    },
+    {
+        "type": "library",
+        "name": "@fortawesome/fontawesome-free",
+        "version": "6.7.2",
+        "licenses": [{"license": {"id": "OFL-1.1 AND MIT", "name": "OFL-1.1 AND MIT"}}],
+        "purl": "pkg:npm/%40fortawesome/fontawesome-free@6.7.2"
+    },
+    {
+        "type": "library",
+        "name": "moment",
+        "version": "2.30.1",
+        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
+        "purl": "pkg:npm/moment@2.30.1"
+    },
+    {
+        "type": "library",
+        "name": "select2",
+        "version": "4.0.13",
+        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
+        "purl": "pkg:npm/select2@4.0.13"
+    },
+    {
+        "type": "library",
+        "name": "datatables.net-bs",
+        "version": "1.10.21",
+        "licenses": [{"license": {"id": "MIT", "name": "MIT"}}],
+        "purl": "pkg:npm/datatables.net-bs@1.10.21"
+    }
+]
+
 def find_license_in_copyright(extracted_snap_dir, package_name):
     # Normalize package name (e.g., "libssl3:amd64" -> "libssl3")
     name = package_name.split(':')[0].lower()
@@ -127,17 +239,74 @@ def enrich_sbom(file_path, extracted_snap_dir):
         data = json.load(f)
 
     components = data.get("components", [])
+    # Inject primary applications and their embedded/frontend dependencies
+    components.extend(INJECTED_COMPONENTS)
+
     filtered_components = []
     modified_count = 0
     removed_files_count = 0
 
+    # 1. Filter out files
     for comp in components:
         if comp.get("type") == "file":
             removed_files_count += 1
             continue
-
         filtered_components.append(comp)
+
+    # 2. Deduplicate components by name (case-insensitive)
+    deduped = {}
+    deduped_removed_count = 0
+    for comp in filtered_components:
         name = comp.get("name", "")
+        if not name:
+            continue
+        norm_name = name.lower()
+        
+        # Get the cataloger that found this package
+        found_by = ""
+        properties = comp.get("properties", [])
+        for prop in properties:
+            if prop.get("name") == "syft:package:foundBy":
+                found_by = prop.get("value", "")
+                break
+        
+        # Priority score
+        score = 0
+        if found_by == "dpkg-db-cataloger":
+            score = 3
+        elif found_by == "elf-binary-package-cataloger":
+            score = 2
+        elif found_by == "snap-cataloger":
+            score = 1
+        elif not found_by:
+            score = 4
+            
+        # Prefer components with license info populated
+        if comp.get("licenses"):
+            score += 0.5
+            
+        if norm_name not in deduped:
+            deduped[norm_name] = (score, comp)
+        else:
+            existing_score, existing_comp = deduped[norm_name]
+            if score > existing_score:
+                deduped[norm_name] = (score, comp)
+            deduped_removed_count += 1
+                
+    # Sort final components list alphabetically by name
+    filtered_components = [item[1] for item in sorted(deduped.values(), key=lambda x: x[1].get("name", "").lower())]
+
+    # 3. Enrich licenses and classify types for deduplicated components
+    for comp in filtered_components:
+        name = comp.get("name", "")
+        
+        # Classify component type (application vs library)
+        normalized_name = name.split(':')[0].lower()
+        if normalized_name in APPLICATION_PACKAGES:
+            comp["type"] = "application"
+        else:
+            comp["type"] = "library"
+
         licenses = comp.get("licenses", [])
         has_valid_license = False
 
@@ -173,15 +342,17 @@ def enrich_sbom(file_path, extracted_snap_dir):
 
     data["components"] = filtered_components
 
-    if modified_count > 0 or removed_files_count > 0:
+    if modified_count > 0 or removed_files_count > 0 or deduped_removed_count > 0:
         with open(file_path, 'w') as f:
             json.dump(data, f, indent=2)
         if removed_files_count > 0:
             print(f"Removed {removed_files_count} file-type components.")
+        if deduped_removed_count > 0:
+            print(f"Removed {deduped_removed_count} duplicate components.")
         if modified_count > 0:
             print(f"Successfully enriched {modified_count} components in {file_path}")
     else:
-        print(f"No missing licenses resolved for {file_path}")
+        print(f"No missing licenses or duplicates resolved for {file_path}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
