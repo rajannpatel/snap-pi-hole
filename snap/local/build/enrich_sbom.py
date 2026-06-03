@@ -35,7 +35,77 @@ APPLICATION_PACKAGES = {
 # web frontend dependencies via the package.json shipped inside the snap.
 
 
+# A set of valid standard SPDX license IDs
+VALID_SPDX_IDS = {
+    "Apache-1.0", "Apache-1.1", "Apache-2.0",
+    "BSD-1-Clause", "BSD-2-Clause", "BSD-3-Clause", "BSD-4-Clause", "BSD-4-Clause-UC",
+    "Beerware",
+    "CC-BY-3.0", "CC-BY-4.0", "CC0-1.0",
+    "Chromium",
+    "EPL-1.0", "EPL-2.0",
+    "EUPL-1.1", "EUPL-1.2",
+    "FSFUL", "FSFULLR", "FSFAP",
+    "GFDL-1.1-only", "GFDL-1.1-or-later", "GFDL-1.2-only", "GFDL-1.2-or-later", "GFDL-1.3-only", "GFDL-1.3-or-later",
+    "GPL-1.0-only", "GPL-1.0-or-later", "GPL-2.0-only", "GPL-2.0-or-later", "GPL-3.0-only", "GPL-3.0-or-later",
+    "ISC",
+    "LGPL-2.0-only", "LGPL-2.0-or-later", "LGPL-2.1-only", "LGPL-2.1-or-later", "LGPL-3.0-only", "LGPL-3.0-or-later",
+    "MIT", "MIT-CMU", "MIT-Export", "MIT-OpenVision", "MIT-XC",
+    "MPL-1.0", "MPL-1.1", "MPL-2.0",
+    "OLDAP-2.8",
+    "OFL-1.0", "OFL-1.1",
+    "OpenSSL",
+    "PHP-3.0", "PHP-3.01",
+    "Python-2.0",
+    "Unlicense",
+    "W3C",
+    "X11",
+    "Zlib",
+    "curl",
+}
+
+# License words/strings that are invalid or represent garbage
+INVALID_LICENSE_WORDS = {
+    "gnulib",
+    "freesoftware",
+    "none",
+    "null",
+    "unknown",
+    "version",
+    "see",
+    "under",
+    "attribution",
+    "exception",
+    "with",
+    "or",
+    "and",
+}
+
+
 def normalize_license(lic_str):
+    cleaned = lic_str.strip()
+    if not cleaned:
+        return []
+
+    # Check for compound license structure to normalize component parts
+    standardized = cleaned
+    standardized = re.sub(r'\s+with\s+', ' WITH ', standardized, flags=re.IGNORECASE)
+    standardized = re.sub(r'\s+or\s+', ' OR ', standardized, flags=re.IGNORECASE)
+    standardized = re.sub(r'\s+and\s+', ' AND ', standardized, flags=re.IGNORECASE)
+
+    parts = re.split(r'(\s+(?:OR|AND|WITH)\s+)', standardized)
+    if len(parts) > 1:
+        new_parts = []
+        for p in parts:
+            if p.strip() in ("OR", "AND", "WITH"):
+                new_parts.append(p)
+            else:
+                norm_sub = normalize_license(p)
+                if norm_sub:
+                    new_parts.append(norm_sub[0])
+                else:
+                    new_parts.append(p.strip())
+        return ["".join(new_parts)]
+
     # Normalize common license shorthand strings to SPDX identifiers
     mapping = {
         "gpl-2": ["GPL-2.0-only"],
@@ -57,8 +127,68 @@ def normalize_license(lic_str):
         "mit": ["MIT"],
         "apache-2.0": ["Apache-2.0"],
     }
-    key = lic_str.strip().lower()
-    return mapping.get(key, [lic_str])
+    
+    key = cleaned.lower()
+    if key in mapping:
+        return mapping[key]
+
+    custom_normalization = {
+        "unicode": ["Unicode-DFS-2016"],
+        "unicode-dfs-2016": ["Unicode-DFS-2016"],
+        "public-domain": ["LicenseRef-Public-Domain"],
+        "isc": ["ISC"],
+        "icu-1.8.1+": ["ICU"],
+        "gfdl-1.2+": ["GFDL-1.2-or-later"],
+        "gfdl-1.3+": ["GFDL-1.3-or-later"],
+        "gfdl-1.2-or-later": ["GFDL-1.2-or-later"],
+        "gfdl-1.3-or-later": ["GFDL-1.3-or-later"],
+        "gfdl-niv-1.3+": ["GFDL-1.3-or-later"],
+        "bsd3": ["BSD-3-Clause"],
+        "bsd-3-clause-attribution": ["BSD-3-Clause"],
+        "bsd-3-clause-google": ["BSD-3-Clause"],
+        "bsd-3-clause-hiroshima-university": ["BSD-3-Clause"],
+        "bsd-3-clause-california": ["BSD-3-Clause"],
+        "bsd-3-clause-janet": ["BSD-3-Clause"],
+        "bsd-3-clause-padl": ["BSD-3-Clause"],
+        "bsd-3-clause-variant": ["BSD-3-Clause"],
+        "bsd-4-clause-california": ["BSD-4-Clause"],
+        "bsd-4-clause-uc": ["BSD-4-Clause-UC"],
+        "bsd-2-clause-chemeris": ["BSD-2-Clause"],
+        "bsd-2.2-clause": ["BSD-2-Clause"],
+        "expat": ["MIT"],
+        "expat-isc": ["ISC"],
+        "expat-unm": ["MIT"],
+        "expat~boehm": ["MIT"],
+        "openldap-2.8": ["OLDAP-2.8"],
+        "openldap": ["OLDAP-2.8"],
+        "the openldap public license": ["OLDAP-2.8"],
+        "rsa-md": ["LicenseRef-RSA-MD"],
+        "f5": ["LicenseRef-F5"],
+        "gap": ["LicenseRef-GAP"],
+        "fsf-unlimited": ["FSFUL"],
+        "fsfap": ["FSFAP"],
+        "umich": ["LicenseRef-UMich"],
+        "jcg": ["LicenseRef-JCG"],
+        "neosoft-permissive": ["LicenseRef-NeoSoft-Permissive"],
+        "all-permissive": ["LicenseRef-All-Permissive"],
+        "gpl-2 with autoconf-data exception": ["GPL-2.0-only WITH Autoconf-exception-2.0"],
+        "gpl-2+ with autoconf exception": ["GPL-2.0-or-later WITH Autoconf-exception-2.0"],
+        "gpl-2+ with autoconf-2.0~archive exception": ["GPL-2.0-or-later WITH Autoconf-exception-2.0"],
+        "gpl-2+ with autoconf-data exception": ["GPL-2.0-or-later WITH Autoconf-exception-2.0"],
+        "gpl-2+ with libtool exception": ["GPL-2.0-or-later WITH Libtool-exception"],
+        "gpl-2+ with distribution exception": ["GPL-2.0-or-later"],
+        "gpl-3+ with autoconf exception": ["GPL-3.0-or-later WITH Autoconf-exception-3.0"],
+        "gpl-3+ with autoconf-2.0~archive exception": ["GPL-3.0-or-later WITH Autoconf-exception-3.0"],
+        "gpl-3+ with autoconf-data exception": ["GPL-3.0-or-later WITH Autoconf-exception-3.0"],
+        "gpl-3+ with bison exception": ["GPL-3.0-or-later WITH Bison-exception-2.2"],
+        "gpl-3+ with libtool exception": ["GPL-3.0-or-later WITH Libtool-exception"],
+        "gpl3+ with autoconf exception": ["GPL-3.0-or-later WITH Autoconf-exception-3.0"],
+    }
+    
+    if key in custom_normalization:
+        return custom_normalization[key]
+        
+    return [cleaned]
 
 def find_license_in_copyright(extracted_snap_dir, package_name):
     # Normalize package name (e.g., "libssl3:amd64" -> "libssl3")
@@ -83,8 +213,8 @@ def find_license_in_copyright(extracted_snap_dir, package_name):
                     if line_strip.lower().startswith("license:"):
                         lic = line_strip[len("license:"):].strip()
                         if lic and lic.upper() not in ("", "NONE", "NULL", "UNKNOWN"):
-                            # Split on "or"/"and" keywords, comma, slash, or plain whitespace
-                            for part in re.split(r'(?:\s+(?:or|and)\s+)|,\s*|/\s*|\s+', lic, flags=re.IGNORECASE):
+                            # Split on "or"/"and" keywords, comma, slash, or semicolon (not plain whitespace)
+                            for part in re.split(r'(?:\s+(?:or|and)\s+)|,\s*|/\s*|;\s*', lic, flags=re.IGNORECASE):
                                 part = part.strip()
                                 if part:
                                     for normalized in normalize_license(part):
@@ -436,6 +566,111 @@ def enrich_sbom(file_path, extracted_snap_dir):
                 ]
                 modified_count += 1
                 print(f"Enriched: {name} -> {', '.join(matched_licenses)}")
+
+    # 4. Final validation, normalization and filtering loop for all component licenses
+    for comp in filtered_components:
+        name = comp.get("name", "")
+        licenses = comp.get("licenses", [])
+        if licenses:
+            valid_licenses = []
+            seen_license_names = set()
+            licenses_changed = False
+            
+            for l_item in licenses:
+                lic = l_item.get("license", {})
+                lic_name = lic.get("id") or lic.get("name")
+                if not lic_name:
+                    licenses_changed = True
+                    continue
+                    
+                # Run normalization on the license name
+                normalized_list = normalize_license(lic_name)
+                
+                # Check if it was changed
+                if len(normalized_list) != 1 or normalized_list[0] != lic_name:
+                    licenses_changed = True
+                    
+                for norm_name in normalized_list:
+                    norm_lower = norm_name.lower()
+                    
+                    # Filter out known invalid license strings
+                    if norm_lower in INVALID_LICENSE_WORDS:
+                        licenses_changed = True
+                        continue
+                        
+                    is_valid = False
+                    if norm_name.startswith("LicenseRef-"):
+                        is_valid = True
+                    else:
+                        # Case-insensitive match against VALID_SPDX_IDS
+                        for valid_id in VALID_SPDX_IDS:
+                            if valid_id.lower() == norm_lower:
+                                if norm_name != valid_id:
+                                    norm_name = valid_id  # Standardize case
+                                    licenses_changed = True
+                                is_valid = True
+                                break
+                                
+                    # Special check: compound licenses with WITH/OR/AND
+                    if not is_valid:
+                        standardized = norm_name
+                        # Standardize case for logical operators
+                        standardized = re.sub(r'\s+with\s+', ' WITH ', standardized, flags=re.IGNORECASE)
+                        standardized = re.sub(r'\s+or\s+', ' OR ', standardized, flags=re.IGNORECASE)
+                        standardized = re.sub(r'\s+and\s+', ' AND ', standardized, flags=re.IGNORECASE)
+                        
+                        if standardized != norm_name:
+                            licenses_changed = True
+                            
+                        # Split compound and check if all subparts are valid
+                        parts = re.split(r'\s+(?:OR|AND|WITH)\s+', standardized)
+                        if all(p.startswith("LicenseRef-") or any(valid_id.lower() == p.lower() for valid_id in VALID_SPDX_IDS) or p.lower().endswith("exception") for p in parts if p):
+                            norm_name = standardized
+                            is_valid = True
+                            
+                    if is_valid:
+                        if norm_name not in seen_license_names:
+                            seen_license_names.add(norm_name)
+                            valid_licenses.append({
+                                "license": {
+                                    "id": norm_name if " OR " not in norm_name and " WITH " not in norm_name and " AND " not in norm_name else None,
+                                    "name": norm_name
+                                }
+                            })
+                        else:
+                            licenses_changed = True
+                    else:
+                        # Keep custom/unknown license names (e.g. proprietary) but set ID to None if not standard
+                        if norm_name not in seen_license_names:
+                            seen_license_names.add(norm_name)
+                            valid_licenses.append({
+                                "license": {
+                                    "id": norm_name,
+                                    "name": norm_name
+                                }
+                            })
+                        else:
+                            licenses_changed = True
+                            
+            if not valid_licenses:
+                # Fallback: if all original licenses were garbage, search the copyright file
+                fallback_licenses = find_license_in_copyright(extracted_snap_dir, name)
+                if fallback_licenses:
+                    valid_licenses = [
+                        {
+                            "license": {
+                                "id": lic if " OR " not in lic and " WITH " not in lic and lic not in ("GPL", "LGPL", "Apache") else None,
+                                "name": lic
+                            }
+                        }
+                        for lic in fallback_licenses
+                    ]
+                    licenses_changed = True
+                    print(f"Fallback enrichment: {name} -> {', '.join(fallback_licenses)}")
+                    
+            if licenses_changed:
+                comp["licenses"] = valid_licenses
+                modified_count += 1
 
     data["components"] = filtered_components
 

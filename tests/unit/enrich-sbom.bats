@@ -632,3 +632,57 @@ print("Filter status assertions passed!")
 PYEOF
 }
 
+
+@test "enrich_sbom.py normalizes and filters licenses for all components" {
+    # 1. Setup mock SBOM JSON with various valid and invalid licenses
+    cat > "${TEST_DIR}/sbom.json" <<'EOF'
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "serialNumber": "urn:uuid:norm-test",
+  "version": 1,
+  "components": [
+    {
+      "type": "library",
+      "name": "lib1",
+      "version": "1.0",
+      "licenses": [
+        {"license": {"id": "unicode", "name": "unicode"}},
+        {"license": {"id": "gnulib", "name": "gnulib"}},
+        {"license": {"id": "MIT", "name": "MIT"}}
+      ]
+    },
+    {
+      "type": "library",
+      "name": "lib2",
+      "version": "1.0",
+      "licenses": [
+        {"license": {"id": "GPL-2+ with Autoconf exception", "name": "GPL-2+ with Autoconf exception"}}
+      ]
+    }
+  ]
+}
+EOF
+
+    # 2. Run enrichment (no extracted snap needed as components already have licenses)
+    run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}"
+    [ "$status" -eq 0 ]
+
+    # 3. Verify results
+    python3 - <<PYEOF
+import json
+with open("${TEST_DIR}/sbom.json") as f:
+    data = json.load(f)
+components = {c["name"]: c for c in data["components"]}
+
+# lib1: unicode -> Unicode-DFS-2016, gnulib -> removed, MIT -> kept
+lib1_lics = sorted([l["license"].get("name") for l in components["lib1"]["licenses"]])
+assert lib1_lics == ["MIT", "Unicode-DFS-2016"], f"Expected ['MIT', 'Unicode-DFS-2016'], got {lib1_lics}"
+
+# lib2: GPL-2+ with Autoconf exception -> GPL-2.0-or-later WITH Autoconf-exception-2.0
+lib2_lics = [l["license"].get("name") for l in components["lib2"]["licenses"]]
+assert lib2_lics == ["GPL-2.0-or-later WITH Autoconf-exception-2.0"], f"Expected ['GPL-2.0-or-later WITH Autoconf-exception-2.0'], got {lib2_lics}"
+PYEOF
+}
+
+
