@@ -4,8 +4,6 @@
 
 A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole.
 
-[![CI/CD Pipeline](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/cicd.yml?branch=main&style=flat-square&label=CI/CD%20Pipeline)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml)
-[![SBOM Reports](https://img.shields.io/badge/SBOM-CycloneDX-blue?style=flat-square)](https://rajannpatel.github.io/snap-pi-hole/sbom/)
 [![Reports Dashboard](https://img.shields.io/badge/Reports%20Dashboard-GitHub%20Pages-2ea44f?style=flat-square)](https://rajannpatel.github.io/snap-pi-hole/)
 
 [![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/pihole-by-rajannpatel)
@@ -48,35 +46,6 @@ fi
 sudo pihole -r
 ```
 
-| Upstream Component | Current Version |
-| :--- | :--- |
-| | [![Track Upstream Releases](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/track-upstream-releases.yml?branch=main&style=flat-square&label=Track%20Upstream%20Releases)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/track-upstream-releases.yml) |
-| **[FTL](https://github.com/pi-hole/FTL)** | v6.6.2 |
-| **[pi-hole (core)](https://github.com/pi-hole/pi-hole)** | v6.4.2 |
-| **[web](https://github.com/pi-hole/web)** | v6.5 |
-
-> These upstream components are automatically tracked and the snap is repackaged to include the latest stable versions by a daily GitHub Actions bot.
-
----
-
-## Supported Linux distributions
-
-This snap package is built and integration-tested automatically across various Linux distributions.
-
-| | Distribution | Version | Name | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| ![Ubuntu](https://img.shields.io/badge/-%20-E95420?style=flat-square&logo=ubuntu&logoColor=white) | Ubuntu | 26.04 | Resolute | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-ubuntu.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu.yml) |
-| ![Ubuntu](https://img.shields.io/badge/-%20-E95420?style=flat-square&logo=ubuntu&logoColor=white) | Ubuntu Daily | 26.04 | Resolute | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-ubuntu-daily.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-daily.yml) |
-| ![Ubuntu](https://img.shields.io/badge/-%20-E95420?style=flat-square&logo=ubuntu&logoColor=white) | Ubuntu Core | 26 | Core | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-ubuntu-core.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-ubuntu-core.yml) |
-| ![Debian](https://img.shields.io/badge/-%20-A81D33?style=flat-square&logo=debian&logoColor=white) | Debian Stable | 13 | Trixie | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-debian-stable.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-debian-stable.yml) |
-| ![Debian](https://img.shields.io/badge/-%20-A81D33?style=flat-square&logo=debian&logoColor=white) | Debian | Rolling | Forky | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-debian.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-debian.yml) |
-| ![Fedora](https://img.shields.io/badge/-%20-3C6EB4?style=flat-square&logo=fedora&logoColor=white) | Fedora | 44 | Fedora Linux 44 (Container Image) | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-fedora.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-fedora.yml) |
-| ![Rocky Linux](https://img.shields.io/badge/-%20-10B981?style=flat-square&logo=rockylinux&logoColor=white) | Rocky Linux | 9.8 | Rocky Linux 9.8 (Blue Onyx) | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-rockylinux.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-rockylinux.yml) |
-| ![AlmaLinux](https://img.shields.io/badge/-%20-F43F5E?style=flat-square&logo=almalinux&logoColor=white) | AlmaLinux | 9.8 | AlmaLinux 9.8 (Olive Jaguar) | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-almalinux.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-almalinux.yml) |
-| ![openSUSE](https://img.shields.io/badge/-%20-73BA25?style=flat-square&logo=opensuse&logoColor=white) | openSUSE | 16.0 | openSUSE Leap 16.0 | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-opensuse-leap.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-opensuse-leap.yml) |
-| ![openSUSE](https://img.shields.io/badge/-%20-73BA25?style=flat-square&logo=opensuse&logoColor=white) | openSUSE | 20260601 | openSUSE Tumbleweed | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-opensuse-tumbleweed.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-opensuse-tumbleweed.yml) |
-| ![Arch Linux](https://img.shields.io/badge/-%20-1793D1?style=flat-square&logo=archlinux&logoColor=white) | Arch Linux | Rolling | Arch Linux | [![Status](https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-archlinux.yml?style=flat-square&label=)](https://github.com/rajannpatel/snap-pi-hole/actions/workflows/test-archlinux.yml) |
-
 ---
 
 ## More information
@@ -98,3 +67,5 @@ This snap package is built and integration-tested automatically across various L
 * **[Explanation](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Architecture-and-Rationale)**
 
    Understanding-oriented background information.
+
+* **[Reports](https://rajannpatel.github.io/snap-pi-hole/)**
