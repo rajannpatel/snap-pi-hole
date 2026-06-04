@@ -851,9 +851,7 @@
         const badgeCell = badgeSrc
           ? `<img class="os-badge" src="${badgeSrc}" alt="${logoAlt}">`
           : `<span class="mono">${row.family || ""}</span>`;
-        const statusCell = row.status_badge_url
-          ? `<img class="status-shield" src="${row.status_badge_url}" alt="${statusBadgeAlt}">`
-          : "Unavailable";
+        const statusCell = `<img class="status-shield" src="${row.status_badge_url}" alt="${statusBadgeAlt}">`;
         tr.innerHTML = `
           <td class="os-logo-col">${badgeCell}</td>
           <td class="distribution-col">${row.label}</td>
