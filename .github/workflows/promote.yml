@@ -18,6 +18,7 @@ jobs:
   promote:
     name: promote snap revision
     runs-on: ubuntu-latest
+    environment: snap-publish
     steps:
       - name: Install Snapcraft
         run: sudo snap install snapcraft --classic
