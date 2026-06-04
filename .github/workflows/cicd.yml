@@ -446,9 +446,8 @@ jobs:
             RC=$?
             set -e
 
-            echo "$UPLOAD_OUT"
-
             if [ $RC -eq 0 ]; then
+              echo "Upload succeeded."
               success=1
               break
             fi

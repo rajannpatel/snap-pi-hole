@@ -5,13 +5,30 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Software Bill of Materials (SBOM) - Snap Pi-hole</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />
   <style>
-    body {
-      font-family: 'Ubuntu', -apple-system, sans-serif !important;
+    .p-breadcrumbs {
+      min-height: 1.5rem;
+    }
+
+    .p-breadcrumbs__item,
+    .p-breadcrumbs__link,
+    #sbom-title,
+    .p-card__title {
+      font-weight: 400;
+    }
+
+    .sbom-subtitle {
+      font-size: 1.125rem;
+      line-height: 1.5;
+      font-weight: 400;
+      color: #525252;
+    }
+
+    .sbom-filter-label {
+      margin-bottom: 0;
+      white-space: nowrap;
+      font-weight: 400;
     }
 
     .p-navigation__tagged-logo {
@@ -136,7 +153,7 @@
         <div class="row">
           <div class="col-12">
             <h1 class="u-sv1" id="sbom-title">Software Bill of Materials (SBOM)</h1>
-            <p class="p-heading--4">CycloneDX format SBOM reports containing full dependency lists, licensing, and package
+            <p class="sbom-subtitle">CycloneDX format SBOM reports containing full dependency lists, licensing, and package
               manifests.</p>
           </div>
         </div>
@@ -224,7 +241,7 @@
             </div>
             <!-- Type Filter -->
             <div style="display: flex; gap: 10px; align-items: center;">
-              <label for="filter-type" style="margin-bottom: 0; white-space: nowrap;"><strong>Type:</strong></label>
+              <label for="filter-type" class="sbom-filter-label">Type:</label>
               <select id="filter-type" onchange="filterSBOM()" style="margin-bottom: 0; min-width: 150px;">
                 <option value="all">All Types</option>
                 <option value="library">Library</option>
@@ -233,7 +250,7 @@
             </div>
             <!-- License Filter -->
             <div style="display: flex; gap: 10px; align-items: center;">
-              <label for="filter-license" style="margin-bottom: 0; white-space: nowrap;"><strong>License:</strong></label>
+              <label for="filter-license" class="sbom-filter-label">License:</label>
               <select id="filter-license" onchange="filterSBOM()" style="margin-bottom: 0; min-width: 180px;">
                 <option value="all">All Licenses</option>
                 <option value="copyleft">Copyleft (GPL / LGPL)</option>
@@ -421,7 +438,7 @@ grype sbom-amd64.json</code></pre>
         }
 
         tr.innerHTML = `
-          <td><strong>${escapeHtml(c.name)}</strong></td>
+          <td>${escapeHtml(c.name)}</td>
           <td><code>${escapeHtml(c.version)}</code></td>
           <td><span class="p-text--small">${escapeHtml(c.type || 'library')}</span></td>
           <td>${escapeHtml(licensesStr)}</td>

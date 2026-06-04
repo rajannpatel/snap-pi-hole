@@ -13,7 +13,7 @@ on:
         type: string
         default: ""
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -272,90 +272,6 @@ jobs:
             done
             lxc exec test-instance -- pihole snap-check
           "
-
-      - name: Detect OS Version and Update README (LXD)
-        if: inputs.distro != 'ubuntu-core' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          WORKFLOW_KEY: test-${{ inputs.distro }}.yml
-        run: |
-          # Read /etc/os-release from inside the instance
-          OS_RELEASE=$(sg lxd -c "lxc exec test-instance -- cat /etc/os-release" 2>/dev/null || echo "")
-
-          VERSION_ID=$(echo "$OS_RELEASE"       | grep "^VERSION_ID="       | cut -d= -f2 | tr -d '"')
-          VERSION_CODENAME=$(echo "$OS_RELEASE" | grep "^VERSION_CODENAME=" | cut -d= -f2 | tr -d '"')
-          PRETTY_NAME=$(echo "$OS_RELEASE"      | grep "^PRETTY_NAME="      | cut -d= -f2 | tr -d '"')
-
-          # Capitalize the codename (e.g. trixie -> Trixie) to ensure proper casing in the README table
-          VERSION_CODENAME="${VERSION_CODENAME^}"
-
-          # Rolling distros (Arch, Tumbleweed) have no VERSION_ID — fall back to "Rolling"
-          export DISPLAY_VERSION="${VERSION_ID:-Rolling}"
-          export DISPLAY_NAME="${VERSION_CODENAME:-${PRETTY_NAME:-}}"
-
-          echo "Detected: version='$DISPLAY_VERSION'  codename='$DISPLAY_NAME'"
-
-          python3 - <<'PYEOF'
-          import os, base64, urllib.request, urllib.error, json, re
-
-          token           = os.environ["GITHUB_TOKEN"]
-          repo            = os.environ["GITHUB_REPOSITORY"]
-          workflow_key    = os.environ["WORKFLOW_KEY"]
-          display_version = os.environ["DISPLAY_VERSION"]
-          display_name    = os.environ["DISPLAY_NAME"]
-
-          api     = f"https://api.github.com/repos/{repo}/contents/README.md"
-          headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
-
-          with urllib.request.urlopen(urllib.request.Request(api, headers=headers)) as r:
-              data = json.loads(r.read())
-
-          content = base64.b64decode(data["content"]).decode()
-          sha     = data["sha"]
-
-          # Row format: | badge | Distro | VERSION | NAME | status-badge |
-          # The workflow filename appears uniquely in each row's status-badge URL.
-          def replace_row(line):
-              if workflow_key not in line:
-                  return line
-              parts = line.split("|")
-              if len(parts) >= 6:
-                  parts[3] = f" {display_version} "
-                  if display_name:
-                      parts[4] = f" {display_name} "
-              return "|".join(parts)
-
-          new_content = "\n".join(replace_row(l) for l in content.splitlines())
-          if workflow_key == "test-opensuse-leap.yml":
-              new_content = re.sub(
-                  r"(openSUSE_Leap_)[\d.]+(/system:snappy\.repo)",
-                  rf"\g<1>{display_version}\g<2>",
-                  new_content
-              )
-          if new_content == content:
-              print("README already up to date — nothing to commit.")
-              exit(0)
-
-          body = json.dumps({
-              "message": f"ci: update tested version for {workflow_key} -> {display_version}",
-              "content": base64.b64encode(new_content.encode()).decode(),
-              "sha": sha,
-              "branch": "main",
-          }).encode()
-
-          req = urllib.request.Request(
-              api, data=body,
-              headers={**headers, "Content-Type": "application/json"},
-              method="PUT",
-          )
-          try:
-              with urllib.request.urlopen(req) as r:
-                  print("README updated successfully.")
-          except urllib.error.HTTPError as e:
-              print(f"GitHub API error {e.code}: {e.read().decode()}")
-              exit(1)
-          PYEOF
 
       # ── Multipass path (ubuntu-core only) ──────────────────────────────────
 
