@@ -63,8 +63,7 @@ jobs:
   build:
     name: build (${{ matrix.arch }})
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    environment:
-      name: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'snap-publishing' || 'ci' }}
+    environment: snap-publishing
     strategy:
       fail-fast: false
       matrix:
@@ -74,24 +73,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Attach Ubuntu Pro and enable esm-apps
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          PRO_TOKEN: ${{ secrets.PRO_TOKEN }}
-        run: |
-          if [ -z "${PRO_TOKEN}" ]; then
-            echo "::error::PRO_TOKEN is not set for the snap-publishing environment."
-            exit 1
-          fi
-          sudo pro attach "${PRO_TOKEN}"
-          sudo pro enable esm-apps --assume-yes
-
       - name: Build snap
         id: snapcraft
         uses: snapcore/action-build@v1
         with:
           snapcraft-channel: 9.x/candidate
           snapcraft-args: --build-for ${{ matrix.arch }}
+          ua-token: ${{ secrets.PRO_TOKEN }}
 
       - name: Generate SBOM (CycloneDX)
         run: |
