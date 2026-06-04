@@ -6,18 +6,11 @@ def prettify_file(filepath, is_root):
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # 1. Inject Google Fonts and Vanilla Framework CSS links into <head>
+    # 1. Inject Vanilla Framework CSS link into <head>
     viewport_meta = '  <meta name="viewport" content="width=device-width, initial-scale=1.0">'
-    fonts_links = (
-        '  <link rel="preconnect" href="https://fonts.googleapis.com">\n'
-        '  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
-        '  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">'
-    )
     vanilla_css = '  <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />'
     if 'name="viewport"' not in content:
         content = content.replace('<head>', f'<head>\n{viewport_meta}', 1)
-    if 'fonts.googleapis.com' not in content:
-        content = content.replace('</head>', f'{fonts_links}\n</head>')
     if vanilla_css not in content:
         content = content.replace('</head>', f'{vanilla_css}\n</head>')
 

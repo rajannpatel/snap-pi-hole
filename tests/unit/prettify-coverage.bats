@@ -144,11 +144,9 @@ assert_warn() {
 }
 
 @test "dashboard.html layout and styling requirements (non-blocking warning)" {
-    # 1. Assert dashboard.html contains the Google Fonts preconnect/stylesheet links
-    assert_warn "grep -q 'fonts.googleapis.com' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing Google Fonts link"
-    
-    # 2. Assert dashboard.html has custom typography configuration
-    assert_warn "grep -q 'font-family: '\''Ubuntu'\''' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing Ubuntu font styling"
+    # 1. Assert dashboard.html uses Vanilla typography source and breadcrumb overrides
+    assert_warn "! grep -q 'fonts.googleapis.com' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html should not import Google Fonts"
+    assert_warn "grep -q 'letter-spacing: normal' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing breadcrumb letter-spacing override"
     
     # 3. Assert dashboard.html has breadcrumbs element
     assert_warn "grep -q 'p-breadcrumbs' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing Vanilla Framework breadcrumbs"

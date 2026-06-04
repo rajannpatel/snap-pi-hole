@@ -450,13 +450,20 @@ def write_html(summary, output_path):
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vulnerability Reports - Snap Pi-hole</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />
     <style>
-    body {{
-      font-family: 'Ubuntu', -apple-system, sans-serif !important;
+    .p-breadcrumbs {{
+      min-height: 1.5rem;
+    }}
+    .p-breadcrumbs__item,
+    .p-breadcrumbs__item a {{
+      font-weight: 400;
+      letter-spacing: normal;
+      text-transform: none;
+    }}
+    .p-card__title,
+    .p-heading--4 {{
+      font-weight: 400;
     }}
     .vulnerability-summary-card-column {{
       display: flex;
@@ -478,7 +485,7 @@ def write_html(summary, output_path):
       color: inherit;
       cursor: pointer;
       font: inherit;
-      font-weight: 550;
+      font-weight: 400;
       margin: 0;
       padding: 0;
       text-align: left;
@@ -545,7 +552,7 @@ def write_html(summary, output_path):
     }}
     .vulnerability-severity .p-chip__value {{
       font-size: 12px;
-      font-weight: 550;
+      font-weight: 400;
     }}
     .vulnerability-architecture {{
       margin-bottom: 0;
@@ -554,7 +561,7 @@ def write_html(summary, output_path):
     }}
     .vulnerability-architecture .p-chip__value {{
       font-size: 12px;
-      font-weight: 550;
+      font-weight: 400;
     }}
     footer.p-strip--dark {{
       background-color: #2d2d2d !important;
