@@ -450,8 +450,14 @@ def write_html(summary, output_path):
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vulnerability Reports - Snap Pi-hole</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />
     <style>
+    body {{
+      font-family: 'Ubuntu', -apple-system, sans-serif !important;
+    }}
     .vulnerability-summary-card-column {{
       display: flex;
     }}
@@ -730,6 +736,13 @@ def write_html(summary, output_path):
       return direction === 'ascending' ? lexical : -lexical;
     }}
 
+    function defaultSortDirection(column) {{
+      if (column === 3 || column === 4) {{
+        return 'descending';
+      }}
+      return 'ascending';
+    }}
+
     function filterVulnerabilities() {{
       const searchInput = document.getElementById('vulnerability-search');
       const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
@@ -746,7 +759,7 @@ def write_html(summary, output_path):
         vulnerabilitySortDirection = vulnerabilitySortDirection === 'ascending' ? 'descending' : 'ascending';
       }} else {{
         vulnerabilitySortColumn = column;
-        vulnerabilitySortDirection = 'ascending';
+        vulnerabilitySortDirection = defaultSortDirection(column);
       }}
 
       rows.sort((a, b) => compareVulnerabilityRows(a, b, column, vulnerabilitySortDirection));
