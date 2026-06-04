@@ -29,9 +29,10 @@ jobs:
       - name: Build Snap
         uses: snapcore/action-build@v1
         id: snapcraft
+        env:
+          SNAPCRAFT_UA_TOKEN: ${{ secrets.PRO_TOKEN }}
         with:
           snapcraft-channel: 9.x/candidate
-          ua-token: ${{ secrets.PRO_TOKEN }}
 
       - name: Find Built Snap File
         id: find_snap

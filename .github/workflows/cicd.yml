@@ -76,10 +76,11 @@ jobs:
       - name: Build snap
         id: snapcraft
         uses: snapcore/action-build@v1
+        env:
+          SNAPCRAFT_UA_TOKEN: ${{ secrets.PRO_TOKEN }}
         with:
           snapcraft-channel: 9.x/candidate
           snapcraft-args: --build-for ${{ matrix.arch }}
-          ua-token: ${{ secrets.PRO_TOKEN }}
 
       - name: Generate SBOM (CycloneDX)
         run: |
