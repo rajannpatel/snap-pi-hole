@@ -118,6 +118,12 @@
       max-width: 64px;
       vertical-align: middle;
     }
+    .status-shield {
+      display: inline-block;
+      height: 20px;
+      max-width: 100%;
+      vertical-align: middle;
+    }
     .matrix-table th.os-logo-col,
     .matrix-table td.os-logo-col {
       padding-right: 0.25rem;
@@ -284,7 +290,6 @@
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/bug.png" alt="Bug icon">
               <hr class="u-sv1">
               <h3>Failed test logs</h3>
-              <p class="p-card__content">One-click links to failed jobs.</p>
               <ul class="p-list" id="failed-log-links">
                 <li class="p-list__item">Loading failed test links...</li>
               </ul>
@@ -840,14 +845,19 @@
         const tr = document.createElement("tr");
         const logUrl = row.failed_job_url || row.run_url;
         const badgeSrc = osBadgeByFamily[row.family] || "";
+        const statusText = (row.status || "unknown").replace("_", " ");
+        const statusBadgeAlt = `${row.label} status: ${statusText}`;
         const logoAlt = row.family ? `${row.family} logo` : "Operating system logo";
         const badgeCell = badgeSrc
           ? `<img class="os-badge" src="${badgeSrc}" alt="${logoAlt}">`
           : `<span class="mono">${row.family || ""}</span>`;
+        const statusCell = row.status_badge_url
+          ? `<img class="status-shield" src="${row.status_badge_url}" alt="${statusBadgeAlt}">`
+          : "Unavailable";
         tr.innerHTML = `
           <td class="os-logo-col">${badgeCell}</td>
           <td class="distribution-col">${row.label}</td>
-          <td><span class="status-chip ${statusClass(row.status)}">${(row.status || "unknown").replace("_", " ")}</span></td>
+          <td>${statusCell}</td>
           <td class="mono">${row.duration_label || "Unknown"}</td>
           <td class="mono">${formatDate(row.updated_at)}</td>
           <td>${logUrl ? `<a href="${logUrl}" target="_blank" rel="noopener noreferrer">${row.failed_job_url ? "Open failed log" : "Open run"}</a>` : "N/A"}</td>

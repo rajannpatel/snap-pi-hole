@@ -251,6 +251,7 @@ def collect_distro_matrix(client):
                 "label": item["label"],
                 "family": item["family"],
                 "workflow": item["workflow"],
+                "status_badge_url": f"https://github.com/{OWNER}/{REPO}/actions/workflows/{item['workflow']}/badge.svg?branch=main",
                 "status": summarize_state(run),
                 "conclusion": run.get("conclusion") if run else "no_data",
                 "run_number": run.get("run_number") if run else None,
