@@ -524,6 +524,9 @@ jobs:
           # Copy vulnerability reports generated from SBOM artifacts
           cp -r vulnerability-reports/* docs/vulnerabilities/
 
+          # Build dashboard data model used by the interactive homepage
+          python3 snap/local/build/generate_dashboard_data.py . docs/dashboard-data.json vulnerability-reports/osv-summary.json
+
           # Copy HTML templates from snap assets
           cp snap/local/assets/dashboard.html docs/index.html
           cp snap/local/assets/sbom-explorer.html docs/sbom/index.html
