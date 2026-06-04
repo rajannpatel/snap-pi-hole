@@ -68,4 +68,6 @@ sudo pihole -r
 
    Understanding-oriented background information.
 
-* **[Reports](https://rajannpatel.github.io/snap-pi-hole/)**
+* **[CI/CD Reports](https://rajannpatel.github.io/snap-pi-hole/)**
+
+   Live operational status for build, security, dependencies, compatibility, and release health.
