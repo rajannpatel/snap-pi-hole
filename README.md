@@ -16,7 +16,7 @@ The Pi-hole project maintainers do not yet support snap-based installations. Que
 
 | | |
 |--|--|
-| [Tutorial](https://github.com/rajannpatel/snap-pi-hole/wiki/Tutorial:-getting-started) </br> A hands-on introduction to the Pi-hole snap for new users | [How-to guides](https://github.com/rajannpatel/snap-pi-hole/wiki#choose-your-journey) </br> Step-by-step guides covering deployment, installation, and operations |
+| [Tutorial](https://github.com/rajannpatel/snap-pi-hole/wiki/Tutorial:-getting-started) </br> A hands-on introduction to the Pi-hole snap for new users | [How-to guides](https://github.com/rajannpatel/snap-pi-hole/wiki#choose-your-journey) </br> Step-by-step guides covering deployment options, installation steps, and operations |
 | [Reference](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-native-configuration) </br> Technical information - CLI commands, configuration, and firewall ports | [Explanation](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-architecture-and-rationale) </br> Concepts - discussion and clarification of security, topology, and updates |
 
 ---
