@@ -565,7 +565,7 @@
 
       const durations = ordered.map((row) => row.duration_seconds);
       const sortedDurations = durations.slice().sort((a, b) => a - b);
-      const slowDurationThreshold = sortedDurations[Math.floor(0.75 * (sortedDurations.length - 1))] || 0;
+      const medianDuration = sortedDurations[Math.floor(sortedDurations.length / 2)] || 0;
       const minDuration = Math.min(...durations);
       const maxDuration = Math.max(...durations);
       let yMin = Math.max(0, Math.floor((minDuration * 0.9) / 10) * 10);
@@ -728,7 +728,7 @@
         focusDot.style.opacity = "1";
 
         const conclusion = String(point.row.conclusion || "unknown").toLowerCase();
-        const isSlowBuild = point.row.duration_seconds >= slowDurationThreshold;
+        const isSuspiciouslyFast = conclusion === "success" && point.row.duration_seconds < (medianDuration * 0.5);
         let notificationClass = "p-notification--positive is-inline";
         let titlePrefix = "";
         let messageText = `: ${point.row.duration_label}`;
@@ -736,10 +736,10 @@
           notificationClass = "p-notification--negative is-inline";
           titlePrefix = "Failed ";
           messageText = `: ${point.row.duration_label}`;
-        } else if (isSlowBuild) {
+        } else if (isSuspiciouslyFast) {
           notificationClass = "p-notification--caution is-inline";
-          titlePrefix = "Slow ";
-          messageText = `: ${point.row.duration_label}`;
+          titlePrefix = "Suspiciously Fast ";
+          messageText = `: ${point.row.duration_label} (potential bypass)`;
         }
         tooltip.innerHTML = `<div class="${notificationClass}"><div class="p-notification__content"><h5 class="p-notification__title">${titlePrefix}Run #${escapeHtml(point.row.run_number)}</h5><p class="p-notification__message">${escapeHtml(messageText)}</p></div></div>`;
         const tooltipWidth = 288;
