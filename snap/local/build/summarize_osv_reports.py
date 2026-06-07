@@ -256,14 +256,34 @@ def collect_reports(reports_dir):
                 vulns = package.get("vulnerabilities", [])
                 if not vulns:
                     continue
+
+                # Only keep vulnerabilities that have a corresponding USN (found in ID, aliases, related, or references)
+                filtered_vulns = []
+                for v in vulns:
+                    vuln_id = v.get("id", "")
+                    aliases = v.get("aliases", [])
+                    related = v.get("related", [])
+                    references = v.get("references", [])
+                    has_usn = (
+                        vuln_id.startswith("USN-")
+                        or any(a.startswith("USN-") for a in aliases)
+                        or any(r.startswith("USN-") for r in related)
+                        or any("/USN-" in ref.get("url", "") or "/notices/USN-" in ref.get("url", "") for ref in references)
+                    )
+                    if has_usn:
+                        filtered_vulns.append(v)
+
+                if not filtered_vulns:
+                    continue
+
                 affected_packages += 1
-                vulnerabilities += len(vulns)
+                vulnerabilities += len(filtered_vulns)
                 pkg = package.get("package", {})
                 entries.append({
                     "name": pkg.get("name", "unknown"),
                     "version": pkg.get("version", ""),
                     "ecosystem": pkg.get("ecosystem", ""),
-                    "vulnerabilities": [vulnerability_entry(v) for v in vulns],
+                    "vulnerabilities": [vulnerability_entry(v) for v in filtered_vulns],
                 })
 
         summary["reports"].append({
@@ -274,14 +294,29 @@ def collect_reports(reports_dir):
             "vulnerabilities": vulnerabilities,
             "packages": entries,
         })
-        summary["totalVulnerabilities"] += vulnerabilities
-        summary["affectedPackages"] += affected_packages
+
+    # Calculate unique global counts across all architectures
+    unique_vulns = set()
+    unique_packages = set()
+    for report in summary["reports"]:
+        for package in report["packages"]:
+            unique_packages.add(package["name"])
+            for vuln in package["vulnerabilities"]:
+                unique_vulns.add(vuln["id"])
+    summary["totalVulnerabilities"] = len(unique_vulns)
+    summary["affectedPackages"] = len(unique_packages)
 
     return summary
 
 
 def write_markdown(summary, output_path):
-    lines = ["# Vulnerability Summary", ""]
+    lines = [
+        "# Vulnerability Summary",
+        "",
+        "All available security updates are automatically applied during compilation at build time.",
+        "This report only lists active, unpatched vulnerabilities that have a corresponding Ubuntu Security Notice (USN).",
+        "",
+    ]
 
     for report in summary["reports"]:
         lines.extend([
@@ -294,18 +329,22 @@ def write_markdown(summary, output_path):
         ])
 
         if report["packages"]:
-            lines.append("| Package | Version | Vulnerability | CVSS 3 | Priority |")
-            lines.append("| --- | --- | --- | --- | --- |")
+            lines.append("| Package | Version | Vulnerability | CVSS 3 | Priority | Published |")
+            lines.append("| --- | --- | --- | --- | --- | --- |")
             for package in report["packages"]:
                 for vulnerability in package["vulnerabilities"]:
                     vuln_label = display_vulnerability_id(vulnerability["id"])
                     if vulnerability["url"]:
                         vuln_label = f"[{vuln_label}]({vulnerability['url']})"
+                    _iso, pub_label = format_publication_date(
+                        vulnerability.get("published") or vulnerability.get("modified")
+                    )
                     lines.append(
                         f"| {markdown_cell(package['name'])} | {markdown_cell(package['version'])} | "
                         f"{markdown_cell(vuln_label)} | "
                         f"{markdown_cell(vulnerability['severity'])} | "
-                        f"{markdown_cell(vulnerability['priority'])} |"
+                        f"{markdown_cell(vulnerability['priority'])} | "
+                        f"{markdown_cell(pub_label)} |"
                     )
             lines.append("")
         else:
@@ -613,7 +652,7 @@ def write_html(summary, output_path):
           <section class="row" style="margin-bottom: 2rem;" aria-labelledby="vulnerability-title">
             <div class="col-12">
               <h1 class="p-heading--2" id="vulnerability-title" style="margin-bottom: 1.5rem;">Vulnerability Reports</h1>
-              <p class="p-heading--4">OSV-Scanner results generated from the CycloneDX SBOM artifacts.</p>
+              <p class="p-heading--4">Active unpatched vulnerabilities with corresponding Ubuntu Security Notices (USNs). All available package security updates are automatically applied during snap compilation at build time.</p>
             </div>
           </section>
           <section class="row u-equal-height" style="margin-bottom: 2rem;" aria-label="Vulnerability scan summary">
