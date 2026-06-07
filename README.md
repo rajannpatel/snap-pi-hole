@@ -2,72 +2,51 @@
 
 <img align="right" src="./snap/gui/pihole.png" width="120" alt="Pi-hole Logo">
 
-A strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole.
-
-[![Reports Dashboard](https://img.shields.io/badge/Reports%20Dashboard-GitHub%20Pages-2ea44f?style=flat-square)](https://rajannpatel.github.io/snap-pi-hole/)
-
 [![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/pihole-by-rajannpatel)
 
 ---
 
-## Installation
+**pihole-by-rajannpatel** is a strictly confined, native [snap](https://snapcraft.io/) package for [Pi-hole](https://pi-hole.net), the network-wide ad-blocking DNS sinkhole.
 
-```bash
-# 1. Install snapd (if not already present on the host)
-# - On Debian:
-#     sudo apt update && sudo apt install -y snapd
-# - On Fedora:
-#     sudo dnf install -y snapd && sudo systemctl enable --now snapd.socket && sudo ln -s /var/lib/snapd/snap /snap
-# - On Rocky Linux/AlmaLinux:
-#     sudo dnf install -y epel-release && sudo dnf install -y snapd && sudo systemctl enable --now snapd.socket && sudo ln -s /var/lib/snapd/snap /snap
-# - On openSUSE Leap:
-#     sudo zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Leap_16.0/system:snappy.repo
-#     sudo zypper install -y snapd && sudo systemctl enable --now snapd && sudo ln -s /var/lib/snapd/snap /snap
-# - On openSUSE Tumbleweed:
-#     sudo zypper addrepo --refresh https://download.opensuse.org/repositories/system:snappy/openSUSE_Tumbleweed/system:snappy.repo
-#     sudo zypper install -y snapd && sudo systemctl enable --now snapd && sudo ln -s /var/lib/snapd/snap /snap
-# - On Arch Linux:
-#     git clone https://aur.archlinux.org/snapd.git && cd snapd && makepkg -si && sudo systemctl enable --now snapd.socket && sudo ln -s /var/lib/snapd/snap /snap
+## Support
 
-# 2. Install the Pi-hole snap
-sudo snap install pihole-by-rajannpatel
+The Pi-hole project maintainers do not yet support snap-based installations. Questions and issues regarding the snap package can be reported on the **[GitHub Issues](https://github.com/rajannpatel/snap-pi-hole/issues)** page.
 
-# 3. Create the command alias
-sudo snap alias pihole-by-rajannpatel.pihole pihole
+## In this documentation
 
-# 4. Free port 53
-if systemctl is-active --quiet systemd-resolved; then
-    sudo mkdir -p /etc/systemd/resolved.conf.d
-    printf '[Resolve]\nDNS=127.0.0.1\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
-    sudo systemctl restart systemd-resolved
-fi
-
-# 5. Use the wizard
-sudo pihole -r
-```
+| | |
+|--|--|
+| [Tutorial](https://github.com/rajannpatel/snap-pi-hole/wiki/Tutorial:-getting-started) </br> A hands-on introduction to the Pi-hole snap for new users | [How-to guides](https://github.com/rajannpatel/snap-pi-hole/wiki#choose-your-journey) </br> Step-by-step guides covering deployment, installation, and operations |
+| [Reference](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-native-configuration) </br> Technical information - CLI commands, configuration, and firewall ports | [Explanation](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-architecture-and-rationale) </br> Concepts - discussion and clarification of security, topology, and updates |
 
 ---
 
-## More information
+## How this documentation is organized
 
-**[Documentation](https://github.com/rajannpatel/snap-pi-hole/wiki)**
+This documentation follows the [Diátaxis](https://diataxis.fr/) framework, which splits documentation into four distinct categories:
 
-* **[Tutorial](https://github.com/rajannpatel/snap-pi-hole/wiki/Tutorial:-Getting-Started)**
+- **Tutorials**
+   
+   Hands-on lessons that teach concepts through doing. (e.g., the [Getting started](https://github.com/rajannpatel/snap-pi-hole/wiki/Tutorial:-getting-started) guide)
 
-   Step-by-step learning for beginners.
+- **How-to guides**
+   
+   Step-by-step instructions showing how to achieve specific tasks. (e.g., [Installing on Linux](https://github.com/rajannpatel/snap-pi-hole/wiki/How-to:-install-on-Linux))
 
-* **[How-To Guides](https://github.com/rajannpatel/snap-pi-hole/wiki/How-To:-Supported-Deployment-Patterns)**
+- **Reference**
+   
+   Technical descriptions, facts, and command-line usage. (e.g., [Native configuration](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-native-configuration))
 
-   Problem-oriented instructions.
+- **Explanation**
+   
+   Discussions that clarify concepts, architecture, and design decisions. (e.g., [Architecture and rationale](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-architecture-and-rationale))
 
-* **[Reference](https://github.com/rajannpatel/snap-pi-hole/wiki/Reference:-Native-Configuration)**
+---
 
-   Information-oriented technical references.
+## Project and community
 
-* **[Explanation](https://github.com/rajannpatel/snap-pi-hole/wiki/Explanation:-Architecture-and-Rationale)**
+The Pi-hole snap is an open-source project. Community contributions, suggestions, bug reports, and feedback are welcome.
 
-   Understanding-oriented background information.
-
-* **[CI/CD Reports](https://rajannpatel.github.io/snap-pi-hole/)**
-
-   Live operational status for build, security, dependencies, compatibility, and release health.
+* [CI/CD Reports](https://rajannpatel.github.io/snap-pi-hole/) – Live operational status for build, security, dependencies, compatibility, and release health
+* [Submit a bug report](https://github.com/rajannpatel/snap-pi-hole/issues)
+* [Contribute to the wiki](https://github.com/rajannpatel/snap-pi-hole/wiki/How-to:-contribute-to-the-wiki)
