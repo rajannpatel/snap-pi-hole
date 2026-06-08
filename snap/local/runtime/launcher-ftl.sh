@@ -26,12 +26,12 @@ SCRIPT_DIR="$(unset CDPATH; cd -P -- "$(dirname "$0")" && pwd)"
 mkdir -p "${SNAP_DATA}/etc/pihole" "${SNAP_DATA}/etc/dnsmasq.d" "${SNAP_COMMON}/var/log/pihole" "${SNAP_DATA}/run/pihole"
 
 # Seed/Update the static version profile template if present inside the snap squashfs
-pihole_seed_versions_file
+pihole_seed_versions_file "$(pihole_versions_template_file "${SNAP:-}")" "$(pihole_versions_file "${SNAP_DATA:-}")"
 
 
 # Seed a default config on first boot. FTL requires upstream servers to be configured
 # in order to resolve adlist domains during the initial background gravity sync.
-pihole_seed_default_toml
+pihole_seed_default_toml "$(pihole_toml_file)"
 
 # Sync local configuration back to snapctl database to treat it as the single source of truth
 if [ -x "${SNAP}/bin/config-sync" ]; then

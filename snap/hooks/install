@@ -25,4 +25,4 @@ mkdir -p "${SNAP_COMMON}/var/log/pihole"
 mkdir -p "${SNAP_DATA}/etc/pihole" "${SNAP_DATA}/etc/dnsmasq.d" "${SNAP_COMMON}/var/log/pihole" "${SNAP_DATA}/run/pihole"
 
 # Seed the static version profile template if it exists on disk
-pihole_seed_versions_file
+pihole_seed_versions_file "$(pihole_versions_template_file "${SNAP:-}")" "$(pihole_versions_file "${SNAP_DATA:-}")"

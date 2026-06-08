@@ -74,7 +74,8 @@ source "${SOURCE_DIR}/port-utils.sh"
 
 # If FTL is running, we don't want to flag its own ports as external conflicts.
 FTL_RUNNING=false
-if pihole_ftl_is_active; then
+FTL_SERVICE="$(pihole_ftl_service_name)"
+if pihole_ftl_is_active "$FTL_SERVICE"; then
     FTL_RUNNING=true
 fi
 
