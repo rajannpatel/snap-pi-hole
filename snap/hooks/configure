@@ -20,30 +20,174 @@ fi
 # shellcheck source=snap/local/runtime/pihole-config.sh
 . "$CONFIG_HELPER"
 
+pihole_timer_requested_schedule() {
+    printf '%s\n' "$1" | jq -r '
+      if type == "object" then
+        (."gravity-sync".schedule // ."gravity-sync"."on-calendar" // ."gravity-sync".on_calendar // empty)
+      else
+        empty
+      end
+    ' 2>/dev/null || true
+}
+
+pihole_systemd_day() {
+    case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+        sun|sunday) printf '%s\n' "Sun" ;;
+        mon|monday) printf '%s\n' "Mon" ;;
+        tue|tues|tuesday) printf '%s\n' "Tue" ;;
+        wed|wednesday) printf '%s\n' "Wed" ;;
+        thu|thur|thurs|thursday) printf '%s\n' "Thu" ;;
+        fri|friday) printf '%s\n' "Fri" ;;
+        sat|saturday) printf '%s\n' "Sat" ;;
+        *) return 1 ;;
+    esac
+}
+
+pihole_normalize_clock_time() {
+    printf '%s\n' "$1" | awk -F: '
+NF == 2 || NF == 3 {
+    if ($1 !~ /^[0-9][0-9]?$/ || $2 !~ /^[0-9][0-9]?$/ || (NF == 3 && $3 !~ /^[0-9][0-9]?$/)) {
+        exit 1;
+    }
+    hour = $1 + 0;
+    minute = $2 + 0;
+    second = (NF == 3 ? $3 + 0 : 0);
+    if (hour > 23 || minute > 59 || second > 59) {
+        exit 1;
+    }
+    printf "%02d:%02d:%02d\n", hour, minute, second;
+    found = 1;
+}
+END {
+    exit found ? 0 : 1;
+}
+'
+}
+
+pihole_clock_seconds() {
+    printf '%s\n' "$1" | awk -F: '{ print (($1 + 0) * 3600) + (($2 + 0) * 60) + ($3 + 0) }'
+}
+
+pihole_timer_schedule_to_systemd() {
+    raw_schedule="$(printf '%s' "$1" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    TIMER_ON_CALENDAR=""
+    TIMER_RANDOMIZED_DELAY="0"
+
+    [ -n "$raw_schedule" ] || return 1
+
+    case "$raw_schedule" in
+        *[!\ a-zA-Z0-9:~,._/-]*)
+            return 1
+            ;;
+        *[[:space:]]*)
+            TIMER_ON_CALENDAR="$raw_schedule"
+            return 0
+            ;;
+    esac
+
+    old_ifs="$IFS"
+    IFS=","
+    # shellcheck disable=SC2086 # Intentionally split the snap timer value on commas.
+    set -- $raw_schedule
+    IFS="$old_ifs"
+
+    if [ "$#" -eq 1 ]; then
+        calendar_prefix="*-*-*"
+        time_spec="$1"
+    elif [ "$#" -eq 2 ]; then
+        systemd_day="$(pihole_systemd_day "$1")" || return 1
+        calendar_prefix="${systemd_day} *-*-*"
+        time_spec="$2"
+    else
+        return 1
+    fi
+
+    start_spec="${time_spec%%~*}"
+    end_spec=""
+    if [ "$start_spec" != "$time_spec" ]; then
+        end_spec="${time_spec#*~}"
+    fi
+
+    start_time="$(pihole_normalize_clock_time "$start_spec")" || return 1
+
+    if [ -n "$end_spec" ]; then
+        end_time="$(pihole_normalize_clock_time "$end_spec")" || return 1
+        start_seconds="$(pihole_clock_seconds "$start_time")"
+        end_seconds="$(pihole_clock_seconds "$end_time")"
+        if [ "$end_seconds" -lt "$start_seconds" ]; then
+            end_seconds=$((end_seconds + 86400))
+        fi
+        TIMER_RANDOMIZED_DELAY=$((end_seconds - start_seconds))
+    fi
+
+    TIMER_ON_CALENDAR="${calendar_prefix} ${start_time}"
+    return 0
+}
+
+pihole_shell_quote() {
+    printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
 # Reject attempts to reconfigure the gravity-sync timer via `snap set`.
 # Snap application timers are static: snapd has no mechanism to change them at
 # runtime, and a strictly-confined hook cannot write to /etc/systemd/system.
-# Point the operator at the supported host-side systemd drop-in instead. A
-# non-zero exit here rolls back the whole `snap set` transaction, so the
-# rejected key is never persisted into snapctl.
+# Point the operator at the supported host-side systemd drop-in instead with a
+# copy/paste command. A non-zero exit here rolls back the whole `snap set`
+# transaction, so the rejected key is never persisted into snapctl.
 timer_cfg="$(snapctl get -d timer 2>/dev/null || true)"
 timer_cfg_compact="$(printf '%s' "$timer_cfg" | tr -d '[:space:]')"
 if [ -n "$timer_cfg_compact" ] && [ "$timer_cfg_compact" != "{}" ]; then
-    cat >&2 <<EOF
+    snap_name="$(pihole_snap_name)"
+    timer_unit="snap.${snap_name}.gravity-sync.timer"
+    override_dir="/etc/systemd/system/${timer_unit}.d"
+    override_file="${override_dir}/override.conf"
+    requested_schedule="$(pihole_timer_requested_schedule "$timer_cfg")"
+    on_calendar="Mon *-*-* 02:00:00"
+    randomized_delay="0"
+    translated_schedule=0
+
+    if [ -n "$requested_schedule" ] && pihole_timer_schedule_to_systemd "$requested_schedule"; then
+        on_calendar="$TIMER_ON_CALENDAR"
+        randomized_delay="$TIMER_RANDOMIZED_DELAY"
+        translated_schedule=1
+    fi
+
+    quoted_override_dir="$(pihole_shell_quote "$override_dir")"
+    quoted_override_file="$(pihole_shell_quote "$override_file")"
+    quoted_timer_unit="$(pihole_shell_quote "$timer_unit")"
+    quoted_on_calendar="$(pihole_shell_quote "OnCalendar=$on_calendar")"
+    quoted_randomized_delay="$(pihole_shell_quote "RandomizedDelaySec=$randomized_delay")"
+
+    {
+        cat <<EOF
 Error: the gravity-sync schedule cannot be changed with 'snap set'.
 
-Snap application timers are static. To customize when gravity is updated, add
-a systemd drop-in override on the host (OnCalendar= must be reset first, since
-systemd treats it as additive):
-
-  sudo mkdir -p /etc/systemd/system/snap.${SNAP_NAME}.gravity-sync.timer.d
-  printf '[Timer]\nOnCalendar=\nOnCalendar=Mon *-*-* 02:00:00\nRandomizedDelaySec=0\n' | \\
-    sudo tee /etc/systemd/system/snap.${SNAP_NAME}.gravity-sync.timer.d/override.conf
-  sudo systemctl daemon-reload
-  sudo systemctl restart snap.${SNAP_NAME}.gravity-sync.timer
-
-Verify with: systemctl list-timers 'snap.${SNAP_NAME}.gravity-sync.timer'
+Snap application timers are static, and strict confinement prevents this hook
+from editing host systemd units. Use a host-side systemd drop-in instead.
 EOF
+        if [ -n "$requested_schedule" ]; then
+            printf '\nRequested value: %s\n' "$requested_schedule"
+            if [ "$translated_schedule" -eq 1 ]; then
+                printf 'Equivalent systemd OnCalendar: %s\n' "$on_calendar"
+                printf 'Equivalent RandomizedDelaySec: %s\n' "$randomized_delay"
+            else
+                printf 'Could not translate that value automatically; using an example OnCalendar below.\n'
+            fi
+        fi
+
+        cat <<EOF
+
+Copy/paste this single host command. It includes the required blank
+OnCalendar= reset before the replacement value:
+
+EOF
+        printf "  sudo install -d %s && \\\\\n" "$quoted_override_dir"
+        printf "    printf '%%s\\\\n' '[Timer]' 'OnCalendar=' %s %s | \\\\\n" "$quoted_on_calendar" "$quoted_randomized_delay"
+        printf "    sudo tee %s >/dev/null && \\\\\n" "$quoted_override_file"
+        printf "    sudo systemctl daemon-reload && \\\\\n"
+        printf "    sudo systemctl restart %s\n\n" "$quoted_timer_unit"
+        printf "Verify with: systemctl list-timers %s\n" "$quoted_timer_unit"
+    } >&2
     exit 1
 fi
 

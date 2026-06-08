@@ -212,12 +212,32 @@ teardown() {
     # Clear, actionable guidance pointing at the real (host-side) mechanism.
     [[ "$output" == *"cannot be changed with 'snap set'"* ]]
     [[ "$output" == *"snap.${SNAP_NAME}.gravity-sync.timer.d"* ]]
-    [[ "$output" == *"OnCalendar="* ]]
-    # The \n in the printf command must be shown literally, not expanded.
-    [[ "$output" == *'[Timer]\nOnCalendar='* ]]
+    [[ "$output" == *"Requested value: mon,02:00"* ]]
+    [[ "$output" == *"Equivalent systemd OnCalendar: Mon *-*-* 02:00:00"* ]]
+    [[ "$output" == *"Copy/paste this single host command"* ]]
+    [[ "$output" == *"sudo install -d '/etc/systemd/system/snap.${SNAP_NAME}.gravity-sync.timer.d'"* ]]
+    [[ "$output" == *"printf '%s\\n' '[Timer]' 'OnCalendar=' 'OnCalendar=Mon *-*-* 02:00:00' 'RandomizedDelaySec=0'"* ]]
     # Rejection must short-circuit before any FTL config is applied.
     [ ! -f "${TEST_TMPDIR}/ftl.log" ]
     ! grep -q "restart" "${TEST_TMPDIR}/snapctl.log" 2>/dev/null
+}
+
+@test "configure hook translates snap timer windows to systemd randomized delay" {
+    export SNAPCTL_GET_D_TIMER='{"gravity-sync":{"schedule":"sun,03:00~05:00"}}'
+    HOOK="${TEST_TMPDIR}/configure"
+    sed \
+        -e "s|snapctl get|${SNAPCTL} get|g" \
+        -e "s|snapctl services|${SNAPCTL} services|g" \
+        -e "s|snapctl restart|${SNAPCTL} restart|g" \
+        "${REPO_ROOT}/snap/hooks/configure" > "${HOOK}"
+    chmod +x "${HOOK}"
+
+    run "${HOOK}"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Requested value: sun,03:00~05:00"* ]]
+    [[ "$output" == *"Equivalent systemd OnCalendar: Sun *-*-* 03:00:00"* ]]
+    [[ "$output" == *"Equivalent RandomizedDelaySec: 7200"* ]]
+    [[ "$output" == *"'RandomizedDelaySec=7200'"* ]]
 }
 
 @test "configure hook ignores an empty timer namespace and still applies ftl config" {
