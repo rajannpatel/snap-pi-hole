@@ -20,6 +20,8 @@
 setup() {
     REPO_ROOT="$(git rev-parse --show-toplevel)"
     TEST_TMPDIR="$(mktemp -d)"
+    # shellcheck source=tests/helpers/snapctl-stub.sh
+    source "${REPO_ROOT}/tests/helpers/snapctl-stub.sh"
 
     # Snap environment
     export SNAP="${TEST_TMPDIR}/snap"
@@ -52,93 +54,9 @@ teardown() {
 # ---------------------------------------------------------------------------
 
 _setup_stubs() {
-    # Stub snapctl with logging and key-value lookup via env vars
-    local    SNAPCTL="${TEST_TMPDIR}/snapctl"
-    cat > "${SNAPCTL}" <<'STUB'
-#!/bin/bash
-TEST_TMPDIR="MOCK_TMPDIR"
-LOG="${TEST_TMPDIR}/snapctl.log"
-echo "SNAPCTL:$*" >> "$LOG"
-case "$1" in
-    get)
-        if [ "$2" = "-d" ] && [ "$3" = "ftl" ]; then
-            current_env="${SNAPCTL_GET_D_FTL:-{}}"
-            last_env=""
-            if [ -f "${TEST_TMPDIR}/last_snapctl_get_d_ftl.json" ]; then
-                last_env=$(cat "${TEST_TMPDIR}/last_snapctl_get_d_ftl.json")
-            fi
-            if [ "$current_env" != "$last_env" ]; then
-                echo "$current_env" > "${TEST_TMPDIR}/snapctl_ftl.json"
-                echo "$current_env" > "${TEST_TMPDIR}/last_snapctl_get_d_ftl.json"
-            fi
-            if [ ! -f "${TEST_TMPDIR}/snapctl_ftl.json" ]; then
-                echo "{}" > "${TEST_TMPDIR}/snapctl_ftl.json"
-            fi
-            cat "${TEST_TMPDIR}/snapctl_ftl.json"
-            exit 0
-        fi
-        key="${2:-}"
-        if [ "$key" = "-q" ]; then key="${3:-}"; fi
-        if [ -z "$key" ]; then exit 0; fi
-        var="SNAPCTL_GET_$(echo "$key" | tr '.-' '_')"
-        echo "${!var:-}"
-        ;;
-    set)
-        if [ "$2" = "ftl" ]; then
-            echo "$3" > "${TEST_TMPDIR}/snapctl_ftl.json"
-            echo "$3" > "${TEST_TMPDIR}/last_snapctl_get_d_ftl.json"
-            exit 0
-        elif [[ "$2" =~ ^ftl=(.*)$ ]]; then
-            val="${BASH_REMATCH[1]}"
-            echo "$val" > "${TEST_TMPDIR}/snapctl_ftl.json"
-            echo "$val" > "${TEST_TMPDIR}/last_snapctl_get_d_ftl.json"
-            exit 0
-        fi
-        if [ ! -f "${TEST_TMPDIR}/snapctl_ftl.json" ]; then
-            echo "${SNAPCTL_GET_D_FTL:-{}}" > "${TEST_TMPDIR}/snapctl_ftl.json"
-        fi
-        arg="$2"
-        if [[ "$arg" =~ ^ftl\.(.+)=(.*)$ ]]; then
-            key="${BASH_REMATCH[1]}"
-            val="${BASH_REMATCH[2]}"
-            jq --arg val "$val" --arg key "$key" '
-              (try ($val | fromjson) catch $val) as $parsed_val |
-              setpath($key | split("."); $parsed_val)
-            ' "${TEST_TMPDIR}/snapctl_ftl.json" > "${TEST_TMPDIR}/snapctl_ftl.json.tmp"
-            mv "${TEST_TMPDIR}/snapctl_ftl.json.tmp" "${TEST_TMPDIR}/snapctl_ftl.json"
-        fi
-        ;;
-    unset)
-        if [ "$2" = "ftl" ]; then
-            echo "{}" > "${TEST_TMPDIR}/snapctl_ftl.json"
-            echo "{}" > "${TEST_TMPDIR}/last_snapctl_get_d_ftl.json"
-            exit 0
-        fi
-        if [ ! -f "${TEST_TMPDIR}/snapctl_ftl.json" ]; then
-            echo "${SNAPCTL_GET_D_FTL:-{}}" > "${TEST_TMPDIR}/snapctl_ftl.json"
-        fi
-        arg="$2"
-        if [[ "$arg" =~ ^ftl\.(.+)$ ]]; then
-            key="${BASH_REMATCH[1]}"
-            jq --arg key "$key" 'delpaths([[$key | split(".")[]]])' "${TEST_TMPDIR}/snapctl_ftl.json" > "${TEST_TMPDIR}/snapctl_ftl.json.tmp"
-            mv "${TEST_TMPDIR}/snapctl_ftl.json.tmp" "${TEST_TMPDIR}/snapctl_ftl.json"
-        fi
-        ;;
-    services)
-        printf 'Service         Startup  Current  Notes\n'
-        printf 'pihole-ftl      enabled  %s        -\n' "${SNAPCTL_SERVICE_STATUS:-inactive}"
-        ;;
-    restart)
-        echo "RESTART:$2" >> "$LOG"
-        ;;
-    system-mode)
-        echo "run"
-        ;;
-    *) exit 0 ;;
-esac
-STUB
-    sed -i "s|MOCK_TMPDIR|${TEST_TMPDIR}|g" "${SNAPCTL}"
-    chmod +x "${SNAPCTL}"
+    # Stub snapctl with logging and snapctl_ftl.json as backing state.
+    local SNAPCTL="${TEST_TMPDIR}/snapctl"
+    install_snapctl_stub "${SNAPCTL}" "${TEST_TMPDIR}"
 
     # Stub pihole-FTL with --config logging
     local FTL="${SNAP}/usr/bin/pihole-FTL"
