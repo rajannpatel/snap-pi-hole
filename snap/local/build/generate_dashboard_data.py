@@ -272,22 +272,39 @@ def collect_distro_matrix(client):
 
 def collect_security_summary(vulnerability_summary_path):
     if not vulnerability_summary_path.exists():
-        return {"total_vulnerabilities": 0, "affected_packages": 0, "architectures": []}
+        return {
+            "total_vulnerabilities": 0,
+            "affected_packages": 0,
+            "raw_vulnerability_matches": 0,
+            "raw_affected_packages": 0,
+            "confined_mitigation_vulnerabilities": 0,
+            "gate_policy": "report_only",
+            "architectures": [],
+        }
     summary = json.loads(vulnerability_summary_path.read_text(encoding="utf-8"))
+    actionable_vulnerabilities = summary.get("actionableVulnerabilities", summary.get("totalVulnerabilities", 0))
+    actionable_packages = summary.get("actionableAffectedPackages", summary.get("affectedPackages", 0))
     architectures = []
     for report in summary.get("reports", []):
         architectures.append(
             {
                 "architecture": report.get("architecture", "unknown"),
-                "affected_packages": report.get("affectedPackages", 0),
-                "vulnerabilities": report.get("vulnerabilities", 0),
+                "affected_packages": report.get("actionableAffectedPackages", report.get("affectedPackages", 0)),
+                "vulnerabilities": report.get("actionableVulnerabilities", report.get("vulnerabilities", 0)),
+                "raw_affected_packages": report.get("affectedPackages", 0),
+                "raw_vulnerability_matches": report.get("vulnerabilities", 0),
+                "confined_mitigation_vulnerabilities": report.get("confinedMitigationVulnerabilities", 0),
                 "report": report.get("report", ""),
                 "generated_at": report.get("generatedAt", {}).get("datetime", ""),
             }
         )
     return {
-        "total_vulnerabilities": summary.get("totalVulnerabilities", 0),
-        "affected_packages": summary.get("affectedPackages", 0),
+        "total_vulnerabilities": actionable_vulnerabilities,
+        "affected_packages": actionable_packages,
+        "raw_vulnerability_matches": summary.get("totalVulnerabilities", 0),
+        "raw_affected_packages": summary.get("affectedPackages", 0),
+        "confined_mitigation_vulnerabilities": summary.get("confinedMitigationVulnerabilities", 0),
+        "gate_policy": "report_only",
         "architectures": architectures,
     }
 

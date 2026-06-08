@@ -171,6 +171,14 @@ BASH
     grep -q "osv-scanner scan --format json -L" "$workflow"
 }
 
+@test "cicd vulnerability scan treats known vulnerabilities as warnings and scanner errors as failures" {
+    local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
+    grep -q '1)' "$workflow"
+    grep -q "Known vulnerabilities found" "$workflow"
+    grep -q "scanner_error=1" "$workflow"
+    grep -q 'if \[ "$scanner_error" -ne 0 \]' "$workflow"
+}
+
 @test "cicd workflow publishes vulnerability reports to Pages" {
     local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
     grep -q "name: vulnerability-reports" "$workflow"

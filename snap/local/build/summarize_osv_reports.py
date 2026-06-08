@@ -243,7 +243,14 @@ def generated_time(report_path):
 
 
 def collect_reports(reports_dir):
-    summary = {"reports": [], "totalVulnerabilities": 0, "affectedPackages": 0}
+    summary = {
+        "reports": [],
+        "totalVulnerabilities": 0,
+        "affectedPackages": 0,
+        "actionableVulnerabilities": 0,
+        "actionableAffectedPackages": 0,
+        "confinedMitigationVulnerabilities": 0,
+    }
 
     for report_path in sorted(reports_dir.glob("osv-*.json")):
         if report_path.name == "osv-summary.json":
@@ -252,6 +259,9 @@ def collect_reports(reports_dir):
         data = json.loads(report_path.read_text(encoding="utf-8"))
         vulnerabilities = 0
         affected_packages = 0
+        actionable_vulnerabilities = 0
+        actionable_affected_packages = 0
+        confined_mitigation_vulnerabilities = 0
         entries = []
 
         for result in data.get("results", []):
@@ -276,6 +286,11 @@ def collect_reports(reports_dir):
 
                 affected_packages += 1
                 vulnerabilities += len(package_vulns)
+                package_actionable_vulnerabilities = sum(1 for vuln in package_vulns if vuln["patchable"])
+                actionable_vulnerabilities += package_actionable_vulnerabilities
+                confined_mitigation_vulnerabilities += len(package_vulns) - package_actionable_vulnerabilities
+                if package_actionable_vulnerabilities:
+                    actionable_affected_packages += 1
                 pkg = package.get("package", {})
                 entries.append({
                     "name": pkg.get("name", "unknown"),
@@ -290,19 +305,33 @@ def collect_reports(reports_dir):
             "generatedAt": generated_time(report_path),
             "affectedPackages": affected_packages,
             "vulnerabilities": vulnerabilities,
+            "actionableAffectedPackages": actionable_affected_packages,
+            "actionableVulnerabilities": actionable_vulnerabilities,
+            "confinedMitigationVulnerabilities": confined_mitigation_vulnerabilities,
             "packages": entries,
         })
 
     # Calculate unique global counts across all architectures
     unique_vulns = set()
     unique_packages = set()
+    unique_actionable_vulns = set()
+    unique_actionable_packages = set()
     for report in summary["reports"]:
         for package in report["packages"]:
             unique_packages.add(package["name"])
             for vuln in package["vulnerabilities"]:
                 unique_vulns.add(vuln["id"])
+                if vuln["patchable"]:
+                    unique_actionable_vulns.add(vuln["id"])
+                    unique_actionable_packages.add(package["name"])
     summary["totalVulnerabilities"] = len(unique_vulns)
     summary["affectedPackages"] = len(unique_packages)
+    summary["actionableVulnerabilities"] = len(unique_actionable_vulns)
+    summary["actionableAffectedPackages"] = len(unique_actionable_packages)
+    summary["confinedMitigationVulnerabilities"] = max(
+        0,
+        summary["totalVulnerabilities"] - summary["actionableVulnerabilities"],
+    )
 
     return summary
 
@@ -311,8 +340,9 @@ def write_markdown(summary, output_path):
         "# Vulnerability Summary",
         "",
         "All available security updates are automatically applied during compilation at build time.",
-        "This report lists both actionable vulnerabilities (with a corresponding Ubuntu Security Notice) and unactionable vulnerabilities (no patch available yet).",
-        "Strict snap confinement mitigates risks from unpatched vulnerabilities by running the application in a highly isolated sandbox.",
+        "Dashboard totals count only actionable vulnerabilities with a corresponding Ubuntu Security Notice (USN).",
+        "Raw OSV matches without a USN are retained as confined-mitigation report-only findings for audit visibility.",
+        "The CI workflow currently treats OSV exit code 1 as a warning and fails only if the scan itself errors.",
         "",
     ]
 
@@ -320,8 +350,11 @@ def write_markdown(summary, output_path):
         lines.extend([
             f"## {report['architecture']}",
             "",
-            f"- Unpatched packages: {report['affectedPackages']}",
-            f"- Vulnerability matches: {report['vulnerabilities']}",
+            f"- Actionable USN packages: {report['actionableAffectedPackages']}",
+            f"- Actionable USN vulnerabilities: {report['actionableVulnerabilities']}",
+            f"- Raw OSV affected packages: {report['affectedPackages']}",
+            f"- Raw OSV vulnerability matches: {report['vulnerabilities']}",
+            f"- Confined-mitigation report-only matches: {report['confinedMitigationVulnerabilities']}",
             f"- JSON report: `{report['report']}`",
             "",
         ])
@@ -380,14 +413,19 @@ def write_html(summary, output_path):
                 "SBOM target scanned by OSV-Scanner.",
             ),
             (
-                "UNPATCHED PACKAGES",
-                str(report["affectedPackages"]),
-                "Packages with at least one active unpatched vulnerability.",
+                "ACTIONABLE USN PACKAGES",
+                str(report["actionableAffectedPackages"]),
+                "Packages with at least one vulnerability that has a corresponding Ubuntu Security Notice.",
             ),
             (
-                "VULNERABILITY MATCHES",
+                "ACTIONABLE USN VULNERABILITIES",
+                str(report["actionableVulnerabilities"]),
+                "USN-backed vulnerability records counted by the dashboard.",
+            ),
+            (
+                "RAW OSV MATCHES",
                 str(report["vulnerabilities"]),
-                "Total vulnerability records returned for this architecture.",
+                f'{report["confinedMitigationVulnerabilities"]} confined-mitigation report-only matches.',
             ),
             (
                 "REPORT",
@@ -676,17 +714,17 @@ def write_html(summary, output_path):
           <section class="row" style="margin-bottom: 1rem;" aria-labelledby="vulnerability-title">
             <div class="col-12">
               <h1 class="p-heading--2" id="vulnerability-title" style="margin-bottom: 1.5rem;">Vulnerability Reports</h1>
-              <p class="p-heading--4">Active unpatched vulnerability matches returned by OSV-Scanner. All available package security updates are automatically applied during snap compilation at build time.</p>
+              <p class="p-heading--4">OSV-Scanner findings from the generated SBOMs. Actionable counts include only vulnerability matches with a corresponding Ubuntu Security Notice (USN).</p>
             </div>
           </section>
           
           <div class="p-strip u-no-padding--bottom" style="background-color: #f7f7f7; padding: 1.5rem; border-radius: 4px; margin-bottom: 2rem; border-left: 4px solid #772953;">
             <h3 class="p-heading--4" style="margin-bottom: 0.5rem; color: #772953; font-weight: 500;">The Value of Snap Confinement</h3>
             <p class="p-text--small" style="margin-bottom: 0.5rem;">
-              This report contains both <strong>Actionable</strong> (USN available) and <strong>Unactionable</strong> (no USN or official patch available upstream) vulnerabilities.
+              This report contains both <strong>Actionable</strong> (USN available) and <strong>Confined Mitigation</strong> (no USN or official patch available upstream) findings.
             </p>
             <p class="p-text--small" style="margin-bottom: 0;">
-              Unlike conventional deployments, a strictly confined Snap executes within a secure sandbox. Even if a bundled library contains an unpatched vulnerability, process capabilities and host interactions are restricted by <strong>AppArmor profiles, seccomp filters, and a read-only SquashFS filesystem</strong>. This prevents a compromised service from escaping the sandbox or accessing host resources, demonstrating the key security advantage of snap confinement.
+              The CI workflow publishes OSV reports for visibility and fails only when the scanner itself errors. Known-vulnerability exit code 1 is treated as a warning. Unlike conventional deployments, a strictly confined Snap executes within a sandbox: process capabilities and host interactions are restricted by <strong>AppArmor profiles, seccomp filters, and a read-only SquashFS filesystem</strong>.
             </p>
           </div>
 

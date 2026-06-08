@@ -435,17 +435,17 @@
                   <hr class="p-rule--highlight" style="margin: 0 0 1rem 0 !important;">
                   <p class="p-heading--1 u-no-margin u-no-padding"><span id="security-total-vulns">--</span></p>
                 </div>
-                <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Unpatched vulnerabilities</p>
+                <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Actionable USN vulnerabilities</p>
               </div>
               <div class="col-6 p-equal-height-row__col u-no-margin--bottom p-data-spotlight__block">
                 <div class="p-equal-height-row__item">
                   <hr class="p-rule--highlight" style="margin: 0 0 1rem 0 !important;">
                   <p class="p-heading--1 u-no-margin u-no-padding"><span id="security-affected-packages">--</span></p>
                 </div>
-                <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Unpatched packages</p>
+                <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Actionable USN packages</p>
             </section>
             <p style="margin-top: 1.5rem;" class="p-text--small">
-              <strong>Security Policy:</strong> All available upstream security updates are automatically applied during compilation at build time. The vulnerability scanner reports only outstanding, unpatched vulnerabilities that have a corresponding Ubuntu Security Notice (USN).
+              <strong>Security Policy:</strong> All available upstream security updates are automatically applied during compilation at build time. These dashboard totals count only outstanding vulnerability matches with a corresponding Ubuntu Security Notice (USN). Non-USN OSV matches remain visible in the detailed report as confined-mitigation findings and are report-only unless a dedicated workflow gate is added.
             </p>
           </div>
           <div class="col-6">
@@ -459,8 +459,8 @@
                   <thead>
                     <tr>
                       <th>Architecture</th>
-                      <th>Unpatched Packages</th>
-                      <th>Vulnerability Matches</th>
+                      <th>Actionable USN Packages</th>
+                      <th>Actionable USN Vulnerabilities</th>
                       <th>Report</th>
                     </tr>
                   </thead>
@@ -966,9 +966,11 @@
       setText("report-sbom-summary", `Bundled component versions currently tracked: ${bundledSummary}.`);
 
       const security = data.security || {};
+      const rawMatches = security.raw_vulnerability_matches ?? security.total_vulnerabilities ?? 0;
+      const confinedMatches = security.confined_mitigation_vulnerabilities ?? Math.max(0, rawMatches - (security.total_vulnerabilities ?? 0));
       setText(
         "report-vuln-summary",
-        `${security.total_vulnerabilities ?? 0} unpatched vulnerability matches across ${security.affected_packages ?? 0} unpatched packages.`
+        `${security.total_vulnerabilities ?? 0} actionable USN vulnerability matches across ${security.affected_packages ?? 0} actionable packages. ${confinedMatches} non-USN OSV matches are tracked as confined-mitigation report-only findings.`
       );
     }
 
