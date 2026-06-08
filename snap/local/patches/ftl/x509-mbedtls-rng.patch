@@ -1,0 +1,37 @@
+--- a/src/webserver/x509.c
++++ b/src/webserver/x509.c
+@@ -18,6 +18,7 @@
+ # endif
+ # include <mbedtls/x509_crt.h>
+ # include <mbedtls/pk.h>
++# include <mbedtls/psa_util.h>
+ 
+ // We enforce at least mbedTLS v3.5.0 if we use it
+ #if MBEDTLS_VERSION_NUMBER < 0x03050000
+@@ -225,7 +226,7 @@
+ 	mbedtls_x509write_crt_set_basic_constraints(&ca_cert, 1, -1);
+ 
+ 	// Export CA in PEM format
+-	if((ret = mbedtls_x509write_crt_pem(&ca_cert, ca_buffer, sizeof(ca_buffer))) != 0)
++	if((ret = mbedtls_x509write_crt_pem(&ca_cert, ca_buffer, sizeof(ca_buffer), mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE)) != 0)
+ 	{
+ 		printf("ERROR: mbedtls_x509write_crt_pem (CA) returned %d\n", ret);
+ 		return false;
+@@ -287,7 +288,7 @@
+ 		printf("mbedtls_x509write_crt_set_subject_alternative_name returned %d\n", ret);
+ 
+ 	// Export certificate in PEM format
+-	if((ret = mbedtls_x509write_crt_pem(&server_cert, cert_buffer, sizeof(cert_buffer))) != 0)
++	if((ret = mbedtls_x509write_crt_pem(&server_cert, cert_buffer, sizeof(cert_buffer), mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE)) != 0)
+ 	{
+ 		printf("ERROR: mbedtls_x509write_crt_pem returned %d\n", ret);
+ 		return false;
+@@ -438,7 +439,7 @@
+ 	mbedtls_pk_context key;
+ 	mbedtls_pk_init(&key);
+ 	bool has_key = true;
+-	int rc = mbedtls_pk_parse_keyfile(&key, certfile, NULL);
++	int rc = mbedtls_pk_parse_keyfile(&key, certfile, NULL, mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE);
+ 	if (rc != 0)
+ 	{
+ 		log_info("No key found");

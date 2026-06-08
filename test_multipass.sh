@@ -224,11 +224,20 @@ if [ -z "$PLATFORM" ]; then
         printf "  %2d) %-15s (%s)\n" "$((i+1))" "${image_keys[i]}" "${image_descs[i]}"
     done
 
+    # Find the index of core26 to make it the default choice if available
+    default_choice=1
+    for ((i=0; i<num_images; i++)); do
+        if [ "${image_keys[i]}" = "core26" ]; then
+            default_choice=$((i+1))
+            break
+        fi
+    done
+
     choice=""
     while true; do
-        read -r -p "Enter choice [1-$num_images, default 1]: " choice
+        read -r -p "Enter choice [1-$num_images, default $default_choice]: " choice
         if [ -z "$choice" ]; then
-            choice=1
+            choice=$default_choice
         fi
         if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$num_images" ]; then
             PLATFORM="${image_keys[$((choice-1))]}"
@@ -343,39 +352,7 @@ fi
 
 # Wait for snapd stability (specific to Ubuntu Core)
 wait_for_snapd_stability() {
-    log "Ensuring snapd is completely stable and idle..."
-    local idle_checks=0
-    local max_idle_checks=3
-    
-    while [ $idle_checks -lt $max_idle_checks ]; do
-        if ! multipass exec "$VM_NAME" -- echo "Online" >/dev/null 2>&1; then
-            log "VM is offline/rebooting. Waiting for it to come online..."
-            sleep 10
-            idle_checks=0
-            continue
-        fi
-        
-        if multipass exec "$VM_NAME" -- test -f /run/systemd/shutdown/scheduled 2>/dev/null; then
-            log "A system reboot is scheduled by snapd. Rebooting immediately..."
-            multipass exec "$VM_NAME" -- sudo reboot || true
-            log "Waiting for VM to go offline..."
-            sleep 10
-            idle_checks=0
-            continue
-        fi
-        
-        if multipass exec "$VM_NAME" -- snap changes 2>/dev/null | grep -q "Doing"; then
-            log "Snapd is busy. Waiting 10 seconds..."
-            sleep 10
-            idle_checks=0
-            continue
-        fi
-        
-        idle_checks=$((idle_checks + 1))
-        log "Snapd is idle (check $idle_checks/$max_idle_checks)..."
-        sleep 5
-    done
-    log "Snapd is fully stable and idle!"
+    "${REPO_ROOT}/tests/scripts/multipass-wait-snapd-stable.sh" "$VM_NAME"
 }
 
 # Run local checks/linting if requested
@@ -400,8 +377,8 @@ if [ "$LINT" = "true" ]; then
         log "Running BATS unit tests..."
         if command -v kcov >/dev/null 2>&1; then
             log "kcov detected. Running BATS unit tests with code coverage..."
-            mkdir -p coverage
-            kcov --include-path="$PWD/snap/local,$PWD/snap/hooks" "$PWD/coverage" bats -r tests/unit/
+            mkdir -p local-coverage
+            kcov --include-path="$PWD/snap/local,$PWD/snap/hooks" "$PWD/local-coverage" bats -r tests/unit/
         else
             bats -r tests/unit/
         fi
@@ -414,7 +391,7 @@ fi
 # Rebuild the snap if requested
 if [ "$REBUILD" = "true" ]; then
     log "Rebuilding snap package..."
-    rm -f *.snap
+    rm -f -- ./*.snap
     log "Running snapcraft clean..."
     snapcraft clean
     log "Running snapcraft..."
@@ -422,7 +399,11 @@ if [ "$REBUILD" = "true" ]; then
 fi
 
 # Find the latest built snap file
-SNAP_FILE=$(ls -t *.snap 2>/dev/null | head -n 1 || true)
+SNAP_FILE=$(
+    find . -maxdepth 1 -type f -name '*.snap' -printf '%T@ %f\n' \
+        | sort -nr \
+        | awk 'NR == 1 { sub(/^[^ ]+ /, ""); print }'
+)
 if [ -z "$SNAP_FILE" ] || [ ! -f "$SNAP_FILE" ]; then
     log_error "No .snap file found! Please build the snap first or run with --rebuild."
     exit 1

@@ -26,6 +26,7 @@ network-cache/
 
 # Local preview reports
 local-coverage/
+coverage/
 local-sbom/
 local-sbom.json
 local-extracted-snap/

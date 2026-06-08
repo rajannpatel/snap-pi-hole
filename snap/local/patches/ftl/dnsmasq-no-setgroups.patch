@@ -1,0 +1,13 @@
+--- a/src/dnsmasq/dnsmasq.c
++++ b/src/dnsmasq/dnsmasq.c
+@@ -760,8 +760,8 @@
+       
+       /* remove all supplementary groups */
+       if (gp && 
+-	  (setgroups(0, &dummy) == -1 ||
+-	   setgid(gp->gr_gid) == -1))
++	  (0 ||
++	   0))
+ 	{
+ 	  send_event(err_pipe[1], EVENT_GROUP_ERR, errno, daemon->groupname);
+ 	  _exit(0);

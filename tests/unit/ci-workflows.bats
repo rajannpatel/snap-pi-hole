@@ -245,6 +245,15 @@ assert "distro-test" in jobs, list(jobs)
 PYEOF
 }
 
+@test "ubuntu core reusable workflow uses shared Multipass snapd stability helper" {
+    local workflow="${REPO_ROOT}/.github/workflows/reusable-distro-test.yml"
+    local helper="tests/scripts/multipass-wait-snapd-stable.sh test-instance"
+
+    grep -q "sudo ${helper}" "$workflow"
+    [ "$(grep -c "sudo ${helper}" "$workflow")" -eq 3 ]
+    ! grep -q "wait_for_snapd_stability()" "$workflow"
+}
+
 @test "reusable distro build workflow builds and uploads a snap artifact" {
     python3 - <<PYEOF
 import yaml

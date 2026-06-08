@@ -453,6 +453,7 @@ PYEOF
         snap/local/build/pi-hole-override-build.sh
         snap/local/build/pi-hole-override-pull.sh
         snap/local/build/web-override-build.sh
+        tests/scripts/multipass-wait-snapd-stable.sh
         snap/hooks/install
         snap/hooks/configure
         snap/hooks/pre-refresh
@@ -478,6 +479,7 @@ PYEOF
         snap/local/build/pi-hole-override-build.sh
         snap/local/build/pi-hole-override-pull.sh
         snap/local/build/web-override-build.sh
+        tests/scripts/multipass-wait-snapd-stable.sh
         snap/hooks/install
         snap/hooks/configure
         snap/hooks/pre-refresh
@@ -530,6 +532,41 @@ assert "service pihole-FTL" in pull, "missing patch-rot guard for service pihole
 assert "/run/pihole-FTL.pid" in pull, "missing patch-rot guard for FTL_PID"
 assert 'systemctl is-active "\${i}"' in pull, "missing patch-rot guard for systemctl is-active FTL status check"
 assert "systemctl status --full --no-pager" in pull, "missing patch-rot guard for FTL systemctl full status check"
+PYEOF
+}
+
+@test "ftl override-pull uses explicit patches for single-file upstream edits" {
+    python3 - <<PYEOF
+import glob
+from pathlib import Path
+
+root = Path("${REPO_ROOT}")
+script = (root / "snap/local/build/ftl-override-pull.sh").read_text()
+patches = sorted((root / "snap/local/patches/ftl").glob("*.patch"))
+patch_text = "\n".join(path.read_text() for path in patches)
+
+expected = {
+    "FTL-h-strstr.patch",
+    "x509-mbedtls-rng.patch",
+    "dnsmasq-no-setgroups.patch",
+    "files-chown-pihole-root-snap.patch",
+}
+assert {path.name for path in patches} == expected, [path.name for path in patches]
+
+assert "patch --forward --strip=1" in script, "FTL patches are not applied with patch(1)"
+assert "snap/local/patches/ftl" in script, "FTL patch directory is not referenced"
+assert "mbedtls_psa_get_random" in patch_text, "x509 RNG patch missing"
+assert "#undef strstr" in patch_text, "strstr patch missing"
+assert "setgroups(0, &dummy) == -1" in patch_text, "dnsmasq patch context missing"
+assert "return true;" in patch_text, "chown_pihole patch missing"
+
+for forbidden in (
+    r"sed -i 's/mbedtls_x509write_crt_pem",
+    r"sed -i 's/mbedtls_pk_parse_keyfile",
+    r"sed -i 's/setgroups(0, \&dummy)",
+    r"sed -i 's/log_warn(\"chown_pihole(): Failed",
+):
+    assert forbidden not in script, f"single-file sed patch still in ftl override: {forbidden}"
 PYEOF
 }
 
