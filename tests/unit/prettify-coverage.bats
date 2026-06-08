@@ -126,6 +126,31 @@ assert_warn() {
     assert_warn "grep -q 'u-equal-height' '${TMP_DIR}/bats.e38fe61c8733e2cd/snap-debug.sh.a7834a16.html'" "Detail page is missing equal-height utility class on card row"
 }
 
+@test "report templates render Vanilla CSS from the shared report asset config" {
+    VANILLA_FRAMEWORK_VERSION="9.99.0" \
+        python3 "${REPO_ROOT}/snap/local/build/render_report_template.py" \
+        "${REPO_ROOT}/snap/local/assets/dashboard.html" \
+        "${TMP_DIR}/dashboard.html"
+
+    grep -q "vanilla_framework_version_9.99.0.min.css" "${TMP_DIR}/dashboard.html"
+    ! grep -q "VANILLA_FRAMEWORK_CSS" "${TMP_DIR}/dashboard.html"
+}
+
+@test "prettify_coverage.py replaces stale Vanilla CSS links with the shared report asset config" {
+    sed -i '/<\/head>/i\  <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_1.2.3.min.css" />' "${TMP_DIR}/index.html"
+
+    VANILLA_FRAMEWORK_VERSION="9.99.0" \
+        python3 "${REPO_ROOT}/snap/local/build/prettify_coverage.py" "${TMP_DIR}"
+
+    grep -q "vanilla_framework_version_9.99.0.min.css" "${TMP_DIR}/index.html"
+    ! grep -q "vanilla_framework_version_1.2.3.min.css" "${TMP_DIR}/index.html"
+}
+
+@test "Vanilla Framework CDN version is not duplicated outside the shared report asset helper" {
+    run bash -c "rg -n 'vanilla_framework_version_[0-9]' '${REPO_ROOT}/snap/local/assets' '${REPO_ROOT}/snap/local/build' '${REPO_ROOT}/.github' '${REPO_ROOT}/tests/scripts' | grep -v 'snap/local/build/report_assets.py'"
+    [ "$status" -ne 0 ]
+}
+
 @test "sbom-explorer.html layout and styling requirements (non-blocking warning)" {
     # 1. Assert sbom-explorer.html contains the semantic <time id="meta-time"> tag
     assert_warn "grep -q 'time id=\"meta-time\"' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing semantic <time> tag"

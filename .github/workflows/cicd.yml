@@ -567,9 +567,9 @@ jobs:
           # Build dashboard data model used by the interactive homepage
           python3 snap/local/build/generate_dashboard_data.py . docs/dashboard-data.json vulnerability-reports/osv-summary.json
 
-          # Copy HTML templates from snap assets
-          cp snap/local/assets/dashboard.html docs/index.html
-          cp snap/local/assets/sbom-explorer.html docs/sbom/index.html
+          # Render HTML templates from snap assets
+          python3 snap/local/build/render_report_template.py snap/local/assets/dashboard.html docs/index.html
+          python3 snap/local/build/render_report_template.py snap/local/assets/sbom-explorer.html docs/sbom/index.html
 
           # Copy native Pi-hole logo for header display
           cp snap/gui/pihole.png docs/pihole.png

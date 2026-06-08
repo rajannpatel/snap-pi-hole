@@ -6,6 +6,8 @@ import pathlib
 import sys
 from datetime import datetime, timezone
 
+from report_assets import vanilla_framework_css_link
+
 
 SEVERITY_ICONS = {
     "critical": "https://assets.ubuntu.com/v1/c96f27b9-CVE-Priority-icon-Critical.svg",
@@ -489,7 +491,7 @@ def write_html(summary, output_path):
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vulnerability Reports - Snap Pi-hole</title>
-  <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />
+{vanilla_framework_css_link()}
     <style>
     .p-breadcrumbs {{
       min-height: 1.5rem;

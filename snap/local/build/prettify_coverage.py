@@ -2,17 +2,18 @@ import os
 import sys
 import re
 
+from report_assets import inject_vanilla_framework_css
+
+
 def prettify_file(filepath, is_root):
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
 
     # 1. Inject Vanilla Framework CSS link into <head>
     viewport_meta = '  <meta name="viewport" content="width=device-width, initial-scale=1.0">'
-    vanilla_css = '  <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />'
     if 'name="viewport"' not in content:
         content = content.replace('<head>', f'<head>\n{viewport_meta}', 1)
-    if vanilla_css not in content:
-        content = content.replace('</head>', f'{vanilla_css}\n</head>')
+    content = inject_vanilla_framework_css(content)
 
     # 2. Extract kcov's handlebars template and placeholder
     template_match = re.search(r'(<script id="(?:files|lines)-template".*?</script>)', content, re.DOTALL | re.IGNORECASE)
