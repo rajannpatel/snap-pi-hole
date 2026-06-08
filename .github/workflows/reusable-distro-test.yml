@@ -20,7 +20,6 @@ on:
 permissions:
   actions: read
   contents: read
-
 jobs:
   build:
     name: Build Snap Package
@@ -40,7 +39,7 @@ jobs:
           snapcraft-channel: 9.x/candidate
 
       - name: Upload Snap Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: built-snap-${{ inputs.distro }}
           path: "*.snap"
@@ -56,13 +55,13 @@ jobs:
 
       - name: Download Provided Snap Artifact
         if: inputs.snap_artifact_name != ''
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: ${{ inputs.snap_artifact_name }}
 
       - name: Download Locally Built Snap Artifact
         if: inputs.snap_artifact_name == ''
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: built-snap-${{ inputs.distro }}
 

@@ -53,7 +53,7 @@ jobs:
           kcov --include-path=$PWD/snap/local,$PWD/snap/hooks $PWD/coverage bats tests/unit/
 
       - name: Upload code coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: code-coverage-report
           path: coverage/
@@ -91,14 +91,14 @@ jobs:
           python3 snap/local/build/enrich_sbom.py sbom-${{ matrix.arch }}.json extracted-snap
 
       - name: Upload SBOM artefact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sbom-${{ matrix.arch }}
           path: sbom-${{ matrix.arch }}.json
           if-no-files-found: error
 
       - name: Upload snap artefact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pihole-snap-${{ matrix.arch }}
           path: ${{ steps.snapcraft.outputs.snap }}
@@ -112,7 +112,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Download SBOMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: sbom-*
           path: sbom-input
@@ -163,7 +163,7 @@ jobs:
           fi
 
       - name: Upload vulnerability reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: vulnerability-reports
@@ -181,7 +181,7 @@ jobs:
         arch: [amd64, arm64]
     steps:
       - name: Download snap
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: pihole-snap-${{ matrix.arch }}
 
@@ -434,7 +434,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Download snap
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: pihole-snap-${{ matrix.arch }}
           path: .
@@ -535,20 +535,20 @@ jobs:
           /snap/bin/snapcraft revisions ${{ env.SNAP_NAME }} > snapcraft-revisions.txt || true
 
       - name: Download coverage report
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: code-coverage-report
           path: coverage-report
 
       - name: Download SBOMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: sbom-*
           path: sbom-artifacts
           merge-multiple: true
 
       - name: Download vulnerability reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: vulnerability-reports
           path: vulnerability-reports
