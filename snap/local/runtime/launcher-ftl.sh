@@ -26,9 +26,7 @@ SCRIPT_DIR="$(unset CDPATH; cd -P -- "$(dirname "$0")" && pwd)"
 mkdir -p "${SNAP_DATA}/etc/pihole" "${SNAP_DATA}/etc/dnsmasq.d" "${SNAP_COMMON}/var/log/pihole" "${SNAP_DATA}/run/pihole"
 
 # Seed/Update the static version profile template if present inside the snap squashfs
-if [ -f "${SNAP:-}/opt/pihole/templates/versions" ]; then
-    cp "${SNAP:-}/opt/pihole/templates/versions" "${SNAP_DATA}/etc/pihole/versions"
-fi
+pihole_seed_versions_file
 
 
 # Seed a default config on first boot. FTL requires upstream servers to be configured

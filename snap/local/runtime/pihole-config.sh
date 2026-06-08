@@ -20,6 +20,16 @@ pihole_seed_default_toml() {
 EOF
 }
 
+pihole_seed_versions_file() {
+    pihole_versions_template="${1:-${SNAP:-}/opt/pihole/templates/versions}"
+    pihole_versions_file="${2:-${SNAP_DATA:-}/etc/pihole/versions}"
+
+    [ -f "$pihole_versions_template" ] || return 0
+
+    mkdir -p "${pihole_versions_file%/*}"
+    cp "$pihole_versions_template" "$pihole_versions_file"
+}
+
 # Convert TOML to flat key-value pairs.
 # NOTE: uses only POSIX awk features (no gawk-only 3-arg match()) so it
 # behaves identically under the base snap's mawk and under gawk in CI.

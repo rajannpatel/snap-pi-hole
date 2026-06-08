@@ -8,6 +8,15 @@ set -eu
 # rather than hitting AppArmor execution denials on the base snap's rust-coreutils.
 export PATH="${SNAP}/usr/sbin:${SNAP}/usr/bin:${SNAP}/sbin:${SNAP}/bin:${PATH:-}"
 
+CONFIG_HELPER="${SNAP}/bin/pihole-config.sh"
+
+if [ ! -r "$CONFIG_HELPER" ]; then
+    echo "Error: missing configuration helper at $CONFIG_HELPER" >&2
+    exit 1
+fi
+
+# shellcheck source=snap/local/runtime/pihole-config.sh
+. "$CONFIG_HELPER"
 
 # Create the physical log path in SNAP_COMMON first to prevent daemon initialization deadlocks
 mkdir -p "${SNAP_COMMON}/var/log/pihole"
@@ -16,6 +25,4 @@ mkdir -p "${SNAP_COMMON}/var/log/pihole"
 mkdir -p "${SNAP_DATA}/etc/pihole" "${SNAP_DATA}/etc/dnsmasq.d" "${SNAP_COMMON}/var/log/pihole" "${SNAP_DATA}/run/pihole"
 
 # Seed the static version profile template if it exists on disk
-if [ -f "${SNAP:-}/opt/pihole/templates/versions" ]; then
-    cp "${SNAP:-}/opt/pihole/templates/versions" "${SNAP_DATA}/etc/pihole/versions"
-fi
+pihole_seed_versions_file
