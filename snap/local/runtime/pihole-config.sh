@@ -20,9 +20,24 @@ pihole_seed_default_toml() {
 EOF
 }
 
+pihole_versions_template_file() {
+    pihole_root="${1:-${SNAP:-}}"
+    printf '%s/opt/pihole/templates/versions\n' "$pihole_root"
+}
+
+pihole_advanced_versions_template_file() {
+    pihole_root="${1:-${SNAP:-}}"
+    printf '%s/etc/.pihole/advanced/Scripts/templates/versions\n' "$pihole_root"
+}
+
+pihole_versions_file() {
+    pihole_root="${1:-${SNAP_DATA:-}}"
+    printf '%s/etc/pihole/versions\n' "$pihole_root"
+}
+
 pihole_seed_versions_file() {
-    pihole_versions_template="${1:-${SNAP:-}/opt/pihole/templates/versions}"
-    pihole_versions_file="${2:-${SNAP_DATA:-}/etc/pihole/versions}"
+    pihole_versions_template="${1:-$(pihole_versions_template_file)}"
+    pihole_versions_file="${2:-$(pihole_versions_file)}"
 
     [ -f "$pihole_versions_template" ] || return 0
 

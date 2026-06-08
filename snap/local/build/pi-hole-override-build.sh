@@ -1,6 +1,15 @@
 #!/bin/bash
 set -e
 
+CONFIG_HELPER="${CRAFT_PROJECT_DIR}/snap/local/runtime/pihole-config.sh"
+if [ ! -r "$CONFIG_HELPER" ]; then
+    echo "Error: missing configuration helper at $CONFIG_HELPER" >&2
+    exit 1
+fi
+
+# shellcheck source=snap/local/runtime/pihole-config.sh
+. "$CONFIG_HELPER"
+
 FTL_TAG=$(cat "${CRAFT_STAGE}/snap-meta/ftl-tag")
 WEB_TAG=$(cat "${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag")
 CORE_TAG=$(git -C "${CRAFT_PART_SRC}" describe --tags --always)
@@ -30,9 +39,12 @@ cp -R "${CRAFT_PART_SRC}/advanced" "${CRAFT_PART_INSTALL}/etc/.pihole/"
 mkdir -p "${CRAFT_PART_INSTALL}/opt/pihole"
 cp -R "${CRAFT_PART_SRC}/advanced/Scripts/"* "${CRAFT_PART_INSTALL}/opt/pihole/"
 
-# Write the versions file directly to opt/pihole/templates/versions
-mkdir -p "${CRAFT_PART_INSTALL}/opt/pihole/templates"
-cat <<EOF > "${CRAFT_PART_INSTALL}/opt/pihole/templates/versions"
+VERSIONS_TEMPLATE="$(pihole_versions_template_file "$CRAFT_PART_INSTALL")"
+ADVANCED_VERSIONS_TEMPLATE="$(pihole_advanced_versions_template_file "$CRAFT_PART_INSTALL")"
+
+# Write the versions file to the shared template path used by runtime seeding.
+mkdir -p "$(dirname "$VERSIONS_TEMPLATE")"
+cat <<EOF > "$VERSIONS_TEMPLATE"
 CORE_VERSION=${CORE_TAG}
 CORE_BRANCH=snap
 WEB_VERSION=${WEB_TAG}
@@ -42,5 +54,5 @@ FTL_BRANCH=snap
 EOF
 
 # Also copy the template to etc/.pihole/advanced/Scripts/templates/versions explicitly
-mkdir -p "${CRAFT_PART_INSTALL}/etc/.pihole/advanced/Scripts/templates"
-cp "${CRAFT_PART_INSTALL}/opt/pihole/templates/versions" "${CRAFT_PART_INSTALL}/etc/.pihole/advanced/Scripts/templates/versions"
+mkdir -p "$(dirname "$ADVANCED_VERSIONS_TEMPLATE")"
+cp "$VERSIONS_TEMPLATE" "$ADVANCED_VERSIONS_TEMPLATE"

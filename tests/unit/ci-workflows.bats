@@ -12,6 +12,12 @@
 
 setup() {
     REPO_ROOT="$(git rev-parse --show-toplevel)"
+    TEST_WORKDIR="$(mktemp -d "${REPO_ROOT}/.tmp-ci-workflows.XXXXXX")"
+    cp "${REPO_ROOT}/snap/snapcraft.yaml" "${TEST_WORKDIR}/snapcraft.yaml"
+}
+
+teardown() {
+    rm -rf "${TEST_WORKDIR}"
 }
 
 # ---------------------------------------------------------------------------
@@ -24,12 +30,28 @@ setup() {
     grep -q 'yq -i ".parts.pi_hole.source-tag' "$workflow"
     grep -q 'yq -i ".parts.web.source-tag' "$workflow"
     ! grep -q "README.md" "$workflow"
+    ! grep -q "sed -i" "$workflow"
 }
 
 @test "track-upstream workflow does not use opaque inline scripts for README mutation" {
     local workflow="${REPO_ROOT}/.github/workflows/track-upstream-releases.yml"
     ! grep -q "python3 -c" "$workflow"
     ! grep -q "re.sub" "$workflow"
+}
+
+@test "track-upstream yq source-tag updates mutate the expected snapcraft parts" {
+    if ! command -v yq >/dev/null 2>&1; then
+        skip "yq is not installed"
+    fi
+
+    local target="${TEST_WORKDIR}/snapcraft.yaml"
+    yq -i '.parts.ftl.source-tag = "v9.1.0"' "$target"
+    yq -i '.parts.pi_hole.source-tag = "v9.2.0"' "$target"
+    yq -i '.parts.web.source-tag = "v9.3.0"' "$target"
+
+    run yq -r '[.parts.ftl.source-tag, .parts.pi_hole.source-tag, .parts.web.source-tag] | @tsv' "$target"
+    [ "$status" -eq 0 ]
+    [ "$output" = $'v9.1.0\tv9.2.0\tv9.3.0' ]
 }
 
 # ---------------------------------------------------------------------------

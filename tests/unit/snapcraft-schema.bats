@@ -294,6 +294,36 @@ assert "\${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag" in build, \
 PYEOF
 }
 
+@test "versions template paths are centralized in pihole-config helper" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+build_script = doc["parts"]["pi_hole"].get("override-build", "").replace("\$CRAFT_PROJECT_DIR", "${REPO_ROOT}")
+helper_path = "${REPO_ROOT}/snap/local/runtime/pihole-config.sh"
+with open(build_script) as sf:
+    build = sf.read()
+with open(helper_path) as hf:
+    helper = hf.read()
+
+for required in (
+    "pihole_versions_template_file",
+    "pihole_advanced_versions_template_file",
+    "pihole_versions_file",
+):
+    assert required in helper, f"{required} missing from pihole-config.sh"
+
+assert "pihole_versions_template_file \"\$CRAFT_PART_INSTALL\"" in build, \
+    "pi_hole.override-build must derive the primary versions template path from pihole-config.sh"
+assert "pihole_advanced_versions_template_file \"\$CRAFT_PART_INSTALL\"" in build, \
+    "pi_hole.override-build must derive the advanced versions template path from pihole-config.sh"
+assert "/opt/pihole/templates/versions" not in build, \
+    "pi_hole.override-build must not hardcode the versions template path"
+assert "/etc/.pihole/advanced/Scripts/templates/versions" not in build, \
+    "pi_hole.override-build must not hardcode the advanced versions template path"
+PYEOF
+}
+
 @test "snapcraft.yaml ftl and web publish their tag to snap-meta (and prime it out)" {
     # Each upstream part writes \${CRAFT_PART_INSTALL}/snap-meta/<part>-tag
     # during its override-build so the pi_hole part can consume it via
