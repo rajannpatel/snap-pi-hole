@@ -22,15 +22,15 @@ export PATH="${SNAP}/usr/sbin:${SNAP}/usr/bin:${SNAP}/sbin:${SNAP}/bin:${PATH:-}
 RESOLVED_DROPIN="/etc/systemd/resolved.conf.d/pihole.conf"
 
 if [ -f "$RESOLVED_DROPIN" ]; then
-    cat >&2 <<'EOF'
+    cat >&2 <<EOF
 Pi-hole has been removed.
 
 Strict snap confinement prevents the snap from modifying host systemd settings.
-To restore your host's DNS resolution immediately, you must manually delete
-the systemd-resolved drop-in and restart the resolver:
+Your host may not have working DNS until systemd-resolved is restored.
 
-    sudo rm -f /etc/systemd/resolved.conf.d/pihole.conf
-    sudo systemctl restart systemd-resolved
+Run this local recovery command on the host now:
+
+    sudo sh -c 'rm -f "$RESOLVED_DROPIN" && systemctl restart systemd-resolved'
 
 This restores the systemd-resolved stub listener on 127.0.0.53:53.
 EOF

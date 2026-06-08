@@ -17,7 +17,15 @@ usage_snap_equivalent() {
             echo "  Use: sudo snap refresh pihole" >&2
             ;;
         uninstall)
-            echo "  Use: sudo snap remove pihole" >&2
+            cat >&2 <<'EOF'
+  Use: sudo snap remove pihole
+
+  If you disabled systemd-resolved's DNS stub listener for Pi-hole, snap
+  confinement cannot restore it during removal. Keep this local recovery
+  command available before removing the snap:
+
+      sudo sh -c 'rm -f /etc/systemd/resolved.conf.d/pihole.conf && systemctl restart systemd-resolved'
+EOF
             ;;
     esac
 }

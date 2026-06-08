@@ -115,6 +115,8 @@ teardown() {
     run "${LAUNCHER}" uninstall
     [ "$status" -eq 1 ]
     [[ "$output" == *"snap remove pihole"* ]]
+    [[ "$output" == *"confinement cannot restore it during removal"* ]]
+    [[ "$output" == *"systemctl restart systemd-resolved"* ]]
 }
 
 # --- pass-through --------------------------------------------------------

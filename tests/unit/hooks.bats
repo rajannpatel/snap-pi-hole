@@ -170,8 +170,8 @@ teardown() {
     run "${HOOK}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Strict snap confinement prevents the snap from modifying host systemd settings"* ]]
-    [[ "$output" == *"sudo rm -f ${DROPIN}"* ]]
-    [[ "$output" == *"systemctl restart systemd-resolved"* ]]
+    [[ "$output" == *"Your host may not have working DNS until systemd-resolved is restored."* ]]
+    [[ "$output" == *"sudo sh -c 'rm -f \"${DROPIN}\" && systemctl restart systemd-resolved'"* ]]
 }
 
 # ---------------------------------------------------------------------------
