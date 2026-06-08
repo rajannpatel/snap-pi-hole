@@ -22,7 +22,7 @@ jobs:
         working-directory: .
     steps:
       - name: Checkout repo to runner
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Canonical styles
         uses: canonical/documentation-style-guide@main

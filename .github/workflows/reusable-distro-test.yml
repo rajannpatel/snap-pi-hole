@@ -24,7 +24,7 @@ jobs:
       snap_file: ${{ steps.find_snap.outputs.snap_file }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Build Snap
         uses: snapcore/action-build@v1
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download Snap Artifact
         uses: actions/download-artifact@v4
