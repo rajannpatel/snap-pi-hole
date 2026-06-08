@@ -98,6 +98,18 @@ teardown() {
     [[ "$output" == *"sudo snap alias "* ]]
 }
 
+@test "snap-setup defaults snap commands to the store snap name and alias commands to pihole" {
+    unset SNAP_NAME
+    export MOCK_FTL_ACTIVE="true"
+    export MOCK_ALIAS_CHECK="false"
+    export MOCK_DISCONNECT_network_bind="true"
+    run "${SETUP_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"sudo snap alias pihole-by-rajannpatel.pihole pihole"* ]]
+    [[ "$output" == *"sudo snap connect pihole-by-rajannpatel:network-bind"* ]]
+    [[ "$output" == *"sudo pihole-by-rajannpatel.pihole -r"* ]]
+}
+
 @test "snap-setup does not warn when alias 'pihole' is enabled" {
     export MOCK_FTL_ACTIVE="true"
     export MOCK_ALIAS_CHECK="true"
@@ -334,6 +346,6 @@ teardown() {
     export MOCK_DNS_CHOICE="1"
     run "${SETUP_SCRIPT}"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"in a web browser, go to http://<Pi-hole-IP>/admin"* ]]
+    [[ "$output" == *"In a web browser, go to http://<Pi-hole-IP>/admin"* ]]
     [[ "$output" == *"Detected local IP(s):"* ]]
 }

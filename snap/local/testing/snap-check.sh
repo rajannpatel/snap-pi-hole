@@ -33,6 +33,7 @@ if [ ! -r "$PIHOLE_CONFIG_HELPER" ] && [ -r "${SOURCE_DIR}/../runtime/pihole-con
 fi
 # shellcheck source=snap/local/runtime/pihole-config.sh
 source "$PIHOLE_CONFIG_HELPER"
+SNAP_INSTANCE="$(pihole_snap_name)"
 
 # Global exit code tracker: 0=success, 1=config error, 2=runtime error
 exit_code=0
@@ -50,12 +51,12 @@ check_interface() {
         if [ "$required" = "true" ]; then
             printf "%b[FAIL]%b %s (Disconnected)\n" "${RED}" "${NC}" "${plug}"
             printf "Remediation: Run the following command on your host to connect the plug:\n\n"
-            printf "%b%bsudo snap connect %s:%s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME}" "${plug}" "${NC}"
+            printf "%b%bsudo snap connect %s:%s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_INSTANCE}" "${plug}" "${NC}"
             exit_code=1
         else
             printf "%b[INFO]%b %s (Disconnected - optional: %s)\n" "${BLUE}" "${NC}" "${plug}" "${desc}"
             printf "Remediation: Run the following command on your host to connect the plug:\n\n"
-            printf "%b%bsudo snap connect %s:%s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME}" "${plug}" "${NC}"
+            printf "%b%bsudo snap connect %s:%s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_INSTANCE}" "${plug}" "${NC}"
         fi
     fi
 }
@@ -101,7 +102,7 @@ else
     if check_tcp "127.0.0.1" "80" || check_tcp "0.0.0.0" "80"; then
         printf "%b[FAIL]%b Port 80 (HTTP) - Another web server is binding port 80\n" "${RED}" "${NC}"
         printf "Remediation: Stop the server, or change Pi-hole's port:\n\n"
-        printf "%b%bsudo snap set %s webserver.port=8080%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME}" "${NC}"
+        printf "%b%bsudo snap set %s webserver.port=8080%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_INSTANCE}" "${NC}"
         [ "$exit_code" -eq 0 ] && exit_code=2
     else
         printf "%b[OK]%b Port 80 (HTTP) is free.\n\n" "${GREEN}" "${NC}"
@@ -121,18 +122,18 @@ echo "--- CONFINEMENT ---"
 echo ""
 if snapctl is-connected "system-observe"; then
     # Parse dmesg for recent apparmor DENIED logs related to pihole
-    if dmesg 2>/dev/null | grep -i "apparmor=\"DENIED\"" | grep -q "snap.${SNAP_NAME}"; then
+    if dmesg 2>/dev/null | grep -i "apparmor=\"DENIED\"" | grep -q "snap.${SNAP_INSTANCE}"; then
         printf "%b[WARN]%b AppArmor denials detected in dmesg.\n" "${YELLOW}" "${NC}"
         printf "This indicates strict confinement is blocking a daemon action.\n"
         printf "Remediation: Run the following command on your host for details:\n\n"
-        printf "%b%bdmesg | grep DENIED | grep %s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME}" "${NC}"
+        printf "%b%bdmesg | grep DENIED | grep %s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_INSTANCE}" "${NC}"
     else
         printf "%b[OK]%b No recent AppArmor denials detected.\n\n" "${GREEN}" "${NC}"
     fi
 else
     printf "%b[INFO]%b 'system-observe' is disconnected (expected for production).\n" "${BLUE}" "${NC}"
     printf "Remediation: Run the following command on your host to connect it for debugging:\n\n"
-    printf "%b%bsudo snap connect %s:system-observe%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME}" "${NC}"
+    printf "%b%bsudo snap connect %s:system-observe%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_INSTANCE}" "${NC}"
 fi
 
 echo "Diagnostics complete."

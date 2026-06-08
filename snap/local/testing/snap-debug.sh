@@ -25,6 +25,7 @@ if [ ! -r "$PIHOLE_CONFIG_HELPER" ] && [ -r "${SOURCE_DIR}/../runtime/pihole-con
 fi
 # shellcheck source=snap/local/runtime/pihole-config.sh
 source "$PIHOLE_CONFIG_HELPER"
+SNAP_INSTANCE="$(pihole_snap_name)"
 
 # --- INTERFACE CONNECTION STATE ---
 echo "--- INTERFACES ---"
@@ -138,7 +139,7 @@ echo "--- CONFINEMENT ---"
 if snapctl is-connected "system-observe"; then
     FATAL=$(dmesg 2>/dev/null \
         | grep -F 'apparmor="DENIED"' \
-        | grep "snap.${SNAP_NAME}" \
+        | grep "snap.${SNAP_INSTANCE}" \
         | grep -vE '/sys/devices/virtual/dmi/id/|/proc/[0-9]+/comm|/etc/ldap/ldap\.conf' \
         || true)
     if [ -n "$FATAL" ]; then
@@ -196,9 +197,9 @@ if [ -n "$FTL_LOG_PATH" ]; then
         echo "  [FAIL] SQLite database locking/corruption detected!"
         echo "         -> Remediation:"
         echo "            1. Stop the FTL service:"
-        echo "               'sudo snap stop ${SNAP_NAME}.pihole-ftl'"
+        echo "               'sudo snap stop ${SNAP_INSTANCE}.pihole-ftl'"
         echo "            2. Run sqlite3 integrity checks or vacuum on the database:"
-        echo "               'sudo ${SNAP_NAME}.pihole-ftl sqlite3 ${SNAP_DATA}/etc/pihole/gravity.db \"PRAGMA integrity_check;\"'"
+        echo "               'sudo ${SNAP_INSTANCE}.pihole-ftl sqlite3 ${SNAP_DATA}/etc/pihole/gravity.db \"PRAGMA integrity_check;\"'"
         echo "            3. If corrupted, restore from a snapshot or run 'sudo pihole -g' to recreate gravity.db."
     fi
 

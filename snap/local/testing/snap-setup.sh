@@ -33,6 +33,8 @@ if [ ! -r "$PIHOLE_CONFIG_HELPER" ] && [ -r "${SOURCE_DIR}/../runtime/pihole-con
 fi
 # shellcheck source=snap/local/runtime/pihole-config.sh
 source "$PIHOLE_CONFIG_HELPER"
+SNAP_INSTANCE="$(pihole_snap_name)"
+PIHOLE_CLI="$(pihole_cli_command)"
 
 echo ""
 echo ""
@@ -46,7 +48,7 @@ echo ""
 # Check root privileges
 if [ "${EUID}" -ne 0 ] && [ "${MOCK_ROOT_CHECK:-}" != "true" ]; then
     echo "Error: This configuration wizard must be run with root privileges (sudo)." >&2
-    echo "Please run: sudo pihole -r" >&2
+    echo "Please run: sudo ${PIHOLE_CLI} -r" >&2
     exit 1
 fi
 
@@ -58,15 +60,15 @@ ALIAS_SET=true
 # Check if the command alias exists on the host
 if [ "${MOCK_ALIAS_CHECK:-}" = "false" ] || { [ "${MOCK_ALIAS_CHECK:-}" != "true" ] && [ ! -e "/snap/bin/pihole" ]; }; then
     ALIAS_SET=false
-    printf "%b[WARN]%b Command alias 'pihole' has not been enabled on your host.\n" "${YELLOW}" "${NC}"
-    printf "Remediation: Run the following command on your host to enable the 'pihole' alias:\n\n"
-    printf "%b%bsudo snap alias %s.pihole pihole%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME:-pihole-by-rajannpatel}" "${NC}"
+    printf "%b[WARN]%b Command alias '%s' has not been enabled on your host.\n" "${YELLOW}" "${NC}" "${PIHOLE_CLI}"
+    printf "Remediation: Run the following command on your host to enable the '%s' alias:\n\n" "${PIHOLE_CLI}"
+    printf "%b%bsudo snap alias %s.pihole %s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_INSTANCE}" "${PIHOLE_CLI}" "${NC}"
 fi
 
 if [ "$ALIAS_SET" = "true" ]; then
-    REENTER_CMD="sudo pihole -r"
+    REENTER_CMD="sudo ${PIHOLE_CLI} -r"
 else
-    REENTER_CMD="sudo ${SNAP_NAME:-pihole-by-rajannpatel}.pihole -r"
+    REENTER_CMD="sudo ${SNAP_INSTANCE}.pihole -r"
 fi
 
 prompt_fail_exit() {
@@ -154,13 +156,13 @@ check_plug() {
             DISCONNECTED_PLUGS="${DISCONNECTED_PLUGS} ${plug}"
             printf "%b[FAIL]%b Interface plug '%s' is disconnected (REQUIRED).\n" "${RED}" "${NC}" "${plug}"
             printf "Remediation: Run the following commands on your host:\n\n"
-            printf "%b%bsudo snap connect %s:%s\n" "${BOLD}" "${CYAN}" "${SNAP_NAME:-pihole}" "${plug}"
+            printf "%b%bsudo snap connect %s:%s\n" "${BOLD}" "${CYAN}" "${SNAP_INSTANCE}" "${plug}"
             printf "%s%b\n\n" "${REENTER_CMD}" "${NC}"
             prompt_fail_exit
         else
             printf "%b[INFO]%b Interface plug '%s' is disconnected (optional: %s).\n" "${BLUE}" "${NC}" "${plug}" "${desc}"
             printf "Remediation: Run the following command on your host to connect the plug:\n\n"
-            printf "%b%bsudo snap connect %s:%s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_NAME:-pihole}" "${plug}" "${NC}"
+            printf "%b%bsudo snap connect %s:%s%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_INSTANCE}" "${plug}" "${NC}"
         fi
     else
         printf "%b[OK]%b Interface plug '%s' is connected.\n\n" "${GREEN}" "${NC}" "${plug}"

@@ -30,8 +30,16 @@ pihole_seed_versions_file() {
     cp "$pihole_versions_template" "$pihole_versions_file"
 }
 
+pihole_snap_name() {
+    printf '%s\n' "${SNAP_NAME:-pihole-by-rajannpatel}"
+}
+
+pihole_cli_command() {
+    printf '%s\n' "${PIHOLE_CLI:-pihole}"
+}
+
 pihole_ftl_service_name() {
-    printf '%s.pihole-ftl\n' "${SNAP_NAME:-pihole}"
+    printf '%s.pihole-ftl\n' "$(pihole_snap_name)"
 }
 
 pihole_ftl_is_active() {

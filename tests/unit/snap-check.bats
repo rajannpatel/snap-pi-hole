@@ -66,6 +66,14 @@ teardown() {
     [[ "$output" == *"[FAIL] network-bind (Disconnected)"* ]]
 }
 
+@test "snap-check defaults remediation snap commands to the store snap name" {
+    unset SNAP_NAME
+    export MOCK_DISCONNECT_network_bind="true"
+    run "${CHECK_SCRIPT}"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"sudo snap connect pihole-by-rajannpatel:network-bind"* ]]
+}
+
 @test "snap-check exits 0 (success) when an optional plug is disconnected" {
     export MOCK_DISCONNECT_system_observe="true"
     run "${CHECK_SCRIPT}"

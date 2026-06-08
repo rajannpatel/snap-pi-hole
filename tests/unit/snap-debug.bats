@@ -139,6 +139,25 @@ EOF
     [[ "$output" == *"apparmor=\"DENIED\""* ]]
 }
 
+@test "snap-debug defaults AppArmor matching to the store snap name" {
+    unset SNAP_NAME
+    cat > "${MOCK_BIN}/snapctl" <<'EOF'
+#!/bin/bash
+if [ "$1" = "is-connected" ]; then
+    exit 0
+fi
+if [ "$1" = "services" ]; then echo "pihole-by-rajannpatel.pihole-ftl is active"; fi
+EOF
+    cat > "${MOCK_BIN}/dmesg" <<'EOF'
+#!/bin/bash
+echo "apparmor=\"DENIED\" operation=\"open\" profile=\"snap.pihole-by-rajannpatel.pihole-ftl\" name=\"/some/unexpected/path\""
+EOF
+    run "${SCRIPT_UNDER_TEST}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[WARN] Unexpected AppArmor denials"* ]]
+    [[ "$output" == *"snap.pihole-by-rajannpatel.pihole-ftl"* ]]
+}
+
 @test "filters benign dmi and proc denials as non-fatal" {
     cat > "${MOCK_BIN}/snapctl" <<'EOF'
 #!/bin/bash
