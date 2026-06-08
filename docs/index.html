@@ -384,6 +384,7 @@
             </div>
             <div class="col-9">
               <p class="p-heading--4">Latest stable channel package metadata across supported architectures.</p>
+              <div id="snap-package-freshness" hidden style="margin-bottom: 1rem;"></div>
               <div style="overflow-x: auto;">
                 <table class="p-table">
                   <thead>
@@ -933,6 +934,30 @@
       });
     }
 
+    function renderSnapFreshness(snapPackage, rows) {
+      const el = document.getElementById("snap-package-freshness");
+      if (!el) return;
+      const sha = snapPackage.expected_commit || "";
+      const rev = (rows || []).map((r) => r.revision).filter(Boolean)[0];
+      const lastKnown = rev ? ` (revision ${rev})` : "";
+      const notes = {
+        current: { cls: "positive", text: `Up to date — commit <code>${sha}</code> is the live stable revision.` },
+        uploaded_not_selected: { cls: "caution", text: `Commit <code>${sha}</code> is uploaded but is not yet the selected stable revision.` },
+        pending: { cls: "caution", text: `Commit <code>${sha}</code> published successfully and is still propagating to the Snap Store. Showing the last known revision${lastKnown}.` },
+        publish_failed: { cls: "negative", text: `Publishing commit <code>${sha}</code> to the Snap Store failed after retries. Showing the last known good revision${lastKnown}.` },
+      };
+      const note = sha ? notes[snapPackage.freshness] : null;
+      if (!note) {
+        el.hidden = true;
+        el.removeAttribute("class");
+        el.innerHTML = "";
+        return;
+      }
+      el.className = `p-notification--${note.cls} is-inline`;
+      el.innerHTML = `<div class="p-notification__content"><p class="p-notification__message">${note.text}</p></div>`;
+      el.hidden = false;
+    }
+
     function renderReleaseInfo(data) {
       const frequencyDays = data.build_status.update_frequency_days;
       setText("snap-update-frequency", frequencyDays ? `${frequencyDays} days` : "Unknown");
@@ -943,6 +968,7 @@
       const packageBody = document.getElementById("snap-package-rows");
       if (!packageBody) return;
       const rows = data.snap_package.channels || [];
+      renderSnapFreshness(data.snap_package || {}, rows);
       packageBody.innerHTML = "";
       if (!rows.length) {
         packageBody.innerHTML = "<tr><td colspan=\"7\">Snap package metadata unavailable.</td></tr>";

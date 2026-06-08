@@ -439,6 +439,65 @@ def resolve_git_metadata_for_version(repo_root, version_str):
     return version_str, "N/A", ""
 
 
+def _commit_matches(a, b):
+    a = (a or "").strip()
+    b = (b or "").strip()
+    if not a or not b or a == "N/A" or b == "N/A":
+        return False
+    return a.startswith(b) or b.startswith(a)
+
+
+def resolve_expected_commit(repo_root):
+    ref = os.environ.get("GITHUB_SHA", "").strip() or "HEAD"
+    try:
+        return subprocess.check_output(
+            ["git", "-C", str(repo_root), "rev-parse", "--short", ref],
+            stderr=subprocess.DEVNULL,
+        ).decode("utf-8").strip()
+    except (subprocess.SubprocessError, ValueError):
+        return ""
+
+
+def compute_snap_freshness(channels, revisions_list, expected_commit, publish_result):
+    publish_result = (publish_result or "").strip().lower()
+    expected_commit = (expected_commit or "").strip()
+    freshness = {
+        "expected_commit": expected_commit,
+        "publish_result": publish_result,
+        "expected_commit_published": False,
+        "expected_commit_in_store": False,
+        "freshness": "unknown",
+    }
+    if not expected_commit:
+        return freshness
+
+    for channel in channels:
+        if _commit_matches(channel.get("git_commit", ""), expected_commit):
+            freshness["expected_commit_published"] = True
+            break
+
+    for entry in revisions_list:
+        version = str(entry.get("version", ""))
+        if "+git." in version:
+            sha = version.split("+git.", 1)[1].split(".")[0]
+            if _commit_matches(sha, expected_commit):
+                freshness["expected_commit_in_store"] = True
+                break
+
+    if freshness["expected_commit_published"]:
+        freshness["freshness"] = "current"
+    elif freshness["expected_commit_in_store"]:
+        freshness["freshness"] = "uploaded_not_selected"
+    elif publish_result in ("failure", "cancelled"):
+        freshness["freshness"] = "publish_failed"
+    elif publish_result == "success":
+        freshness["freshness"] = "pending"
+    else:
+        freshness["freshness"] = "unknown"
+
+    return freshness
+
+
 def collect_snap_package_data(client, repo_root):
     snap_data = client.get_json_or_empty(
         SNAPCRAFT_INFO_URL,
@@ -459,6 +518,10 @@ def collect_snap_package_data(client, repo_root):
 
     revisions_file = repo_root / "snapcraft-revisions.txt"
     revisions_list = parse_revisions_file(revisions_file)
+    revisions_list.sort(
+        key=lambda e: e["revision"] if isinstance(e.get("revision"), int) else -1,
+        reverse=True,
+    )
 
     latest_by_arch = {}
     newest_timestamp = None
@@ -513,7 +576,18 @@ def collect_snap_package_data(client, repo_root):
             if dt and (newest_timestamp is None or dt > newest_timestamp):
                 newest_timestamp = dt
 
-    return {"channels": list(latest_by_arch.values()), "last_updated": dt_to_iso(newest_timestamp)}
+    channels = list(latest_by_arch.values())
+    freshness = compute_snap_freshness(
+        channels,
+        revisions_list,
+        resolve_expected_commit(repo_root),
+        os.environ.get("PUBLISH_RESULT", ""),
+    )
+    return {
+        "channels": channels,
+        "last_updated": dt_to_iso(newest_timestamp),
+        **freshness,
+    }
 
 
 def collect_track_upstream_status(client):

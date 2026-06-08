@@ -514,10 +514,14 @@ jobs:
 
   deploy-pages:
     name: Deploy reports to GitHub Pages
-    needs: [lint, build, smoke, vulnerability-scan]
+    needs: [lint, build, smoke, vulnerability-scan, publish]
     runs-on: ubuntu-latest
     environment: snap-publishing
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: |
+      always() &&
+      github.ref == 'refs/heads/main' && github.event_name == 'push' &&
+      needs.lint.result == 'success' && needs.build.result == 'success' &&
+      needs.smoke.result == 'success' && needs.vulnerability-scan.result == 'success'
     permissions:
       contents: read
       pages: write
@@ -530,9 +534,34 @@ jobs:
       - name: Fetch Snapcraft revisions
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
         run: |
           sudo snap install --classic snapcraft
-          /snap/bin/snapcraft revisions ${{ env.SNAP_NAME }} > snapcraft-revisions.txt || true
+          EXPECTED=$(git rev-parse --short HEAD)
+          echo "Expected commit marker: +git.${EXPECTED}. (publish result: ${PUBLISH_RESULT:-none})"
+          fetch_revisions() {
+            /snap/bin/snapcraft revisions ${{ env.SNAP_NAME }} > snapcraft-revisions.txt 2>/dev/null || true
+          }
+          fetch_revisions
+          if [ "${PUBLISH_RESULT}" = "success" ]; then
+            # Publish succeeded: confirm the new revision is visible, absorbing brief
+            # Store read-lag so the report reads "current" rather than a false "pending".
+            attempts=0
+            until grep -qF "+git.${EXPECTED}." snapcraft-revisions.txt; do
+              attempts=$((attempts + 1))
+              if [ "${attempts}" -ge 8 ]; then
+                echo "Commit ${EXPECTED} still not visible after ${attempts} attempts; proceeding."
+                break
+              fi
+              echo "Commit ${EXPECTED} not visible yet (attempt ${attempts}/8); retrying in 15s..."
+              sleep 15
+              fetch_revisions
+            done
+          else
+            # Publish did not succeed: we already know it failed/was skipped, so do not
+            # poll. The report will surface this as publish_failed / unknown.
+            echo "Publish did not succeed (result: ${PUBLISH_RESULT:-none}); showing last-known-good revisions."
+          fi
 
       - name: Download coverage report
         uses: actions/download-artifact@v7
@@ -554,6 +583,8 @@ jobs:
           path: vulnerability-reports
 
       - name: Organize files for GitHub Pages
+        env:
+          PUBLISH_RESULT: ${{ needs.publish.result }}
         run: |
           # Create docs directory structure
           mkdir -p docs/coverage docs/sbom docs/vulnerabilities

@@ -196,6 +196,23 @@ assert "smoke" in needs, f"deploy-pages needs does not include smoke: {needs}"
 PYEOF
 }
 
+@test "cicd deploy-pages waits for publish so reports see the newest revision" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+deploy = doc["jobs"]["deploy-pages"]
+needs = deploy["needs"]
+assert "publish" in needs, f"deploy-pages needs does not include publish: {needs}"
+# Option B: still deploy if publish flakes, but only when real deps succeeded.
+condition = deploy["if"]
+assert "always()" in condition, condition
+for dep in ("lint", "build", "smoke", "vulnerability-scan"):
+    assert f"needs.{dep}.result == 'success'" in condition, (dep, condition)
+assert "needs.publish.result == 'success'" not in condition, condition
+PYEOF
+}
+
 @test "cicd workflow distro tests reuse the main amd64 snap artifact" {
     local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
     grep -q "^  distro-test:" "$workflow"
