@@ -511,7 +511,7 @@ jobs:
 
   deploy-pages:
     name: Deploy reports to GitHub Pages
-    needs: [lint, build, vulnerability-scan]
+    needs: [lint, build, smoke, vulnerability-scan]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:

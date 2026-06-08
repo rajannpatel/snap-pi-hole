@@ -188,6 +188,16 @@ BASH
     grep -q "cp -r vulnerability-reports/\\* docs/vulnerabilities/" "$workflow"
 }
 
+@test "cicd deploy-pages waits for smoke tests" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+needs = doc["jobs"]["deploy-pages"]["needs"]
+assert "smoke" in needs, f"deploy-pages needs does not include smoke: {needs}"
+PYEOF
+}
+
 @test "cicd workflow distro tests reuse the main amd64 snap artifact" {
     local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
     grep -q "^  distro-test:" "$workflow"
