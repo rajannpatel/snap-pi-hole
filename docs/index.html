@@ -374,12 +374,14 @@
                       <th>Architecture</th>
                       <th>Version</th>
                       <th>Revision</th>
+                      <th>Git Hash</th>
+                      <th>Commit Date</th>
                       <th>Size</th>
                       <th>Released</th>
                     </tr>
                   </thead>
                   <tbody id="snap-package-rows">
-                    <tr><td colspan="5">Loading package metadata...</td></tr>
+                    <tr><td colspan="7">Loading package metadata...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -925,15 +927,22 @@
       const rows = data.snap_package.channels || [];
       packageBody.innerHTML = "";
       if (!rows.length) {
-        packageBody.innerHTML = "<tr><td colspan=\"5\">Snap package metadata unavailable.</td></tr>";
+        packageBody.innerHTML = "<tr><td colspan=\"7\">Snap package metadata unavailable.</td></tr>";
         return;
       }
       rows.forEach((row) => {
+        const gitHashCell = row.git_commit && row.git_commit !== "N/A"
+          ? `<a href="https://github.com/rajannpatel/snap-pi-hole/commit/${row.git_commit}">${row.git_commit}</a>`
+          : "N/A";
+        const commitDateCell = row.git_commit_time ? formatDate(row.git_commit_time) : "N/A";
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${row.architecture || "Unknown"}</td>
           <td class="mono">${row.version || "Unknown"}</td>
           <td class="mono">${row.revision || "Unknown"}</td>
+          <td class="mono">${gitHashCell}</td>
+          <td class="mono">${commitDateCell}</td>
           <td class="mono">${formatBytes(row.size_bytes)}</td>
           <td class="mono">${formatDate(row.released_at)}</td>
         `;

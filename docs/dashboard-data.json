@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-06-04T01:41:48Z",
-  "data_last_updated": "2026-06-04T00:31:09Z",
+  "generated_at": "2026-06-08T00:57:41Z",
+  "data_last_updated": "2026-06-08T00:56:14Z",
   "repository": {
     "owner": "rajannpatel",
     "name": "snap-pi-hole",
@@ -9,115 +9,115 @@
   "build_status": {
     "latest_run": {
       "name": "CI/CD Pipeline",
-      "number": 35,
+      "number": 49,
       "status": "success",
       "conclusion": "success",
-      "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26921790159",
-      "updated_at": "2026-06-04T00:31:05Z",
-      "duration_seconds": 455,
-      "duration_label": "7m 35s"
+      "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27109939081",
+      "updated_at": "2026-06-08T00:55:24Z",
+      "duration_seconds": 496,
+      "duration_label": "8m 16s"
     },
     "duration_trend": [
       {
-        "run_number": 35,
+        "run_number": 49,
+        "conclusion": "success",
+        "duration_seconds": 496,
+        "duration_label": "8m 16s",
+        "updated_at": "2026-06-08T00:55:24Z",
+        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27109939081"
+      },
+      {
+        "run_number": 48,
+        "conclusion": "success",
+        "duration_seconds": 533,
+        "duration_label": "8m 53s",
+        "updated_at": "2026-06-07T16:49:56Z",
+        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27098541437"
+      },
+      {
+        "run_number": 47,
         "conclusion": "success",
         "duration_seconds": 455,
         "duration_label": "7m 35s",
-        "updated_at": "2026-06-04T00:31:05Z",
-        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26921790159"
+        "updated_at": "2026-06-07T16:35:35Z",
+        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27098227909"
       },
       {
-        "run_number": 34,
+        "run_number": 46,
         "conclusion": "success",
-        "duration_seconds": 434,
-        "duration_label": "7m 14s",
-        "updated_at": "2026-06-04T00:02:49Z",
-        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26920688997"
+        "duration_seconds": 475,
+        "duration_label": "7m 55s",
+        "updated_at": "2026-06-04T05:32:58Z",
+        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26932657869"
       },
       {
-        "run_number": 33,
+        "run_number": 45,
         "conclusion": "success",
-        "duration_seconds": 460,
-        "duration_label": "7m 40s",
-        "updated_at": "2026-06-03T23:41:31Z",
-        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26919786781"
+        "duration_seconds": 443,
+        "duration_label": "7m 23s",
+        "updated_at": "2026-06-04T05:19:08Z",
+        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26932210577"
       },
       {
-        "run_number": 32,
+        "run_number": 44,
         "conclusion": "success",
-        "duration_seconds": 454,
-        "duration_label": "7m 34s",
-        "updated_at": "2026-06-03T22:09:45Z",
-        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26915780270"
+        "duration_seconds": 458,
+        "duration_label": "7m 38s",
+        "updated_at": "2026-06-04T04:57:20Z",
+        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26931477148"
       },
       {
-        "run_number": 31,
+        "run_number": 43,
+        "conclusion": "cancelled",
+        "duration_seconds": 152,
+        "duration_label": "2m 32s",
+        "updated_at": "2026-06-04T04:48:19Z",
+        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26931304489"
+      },
+      {
+        "run_number": 42,
         "conclusion": "failure",
-        "duration_seconds": 470,
-        "duration_label": "7m 50s",
-        "updated_at": "2026-06-03T20:16:19Z",
-        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26910040222"
+        "duration_seconds": 120,
+        "duration_label": "2m 0s",
+        "updated_at": "2026-06-04T04:40:54Z",
+        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26931108033"
       },
       {
-        "run_number": 30,
-        "conclusion": "success",
-        "duration_seconds": 547,
-        "duration_label": "9m 7s",
-        "updated_at": "2026-06-03T18:07:54Z",
-        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26903243750"
+        "run_number": 41,
+        "conclusion": "failure",
+        "duration_seconds": 143,
+        "duration_label": "2m 23s",
+        "updated_at": "2026-06-04T04:35:40Z",
+        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26930899028"
       },
       {
-        "run_number": 29,
-        "conclusion": "success",
-        "duration_seconds": 466,
-        "duration_label": "7m 46s",
-        "updated_at": "2026-06-03T17:17:11Z",
-        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26900637906"
+        "run_number": 40,
+        "conclusion": "cancelled",
+        "duration_seconds": 101,
+        "duration_label": "1m 41s",
+        "updated_at": "2026-06-04T04:32:57Z",
+        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26930824726"
       },
       {
-        "run_number": 28,
-        "conclusion": "success",
-        "duration_seconds": 450,
-        "duration_label": "7m 30s",
-        "updated_at": "2026-06-03T16:41:06Z",
-        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26898727638"
+        "run_number": 39,
+        "conclusion": "cancelled",
+        "duration_seconds": 131,
+        "duration_label": "2m 11s",
+        "updated_at": "2026-06-04T04:25:04Z",
+        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26930522435"
       },
       {
-        "run_number": 27,
+        "run_number": 38,
         "conclusion": "success",
-        "duration_seconds": 557,
-        "duration_label": "9m 17s",
-        "updated_at": "2026-06-03T16:18:49Z",
-        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26897411457"
-      },
-      {
-        "run_number": 26,
-        "conclusion": "success",
-        "duration_seconds": 462,
-        "duration_label": "7m 42s",
-        "updated_at": "2026-06-03T16:09:14Z",
-        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26896972495"
-      },
-      {
-        "run_number": 25,
-        "conclusion": "success",
-        "duration_seconds": 537,
-        "duration_label": "8m 57s",
-        "updated_at": "2026-06-03T15:59:44Z",
-        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26896343065"
-      },
-      {
-        "run_number": 24,
-        "conclusion": "success",
-        "duration_seconds": 498,
-        "duration_label": "8m 18s",
-        "updated_at": "2026-06-03T12:53:54Z",
-        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26885622196"
+        "duration_seconds": 474,
+        "duration_label": "7m 54s",
+        "updated_at": "2026-06-04T03:51:53Z",
+        "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26929116445"
       }
     ],
-    "duration_baseline_seconds": 473.0,
-    "duration_regression_seconds": -18.0,
-    "update_frequency_days": 0.04
+    "duration_baseline_seconds": 472.8,
+    "duration_regression_seconds": 23.2,
+    "update_frequency_days": 0.35
   },
   "security": {
     "total_vulnerabilities": 0,
@@ -138,42 +138,42 @@
         "name": "FTL",
         "repository": "pi-hole/FTL",
         "local_tag": "v6.6.2",
-        "local_release_date": "",
-        "upstream_tag": "",
-        "upstream_release_date": "",
+        "local_release_date": "2026-05-11T19:45:48Z",
+        "upstream_tag": "v6.6.2",
+        "upstream_release_date": "2026-05-11T19:45:48Z",
         "update_available": false,
-        "lag_days": null,
-        "compare_url": "",
-        "release_notes_url": ""
+        "lag_days": 0,
+        "compare_url": "https://github.com/pi-hole/FTL/releases/tag/v6.6.2",
+        "release_notes_url": "https://github.com/pi-hole/FTL/releases/tag/v6.6.2"
       },
       {
         "key": "pi_hole",
         "name": "Pi-hole Core",
         "repository": "pi-hole/pi-hole",
         "local_tag": "v6.4.2",
-        "local_release_date": "",
-        "upstream_tag": "",
-        "upstream_release_date": "",
+        "local_release_date": "2026-04-24T21:56:33Z",
+        "upstream_tag": "v6.4.2",
+        "upstream_release_date": "2026-04-24T21:56:33Z",
         "update_available": false,
-        "lag_days": null,
-        "compare_url": "",
-        "release_notes_url": ""
+        "lag_days": 0,
+        "compare_url": "https://github.com/pi-hole/pi-hole/releases/tag/v6.4.2",
+        "release_notes_url": "https://github.com/pi-hole/pi-hole/releases/tag/v6.4.2"
       },
       {
         "key": "web",
         "name": "Web UI",
         "repository": "pi-hole/web",
         "local_tag": "v6.5",
-        "local_release_date": "",
-        "upstream_tag": "",
-        "upstream_release_date": "",
+        "local_release_date": "2026-04-03T16:54:28Z",
+        "upstream_tag": "v6.5",
+        "upstream_release_date": "2026-04-03T16:54:28Z",
         "update_available": false,
-        "lag_days": null,
-        "compare_url": "",
-        "release_notes_url": ""
+        "lag_days": 0,
+        "compare_url": "https://github.com/pi-hole/web/releases/tag/v6.5",
+        "release_notes_url": "https://github.com/pi-hole/web/releases/tag/v6.5"
       }
     ],
-    "last_updated": ""
+    "last_updated": "2026-05-11T19:45:48Z"
   },
   "test_matrix": {
     "rows": [
@@ -182,13 +182,14 @@
         "label": "Ubuntu 26.04",
         "family": "Ubuntu",
         "workflow": "test-ubuntu.yml",
+        "status_badge_url": "https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-ubuntu.yml?style=flat-square&label=",
         "status": "success",
         "conclusion": "success",
-        "run_number": 69,
-        "updated_at": "2026-06-04T00:29:19Z",
-        "duration_seconds": 349,
-        "duration_label": "5m 49s",
-        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26921790167",
+        "run_number": 83,
+        "updated_at": "2026-06-08T00:52:50Z",
+        "duration_seconds": 342,
+        "duration_label": "5m 42s",
+        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27109939087",
         "failed_job_url": ""
       },
       {
@@ -196,13 +197,14 @@
         "label": "Ubuntu Daily 26.04",
         "family": "Ubuntu",
         "workflow": "test-ubuntu-daily.yml",
+        "status_badge_url": "https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-ubuntu-daily.yml?style=flat-square&label=",
         "status": "success",
         "conclusion": "success",
-        "run_number": 59,
-        "updated_at": "2026-06-04T00:29:30Z",
-        "duration_seconds": 360,
-        "duration_label": "6m 0s",
-        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26921790200",
+        "run_number": 73,
+        "updated_at": "2026-06-08T00:53:00Z",
+        "duration_seconds": 352,
+        "duration_label": "5m 52s",
+        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27109939089",
         "failed_job_url": ""
       },
       {
@@ -210,13 +212,14 @@
         "label": "Ubuntu Core 26",
         "family": "Ubuntu",
         "workflow": "test-ubuntu-core.yml",
+        "status_badge_url": "https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-ubuntu-core.yml?style=flat-square&label=",
         "status": "success",
         "conclusion": "success",
-        "run_number": 79,
-        "updated_at": "2026-06-04T00:31:09Z",
-        "duration_seconds": 459,
-        "duration_label": "7m 39s",
-        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26921790191",
+        "run_number": 93,
+        "updated_at": "2026-06-08T00:56:14Z",
+        "duration_seconds": 546,
+        "duration_label": "9m 6s",
+        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27109939107",
         "failed_job_url": ""
       },
       {
@@ -224,13 +227,14 @@
         "label": "Debian Stable 13",
         "family": "Debian",
         "workflow": "test-debian-stable.yml",
+        "status_badge_url": "https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-debian-stable.yml?style=flat-square&label=",
         "status": "success",
         "conclusion": "success",
-        "run_number": 59,
-        "updated_at": "2026-06-04T00:28:55Z",
+        "run_number": 73,
+        "updated_at": "2026-06-08T00:52:33Z",
         "duration_seconds": 325,
         "duration_label": "5m 25s",
-        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/26921790207",
+        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27109939084",
         "failed_job_url": ""
       },
       {
@@ -238,13 +242,14 @@
         "label": "Debian Rolling",
         "family": "Debian",
         "workflow": "test-debian.yml",
-        "status": "no_data",
-        "conclusion": "no_data",
-        "run_number": null,
-        "updated_at": "",
-        "duration_seconds": null,
-        "duration_label": "Unknown",
-        "run_url": "",
+        "status_badge_url": "https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-debian.yml?style=flat-square&label=",
+        "status": "success",
+        "conclusion": "success",
+        "run_number": 83,
+        "updated_at": "2026-06-08T00:52:45Z",
+        "duration_seconds": 337,
+        "duration_label": "5m 37s",
+        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27109939149",
         "failed_job_url": ""
       },
       {
@@ -252,13 +257,14 @@
         "label": "Fedora 44",
         "family": "Fedora",
         "workflow": "test-fedora.yml",
-        "status": "no_data",
-        "conclusion": "no_data",
-        "run_number": null,
-        "updated_at": "",
-        "duration_seconds": null,
-        "duration_label": "Unknown",
-        "run_url": "",
+        "status_badge_url": "https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-fedora.yml?style=flat-square&label=",
+        "status": "success",
+        "conclusion": "success",
+        "run_number": 83,
+        "updated_at": "2026-06-08T00:53:03Z",
+        "duration_seconds": 355,
+        "duration_label": "5m 55s",
+        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27109939074",
         "failed_job_url": ""
       },
       {
@@ -266,13 +272,14 @@
         "label": "Rocky Linux 9.8",
         "family": "Rocky",
         "workflow": "test-rockylinux.yml",
-        "status": "no_data",
-        "conclusion": "no_data",
-        "run_number": null,
-        "updated_at": "",
-        "duration_seconds": null,
-        "duration_label": "Unknown",
-        "run_url": "",
+        "status_badge_url": "https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-rockylinux.yml?style=flat-square&label=",
+        "status": "success",
+        "conclusion": "success",
+        "run_number": 83,
+        "updated_at": "2026-06-08T00:53:04Z",
+        "duration_seconds": 356,
+        "duration_label": "5m 56s",
+        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27109939077",
         "failed_job_url": ""
       },
       {
@@ -280,13 +287,14 @@
         "label": "AlmaLinux 9.8",
         "family": "AlmaLinux",
         "workflow": "test-almalinux.yml",
-        "status": "no_data",
-        "conclusion": "no_data",
-        "run_number": null,
-        "updated_at": "",
-        "duration_seconds": null,
-        "duration_label": "Unknown",
-        "run_url": "",
+        "status_badge_url": "https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-almalinux.yml?style=flat-square&label=",
+        "status": "success",
+        "conclusion": "success",
+        "run_number": 83,
+        "updated_at": "2026-06-08T00:52:59Z",
+        "duration_seconds": 351,
+        "duration_label": "5m 51s",
+        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27109939078",
         "failed_job_url": ""
       },
       {
@@ -294,13 +302,14 @@
         "label": "openSUSE Leap 16.0",
         "family": "openSUSE",
         "workflow": "test-opensuse-leap.yml",
-        "status": "no_data",
-        "conclusion": "no_data",
-        "run_number": null,
-        "updated_at": "",
-        "duration_seconds": null,
-        "duration_label": "Unknown",
-        "run_url": "",
+        "status_badge_url": "https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-opensuse-leap.yml?style=flat-square&label=",
+        "status": "success",
+        "conclusion": "success",
+        "run_number": 83,
+        "updated_at": "2026-06-08T00:53:32Z",
+        "duration_seconds": 384,
+        "duration_label": "6m 24s",
+        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27109939072",
         "failed_job_url": ""
       },
       {
@@ -308,13 +317,14 @@
         "label": "openSUSE Tumbleweed",
         "family": "openSUSE",
         "workflow": "test-opensuse-tumbleweed.yml",
-        "status": "no_data",
-        "conclusion": "no_data",
-        "run_number": null,
-        "updated_at": "",
-        "duration_seconds": null,
-        "duration_label": "Unknown",
-        "run_url": "",
+        "status_badge_url": "https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-opensuse-tumbleweed.yml?style=flat-square&label=",
+        "status": "success",
+        "conclusion": "success",
+        "run_number": 93,
+        "updated_at": "2026-06-08T00:54:26Z",
+        "duration_seconds": 438,
+        "duration_label": "7m 18s",
+        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27109939075",
         "failed_job_url": ""
       },
       {
@@ -322,13 +332,14 @@
         "label": "Arch Linux Rolling",
         "family": "Arch",
         "workflow": "test-archlinux.yml",
-        "status": "no_data",
-        "conclusion": "no_data",
-        "run_number": null,
-        "updated_at": "",
-        "duration_seconds": null,
-        "duration_label": "Unknown",
-        "run_url": "",
+        "status_badge_url": "https://img.shields.io/github/actions/workflow/status/rajannpatel/snap-pi-hole/test-archlinux.yml?style=flat-square&label=",
+        "status": "success",
+        "conclusion": "success",
+        "run_number": 93,
+        "updated_at": "2026-06-08T00:54:33Z",
+        "duration_seconds": 445,
+        "duration_label": "7m 25s",
+        "run_url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27109939085",
         "failed_job_url": ""
       }
     ],
@@ -339,23 +350,27 @@
       {
         "architecture": "AMD64",
         "version": "v6.4.2",
-        "revision": 309,
+        "git_commit": "N/A",
+        "git_commit_time": "",
+        "revision": 325,
         "size_bytes": 16793600,
-        "released_at": "2026-06-04T00:31:03.107671+00:00",
-        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_309.snap",
+        "released_at": "2026-06-08T00:55:20.303918+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_325.snap",
         "channel": "stable"
       },
       {
         "architecture": "ARM64",
         "version": "v6.4.2",
-        "revision": 308,
+        "git_commit": "N/A",
+        "git_commit_time": "",
+        "revision": 324,
         "size_bytes": 15917056,
-        "released_at": "2026-06-04T00:30:22.592419+00:00",
-        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_308.snap",
+        "released_at": "2026-06-08T00:54:42.152742+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_324.snap",
         "channel": "stable"
       }
     ],
-    "last_updated": "2026-06-04T00:31:03Z"
+    "last_updated": "2026-06-08T00:55:20Z"
   },
   "auto_update": {
     "frequency": {
@@ -363,9 +378,9 @@
       "label": "Daily at 00:00 UTC"
     },
     "latest_success_run": {
-      "run_number": null,
-      "updated_at": "",
-      "url": ""
+      "run_number": 5,
+      "updated_at": "2026-06-07T02:10:45Z",
+      "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27080031155"
     }
   }
 }

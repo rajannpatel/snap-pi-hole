@@ -342,6 +342,22 @@ def collect_release_data(client, versions):
     return {"components": results, "last_updated": dt_to_iso(max([d for d in latest_dates if d], default=None))}
 
 
+def parse_snap_version(version_str):
+    if "+git." in version_str:
+        base_version, rest = version_str.split("+git.", 1)
+        parts = rest.split(".")
+        git_commit = parts[0]
+        git_commit_time = ""
+        if len(parts) > 1:
+            try:
+                unix_time = int(parts[1])
+                git_commit_time = datetime.fromtimestamp(unix_time, tz=timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+            except ValueError:
+                pass
+        return base_version, git_commit, git_commit_time
+    return version_str, "N/A", ""
+
+
 def collect_snap_package_data(client):
     snap_data = client.get_json_or_empty(
         SNAPCRAFT_INFO_URL,
@@ -357,10 +373,14 @@ def collect_snap_package_data(client):
         arch = channel.get("architecture", "unknown")
         released_at = channel.get("released-at", "")
         current = latest_by_arch.get(arch)
+        version_str = entry.get("version", "")
+        base_version, git_commit, git_commit_time = parse_snap_version(version_str)
         if not current or (released_at and released_at > current.get("released_at", "")):
             latest_by_arch[arch] = {
                 "architecture": arch.upper(),
-                "version": entry.get("version", ""),
+                "version": base_version,
+                "git_commit": git_commit,
+                "git_commit_time": git_commit_time,
                 "revision": entry.get("revision", ""),
                 "size_bytes": entry.get("download", {}).get("size"),
                 "released_at": released_at,

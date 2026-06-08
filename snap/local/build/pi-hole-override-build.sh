@@ -5,9 +5,18 @@ FTL_TAG=$(cat "${CRAFT_STAGE}/snap-meta/ftl-tag")
 WEB_TAG=$(cat "${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag")
 CORE_TAG=$(git -C "${CRAFT_PART_SRC}" describe --tags --always)
 
+# Get the short Git hash and commit timestamp from the wrapper repository (snap-pi-hole)
+if git -C "${CRAFT_PROJECT_DIR}" rev-parse --short HEAD &>/dev/null; then
+    WRAPPER_HASH=$(git -C "${CRAFT_PROJECT_DIR}" rev-parse --short HEAD)
+    WRAPPER_TIME=$(git -C "${CRAFT_PROJECT_DIR}" log -1 --format=%ct)
+    SNAP_VERSION="${CORE_TAG}+git.${WRAPPER_HASH}.${WRAPPER_TIME}"
+else
+    SNAP_VERSION="${CORE_TAG}"
+fi
+
 # Snap version mirrors the upstream pi-hole/pi-hole tag, matching
 # what `pihole -v` reports for CORE_VERSION.
-craftctl set version="${CORE_TAG}"
+craftctl set version="${SNAP_VERSION}"
 
 craftctl default
 # Replicate the advanced/ directory structure to etc/.pihole/advanced
