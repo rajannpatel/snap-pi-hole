@@ -606,6 +606,76 @@ assert components["vue"]["version"]     == "3.4.0",   f"vue: {components['vue'][
 PYEOF
 }
 
+@test "enrich_sbom.py falls back when garbage licenses normalize to nothing" {
+    mkdir -p "${TEST_DIR}/extracted/usr/share/doc/garbage-license"
+    printf 'License: MIT\n' > "${TEST_DIR}/extracted/usr/share/doc/garbage-license/copyright"
+
+    cat > "${TEST_DIR}/sbom.json" <<'EOF'
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "serialNumber": "urn:uuid:garbage-license-test",
+  "version": 1,
+  "components": [
+    {
+      "type": "library",
+      "name": "garbage-license",
+      "version": "1.0",
+      "licenses": [
+        {"license": {"name": "unknown"}},
+        {"license": {"name": "NONE"}},
+        {"license": {"name": "null"}}
+      ]
+    }
+  ]
+}
+EOF
+
+    run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}/extracted"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Fallback enrichment: garbage-license -> MIT"* ]]
+
+    python3 - <<PYEOF
+import json
+with open("${TEST_DIR}/sbom.json") as f:
+    data = json.load(f)
+components = {c["name"]: c for c in data["components"]}
+licenses = components["garbage-license"]["licenses"]
+assert licenses == [{"license": {"id": "MIT", "name": "MIT"}}], licenses
+PYEOF
+}
+
+@test "enrich_sbom.py skips malformed web package.json without changing SBOM" {
+    mkdir -p "${TEST_DIR}/extracted/var/www/html/admin"
+    printf '{"dependencies": {' > "${TEST_DIR}/extracted/var/www/html/admin/package.json"
+
+    cat > "${TEST_DIR}/sbom.json" <<'EOF'
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "serialNumber": "urn:uuid:malformed-web-test",
+  "version": 1,
+  "components": [
+    {
+      "type": "library",
+      "name": "already-good",
+      "version": "1.0",
+      "licenses": [{"license": {"id": "MIT", "name": "MIT"}}]
+    }
+  ]
+}
+EOF
+    before_checksum="$(sha256sum "${TEST_DIR}/sbom.json" | awk '{print $1}')"
+
+    run python3 "${REPO_ROOT}/snap/local/build/enrich_sbom.py" "${TEST_DIR}/sbom.json" "${TEST_DIR}/extracted"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Warning: failed to read"* ]]
+    [[ "$output" == *"No missing licenses or duplicates resolved"* ]]
+
+    after_checksum="$(sha256sum "${TEST_DIR}/sbom.json" | awk '{print $1}')"
+    [ "$before_checksum" = "$after_checksum" ]
+}
+
 @test "filter_dpkg_status.py successfully filters dpkg status file" {
     # 1. Setup mock dpkg status file
 
@@ -707,5 +777,4 @@ lib2_lics = [l["license"].get("name") for l in components["lib2"]["licenses"]]
 assert lib2_lics == ["GPL-2.0-or-later WITH Autoconf-exception-2.0"], f"Expected ['GPL-2.0-or-later WITH Autoconf-exception-2.0'], got {lib2_lics}"
 PYEOF
 }
-
 

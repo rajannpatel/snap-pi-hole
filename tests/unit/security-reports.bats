@@ -123,3 +123,83 @@ assert security["raw_affected_packages"] == 1, security
 assert security["confined_mitigation_vulnerabilities"] == 1, security
 PYEOF
 }
+
+@test "OSV summary detects USNs from related IDs and reference URLs" {
+    cat > "${REPORT_DIR}/osv-amd64.json" <<'EOF'
+{
+  "results": [
+    {
+      "packages": [
+        {
+          "package": {"name": "openssl", "version": "3.0.13", "ecosystem": "Ubuntu"},
+          "vulnerabilities": [
+            {
+              "id": "CVE-2026-0001",
+              "related": ["USN-7001-1"],
+              "aliases": [],
+              "summary": "Related USN marks this actionable"
+            },
+            {
+              "id": "CVE-2026-0002",
+              "aliases": [],
+              "references": [
+                {"url": "https://ubuntu.com/security/notices/USN-7002-1"}
+              ],
+              "summary": "Reference URL marks this actionable"
+            },
+            {
+              "id": "CVE-2026-0003",
+              "aliases": [],
+              "related": [],
+              "references": [{"url": "https://example.test/advisory"}],
+              "summary": "No USN stays report-only"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+EOF
+
+    python3 "${REPO_ROOT}/snap/local/build/summarize_osv_reports.py" "$REPORT_DIR"
+
+    python3 - <<PYEOF
+import json
+from pathlib import Path
+
+summary = json.loads(Path("${REPORT_DIR}/osv-summary.json").read_text())
+report = summary["reports"][0]
+patchable = {
+    vulnerability["id"]: vulnerability["patchable"]
+    for package in report["packages"]
+    for vulnerability in package["vulnerabilities"]
+}
+
+assert patchable == {
+    "CVE-2026-0001": True,
+    "CVE-2026-0002": True,
+    "CVE-2026-0003": False,
+}, patchable
+assert report["actionableVulnerabilities"] == 2, report
+assert report["confinedMitigationVulnerabilities"] == 1, report
+assert summary["actionableVulnerabilities"] == 2, summary
+assert summary["confinedMitigationVulnerabilities"] == 1, summary
+PYEOF
+}
+
+@test "OSV summary emits empty reports and generated artifacts for empty directory" {
+    python3 "${REPO_ROOT}/snap/local/build/summarize_osv_reports.py" "$REPORT_DIR"
+
+    run jq -e '
+      .reports == [] and
+      .totalVulnerabilities == 0 and
+      .affectedPackages == 0 and
+      .actionableVulnerabilities == 0 and
+      .confinedMitigationVulnerabilities == 0
+    ' "${REPORT_DIR}/osv-summary.json"
+    [ "$status" -eq 0 ]
+
+    [ -s "${REPORT_DIR}/vuln-summary.md" ]
+    [ -s "${REPORT_DIR}/index.html" ]
+}
