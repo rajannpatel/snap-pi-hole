@@ -322,7 +322,7 @@ def write_markdown(summary, output_path):
         lines.extend([
             f"## {report['architecture']}",
             "",
-            f"- Affected packages: {report['affectedPackages']}",
+            f"- Unpatched packages: {report['affectedPackages']}",
             f"- Vulnerability matches: {report['vulnerabilities']}",
             f"- JSON report: `{report['report']}`",
             "",
@@ -348,7 +348,7 @@ def write_markdown(summary, output_path):
                     )
             lines.append("")
         else:
-            lines.extend(["No known vulnerabilities reported by OSV-Scanner.", ""])
+            lines.extend(["No patchable vulnerabilities reported by OSV-Scanner.", ""])
 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -365,9 +365,9 @@ def write_html(summary, output_path):
                 "SBOM target scanned by OSV-Scanner.",
             ),
             (
-                "AFFECTED PACKAGES",
+                "UNPATCHED PACKAGES",
                 str(report["affectedPackages"]),
-                "Packages with at least one known vulnerability match.",
+                "Packages with at least one active unpatched vulnerability.",
             ),
             (
                 "VULNERABILITY MATCHES",
@@ -481,7 +481,7 @@ def write_html(summary, output_path):
         '</article></div>'
     )
     detail_body_rows = "\n".join(detail_rows) or (
-        '<tr><td colspan="7">No known vulnerabilities reported by OSV-Scanner.</td></tr>'
+        '<tr><td colspan="7">No patchable vulnerabilities reported by OSV-Scanner.</td></tr>'
     )
     output_path.write_text(f"""<!DOCTYPE html>
 <html lang="en">

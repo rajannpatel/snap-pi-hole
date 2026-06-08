@@ -433,14 +433,14 @@
                   <hr class="p-rule--highlight" style="margin: 0 0 1rem 0 !important;">
                   <p class="p-heading--1 u-no-margin u-no-padding"><span id="security-total-vulns">--</span></p>
                 </div>
-                <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Total vulnerabilities</p>
+                <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Unpatched vulnerabilities</p>
               </div>
               <div class="col-6 p-equal-height-row__col u-no-margin--bottom p-data-spotlight__block">
                 <div class="p-equal-height-row__item">
                   <hr class="p-rule--highlight" style="margin: 0 0 1rem 0 !important;">
                   <p class="p-heading--1 u-no-margin u-no-padding"><span id="security-affected-packages">--</span></p>
                 </div>
-                <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Affected packages</p>
+                <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Unpatched packages</p>
             </section>
             <p style="margin-top: 1.5rem;" class="p-text--small">
               <strong>Security Policy:</strong> All available upstream security updates are automatically applied during compilation at build time. The vulnerability scanner reports only outstanding, unpatched vulnerabilities that have a corresponding Ubuntu Security Notice (USN).
@@ -457,7 +457,7 @@
                   <thead>
                     <tr>
                       <th>Architecture</th>
-                      <th>Affected Packages</th>
+                      <th>Unpatched Packages</th>
                       <th>Vulnerability Matches</th>
                       <th>Report</th>
                     </tr>
@@ -959,7 +959,7 @@
       const security = data.security || {};
       setText(
         "report-vuln-summary",
-        `${security.total_vulnerabilities ?? 0} known vulnerability matches across ${security.affected_packages ?? 0} affected packages.`
+        `${security.total_vulnerabilities ?? 0} unpatched vulnerability matches across ${security.affected_packages ?? 0} unpatched packages.`
       );
     }
 
