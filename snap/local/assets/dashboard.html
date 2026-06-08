@@ -31,6 +31,23 @@
       max-width: none;
       width: 100%;
     }
+    .security-spotlight {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+    .security-spotlight__metric {
+      flex: 1 1 8rem;
+    }
+    .security-spotlight__rule {
+      margin: 0 0 1rem 0;
+    }
+    .security-spotlight__label {
+      margin-top: 0.5rem;
+    }
+    .security-spotlight__policy {
+      margin-top: 1.5rem;
+    }
     .dashboard-metric {
       font-size: 1.25rem;
       margin-bottom: 0.25rem;
@@ -429,24 +446,25 @@
         </div>
         <div class="row u-equal-height">
           <div class="col-6">
-            <section class="row p-equal-height-row--wrap" aria-label="Security summary spotlight">
-              <div class="col-6 p-equal-height-row__col u-no-margin--bottom p-data-spotlight__block">
-                <div class="p-equal-height-row__item">
-                  <hr class="p-rule--highlight" style="margin: 0 0 1rem 0 !important;">
+            <article class="p-card dashboard-card">
+              <h3>Vulnerability status</h3>
+              <p class="p-card__content">Outstanding OSV-Scanner findings from the generated SBOMs.</p>
+              <div class="security-spotlight" aria-label="Security summary spotlight">
+                <div class="security-spotlight__metric">
+                  <hr class="p-rule--highlight security-spotlight__rule">
                   <p class="p-heading--1 u-no-margin u-no-padding"><span id="security-total-vulns">--</span></p>
+                  <p class="security-spotlight__label p-text--small u-no-margin u-no-padding">Actionable USN vulnerabilities</p>
                 </div>
-                <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Actionable USN vulnerabilities</p>
+                <div class="security-spotlight__metric">
+                  <hr class="p-rule--highlight security-spotlight__rule">
+                  <p class="p-heading--1 u-no-margin u-no-padding"><span id="security-confined-vulns">--</span></p>
+                  <p class="security-spotlight__label p-text--small u-no-margin u-no-padding">Mitigated by confinement</p>
+                </div>
               </div>
-              <div class="col-6 p-equal-height-row__col u-no-margin--bottom p-data-spotlight__block">
-                <div class="p-equal-height-row__item">
-                  <hr class="p-rule--highlight" style="margin: 0 0 1rem 0 !important;">
-                  <p class="p-heading--1 u-no-margin u-no-padding"><span id="security-affected-packages">--</span></p>
-                </div>
-                <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Actionable USN packages</p>
-            </section>
-            <p style="margin-top: 1.5rem;" class="p-text--small">
-              <strong>Security Policy:</strong> All available upstream security updates are automatically applied during compilation at build time. These dashboard totals count only outstanding vulnerability matches with a corresponding Ubuntu Security Notice (USN). Non-USN OSV matches remain visible in the detailed report as confined-mitigation findings and are report-only unless a dedicated workflow gate is added.
-            </p>
+              <p class="p-text--small security-spotlight__policy">
+                <strong>Security Policy:</strong> All available upstream security updates are automatically applied during compilation at build time. These dashboard totals count only outstanding vulnerability matches with a corresponding Ubuntu Security Notice (USN). Non-USN OSV matches remain visible in the detailed report as confined-mitigation findings and are report-only unless a dedicated workflow gate is added.
+              </p>
+            </article>
           </div>
           <div class="col-6">
             <article class="p-card dashboard-card">
@@ -459,8 +477,8 @@
                   <thead>
                     <tr>
                       <th>Architecture</th>
-                      <th>Actionable USN Packages</th>
                       <th>Actionable USN Vulnerabilities</th>
+                      <th>Mitigated by Confinement</th>
                       <th>Report</th>
                     </tr>
                   </thead>
@@ -870,7 +888,7 @@
 
     function renderSecurity(security) {
       setText("security-total-vulns", String(security.total_vulnerabilities ?? 0));
-      setText("security-affected-packages", String(security.affected_packages ?? 0));
+      setText("security-confined-vulns", String(security.confined_mitigation_vulnerabilities ?? 0));
       const body = document.getElementById("security-arch-body");
       if (!body) return;
       const archRows = security.architectures || [];
@@ -883,8 +901,8 @@
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${String(row.architecture || "").toUpperCase()}</td>
-          <td>${row.affected_packages ?? 0}</td>
           <td>${row.vulnerabilities ?? 0}</td>
+          <td>${row.confined_mitigation_vulnerabilities ?? 0}</td>
           <td>${row.report ? `<a href="vulnerabilities/${row.report}" target="_blank" rel="noopener noreferrer">JSON</a>` : "N/A"}</td>
         `;
         body.appendChild(tr);
