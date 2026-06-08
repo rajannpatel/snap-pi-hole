@@ -337,7 +337,7 @@ echo "CONFIGURATION WIZARD COMPLETE"
 echo ""
 echo "Pi-hole snap setup/repair has completed successfully."
 echo ""
-echo "in a web browser, go to http://<Pi-hole-IP>/admin"
+echo "In a web browser, go to http://<Pi-hole-IP>/admin"
 local_ips=$(get_local_ips)
 if [ -n "$local_ips" ]; then
     echo "  (Detected local IP(s): ${local_ips})"
