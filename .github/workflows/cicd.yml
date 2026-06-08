@@ -74,6 +74,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Mask Snapcraft UA token
+        env:
+          SNAPCRAFT_UA_TOKEN: ${{ secrets.PRO_TOKEN }}
+        run: |
+          if [ -n "${SNAPCRAFT_UA_TOKEN:-}" ]; then
+            echo "::add-mask::${SNAPCRAFT_UA_TOKEN}"
+          fi
+
       - name: Build snap
         id: snapcraft
         uses: snapcore/action-build@v1
@@ -128,6 +136,10 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
+          if [ -n "${GEMINI_API_KEY:-}" ]; then
+            echo "::add-mask::${GEMINI_API_KEY}"
+          fi
+
           mkdir -p osv-sbom-input vulnerability-reports
           scanner_error=0
 
@@ -480,6 +492,14 @@ jobs:
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         run: |
+          if [ -n "${SNAPCRAFT_STORE_CREDENTIALS:-}" ]; then
+            while IFS= read -r line; do
+              if [ -n "$line" ]; then
+                echo "::add-mask::$line"
+              fi
+            done <<< "${SNAPCRAFT_STORE_CREDENTIALS}"
+          fi
+
           sudo snap install --classic snapcraft
 
           MAX_ATTEMPTS=3
@@ -539,6 +559,14 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
           PUBLISH_RESULT: ${{ needs.publish.result }}
         run: |
+          if [ -n "${SNAPCRAFT_STORE_CREDENTIALS:-}" ]; then
+            while IFS= read -r line; do
+              if [ -n "$line" ]; then
+                echo "::add-mask::$line"
+              fi
+            done <<< "${SNAPCRAFT_STORE_CREDENTIALS}"
+          fi
+
           sudo snap install --classic snapcraft
           EXPECTED=$(git rev-parse --short HEAD)
           echo "Expected commit marker: +git.${EXPECTED}. (publish result: ${PUBLISH_RESULT:-none})"

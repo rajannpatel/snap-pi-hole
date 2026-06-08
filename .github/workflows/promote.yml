@@ -96,6 +96,14 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [ -n "${SNAPCRAFT_STORE_CREDENTIALS:-}" ]; then
+            while IFS= read -r line; do
+              if [ -n "$line" ]; then
+                echo "::add-mask::$line"
+              fi
+            done <<< "${SNAPCRAFT_STORE_CREDENTIALS}"
+          fi
+
           echo "Current Store channel map:"
           snapcraft status "${SNAP_NAME}"
 
@@ -125,5 +133,14 @@ jobs:
           TARGET_CHANNEL: ${{ github.event.inputs.target_channel }}
         run: |
           set -euo pipefail
+
+          if [ -n "${SNAPCRAFT_STORE_CREDENTIALS:-}" ]; then
+            while IFS= read -r line; do
+              if [ -n "$line" ]; then
+                echo "::add-mask::$line"
+              fi
+            done <<< "${SNAPCRAFT_STORE_CREDENTIALS}"
+          fi
+
           snapcraft release "${SNAP_NAME}" "$REVISION" "$TARGET_CHANNEL"
           snapcraft status "${SNAP_NAME}"

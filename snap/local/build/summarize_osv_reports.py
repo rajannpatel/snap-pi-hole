@@ -5,6 +5,7 @@ import math
 import pathlib
 import sys
 import os
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
@@ -52,14 +53,22 @@ Provide your response in JSON format with exactly the following two keys:
 
 Do not include any markdown formatting, code blocks, or leading/trailing text outside the JSON object.
 """
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-    headers = {"Content-Type": "application/json"}
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key,
+    }
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "responseMimeType": "application/json"
         }
     }
+    fallback = {
+        "appropriate": f"Confinement provides isolation via AppArmor and seccomp, mitigating unauthorized access to host resources (error during Gemini lookup).",
+        "not_appropriate": f"A compromised process could potentially disrupt local services or corrupt local writable data inside the snap (error during Gemini lookup)."
+    }
+
     try:
         req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=15) as response:
@@ -70,12 +79,15 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
                 return parsed_res
             else:
                 raise ValueError("Missing required keys in Gemini API response")
-    except Exception as e:
-        print(f"Error querying Gemini API for {cve_id}: {e}", file=sys.stderr)
-        return {
-            "appropriate": f"Confinement provides isolation via AppArmor and seccomp, mitigating unauthorized access to host resources (error during Gemini lookup).",
-            "not_appropriate": f"A compromised process could potentially disrupt local services or corrupt local writable data inside the snap (error during Gemini lookup)."
-        }
+    except urllib.error.HTTPError as exc:
+        print(f"Gemini API HTTP error for {cve_id}: status {exc.code}.", file=sys.stderr)
+    except urllib.error.URLError:
+        print(f"Gemini API connection error for {cve_id}.", file=sys.stderr)
+    except (json.JSONDecodeError, KeyError, IndexError, ValueError):
+        print(f"Gemini API response parsing error for {cve_id}.", file=sys.stderr)
+    except Exception as exc:
+        print(f"Unexpected Gemini lookup error for {cve_id}: {type(exc).__name__}.", file=sys.stderr)
+    return fallback
 
 
 

@@ -19,6 +19,14 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
+      - name: Mask Snapcraft UA token
+        env:
+          SNAPCRAFT_UA_TOKEN: ${{ secrets.PRO_TOKEN }}
+        run: |
+          if [ -n "${SNAPCRAFT_UA_TOKEN:-}" ]; then
+            echo "::add-mask::${SNAPCRAFT_UA_TOKEN}"
+          fi
+
       - name: Build Snap
         uses: snapcore/action-build@v1
         id: snapcraft
