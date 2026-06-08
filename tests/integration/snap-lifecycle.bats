@@ -192,6 +192,8 @@ EOF
 
     # Rewrite launchers and sync tools
     mkdir -p "${SNAP}/bin"
+    cp "${REPO_ROOT}/snap/local/runtime/pihole-config.sh" "${SNAP}/bin/pihole-config.sh"
+    chmod +x "${SNAP}/bin/pihole-config.sh"
     for script in launcher-ftl launcher-pihole config-sync; do
         local src="${REPO_ROOT}/snap/local/runtime/${script}.sh"
         local dst="${SNAP}/bin/${script}"
@@ -203,6 +205,7 @@ EOF
         # Keep a copy in TEST_TMPDIR for backward compatibility with existing tests
         cp "${dst}" "${TEST_TMPDIR}/${script}"
     done
+    cp "${SNAP}/bin/pihole-config.sh" "${TEST_TMPDIR}/pihole-config.sh"
 
     # Create launcher-pihole stub (upstream script)
     mkdir -p "${TEST_TMPDIR}/opt"

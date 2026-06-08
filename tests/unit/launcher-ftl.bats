@@ -31,6 +31,7 @@ setup() {
     # Copy the launcher directly
     LAUNCHER="${TEST_TMPDIR}/launcher-ftl"
     cp "${REPO_ROOT}/snap/local/runtime/launcher-ftl.sh" "${LAUNCHER}"
+    cp "${REPO_ROOT}/snap/local/runtime/pihole-config.sh" "${TEST_TMPDIR}/pihole-config.sh"
     chmod +x "${LAUNCHER}"
 
     # Create dummy gravity.db to prevent the background spawn of `pihole -g`

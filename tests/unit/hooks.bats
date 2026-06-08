@@ -18,6 +18,7 @@ setup() {
     export SNAP_COMMON="${TEST_TMPDIR}/common"
     export SNAP_NAME="pihole"
     mkdir -p "${SNAP}/usr/bin" "${SNAP_DATA}" "${SNAP_COMMON}" "${SNAP}/bin"
+    cp "${REPO_ROOT}/snap/local/runtime/pihole-config.sh" "${SNAP}/bin/pihole-config.sh"
 
     # Seed the mock template layout directory and versions stub file 
     # to satisfy the file copying phase of the install hook logic.

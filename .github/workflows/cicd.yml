@@ -28,6 +28,7 @@ jobs:
             snap/local/runtime/launcher-ftl.sh \
             snap/local/runtime/launcher-pihole.sh \
             snap/local/runtime/config-sync.sh \
+            snap/local/runtime/pihole-config.sh \
             snap/local/testing/snap-check.sh \
             snap/local/testing/snap-debug.sh \
             snap/local/testing/snap-setup.sh \

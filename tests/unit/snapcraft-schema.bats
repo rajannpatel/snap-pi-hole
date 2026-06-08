@@ -377,6 +377,7 @@ PYEOF
 @test "local launcher-ftl.sh and launcher-pihole.sh exist and are executable" {
     [ -x "${REPO_ROOT}/snap/local/runtime/launcher-ftl.sh" ]
     [ -x "${REPO_ROOT}/snap/local/runtime/launcher-pihole.sh" ]
+    [ -f "${REPO_ROOT}/snap/local/runtime/pihole-config.sh" ]
 }
 
 @test "snap/gui store icon exists" {
@@ -412,6 +413,7 @@ PYEOF
     local scripts=(
         snap/local/runtime/launcher-ftl.sh
         snap/local/runtime/launcher-pihole.sh
+        snap/local/runtime/pihole-config.sh
         snap/local/testing/snap-check.sh
         snap/local/testing/snap-debug.sh
         snap/local/testing/snap-setup.sh
@@ -436,6 +438,7 @@ PYEOF
     local scripts=(
         snap/local/runtime/launcher-ftl.sh
         snap/local/runtime/launcher-pihole.sh
+        snap/local/runtime/pihole-config.sh
         snap/local/testing/snap-check.sh
         snap/local/testing/snap-debug.sh
         snap/local/testing/snap-setup.sh
@@ -525,4 +528,3 @@ assert_warn() {
     assert_warn "grep -q 'href=\"../sbom/\"' '$sbom_path'" "sbom-explorer.html is missing the ../sbom/ footer link"
     assert_warn "grep -q 'href=\"../coverage/\"' '$sbom_path'" "sbom-explorer.html is missing the ../coverage/ footer link"
 }
-

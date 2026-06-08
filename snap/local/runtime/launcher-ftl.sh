@@ -12,6 +12,9 @@ set -eu
 # rather than hitting AppArmor execution denials on the base snap's rust-coreutils.
 export PATH="${SNAP}/usr/sbin:${SNAP}/usr/bin:${SNAP}/sbin:${SNAP}/bin:${PATH:-}"
 
+SCRIPT_DIR="$(unset CDPATH; cd -P -- "$(dirname "$0")" && pwd)"
+# shellcheck source=snap/local/runtime/pihole-config.sh
+. "${SCRIPT_DIR}/pihole-config.sh"
 
 
 # The launcher no longer performs pre-flight port 53 checks.
@@ -30,15 +33,7 @@ fi
 
 # Seed a default config on first boot. FTL requires upstream servers to be configured
 # in order to resolve adlist domains during the initial background gravity sync.
-if [ ! -f "${SNAP_DATA}/etc/pihole/pihole.toml" ]; then
-    cat > "${SNAP_DATA}/etc/pihole/pihole.toml" <<EOF
-[dns]
-  upstreams = [
-    "8.8.8.8",
-    "8.8.4.4"
-  ]
-EOF
-fi
+pihole_seed_default_toml
 
 # Sync local configuration back to snapctl database to treat it as the single source of truth
 if [ -x "${SNAP}/bin/config-sync" ]; then

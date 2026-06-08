@@ -219,6 +219,7 @@ parts:
       runtime/launcher-ftl.sh: bin/launcher-ftl
       runtime/launcher-pihole.sh: bin/launcher-pihole
       runtime/config-sync.sh: bin/config-sync
+      runtime/pihole-config.sh: bin/pihole-config.sh
       testing/snap-check.sh: bin/snap-check
       testing/snap-debug.sh: bin/snap-debug
       testing/snap-setup.sh: bin/snap-setup
@@ -227,6 +228,7 @@ parts:
       - bin/launcher-ftl
       - bin/launcher-pihole
       - bin/config-sync
+      - bin/pihole-config.sh
       - bin/snap-check
       - bin/snap-debug
       - bin/snap-setup
