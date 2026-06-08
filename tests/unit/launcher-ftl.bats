@@ -44,6 +44,51 @@ teardown() {
     rm -rf "${TEST_TMPDIR}"
 }
 
+_remove_gravity_db() {
+    rm -f "${SNAP_DATA}/etc/pihole/gravity.db"
+}
+
+_install_gravity_seed_stubs() {
+    local dig_status="$1"
+
+    mkdir -p "${SNAP}/opt/pihole" "${SNAP}/usr/bin"
+
+    cat > "${SNAP}/opt/pihole/pihole" <<EOF
+#!/bin/sh
+echo "PIHOLE:\$*" >> "${TEST_TMPDIR}/pihole-gravity.log"
+printf 'gravity command: %s\n' "\$*"
+exit 0
+EOF
+    chmod +x "${SNAP}/opt/pihole/pihole"
+
+    cat > "${SNAP}/usr/bin/pihole-FTL" <<EOF
+#!/bin/sh
+echo "FTL:\$*" >> "${TEST_TMPDIR}/ftl.log"
+exit 0
+EOF
+    chmod +x "${SNAP}/usr/bin/pihole-FTL"
+
+    cat > "${SNAP}/usr/bin/dig" <<EOF
+#!/bin/sh
+echo "DIG:\$*" >> "${TEST_TMPDIR}/dig.log"
+exit ${dig_status}
+EOF
+    chmod +x "${SNAP}/usr/bin/dig"
+
+    # Keep the readiness-loop failure case deterministic and fast.
+    cat > "${SNAP}/usr/bin/seq" <<'EOF'
+#!/bin/sh
+printf '1\n2\n'
+EOF
+    chmod +x "${SNAP}/usr/bin/seq"
+
+    cat > "${SNAP}/usr/bin/sleep" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+    chmod +x "${SNAP}/usr/bin/sleep"
+}
+
 # ---------------------------------------------------------------------------
 # Directory and config seeding
 # ---------------------------------------------------------------------------
@@ -111,4 +156,37 @@ teardown() {
     [ "$status" -eq 0 ]
     # The cwd should be the /run/pihole equivalent in our tmpdir
     [[ "$output" == *"run/pihole"* ]]
+}
+
+# ---------------------------------------------------------------------------
+# First-run gravity seeding
+# ---------------------------------------------------------------------------
+
+@test "first-run gravity seeding runs initial gravity, inserts default adlist, and runs pass 2 when FTL DNS is ready" {
+    _remove_gravity_db
+    _install_gravity_seed_stubs 0
+
+    run bash "${LAUNCHER}"
+    [ "$status" -eq 0 ]
+
+    [ -f "${SNAP_COMMON}/var/log/pihole/gravity-init.log" ]
+    [ -f "${SNAP_COMMON}/var/log/pihole/gravity-first-run.log" ]
+    [ "$(grep -c 'PIHOLE:-g' "${TEST_TMPDIR}/pihole-gravity.log")" -eq 2 ]
+    grep -q "DIG:+short +time=1 +tries=1 @127.0.0.1 . NS" "${TEST_TMPDIR}/dig.log"
+    grep -q "FTL:sqlite3 ${SNAP_DATA}/etc/pihole/gravity.db" "${TEST_TMPDIR}/ftl.log"
+    grep -q "Steven Black unified hosts (default)" "${TEST_TMPDIR}/ftl.log"
+}
+
+@test "first-run gravity seeding gives up without pass 2 when FTL DNS never becomes ready" {
+    _remove_gravity_db
+    _install_gravity_seed_stubs 1
+
+    run bash "${LAUNCHER}"
+    [ "$status" -eq 0 ]
+
+    [ -f "${SNAP_COMMON}/var/log/pihole/gravity-init.log" ]
+    [ ! -f "${SNAP_COMMON}/var/log/pihole/gravity-first-run.log" ]
+    [ "$(grep -c 'PIHOLE:-g' "${TEST_TMPDIR}/pihole-gravity.log")" -eq 1 ]
+    [ "$(grep -c 'DIG:' "${TEST_TMPDIR}/dig.log")" -eq 2 ]
+    [[ "$output" == *"FTL DNS did not become ready within 90 s; skipping background gravity update."* ]]
 }
