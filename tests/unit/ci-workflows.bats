@@ -210,3 +210,20 @@ BASH
         ! grep -q "push:" "$workflow"
     done
 }
+
+@test "promote workflow validates request before releasing a revision" {
+    local workflow="${REPO_ROOT}/.github/workflows/promote.yml"
+    grep -q "validation_run_id:" "$workflow"
+    grep -q "confirmation:" "$workflow"
+    grep -q "Verify validation workflow succeeded" "$workflow"
+    grep -q "gh run view" "$workflow"
+    grep -q "snapcraft list-revisions" "$workflow"
+    grep -q "snap install.*--channel" "$workflow"
+    grep -q "snapcraft release" "$workflow"
+}
+
+@test "promote workflow keeps snap-publishing environment approval gate" {
+    local workflow="${REPO_ROOT}/.github/workflows/promote.yml"
+    grep -q "environment: snap-publishing" "$workflow"
+    grep -q "actions: read" "$workflow"
+}
