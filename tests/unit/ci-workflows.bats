@@ -187,3 +187,26 @@ BASH
     grep -q "docs/vulnerabilities" "$workflow"
     grep -q "cp -r vulnerability-reports/\\* docs/vulnerabilities/" "$workflow"
 }
+
+@test "cicd workflow distro tests reuse the main amd64 snap artifact" {
+    local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
+    grep -q "^  distro-test:" "$workflow"
+    grep -q "uses: ./.github/workflows/reusable-distro-test.yml" "$workflow"
+    grep -q "snap_artifact_name: pihole-snap-amd64" "$workflow"
+}
+
+@test "reusable distro workflow only builds when no snap artifact is supplied" {
+    local workflow="${REPO_ROOT}/.github/workflows/reusable-distro-test.yml"
+    grep -q "snap_artifact_name:" "$workflow"
+    grep -q "if: inputs.snap_artifact_name == ''" "$workflow"
+    grep -q "Download Provided Snap Artifact" "$workflow"
+}
+
+@test "standalone distro workflows are manual only" {
+    local workflow
+    for workflow in "${REPO_ROOT}"/.github/workflows/test-*.yml; do
+        grep -q "workflow_dispatch:" "$workflow"
+        ! grep -q "pull_request:" "$workflow"
+        ! grep -q "push:" "$workflow"
+    done
+}

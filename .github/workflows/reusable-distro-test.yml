@@ -12,16 +12,21 @@ on:
         required: false
         type: string
         default: ""
+      snap_artifact_name:
+        description: "Existing snap artifact to test. When empty, this reusable workflow builds a snap for standalone/manual distro runs."
+        required: false
+        type: string
+        default: ""
 permissions:
+  actions: read
   contents: read
 
 jobs:
   build:
     name: Build Snap Package
+    if: inputs.snap_artifact_name == ''
     runs-on: ubuntu-24.04
     environment: snap-publishing
-    outputs:
-      snap_file: ${{ steps.find_snap.outputs.snap_file }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -34,12 +39,6 @@ jobs:
         with:
           snapcraft-channel: 9.x/candidate
 
-      - name: Find Built Snap File
-        id: find_snap
-        run: |
-          SNAP_PATH=$(ls *.snap | head -n 1)
-          echo "snap_file=$SNAP_PATH" >> $GITHUB_OUTPUT
-
       - name: Upload Snap Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -49,15 +48,28 @@ jobs:
   distro-test:
     name: Validate Snap Installation
     needs: build
+    if: always() && (inputs.snap_artifact_name != '' || needs.build.result == 'success')
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Download Snap Artifact
+      - name: Download Provided Snap Artifact
+        if: inputs.snap_artifact_name != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.snap_artifact_name }}
+
+      - name: Download Locally Built Snap Artifact
+        if: inputs.snap_artifact_name == ''
         uses: actions/download-artifact@v4
         with:
           name: built-snap-${{ inputs.distro }}
+
+      - name: Find Snap File
+        run: |
+          SNAP_FILE=$(ls *.snap | head -n 1)
+          echo "SNAP_FILE=${SNAP_FILE}" >> "$GITHUB_ENV"
 
       # ── Hypervisor network fix (all distros) ───────────────────────────────
 
@@ -230,7 +242,7 @@ jobs:
                 lxc exec test-instance -- useradd -m -d /home/builder -s /bin/bash builder
                 lxc exec test-instance -- sh -c 'echo \"builder ALL=(ALL) NOPASSWD: ALL\" >> /etc/sudoers'
                 lxc exec test-instance -- sh -c 'cd ~builder && sudo -u builder git config --global http.postBuffer 524288000'
-                
+
                 # Implement shallow clone and retry logic for resilience
                 lxc exec test-instance -- sh -c '
                   cd ~builder
@@ -247,7 +259,7 @@ jobs:
                     exit 1
                   fi
                 '
-                
+
                 lxc exec test-instance -- sh -c 'cd ~builder/snapd && sudo -u builder makepkg -si --noconfirm'
                 lxc exec test-instance -- systemctl enable --now snapd.socket
                 lxc exec test-instance -- ln -s /var/lib/snapd/snap /snap
@@ -259,7 +271,7 @@ jobs:
         if: inputs.distro != 'ubuntu-core'
         run: |
           sg lxd -c "
-            lxc file push ${{ needs.build.outputs.snap_file }} test-instance/tmp/pihole.snap
+            lxc file push "${SNAP_FILE}" test-instance/tmp/pihole.snap
             # Wait for snapd to finish seeding to prevent 'too early for operation' errors
             lxc exec test-instance -- snap wait system seed.loaded || true
             lxc exec test-instance -- snap install /tmp/pihole.snap --dangerous
@@ -356,7 +368,7 @@ jobs:
           sudo multipass exec test-instance -- sudo systemctl restart systemd-resolved
 
           # Transfer and install the snap
-          sudo multipass transfer ${{ needs.build.outputs.snap_file }} test-instance:/home/ubuntu/pihole.snap
+          sudo multipass transfer "${SNAP_FILE}" test-instance:/home/ubuntu/pihole.snap
           sudo multipass exec test-instance -- sudo snap install /home/ubuntu/pihole.snap --dangerous
 
           for plug in network-bind network-control firewall-control network-observe \
@@ -365,7 +377,7 @@ jobs:
           done
 
           sudo multipass exec test-instance -- sudo snap alias pihole-by-rajannpatel.pihole pihole
-          
+
           # Start and enable the daemon (required since it installs disabled by default)
           sudo multipass exec test-instance -- sudo snap start --enable pihole-by-rajannpatel.pihole-ftl
 

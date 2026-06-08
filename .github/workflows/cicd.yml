@@ -382,6 +382,42 @@ jobs:
           echo "--- FTL.log ---"
           sudo cat /var/snap/${{ env.SNAP_NAME }}/common/var/log/pihole/FTL.log || true
 
+  distro-test:
+    name: distro test (${{ matrix.distro }})
+    needs: [build, lint]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: ubuntu
+            lxd_image: ubuntu:lts
+          - distro: ubuntu-daily
+            lxd_image: ubuntu-daily:devel
+          - distro: ubuntu-core
+            lxd_image: ""
+          - distro: debian
+            lxd_image: images:debian
+          - distro: debian-stable
+            lxd_image: images:debian/stable
+          - distro: fedora
+            lxd_image: images:fedora
+          - distro: rockylinux
+            lxd_image: images:rockylinux
+          - distro: almalinux
+            lxd_image: images:almalinux
+          - distro: opensuse-leap
+            lxd_image: images:opensuse
+          - distro: opensuse-tumbleweed
+            lxd_image: images:opensuse/tumbleweed
+          - distro: archlinux
+            lxd_image: images:archlinux
+    uses: ./.github/workflows/reusable-distro-test.yml
+    with:
+      distro: ${{ matrix.distro }}
+      lxd_image: ${{ matrix.lxd_image }}
+      snap_artifact_name: pihole-snap-amd64
+    secrets: inherit
+
   publish:
     name: publish (${{ matrix.arch }})
     needs: [smoke]
