@@ -108,6 +108,7 @@ jobs:
     name: vulnerability scan
     needs: [build]
     runs-on: ubuntu-latest
+    environment: snap-publishing
     steps:
       - uses: actions/checkout@v6
 
@@ -124,6 +125,8 @@ jobs:
           echo "${HOME}/go/bin" >> "$GITHUB_PATH"
 
       - name: Scan SBOMs with OSV-Scanner
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           mkdir -p osv-sbom-input vulnerability-reports
           scanner_error=0

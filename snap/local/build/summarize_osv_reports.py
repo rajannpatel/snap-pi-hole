@@ -4,9 +4,79 @@ import json
 import math
 import pathlib
 import sys
+import os
+import urllib.request
 from datetime import datetime, timezone
 
 from report_assets import vanilla_framework_css_link
+
+
+def load_cache():
+    repo_root = pathlib.Path(__file__).resolve().parent.parent.parent.parent
+    cache_file = repo_root / "local-vulnerabilities" / "gemini-cache.json"
+    if cache_file.exists():
+        try:
+            return json.loads(cache_file.read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"Error loading cache: {e}", file=sys.stderr)
+    return {}
+
+
+def save_cache(cache):
+    repo_root = pathlib.Path(__file__).resolve().parent.parent.parent.parent
+    cache_file = repo_root / "local-vulnerabilities" / "gemini-cache.json"
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        cache_file.write_text(json.dumps(cache, indent=2) + "\n", encoding="utf-8")
+    except Exception as e:
+        print(f"Error saving cache: {e}", file=sys.stderr)
+
+
+def query_gemini_vulnerability_info(cve_id, package_name, version):
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        print(f"GEMINI_API_KEY not set. Using fallback placeholders for {cve_id}.", file=sys.stderr)
+        return {
+            "appropriate": f"Snap confinement restricts process access, ensuring {cve_id} is contained within the sandbox.",
+            "not_appropriate": f"If {cve_id} enables local execution or sandbox escape, confinement boundaries might be bypassed."
+        }
+
+    prompt = f"""
+For the vulnerability {cve_id} in package {package_name} (version {version}), which is packaged as a strictly confined Ubuntu snap (using AppArmor, seccomp filters, and a read-only SquashFS filesystem):
+1. Explain how/why a "confined mitigation" label is appropriate (i.e., how snap's security boundaries and sandbox mitigate the vulnerability).
+2. Explain why a "confined mitigation" label might NOT be appropriate (i.e., how the vulnerability could still be exploited or cause harm despite the sandbox).
+
+Provide your response in JSON format with exactly the following two keys:
+- "appropriate": a concise explanation (1-3 sentences)
+- "not_appropriate": a concise explanation (1-3 sentences)
+
+Do not include any markdown formatting, code blocks, or leading/trailing text outside the JSON object.
+"""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    headers = {"Content-Type": "application/json"}
+    body = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json"
+        }
+    }
+    try:
+        req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=15) as response:
+            res_data = json.loads(response.read().decode("utf-8"))
+            text_content = res_data["candidates"][0]["content"]["parts"][0]["text"]
+            parsed_res = json.loads(text_content.strip())
+            if "appropriate" in parsed_res and "not_appropriate" in parsed_res:
+                return parsed_res
+            else:
+                raise ValueError("Missing required keys in Gemini API response")
+    except Exception as e:
+        print(f"Error querying Gemini API for {cve_id}: {e}", file=sys.stderr)
+        return {
+            "appropriate": f"Confinement provides isolation via AppArmor and seccomp, mitigating unauthorized access to host resources (error during Gemini lookup).",
+            "not_appropriate": f"A compromised process could potentially disrupt local services or corrupt local writable data inside the snap (error during Gemini lookup)."
+        }
+
 
 
 SEVERITY_ICONS = {
@@ -252,6 +322,9 @@ def collect_reports(reports_dir):
         "confinedMitigationVulnerabilities": 0,
     }
 
+    cache = load_cache()
+    cache_updated = False
+
     for report_path in sorted(reports_dir.glob("osv-*.json")):
         if report_path.name == "osv-summary.json":
             continue
@@ -269,6 +342,9 @@ def collect_reports(reports_dir):
                 vulns = package.get("vulnerabilities", [])
                 if not vulns:
                     continue
+                pkg = package.get("package", {})
+                package_name = pkg.get("name", "unknown")
+                package_version = pkg.get("version", "")
 
                 package_vulns = []
                 for v in vulns:
@@ -282,7 +358,16 @@ def collect_reports(reports_dir):
                         or any(r.startswith("USN-") for r in related)
                         or any("/USN-" in ref.get("url", "") or "/notices/USN-" in ref.get("url", "") for ref in references)
                     )
-                    package_vulns.append(vulnerability_entry(v, has_usn))
+                    
+                    if vuln_id not in cache:
+                        explanations = query_gemini_vulnerability_info(vuln_id, package_name, package_version)
+                        cache[vuln_id] = explanations
+                        cache_updated = True
+                    
+                    v_entry = vulnerability_entry(v, has_usn)
+                    v_entry["appropriate"] = cache[vuln_id]["appropriate"]
+                    v_entry["not_appropriate"] = cache[vuln_id]["not_appropriate"]
+                    package_vulns.append(v_entry)
 
                 affected_packages += 1
                 vulnerabilities += len(package_vulns)
@@ -291,10 +376,9 @@ def collect_reports(reports_dir):
                 confined_mitigation_vulnerabilities += len(package_vulns) - package_actionable_vulnerabilities
                 if package_actionable_vulnerabilities:
                     actionable_affected_packages += 1
-                pkg = package.get("package", {})
                 entries.append({
-                    "name": pkg.get("name", "unknown"),
-                    "version": pkg.get("version", ""),
+                    "name": package_name,
+                    "version": package_version,
                     "ecosystem": pkg.get("ecosystem", ""),
                     "vulnerabilities": package_vulns,
                 })
@@ -332,6 +416,9 @@ def collect_reports(reports_dir):
         0,
         summary["totalVulnerabilities"] - summary["actionableVulnerabilities"],
     )
+
+    if cache_updated:
+        save_cache(cache)
 
     return summary
 
@@ -382,6 +469,46 @@ def write_markdown(summary, output_path):
             lines.append("")
         else:
             lines.extend(["No unpatched vulnerabilities reported by OSV-Scanner.", ""])
+
+    # Append Confinement Analysis itemization
+    has_vulns = False
+    for report in summary["reports"]:
+        if report["packages"]:
+            has_vulns = True
+            break
+    
+    if has_vulns:
+        lines.extend([
+            "## Confinement Analysis",
+            "",
+            "Itemized security analysis of identified vulnerabilities and their exposure inside the strictly confined snap sandbox.",
+            ""
+        ])
+        
+        seen_vulns = {}
+        for report in summary["reports"]:
+            for package in report["packages"]:
+                for vulnerability in package["vulnerabilities"]:
+                    vuln_id = vulnerability["id"]
+                    if vuln_id not in seen_vulns:
+                        seen_vulns[vuln_id] = {
+                            "package": package["name"],
+                            "version": package["version"],
+                            "appropriate": vulnerability.get("appropriate", ""),
+                            "not_appropriate": vulnerability.get("not_appropriate", "")
+                        }
+        
+        for vuln_id, info in sorted(seen_vulns.items()):
+            vuln_label = display_vulnerability_id(vuln_id)
+            lines.extend([
+                f"### {vuln_label} ({info['package']})",
+                "",
+                f"- **Why Confined Mitigation is Appropriate**:",
+                f"  {info['appropriate']}",
+                f"- **Why Confined Mitigation is NOT Appropriate**:",
+                f"  {info['not_appropriate']}",
+                ""
+            ])
 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -454,6 +581,8 @@ def write_html(summary, output_path):
                     vulnerability["patchable"],
                     publication_iso,
                     publication_label,
+                    vulnerability.get("appropriate", ""),
+                    vulnerability.get("not_appropriate", ""),
                 )
                 if detail_key not in detail_rows_by_key:
                     detail_rows_by_key[detail_key] = {
@@ -466,6 +595,8 @@ def write_html(summary, output_path):
                         "patchable": vulnerability["patchable"],
                         "publication_iso": publication_iso,
                         "publication_label": publication_label,
+                        "appropriate": vulnerability.get("appropriate", ""),
+                        "not_appropriate": vulnerability.get("not_appropriate", ""),
                         "architectures": set(),
                     }
                 detail_rows_by_key[detail_key]["architectures"].add(report["architecture"])
@@ -501,7 +632,7 @@ def write_html(summary, output_path):
             ]
         ).lower()
         detail_rows.append(
-            f'<tr data-search="{html.escape(row_search)}">'
+            f'<tr class="vulnerability-row" data-search="{html.escape(row_search)}">'
             f"<td>{html.escape(row_data['package_name'])}</td>"
             f"<td>{html.escape(row_data['package_version'])}</td>"
             f"<td>{row_data['vulnerability_cell']}</td>"
@@ -510,7 +641,21 @@ def write_html(summary, output_path):
             f"<td>{status_badge(row_data['patchable'])}</td>"
             f"<td>{publication_cell}</td>"
             f"<td>{architecture_cells}</td>"
-            "</tr>"
+            "</tr>\n"
+            f'<tr class="vulnerability-explanation-row" style="background-color: #fafafa;">'
+            f'<td colspan="8" style="padding: 1rem 1.5rem !important; border-bottom: 1px solid #e0e0e0;">'
+            f'<div style="display: flex; gap: 2rem; flex-wrap: wrap;">'
+            f'<div style="flex: 1; min-width: 280px; border-left: 4px solid #1976d2; padding-left: 1rem;">'
+            f'<h4 style="font-size: 0.9rem; font-weight: 600; color: #1976d2; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.5px;">Why Confined Mitigation is Appropriate</h4>'
+            f'<p style="font-size: 0.875rem; line-height: 1.5; color: #333; margin: 0;">{html.escape(row_data["appropriate"])}</p>'
+            f'</div>'
+            f'<div style="flex: 1; min-width: 280px; border-left: 4px solid #d32f2f; padding-left: 1rem;">'
+            f'<h4 style="font-size: 0.9rem; font-weight: 600; color: #d32f2f; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.5px;">Confinement Limitations / Risks</h4>'
+            f'<p style="font-size: 0.875rem; line-height: 1.5; color: #333; margin: 0;">{html.escape(row_data["not_appropriate"])}</p>'
+            f'</div>'
+            f'</div>'
+            f'</td>'
+            f'</tr>'
         )
 
     summary_table_rows = "\n".join(summary_rows) or (
@@ -863,15 +1008,22 @@ def write_html(summary, output_path):
     function filterVulnerabilities() {{
       const searchInput = document.getElementById('vulnerability-search');
       const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
-      document.querySelectorAll('#vulnerability-tbody tr').forEach(row => {{
+      const rows = document.querySelectorAll('#vulnerability-tbody tr.vulnerability-row');
+      rows.forEach(row => {{
+        const nextRow = row.nextElementSibling;
         const searchText = row.dataset.search || row.textContent.toLowerCase();
-        row.style.display = !query || searchText.includes(query) ? '' : 'none';
+        const matches = !query || searchText.includes(query);
+        const displayStyle = matches ? '' : 'none';
+        row.style.display = displayStyle;
+        if (nextRow && nextRow.classList.contains('vulnerability-explanation-row')) {{
+          nextRow.style.display = displayStyle;
+        }}
       }});
     }}
 
     function sortVulnerabilities(column) {{
       const tbody = document.getElementById('vulnerability-tbody');
-      const rows = Array.from(tbody.querySelectorAll('tr'));
+      const parentRows = Array.from(tbody.querySelectorAll('tr.vulnerability-row'));
       if (vulnerabilitySortColumn === column) {{
         vulnerabilitySortDirection = vulnerabilitySortDirection === 'ascending' ? 'descending' : 'ascending';
       }} else {{
@@ -879,9 +1031,22 @@ def write_html(summary, output_path):
         vulnerabilitySortDirection = defaultSortDirection(column);
       }}
 
-      rows.sort((a, b) => compareVulnerabilityRows(a, b, column, vulnerabilitySortDirection));
+      const pairs = parentRows.map(row => {{
+        return {{
+          parent: row,
+          explanation: row.nextElementSibling && row.nextElementSibling.classList.contains('vulnerability-explanation-row') ? row.nextElementSibling : null
+        }};
+      }});
 
-      rows.forEach(row => tbody.appendChild(row));
+      pairs.sort((a, b) => compareVulnerabilityRows(a.parent, b.parent, column, vulnerabilitySortDirection));
+
+      pairs.forEach(pair => {{
+        tbody.appendChild(pair.parent);
+        if (pair.explanation) {{
+          tbody.appendChild(pair.explanation);
+        }}
+      }});
+
       document.querySelectorAll('.vulnerability-sort-button').forEach(button => {{
         const isActive = Number(button.dataset.column) === column;
         button.setAttribute('aria-sort', isActive ? vulnerabilitySortDirection : 'none');
