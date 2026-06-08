@@ -1,0 +1,8 @@
+extends: existence
+message: "Boldface words or phrases must not end with a colon. The colon should be removed."
+level: error
+scope: raw
+nonword: true
+tokens:
+  - '\*\*([^\*]+):\*\*'
+  - '__([^_]+):__'

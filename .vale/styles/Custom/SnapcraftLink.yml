@@ -1,0 +1,7 @@
+extends: existence
+message: "Link 'snapcraft.io' in its entirety, not just the word 'snapcraft' with a dangling '.io'."
+level: error
+scope: raw
+raw:
+  # Matches [snapcraft](...) followed by dangling .io
+  - '(?i)\[snapcraft\]\(https?://[^\)]*?snapcraft\.io[^\)]*?\)\s*\.io'

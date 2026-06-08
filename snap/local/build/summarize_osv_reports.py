@@ -214,7 +214,7 @@ def architecture_chip(architecture):
     )
 
 
-def vulnerability_entry(vulnerability):
+def vulnerability_entry(vulnerability, patchable):
     aliases = vulnerability.get("aliases", [])
     return {
         "id": vulnerability.get("id", "unknown"),
@@ -226,6 +226,7 @@ def vulnerability_entry(vulnerability):
         "published": vulnerability.get("published", ""),
         "modified": vulnerability.get("modified", ""),
         "url": vuln_url(vulnerability),
+        "patchable": patchable,
     }
 
 
@@ -259,8 +260,7 @@ def collect_reports(reports_dir):
                 if not vulns:
                     continue
 
-                # Only keep vulnerabilities that have a corresponding USN (found in ID, aliases, related, or references)
-                filtered_vulns = []
+                package_vulns = []
                 for v in vulns:
                     vuln_id = v.get("id", "")
                     aliases = v.get("aliases", [])
@@ -272,20 +272,16 @@ def collect_reports(reports_dir):
                         or any(r.startswith("USN-") for r in related)
                         or any("/USN-" in ref.get("url", "") or "/notices/USN-" in ref.get("url", "") for ref in references)
                     )
-                    if has_usn:
-                        filtered_vulns.append(v)
-
-                if not filtered_vulns:
-                    continue
+                    package_vulns.append(vulnerability_entry(v, has_usn))
 
                 affected_packages += 1
-                vulnerabilities += len(filtered_vulns)
+                vulnerabilities += len(package_vulns)
                 pkg = package.get("package", {})
                 entries.append({
                     "name": pkg.get("name", "unknown"),
                     "version": pkg.get("version", ""),
                     "ecosystem": pkg.get("ecosystem", ""),
-                    "vulnerabilities": [vulnerability_entry(v) for v in filtered_vulns],
+                    "vulnerabilities": package_vulns,
                 })
 
         summary["reports"].append({
@@ -310,13 +306,13 @@ def collect_reports(reports_dir):
 
     return summary
 
-
 def write_markdown(summary, output_path):
     lines = [
         "# Vulnerability Summary",
         "",
         "All available security updates are automatically applied during compilation at build time.",
-        "This report only lists active, unpatched vulnerabilities that have a corresponding Ubuntu Security Notice (USN).",
+        "This report lists both actionable vulnerabilities (with a corresponding Ubuntu Security Notice) and unactionable vulnerabilities (no patch available yet).",
+        "Strict snap confinement mitigates risks from unpatched vulnerabilities by running the application in a highly isolated sandbox.",
         "",
     ]
 
@@ -331,8 +327,8 @@ def write_markdown(summary, output_path):
         ])
 
         if report["packages"]:
-            lines.append("| Package | Version | Vulnerability | CVSS 3 | Priority | Published |")
-            lines.append("| --- | --- | --- | --- | --- | --- |")
+            lines.append("| Package | Version | Vulnerability | CVSS 3 | Priority | Status | Published |")
+            lines.append("| --- | --- | --- | --- | --- | --- | --- |")
             for package in report["packages"]:
                 for vulnerability in package["vulnerabilities"]:
                     vuln_label = display_vulnerability_id(vulnerability["id"])
@@ -341,18 +337,35 @@ def write_markdown(summary, output_path):
                     _iso, pub_label = format_publication_date(
                         vulnerability.get("published") or vulnerability.get("modified")
                     )
+                    status_str = "Actionable (USN)" if vulnerability["patchable"] else "Confined Mitigation"
                     lines.append(
                         f"| {markdown_cell(package['name'])} | {markdown_cell(package['version'])} | "
                         f"{markdown_cell(vuln_label)} | "
                         f"{markdown_cell(vulnerability['severity'])} | "
                         f"{markdown_cell(vulnerability['priority'])} | "
+                        f"{status_str} | "
                         f"{markdown_cell(pub_label)} |"
                     )
             lines.append("")
         else:
-            lines.extend(["No patchable vulnerabilities reported by OSV-Scanner.", ""])
+            lines.extend(["No unpatched vulnerabilities reported by OSV-Scanner.", ""])
 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def status_badge(patchable):
+    if patchable:
+        return (
+            '<span class="p-chip" style="background-color: #e6f2ff; border: 1px solid #b3d7ff; color: #004085;">'
+            '<span class="p-chip__value">Actionable (USN)</span>'
+            '</span>'
+        )
+    else:
+        return (
+            '<span class="p-chip" style="background-color: #f3e5f5; border: 1px solid #e1bee7; color: #4a148c;" title="Mitigated by Snap Confinement">'
+            '<span class="p-chip__value">Confined Mitigation</span>'
+            '</span>'
+        )
 
 
 def write_html(summary, output_path):
@@ -407,6 +420,7 @@ def write_html(summary, output_path):
                     vulnerability["url"],
                     vulnerability["severity"],
                     vulnerability["priority"],
+                    vulnerability["patchable"],
                     publication_iso,
                     publication_label,
                 )
@@ -418,6 +432,7 @@ def write_html(summary, output_path):
                         "vulnerability_id": vuln_id_text,
                         "severity": vulnerability["severity"],
                         "priority": vulnerability["priority"],
+                        "patchable": vulnerability["patchable"],
                         "publication_iso": publication_iso,
                         "publication_label": publication_label,
                         "architectures": set(),
@@ -449,6 +464,7 @@ def write_html(summary, output_path):
                 row_data["vulnerability_id"],
                 row_data["severity"],
                 row_data["priority"],
+                "actionable" if row_data["patchable"] else "unactionable confined mitigation",
                 publication_label,
                 " ".join(architecture_labels),
             ]
@@ -460,6 +476,7 @@ def write_html(summary, output_path):
             f"<td>{row_data['vulnerability_cell']}</td>"
             f"<td>{severity_icon(row_data['severity'])}</td>"
             f"<td>{priority_icon(row_data['priority'])}</td>"
+            f"<td>{status_badge(row_data['patchable'])}</td>"
             f"<td>{publication_cell}</td>"
             f"<td>{architecture_cells}</td>"
             "</tr>"
@@ -483,7 +500,7 @@ def write_html(summary, output_path):
         '</article></div>'
     )
     detail_body_rows = "\n".join(detail_rows) or (
-        '<tr><td colspan="7">No patchable vulnerabilities reported by OSV-Scanner.</td></tr>'
+        '<tr><td colspan="8">No unpatched vulnerabilities reported by OSV-Scanner.</td></tr>'
     )
     output_path.write_text(f"""<!DOCTYPE html>
 <html lang="en">
@@ -536,6 +553,7 @@ def write_html(summary, output_path):
       display: inline-block;
       font-size: 0.8rem;
       margin-left: 0.35rem;
+      color: #777;
     }}
     .vulnerability-sort-button[aria-sort="ascending"]::after {{
       content: "↑";
@@ -556,31 +574,35 @@ def write_html(summary, output_path):
     }}
     .vulnerability-details th:nth-child(1),
     .vulnerability-details td:nth-child(1) {{
-      width: 16%;
+      width: 14%;
     }}
     .vulnerability-details th:nth-child(2),
     .vulnerability-details td:nth-child(2) {{
-      width: 15%;
+      width: 12%;
     }}
     .vulnerability-details th:nth-child(3),
     .vulnerability-details td:nth-child(3) {{
-      width: 18%;
+      width: 14%;
     }}
     .vulnerability-details th:nth-child(4),
     .vulnerability-details td:nth-child(4) {{
-      width: 13%;
+      width: 11%;
     }}
     .vulnerability-details th:nth-child(5),
     .vulnerability-details td:nth-child(5) {{
-      width: 12%;
+      width: 10%;
     }}
     .vulnerability-details th:nth-child(6),
     .vulnerability-details td:nth-child(6) {{
-      width: 12%;
+      width: 15%;
     }}
     .vulnerability-details th:nth-child(7),
     .vulnerability-details td:nth-child(7) {{
-      width: 16%;
+      width: 12%;
+    }}
+    .vulnerability-details th:nth-child(8),
+    .vulnerability-details td:nth-child(8) {{
+      width: 12%;
     }}
     .vulnerability-details td:nth-child(2),
     .vulnerability-details td:nth-child(3) {{
@@ -651,12 +673,23 @@ def write_html(summary, output_path):
               <li class="p-breadcrumbs__item" aria-current="page">Vulnerability Reports</li>
             </ol>
           </nav>
-          <section class="row" style="margin-bottom: 2rem;" aria-labelledby="vulnerability-title">
+          <section class="row" style="margin-bottom: 1rem;" aria-labelledby="vulnerability-title">
             <div class="col-12">
               <h1 class="p-heading--2" id="vulnerability-title" style="margin-bottom: 1.5rem;">Vulnerability Reports</h1>
-              <p class="p-heading--4">Active unpatched vulnerabilities with corresponding Ubuntu Security Notices (USNs). All available package security updates are automatically applied during snap compilation at build time.</p>
+              <p class="p-heading--4">Active unpatched vulnerability matches returned by OSV-Scanner. All available package security updates are automatically applied during snap compilation at build time.</p>
             </div>
           </section>
+          
+          <div class="p-strip u-no-padding--bottom" style="background-color: #f7f7f7; padding: 1.5rem; border-radius: 4px; margin-bottom: 2rem; border-left: 4px solid #772953;">
+            <h3 class="p-heading--4" style="margin-bottom: 0.5rem; color: #772953; font-weight: 500;">The Value of Snap Confinement</h3>
+            <p class="p-text--small" style="margin-bottom: 0.5rem;">
+              This report contains both <strong>Actionable</strong> (USN available) and <strong>Unactionable</strong> (no USN or official patch available upstream) vulnerabilities.
+            </p>
+            <p class="p-text--small" style="margin-bottom: 0;">
+              Unlike conventional deployments, a strictly confined Snap executes within a secure sandbox. Even if a bundled library contains an unpatched vulnerability, process capabilities and host interactions are restricted by <strong>AppArmor profiles, seccomp filters, and a read-only SquashFS filesystem</strong>. This prevents a compromised service from escaping the sandbox or accessing host resources, demonstrating the key security advantage of snap confinement.
+            </p>
+          </div>
+
           <section class="row u-equal-height" style="margin-bottom: 2rem;" aria-label="Vulnerability scan summary">
             {summary_cards_html}
           </section>
@@ -664,8 +697,8 @@ def write_html(summary, output_path):
           <div class="row vulnerability-table-controls">
             <div class="col-12">
               <form class="p-search-box" onsubmit="event.preventDefault(); filterVulnerabilities();" style="margin-bottom: 0;">
-                <label class="u-off-screen" for="vulnerability-search">Search by package, version, vulnerability, CVSS 3, priority, publication date, or architecture</label>
-                <input type="search" id="vulnerability-search" class="p-search-box__input" placeholder="Search by package, version, vulnerability, CVSS 3, priority, publication date, or architecture..." oninput="filterVulnerabilities()" autocomplete="off">
+                <label class="u-off-screen" for="vulnerability-search">Search by package, version, vulnerability, CVSS 3, priority, status, publication date, or architecture</label>
+                <input type="search" id="vulnerability-search" class="p-search-box__input" placeholder="Search by package, version, vulnerability, CVSS 3, priority, status, publication date, or architecture..." oninput="filterVulnerabilities()" autocomplete="off">
                 <button type="reset" class="p-search-box__reset" onclick="document.getElementById('vulnerability-search').value=''; filterVulnerabilities();"><i class="p-icon--close">Clear</i></button>
                 <button type="submit" class="p-search-box__button"><i class="p-icon--search">Search</i></button>
               </form>
@@ -681,8 +714,9 @@ def write_html(summary, output_path):
                   <th><button type="button" class="vulnerability-sort-button" data-column="2" aria-sort="none" onclick="sortVulnerabilities(2)">Vulnerability</button></th>
                   <th><button type="button" class="vulnerability-sort-button" data-column="3" aria-sort="none" onclick="sortVulnerabilities(3)">CVSS 3</button></th>
                   <th><button type="button" class="vulnerability-sort-button" data-column="4" aria-sort="none" onclick="sortVulnerabilities(4)">Priority</button></th>
-                  <th><button type="button" class="vulnerability-sort-button" data-column="5" aria-sort="none" onclick="sortVulnerabilities(5)">Publication Date</button></th>
-                  <th><button type="button" class="vulnerability-sort-button" data-column="6" aria-sort="none" onclick="sortVulnerabilities(6)">Architectures</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="5" aria-sort="none" onclick="sortVulnerabilities(5)">Status</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="6" aria-sort="none" onclick="sortVulnerabilities(6)">Publication Date</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="7" aria-sort="none" onclick="sortVulnerabilities(7)">Architectures</button></th>
                 </tr>
               </thead>
               <tbody id="vulnerability-tbody">
@@ -822,7 +856,7 @@ def write_html(summary, output_path):
   </script>
 </body>
 </html>
-""", encoding="utf-8")
+""")
 
 
 def main():

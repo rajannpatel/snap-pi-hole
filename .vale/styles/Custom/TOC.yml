@@ -1,0 +1,14 @@
+extends: existence
+message: "TOC items must be unnumbered links and must be followed by a subtext description."
+level: error
+scope: raw
+nonword: true
+tokens:
+  # 1. Numbered TOC items (e.g. - **[1. Section Title](#anchor)**)
+  - '^[ \t]*[\-\*\+][ \t]+\*\*\[\d+\.'
+  # 2. Numbered list bullet used (e.g. 1. **[Section Title](#anchor)**)
+  - '^[ \t]*\d+\.[ \t]+\*\*\[[^\]]+\]\(#[^\)]+\)\*\*'
+  # 3. Missing subtext description (followed by another bullet on the next line)
+  - '^[ \t]*[\-\*\+][ \t]+\*\*\[[^\]]+\]\(#[^\)]+\)\*\*(?:<br>)?\r?\n[ \t]*[\-\*\+]'
+  # 4. Missing subtext description (followed by closing details tag on the next line)
+  - '^[ \t]*[\-\*\+][ \t]+\*\*\[[^\]]+\]\(#[^\)]+\)\*\*(?:<br>)?\r?\n[ \t]*</details>'

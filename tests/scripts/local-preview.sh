@@ -7,10 +7,11 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${REPO_ROOT}"
 
 show_usage() {
-    echo "Usage: $0 [kcov|sbom|all]"
+    echo "Usage: $0 [kcov|sbom|vuln|all]"
     echo "  kcov   Run BATS unit tests through kcov and apply Vanilla styling"
     echo "  sbom   Generate and enrich SBOM using a local .snap file"
-    echo "  all    Run both coverage and SBOM steps"
+    echo "  vuln   Generate local vulnerability report preview (supports real osv-scanner or mock data)"
+    echo "  all    Run coverage, SBOM, and vulnerability report steps"
     exit 1
 }
 
@@ -92,6 +93,88 @@ run_sbom() {
     echo "View SBOM explorer locally at: file://${REPO_ROOT}/local-sbom/index.html"
 }
 
+run_vuln() {
+    echo "=== Generating local vulnerability report preview ==="
+    local use_mock=true
+
+    if command -v osv-scanner &>/dev/null && [ -f "local-sbom.json" ]; then
+        echo "Found local-sbom.json and osv-scanner. Running real scan..."
+        rm -rf local-vulnerabilities
+        mkdir -p local-vulnerabilities
+        
+        cp local-sbom.json local-vulnerabilities/sbom-amd64.cdx.json
+        set +e
+        osv-scanner scan --format json -L local-vulnerabilities/sbom-amd64.cdx.json --output-file local-vulnerabilities/osv-amd64.json
+        rc=$?
+        set -e
+        if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then
+            use_mock=false
+        else
+            echo "Warning: osv-scanner execution failed (exit code ${rc}). Falling back to mock data."
+        fi
+    fi
+
+    if [ "${use_mock}" = "true" ]; then
+        echo "Generating realistic mock vulnerability report data..."
+        rm -rf local-vulnerabilities
+        mkdir -p local-vulnerabilities
+        
+        cat << 'EOF' > local-vulnerabilities/osv-amd64.json
+{
+  "results": [
+    {
+      "packages": [
+        {
+          "package": {
+            "name": "curl",
+            "version": "7.88.1-10+deb12u1",
+            "ecosystem": "Ubuntu"
+          },
+          "vulnerabilities": [
+            {
+              "id": "CVE-2023-38545",
+              "aliases": [
+                "USN-6425-1"
+              ],
+              "summary": "SOCKS5 heap buffer overflow",
+              "details": "This vulnerability allows...",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+                }
+              ],
+              "published": "2023-10-11T12:00:00Z"
+            },
+            {
+              "id": "CVE-2023-99999",
+              "aliases": [],
+              "summary": "Unactionable example vulnerability",
+              "details": "No patch available yet...",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:C/C:L/I:L/A:L"
+                }
+              ],
+              "published": "2023-12-01T12:00:00Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+EOF
+    fi
+
+    python3 snap/local/build/summarize_osv_reports.py local-vulnerabilities
+    cp snap/gui/pihole.png local-vulnerabilities/pihole.png
+    python3 -c "import pathlib; p = pathlib.Path('local-vulnerabilities/index.html'); p.write_text(p.read_text().replace('../pihole.png', 'pihole.png'))"
+    
+    echo "Success! View vulnerability report locally at: file://${REPO_ROOT}/local-vulnerabilities/index.html"
+}
+
 case "$1" in
     kcov)
         run_kcov
@@ -99,9 +182,13 @@ case "$1" in
     sbom)
         run_sbom
         ;;
+    vuln)
+        run_vuln
+        ;;
     all)
         run_kcov
         run_sbom
+        run_vuln
         ;;
     *)
         show_usage

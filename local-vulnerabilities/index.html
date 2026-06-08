@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vulnerability Reports - Snap Pi-hole</title>
+  <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />
+    <style>
+    .p-breadcrumbs {
+      min-height: 1.5rem;
+    }
+    .p-breadcrumbs__item,
+    .p-breadcrumbs__item a {
+      font-weight: 400;
+      letter-spacing: normal;
+      text-transform: none;
+    }
+    .p-card__title,
+    .p-heading--4 {
+      font-weight: 400;
+    }
+    .vulnerability-summary-card-column {
+      display: flex;
+    }
+    .vulnerability-summary-card {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+    .vulnerability-summary-card .p-card__content {
+      margin-top: auto;
+    }
+    .vulnerability-table-controls {
+      margin-bottom: 1.5rem;
+    }
+    .vulnerability-sort-button {
+      background: none;
+      border: 0;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 400;
+      margin: 0;
+      padding: 0;
+      text-align: left;
+    }
+    .vulnerability-sort-button::after {
+      content: "↕";
+      display: inline-block;
+      font-size: 0.8rem;
+      margin-left: 0.35rem;
+      color: #777;
+    }
+    .vulnerability-sort-button[aria-sort="ascending"]::after {
+      content: "↑";
+    }
+    .vulnerability-sort-button[aria-sort="descending"]::after {
+      content: "↓";
+    }
+    .vulnerability-details {
+      table-layout: fixed;
+      width: 100%;
+    }
+    .vulnerability-details th,
+    .vulnerability-details td {
+      line-height: 1.45;
+      padding-bottom: 1rem !important;
+      padding-top: 1rem !important;
+      vertical-align: top;
+    }
+    .vulnerability-details th:nth-child(1),
+    .vulnerability-details td:nth-child(1) {
+      width: 14%;
+    }
+    .vulnerability-details th:nth-child(2),
+    .vulnerability-details td:nth-child(2) {
+      width: 12%;
+    }
+    .vulnerability-details th:nth-child(3),
+    .vulnerability-details td:nth-child(3) {
+      width: 14%;
+    }
+    .vulnerability-details th:nth-child(4),
+    .vulnerability-details td:nth-child(4) {
+      width: 11%;
+    }
+    .vulnerability-details th:nth-child(5),
+    .vulnerability-details td:nth-child(5) {
+      width: 10%;
+    }
+    .vulnerability-details th:nth-child(6),
+    .vulnerability-details td:nth-child(6) {
+      width: 15%;
+    }
+    .vulnerability-details th:nth-child(7),
+    .vulnerability-details td:nth-child(7) {
+      width: 12%;
+    }
+    .vulnerability-details th:nth-child(8),
+    .vulnerability-details td:nth-child(8) {
+      width: 12%;
+    }
+    .vulnerability-details td:nth-child(2),
+    .vulnerability-details td:nth-child(3) {
+      font-family: "Ubuntu Mono", monospace;
+    }
+    .vulnerability-severity {
+      font-size: 12px;
+      margin-bottom: 0;
+      white-space: nowrap;
+    }
+    .vulnerability-severity .p-chip__value {
+      font-size: 12px;
+      font-weight: 400;
+    }
+    .vulnerability-architecture {
+      margin-bottom: 0;
+      margin-right: 0.3rem;
+      white-space: nowrap;
+    }
+    .vulnerability-architecture .p-chip__value {
+      font-size: 12px;
+      font-weight: 400;
+    }
+    footer.p-strip--dark {
+      background-color: #2d2d2d !important;
+      color: #b6b6b6 !important;
+    }
+    footer.p-strip--dark h2 {
+      color: #eaeaea !important;
+      font-weight: 500 !important;
+    }
+    footer.p-strip--dark p,
+    footer.p-strip--dark li,
+    footer.p-strip--dark span {
+      color: #b6b6b6 !important;
+    }
+    footer.p-strip--dark a,
+    footer.p-strip--dark a.is-dark {
+      color: rgb(102, 153, 204) !important;
+      text-decoration: none !important;
+      transition: color 0.15s ease !important;
+    }
+    footer.p-strip--dark a:hover,
+    footer.p-strip--dark a.is-dark:hover {
+      color: #e95420 !important;
+      text-decoration: underline !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="l-site">
+    <header id="navigation" class="p-navigation is-dark">
+      <div class="p-navigation__row">
+        <div class="p-navigation__banner">
+          <a class="p-navigation__link" href="../" style="display: flex; align-items: center; text-decoration: none;">
+            <img src="pihole.png" alt="Pi-hole Logo" style="height: 32px; width: 32px;">
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main class="p-strip" style="background-color: #ffffff; flex-grow: 1; padding-top: 2rem !important; padding-bottom: 2rem !important;">
+      <div class="row">
+        <div class="col-12">
+          <nav class="p-breadcrumbs" aria-label="Breadcrumbs" style="margin-bottom: 1.5rem;">
+            <ol class="p-breadcrumbs__items">
+              <li class="p-breadcrumbs__item"><a href="../">Reports Dashboard</a></li>
+              <li class="p-breadcrumbs__item" aria-current="page">Vulnerability Reports</li>
+            </ol>
+          </nav>
+          <section class="row" style="margin-bottom: 1rem;" aria-labelledby="vulnerability-title">
+            <div class="col-12">
+              <h1 class="p-heading--2" id="vulnerability-title" style="margin-bottom: 1.5rem;">Vulnerability Reports</h1>
+              <p class="p-heading--4">Active unpatched vulnerability matches returned by OSV-Scanner. All available package security updates are automatically applied during snap compilation at build time.</p>
+            </div>
+          </section>
+          
+          <div class="p-strip u-no-padding--bottom" style="background-color: #f7f7f7; padding: 1.5rem; border-radius: 4px; margin-bottom: 2rem; border-left: 4px solid #772953;">
+            <h3 class="p-heading--4" style="margin-bottom: 0.5rem; color: #772953; font-weight: 500;">The Value of Snap Confinement</h3>
+            <p class="p-text--small" style="margin-bottom: 0.5rem;">
+              This report contains both <strong>Actionable</strong> (USN available) and <strong>Unactionable</strong> (no USN or official patch available upstream) vulnerabilities.
+            </p>
+            <p class="p-text--small" style="margin-bottom: 0;">
+              Unlike conventional deployments, a strictly confined Snap executes within a secure sandbox. Even if a bundled library contains an unpatched vulnerability, process capabilities and host interactions are restricted by <strong>AppArmor profiles, seccomp filters, and a read-only SquashFS filesystem</strong>. This prevents a compromised service from escaping the sandbox or accessing host resources, demonstrating the key security advantage of snap confinement.
+            </p>
+          </div>
+
+          <section class="row u-equal-height" style="margin-bottom: 2rem;" aria-label="Vulnerability scan summary">
+            <div class="col-3 vulnerability-summary-card-column"><article class="p-card vulnerability-summary-card"><span class="p-text--small-muted">ARCHITECTURE</span><h3 class="p-card__title">amd64</h3><p class="p-card__content">SBOM target scanned by OSV-Scanner.</p></article></div>
+<div class="col-3 vulnerability-summary-card-column"><article class="p-card vulnerability-summary-card"><span class="p-text--small-muted">UNPATCHED PACKAGES</span><h3 class="p-card__title">1</h3><p class="p-card__content">Packages with at least one active unpatched vulnerability.</p></article></div>
+<div class="col-3 vulnerability-summary-card-column"><article class="p-card vulnerability-summary-card"><span class="p-text--small-muted">VULNERABILITY MATCHES</span><h3 class="p-card__title">2</h3><p class="p-card__content">Total vulnerability records returned for this architecture.</p></article></div>
+<div class="col-3 vulnerability-summary-card-column"><article class="p-card vulnerability-summary-card"><span class="p-text--small-muted">REPORT</span><h3 class="p-card__title"><time datetime="2026-06-08T02:19:48Z">2026-06-08 02:19 UTC</time></h3><p class="p-card__content"><a class="p-button" href="osv-amd64.json" download>Download OSV</a></p></article></div>
+          </section>
+          <h2 class="p-heading--3">Vulnerability Details</h2>
+          <div class="row vulnerability-table-controls">
+            <div class="col-12">
+              <form class="p-search-box" onsubmit="event.preventDefault(); filterVulnerabilities();" style="margin-bottom: 0;">
+                <label class="u-off-screen" for="vulnerability-search">Search by package, version, vulnerability, CVSS 3, priority, status, publication date, or architecture</label>
+                <input type="search" id="vulnerability-search" class="p-search-box__input" placeholder="Search by package, version, vulnerability, CVSS 3, priority, status, publication date, or architecture..." oninput="filterVulnerabilities()" autocomplete="off">
+                <button type="reset" class="p-search-box__reset" onclick="document.getElementById('vulnerability-search').value=''; filterVulnerabilities();"><i class="p-icon--close">Clear</i></button>
+                <button type="submit" class="p-search-box__button"><i class="p-icon--search">Search</i></button>
+              </form>
+            </div>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="p-table vulnerability-details" id="vulnerability-table">
+              <caption class="u-off-screen">OSV vulnerability details by package</caption>
+              <thead>
+                <tr>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="0" aria-sort="none" onclick="sortVulnerabilities(0)">Package</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="1" aria-sort="none" onclick="sortVulnerabilities(1)">Version</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="2" aria-sort="none" onclick="sortVulnerabilities(2)">Vulnerability</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="3" aria-sort="none" onclick="sortVulnerabilities(3)">CVSS 3</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="4" aria-sort="none" onclick="sortVulnerabilities(4)">Priority</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="5" aria-sort="none" onclick="sortVulnerabilities(5)">Status</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="6" aria-sort="none" onclick="sortVulnerabilities(6)">Publication Date</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="7" aria-sort="none" onclick="sortVulnerabilities(7)">Architectures</button></th>
+                </tr>
+              </thead>
+              <tbody id="vulnerability-tbody">
+                <tr data-search="curl 7.88.1-10+deb12u1 cve-2023-38545 9.8 · critical unknown actionable 2023-10-11 amd64"><td>curl</td><td>7.88.1-10+deb12u1</td><td><a href="https://osv.dev/vulnerability/CVE-2023-38545">CVE-2023-38545</a></td><td><span class="p-chip vulnerability-severity"><span class="p-chip__value"><img src="https://assets.ubuntu.com/v1/c96f27b9-CVE-Priority-icon-Critical.svg" alt="9.8 · Critical severity" title="9.8 · Critical" style="height: 14px; width: 14px; vertical-align: text-bottom; margin-right: 0.25rem;">9.8 · CRITICAL</span></span></td><td><span class="p-chip vulnerability-severity"><span class="p-chip__value"><img src="https://assets.ubuntu.com/v1/e85d00c8-CVE-Priority-icon-Unknown.svg" alt="unknown priority" title="unknown" style="height: 14px; width: 14px; vertical-align: text-bottom; margin-right: 0.25rem;">UNKNOWN</span></span></td><td><span class="p-chip" style="background-color: #e6f2ff; border: 1px solid #b3d7ff; color: #004085;"><span class="p-chip__value">Actionable (USN)</span></span></td><td><time datetime="2023-10-11T12:00:00Z">2023-10-11</time></td><td><span class="p-chip vulnerability-architecture"><span class="p-chip__value">AMD64</span></span></td></tr>
+<tr data-search="curl 7.88.1-10+deb12u1 cve-2023-99999 4.7 · medium unknown unactionable confined mitigation 2023-12-01 amd64"><td>curl</td><td>7.88.1-10+deb12u1</td><td><a href="https://osv.dev/vulnerability/CVE-2023-99999">CVE-2023-99999</a></td><td><span class="p-chip vulnerability-severity"><span class="p-chip__value"><img src="https://assets.ubuntu.com/v1/8010f9e0-CVE-Priority-icon-Medium.svg" alt="4.7 · Medium severity" title="4.7 · Medium" style="height: 14px; width: 14px; vertical-align: text-bottom; margin-right: 0.25rem;">4.7 · MEDIUM</span></span></td><td><span class="p-chip vulnerability-severity"><span class="p-chip__value"><img src="https://assets.ubuntu.com/v1/e85d00c8-CVE-Priority-icon-Unknown.svg" alt="unknown priority" title="unknown" style="height: 14px; width: 14px; vertical-align: text-bottom; margin-right: 0.25rem;">UNKNOWN</span></span></td><td><span class="p-chip" style="background-color: #f3e5f5; border: 1px solid #e1bee7; color: #4a148c;" title="Mitigated by Snap Confinement"><span class="p-chip__value">Confined Mitigation</span></span></td><td><time datetime="2023-12-01T12:00:00Z">2023-12-01</time></td><td><span class="p-chip vulnerability-architecture"><span class="p-chip__value">AMD64</span></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="p-text--small">Full OSV JSON reports are linked in the summary cards.</p>
+        </div>
+      </div>
+    </main>
+
+    <footer class="p-strip--dark" style="padding-top: 2rem !important; padding-bottom: 2rem !important; margin-top: 3rem;">
+      <div class="row">
+        <div class="col-4">
+          <h2 class="p-heading--5">Project Resources</h2>
+          <ul class="p-list">
+            <li><a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">GitHub Repository</a></li>
+            <li><a href="https://github.com/rajannpatel/snap-pi-hole/wiki" class="is-dark">Project Wiki Documentation</a></li>
+            <li><a href="https://snapcraft.io/pihole-by-rajannpatel" class="is-dark">Snap Store Listing</a></li>
+          </ul>
+        </div>
+        <div class="col-4">
+          <h2 class="p-heading--5">CI/CD Pipeline</h2>
+          <ul class="p-list">
+            <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions" class="is-dark">Workflow Execution History</a></li>
+            <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" class="is-dark">Pipeline Definition (YAML)</a></li>
+            <li><a href="../sbom/" class="is-dark">Software Bill of Materials (SBOM)</a></li>
+            <li><a href="../vulnerabilities/" class="is-dark">Vulnerability Reports</a></li>
+            <li><a href="../coverage/" class="is-dark">Code Coverage Reports</a></li>
+          </ul>
+        </div>
+        <div class="col-4">
+          <h2 class="p-heading--5">Security & Confinement</h2>
+          <p class="p-text--small">
+            Built securely on Ubuntu builders. Packaged as a strictly confined Snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
+          </p>
+        </div>
+      </div>
+    </footer>
+  </div>
+  <script>
+    let vulnerabilitySortColumn = null;
+    let vulnerabilitySortDirection = 'ascending';
+
+    function vulnerabilityCellValue(row, column) {
+      const cell = row.cells[column];
+      return cell ? cell.textContent.trim().toLowerCase() : '';
+    }
+
+    function vulnerabilityCvssScore(value) {
+      const match = value.match(/\d+(?:\.\d+)?/);
+      return match ? Number(match[0]) : null;
+    }
+
+    function vulnerabilityPriorityRank(value) {
+      const normalized = value.toLowerCase();
+      if (normalized.includes('critical')) return 5;
+      if (normalized.includes('high')) return 4;
+      if (normalized.includes('medium')) return 3;
+      if (normalized.includes('low')) return 2;
+      if (normalized.includes('negligible')) return 1;
+      if (normalized.includes('unknown')) return null;
+      return null;
+    }
+
+    function vulnerabilityRankValue(row, column) {
+      const value = vulnerabilityCellValue(row, column);
+      if (column === 3) {
+        return vulnerabilityCvssScore(value);
+      }
+      if (column === 4) {
+        return vulnerabilityPriorityRank(value);
+      }
+      return null;
+    }
+
+    function compareVulnerabilityRows(firstRow, secondRow, column, direction) {
+      const firstRank = vulnerabilityRankValue(firstRow, column);
+      const secondRank = vulnerabilityRankValue(secondRow, column);
+      if (firstRank !== null || secondRank !== null || column === 3 || column === 4) {
+        if (firstRank === null && secondRank === null) {
+          const firstText = vulnerabilityCellValue(firstRow, column);
+          const secondText = vulnerabilityCellValue(secondRow, column);
+          return firstText.localeCompare(secondText, undefined, { numeric: true, sensitivity: 'base' });
+        }
+        if (firstRank === null) {
+          return 1;
+        }
+        if (secondRank === null) {
+          return -1;
+        }
+        return direction === 'ascending' ? firstRank - secondRank : secondRank - firstRank;
+      }
+
+      const firstText = vulnerabilityCellValue(firstRow, column);
+      const secondText = vulnerabilityCellValue(secondRow, column);
+      const lexical = firstText.localeCompare(secondText, undefined, { numeric: true, sensitivity: 'base' });
+      return direction === 'ascending' ? lexical : -lexical;
+    }
+
+    function defaultSortDirection(column) {
+      if (column === 3 || column === 4) {
+        return 'descending';
+      }
+      return 'ascending';
+    }
+
+    function filterVulnerabilities() {
+      const searchInput = document.getElementById('vulnerability-search');
+      const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      document.querySelectorAll('#vulnerability-tbody tr').forEach(row => {
+        const searchText = row.dataset.search || row.textContent.toLowerCase();
+        row.style.display = !query || searchText.includes(query) ? '' : 'none';
+      });
+    }
+
+    function sortVulnerabilities(column) {
+      const tbody = document.getElementById('vulnerability-tbody');
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      if (vulnerabilitySortColumn === column) {
+        vulnerabilitySortDirection = vulnerabilitySortDirection === 'ascending' ? 'descending' : 'ascending';
+      } else {
+        vulnerabilitySortColumn = column;
+        vulnerabilitySortDirection = defaultSortDirection(column);
+      }
+
+      rows.sort((a, b) => compareVulnerabilityRows(a, b, column, vulnerabilitySortDirection));
+
+      rows.forEach(row => tbody.appendChild(row));
+      document.querySelectorAll('.vulnerability-sort-button').forEach(button => {
+        const isActive = Number(button.dataset.column) === column;
+        button.setAttribute('aria-sort', isActive ? vulnerabilitySortDirection : 'none');
+      });
+      filterVulnerabilities();
+    }
+  </script>
+</body>
+</html>

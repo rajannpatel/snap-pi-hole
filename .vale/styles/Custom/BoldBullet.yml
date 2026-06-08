@@ -1,0 +1,18 @@
+extends: existence
+message: "Bold list items must not contain colons, must be followed by a newline, and their descriptions must be indented by 3 spaces relative to the bullet."
+level: error
+scope: raw
+nonword: true
+tokens:
+  # 1. Colon immediately before the closing bold tag (excluding markdown links/brackets and newlines)
+  - '^[ \t]*([\-\*\+]|\d+\.)[ \t]+\*\*[^*\r\n\[\]]*:\*\*'
+  # 2. Colon followed by space inside the bold tag (excluding markdown links/brackets and newlines)
+  - '^[ \t]*([\-\*\+]|\d+\.)[ \t]+\*\*[^*\r\n\[\]]*:[ \t][^*\r\n\[\]]*\*\*'
+  # 3. Colon outside the bold tag (excluding markdown links/brackets and newlines)
+  - '^[ \t]*([\-\*\+]|\d+\.)[ \t]+\*\*[^*\r\n\[\]]*\*\*:'
+  # 4. Text continuing on the same line after the bold tag (ignoring <br>)
+  - '^([\-\*\+]|\d+\.)[ \t]+\*\*(.*?)\*\*[ \t]+[^\n\r<]+'
+  # 5. Missing blank line: Flags if the immediate next line contains text instead of a blank line
+  - '^([\-\*\+]|\d+\.)[ \t]+\*\*(.*?)\*\*[ \t]*\r?\n[ \t]*[a-zA-Z0-9]'
+  # 6. Next paragraph is not indented by exactly 3 spaces
+  - '^([\-\*\+]|\d+\.)[ \t]+\*\*(.*?)\*\*[ \t]*\r?\n[ \t]*\r?\n(?: [^ \n]|  [^ \n]|    +|\t)'

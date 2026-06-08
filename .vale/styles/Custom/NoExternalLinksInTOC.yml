@@ -1,0 +1,7 @@
+extends: existence
+message: "Do not include external product or page links in the Table of Contents."
+level: error
+scope: raw
+nonword: true
+tokens:
+  - '<details>[\s\S]*?\[[^\]]+\]\((https?://[^\)]+)\)[\s\S]*?</details>'

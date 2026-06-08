@@ -1,0 +1,45 @@
+{
+  "results": [
+    {
+      "packages": [
+        {
+          "package": {
+            "name": "curl",
+            "version": "7.88.1-10+deb12u1",
+            "ecosystem": "Ubuntu"
+          },
+          "vulnerabilities": [
+            {
+              "id": "CVE-2023-38545",
+              "aliases": [
+                "USN-6425-1"
+              ],
+              "summary": "SOCKS5 heap buffer overflow",
+              "details": "This vulnerability allows...",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+                }
+              ],
+              "published": "2023-10-11T12:00:00Z"
+            },
+            {
+              "id": "CVE-2023-99999",
+              "aliases": [],
+              "summary": "Unactionable example vulnerability",
+              "details": "No patch available yet...",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:C/C:L/I:L/A:L"
+                }
+              ],
+              "published": "2023-12-01T12:00:00Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "reports": [
+    {
+      "architecture": "amd64",
+      "report": "osv-amd64.json",
+      "generatedAt": {
+        "datetime": "2026-06-08T02:19:48Z",
+        "label": "2026-06-08 02:19 UTC"
+      },
+      "affectedPackages": 1,
+      "vulnerabilities": 2,
+      "packages": [
+        {
+          "name": "curl",
+          "version": "7.88.1-10+deb12u1",
+          "ecosystem": "Ubuntu",
+          "vulnerabilities": [
+            {
+              "id": "CVE-2023-38545",
+              "aliases": [
+                "USN-6425-1"
+              ],
+              "summary": "SOCKS5 heap buffer overflow",
+              "details": "This vulnerability allows...",
+              "severity": "9.8 \u00b7 Critical",
+              "priority": "unknown",
+              "published": "2023-10-11T12:00:00Z",
+              "modified": "",
+              "url": "https://osv.dev/vulnerability/CVE-2023-38545",
+              "patchable": true
+            },
+            {
+              "id": "CVE-2023-99999",
+              "aliases": [],
+              "summary": "Unactionable example vulnerability",
+              "details": "No patch available yet...",
+              "severity": "4.7 \u00b7 Medium",
+              "priority": "unknown",
+              "published": "2023-12-01T12:00:00Z",
+              "modified": "",
+              "url": "https://osv.dev/vulnerability/CVE-2023-99999",
+              "patchable": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "totalVulnerabilities": 2,
+  "affectedPackages": 1
+}

@@ -1,0 +1,18 @@
+extends: existence
+message: "H4 headings must be sandwiched immediately between horizontal rule separators (---)."
+level: error
+scope: raw
+nonword: true
+tokens:
+  # 1. H4 heading at the beginning of the file (or only whitespace/newlines before it)
+  - '\A[ \t\r\n]*#### '
+  # 2a. Preceding line is blank
+  - '\n[ \t]*\r?\n#### '
+  # 2b. Preceding line is not blank and is not '---'
+  - '\n[ \t]*([^-<\r\n]|-[^-<\r\n]|--[^-<\r\n]|----+)[^\n]*\r?\n#### '
+  # 3a. Anchor line preceded by blank line
+  - '\n[ \t]*\r?\n<a name="[^"]+"></a>\r?\n#### '
+  # 3b. Anchor line preceded by non-separator line
+  - '\n[ \t]*([^-<\r\n]|-[^-<\r\n]|--[^-<\r\n]|----+)[^\n]*\r?\n<a name="[^"]+"></a>\r?\n#### '
+  # 4. H4 heading followed by a line that is NOT '---'
+  - '\n#### [^\n]+\r?\n([ \t]*\r?\n|[ \t]*([^-<]|-[^-<]|--[^-<]|----+)[^\n]*)'
