@@ -231,11 +231,49 @@ assert permissions.get("contents") == "read", permissions
 PYEOF
 }
 
-@test "reusable distro workflow only builds when no snap artifact is supplied" {
-    local workflow="${REPO_ROOT}/.github/workflows/reusable-distro-test.yml"
-    grep -q "snap_artifact_name:" "$workflow"
-    grep -q "if: inputs.snap_artifact_name == ''" "$workflow"
-    grep -q "Download Provided Snap Artifact" "$workflow"
+@test "reusable distro test workflow requires a prebuilt snap artifact and does not build" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/reusable-distro-test.yml") as f:
+    doc = yaml.safe_load(f)
+on = doc.get("on", doc.get(True, {}))
+inputs = on["workflow_call"]["inputs"]
+assert inputs["snap_artifact_name"].get("required") is True, inputs["snap_artifact_name"]
+jobs = doc["jobs"]
+assert "build" not in jobs, f"reusable-distro-test must not build: {list(jobs)}"
+assert "distro-test" in jobs, list(jobs)
+PYEOF
+}
+
+@test "reusable distro build workflow builds and uploads a snap artifact" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/reusable-distro-build.yml") as f:
+    doc = yaml.safe_load(f)
+on = doc.get("on", doc.get(True, {}))
+assert "workflow_call" in on, on
+steps = doc["jobs"]["build"]["steps"]
+uses = [s.get("uses", "") for s in steps]
+assert any(u.startswith("snapcore/action-build") for u in uses), uses
+assert any(u.startswith("actions/upload-artifact") for u in uses), uses
+PYEOF
+}
+
+@test "standalone distro workflows build then test with the built artifact" {
+    python3 - <<PYEOF
+import glob, yaml
+paths = sorted(glob.glob("${REPO_ROOT}/.github/workflows/test-*.yml"))
+assert paths, "no standalone distro workflows found"
+for path in paths:
+    with open(path) as f:
+        doc = yaml.safe_load(f)
+    jobs = doc["jobs"]
+    assert jobs["build"]["uses"] == "./.github/workflows/reusable-distro-build.yml", (path, jobs.get("build"))
+    test = jobs["test"]
+    assert test["uses"] == "./.github/workflows/reusable-distro-test.yml", (path, test)
+    assert test["needs"] == "build", (path, test.get("needs"))
+    assert test["with"]["snap_artifact_name"] == "built-snap", (path, test.get("with"))
+PYEOF
 }
 
 @test "standalone distro workflows are manual only" {

@@ -8,7 +8,12 @@ permissions:
   contents: read
 
 jobs:
+  build:
+    uses: ./.github/workflows/reusable-distro-build.yml
+
   test:
+    needs: build
     uses: ./.github/workflows/reusable-distro-test.yml
     with:
       distro: ubuntu-core
+      snap_artifact_name: built-snap

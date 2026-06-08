@@ -8,8 +8,13 @@ permissions:
   contents: read
 
 jobs:
+  build:
+    uses: ./.github/workflows/reusable-distro-build.yml
+
   test:
+    needs: build
     uses: ./.github/workflows/reusable-distro-test.yml
     with:
       distro: opensuse-leap
       lxd_image: images:opensuse
+      snap_artifact_name: built-snap
