@@ -395,7 +395,7 @@ def status_badge(patchable):
         )
     else:
         return (
-            '<span class="p-chip" style="background-color: #f3e5f5; border: 1px solid #e1bee7; color: #4a148c;" title="Mitigated by Snap Confinement">'
+            '<span class="p-chip" style="background-color: #f3e5f5; border: 1px solid #e1bee7; color: #4a148c;" title="Mitigated by snap confinement">'
             '<span class="p-chip__value">Confined Mitigation</span>'
             '</span>'
         )
@@ -524,7 +524,7 @@ def write_html(summary, output_path):
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vulnerability Reports - Snap Pi-hole</title>
+  <title>Vulnerability Reports - snap Pi-hole</title>
 {vanilla_framework_css_link()}
     <style>
     .p-breadcrumbs {{
@@ -703,7 +703,7 @@ def write_html(summary, output_path):
               This report contains both <strong>Actionable</strong> (USN available) and <strong>Confined Mitigation</strong> (no USN or official patch available upstream) findings.
             </p>
             <p style="line-height: 1.6; margin-bottom: 0;">
-              The CI workflow publishes OSV reports for visibility and fails only when the scanner itself errors. Known-vulnerability exit code 1 is treated as a warning. Unlike conventional deployments, a strictly confined Snap executes within a sandbox: process capabilities and host interactions are restricted by <strong>AppArmor profiles, seccomp filters, and a read-only SquashFS filesystem</strong>.
+              The CI workflow publishes OSV reports for visibility and fails only when the scanner itself errors. Known-vulnerability exit code 1 is treated as a warning. Unlike conventional deployments, a strictly confined snap executes within a sandbox: process capabilities and host interactions are restricted by <strong>AppArmor profiles, seccomp filters, and a read-only SquashFS filesystem</strong>.
             </p>
           </div>
 
@@ -771,7 +771,7 @@ def write_html(summary, output_path):
           <ul class="p-list">
             <li><a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">GitHub Repository</a></li>
             <li><a href="https://github.com/rajannpatel/snap-pi-hole/wiki" class="is-dark">Project Wiki Documentation</a></li>
-            <li><a href="https://snapcraft.io/pihole-by-rajannpatel" class="is-dark">Snap Store Listing</a></li>
+            <li><a href="https://snapcraft.io/pihole-by-rajannpatel" class="is-dark">Snap Store listing</a></li>
           </ul>
         </div>
         <div class="col-4">
@@ -787,7 +787,7 @@ def write_html(summary, output_path):
         <div class="col-4">
           <h2 class="p-heading--5">Security & Confinement</h2>
           <p class="p-text--small">
-            Built securely on Ubuntu builders. Packaged as a strictly confined Snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
+            Built securely on Ubuntu builders. Packaged as a strictly confined snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
           </p>
         </div>
       </div>

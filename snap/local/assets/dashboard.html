@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Snap Pi-hole CI/CD Reports</title>
+  <title>snap Pi-hole CI/CD Reports</title>
   <!-- VANILLA_FRAMEWORK_CSS -->
   <style>
     .p-breadcrumbs {
@@ -358,7 +358,7 @@
             <article class="p-card dashboard-card">
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/software-installer.png" alt="Installer icon">
               <hr class="u-sv1">
-              <h3>Snap update frequency</h3>
+              <h3>snap update frequency</h3>
               <p class="p-card__content">Average days between recent successful main-branch CI/CD pushes.</p>
               <p class="p-card__content dashboard-metric mono" id="snap-update-frequency">--</p>
             </article>
@@ -373,7 +373,7 @@
             </article>
           </div>
         </div>
-        <section class="p-section" style="margin-top: 2rem;" aria-label="Snap package metadata">
+        <section class="p-section" style="margin-top: 2rem;" aria-label="snap package metadata">
           <div class="row">
             <div class="col-12">
               <hr class="p-rule">
@@ -408,7 +408,7 @@
         </section>
       </section>
 
-      <section aria-label="Snap ingredients" style="margin-bottom: 2rem;">
+      <section aria-label="snap ingredients" style="margin-bottom: 2rem;">
         <section class="p-section" aria-label="Pi-hole components">
           <div class="grid-row--50-50-on-large">
             <hr class="p-rule">
@@ -504,7 +504,7 @@
           <ul class="p-list">
             <li><a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">GitHub Repository</a></li>
             <li><a href="https://github.com/rajannpatel/snap-pi-hole/wiki" class="is-dark">Project Wiki Documentation</a></li>
-            <li><a href="https://snapcraft.io/pihole-by-rajannpatel" class="is-dark">Snap Store Listing</a></li>
+            <li><a href="https://snapcraft.io/pihole-by-rajannpatel" class="is-dark">Snap Store listing</a></li>
           </ul>
         </div>
         <div class="col-4">
@@ -520,7 +520,7 @@
         <div class="col-4">
           <h2 class="p-heading--5">Security & Confinement</h2>
           <p class="p-text--small">
-            Built securely on Ubuntu builders. Packaged as a strictly confined Snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
+            Built securely on Ubuntu builders. Packaged as a strictly confined snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
           </p>
         </div>
       </div>
@@ -971,7 +971,7 @@
       renderSnapFreshness(data.snap_package || {}, rows);
       packageBody.innerHTML = "";
       if (!rows.length) {
-        packageBody.innerHTML = "<tr><td colspan=\"7\">Snap package metadata unavailable.</td></tr>";
+        packageBody.innerHTML = "<tr><td colspan=\"7\">snap package metadata unavailable.</td></tr>";
         return;
       }
       rows.forEach((row) => {

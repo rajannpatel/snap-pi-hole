@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vulnerability Reports - Snap Pi-hole</title>
+  <title>Vulnerability Reports - snap Pi-hole</title>
   <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />
     <style>
     .p-breadcrumbs {
@@ -182,7 +182,7 @@
               This report contains both <strong>Actionable</strong> (USN available) and <strong>Confined Mitigation</strong> (no USN or official patch available upstream) findings.
             </p>
             <p style="line-height: 1.6; margin-bottom: 0;">
-              The CI workflow publishes OSV reports for visibility and fails only when the scanner itself errors. Known-vulnerability exit code 1 is treated as a warning. Unlike conventional deployments, a strictly confined Snap executes within a sandbox: process capabilities and host interactions are restricted by <strong>AppArmor profiles, seccomp filters, and a read-only SquashFS filesystem</strong>.
+              The CI workflow publishes OSV reports for visibility and fails only when the scanner itself errors. Known-vulnerability exit code 1 is treated as a warning. Unlike conventional deployments, a strictly confined snap executes within a sandbox: process capabilities and host interactions are restricted by <strong>AppArmor profiles, seccomp filters, and a read-only SquashFS filesystem</strong>.
             </p>
           </div>
 
@@ -242,7 +242,7 @@
               </thead>
               <tbody id="vulnerability-tbody">
                 <tr data-search="curl 7.88.1-10+deb12u1 cve-2023-38545 9.8 · critical unknown actionable 2023-10-11 amd64"><td>curl</td><td>7.88.1-10+deb12u1</td><td><a href="https://osv.dev/vulnerability/CVE-2023-38545">CVE-2023-38545</a></td><td><span class="p-chip vulnerability-severity"><span class="p-chip__value"><img src="https://assets.ubuntu.com/v1/c96f27b9-CVE-Priority-icon-Critical.svg" alt="9.8 · Critical severity" title="9.8 · Critical" style="height: 14px; width: 14px; vertical-align: text-bottom; margin-right: 0.25rem;">9.8 · CRITICAL</span></span></td><td><span class="p-chip vulnerability-severity"><span class="p-chip__value"><img src="https://assets.ubuntu.com/v1/e85d00c8-CVE-Priority-icon-Unknown.svg" alt="unknown priority" title="unknown" style="height: 14px; width: 14px; vertical-align: text-bottom; margin-right: 0.25rem;">UNKNOWN</span></span></td><td><span class="p-chip" style="background-color: #e6f2ff; border: 1px solid #b3d7ff; color: #004085;"><span class="p-chip__value">Actionable (USN)</span></span></td><td><time datetime="2023-10-11T12:00:00Z">2023-10-11</time></td><td><span class="p-chip vulnerability-architecture"><span class="p-chip__value">AMD64</span></span></td></tr>
-<tr data-search="curl 7.88.1-10+deb12u1 cve-2023-99999 4.7 · medium unknown unactionable confined mitigation 2023-12-01 amd64"><td>curl</td><td>7.88.1-10+deb12u1</td><td><a href="https://osv.dev/vulnerability/CVE-2023-99999">CVE-2023-99999</a></td><td><span class="p-chip vulnerability-severity"><span class="p-chip__value"><img src="https://assets.ubuntu.com/v1/8010f9e0-CVE-Priority-icon-Medium.svg" alt="4.7 · Medium severity" title="4.7 · Medium" style="height: 14px; width: 14px; vertical-align: text-bottom; margin-right: 0.25rem;">4.7 · MEDIUM</span></span></td><td><span class="p-chip vulnerability-severity"><span class="p-chip__value"><img src="https://assets.ubuntu.com/v1/e85d00c8-CVE-Priority-icon-Unknown.svg" alt="unknown priority" title="unknown" style="height: 14px; width: 14px; vertical-align: text-bottom; margin-right: 0.25rem;">UNKNOWN</span></span></td><td><span class="p-chip" style="background-color: #f3e5f5; border: 1px solid #e1bee7; color: #4a148c;" title="Mitigated by Snap Confinement"><span class="p-chip__value">Confined Mitigation</span></span></td><td><time datetime="2023-12-01T12:00:00Z">2023-12-01</time></td><td><span class="p-chip vulnerability-architecture"><span class="p-chip__value">AMD64</span></span></td></tr>
+<tr data-search="curl 7.88.1-10+deb12u1 cve-2023-99999 4.7 · medium unknown unactionable confined mitigation 2023-12-01 amd64"><td>curl</td><td>7.88.1-10+deb12u1</td><td><a href="https://osv.dev/vulnerability/CVE-2023-99999">CVE-2023-99999</a></td><td><span class="p-chip vulnerability-severity"><span class="p-chip__value"><img src="https://assets.ubuntu.com/v1/8010f9e0-CVE-Priority-icon-Medium.svg" alt="4.7 · Medium severity" title="4.7 · Medium" style="height: 14px; width: 14px; vertical-align: text-bottom; margin-right: 0.25rem;">4.7 · MEDIUM</span></span></td><td><span class="p-chip vulnerability-severity"><span class="p-chip__value"><img src="https://assets.ubuntu.com/v1/e85d00c8-CVE-Priority-icon-Unknown.svg" alt="unknown priority" title="unknown" style="height: 14px; width: 14px; vertical-align: text-bottom; margin-right: 0.25rem;">UNKNOWN</span></span></td><td><span class="p-chip" style="background-color: #f3e5f5; border: 1px solid #e1bee7; color: #4a148c;" title="Mitigated by snap confinement"><span class="p-chip__value">Confined Mitigation</span></span></td><td><time datetime="2023-12-01T12:00:00Z">2023-12-01</time></td><td><span class="p-chip vulnerability-architecture"><span class="p-chip__value">AMD64</span></span></td></tr>
               </tbody>
             </table>
           </div>
@@ -258,7 +258,7 @@
           <ul class="p-list">
             <li><a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">GitHub Repository</a></li>
             <li><a href="https://github.com/rajannpatel/snap-pi-hole/wiki" class="is-dark">Project Wiki Documentation</a></li>
-            <li><a href="https://snapcraft.io/pihole-by-rajannpatel" class="is-dark">Snap Store Listing</a></li>
+            <li><a href="https://snapcraft.io/pihole-by-rajannpatel" class="is-dark">Snap Store listing</a></li>
           </ul>
         </div>
         <div class="col-4">
@@ -274,7 +274,7 @@
         <div class="col-4">
           <h2 class="p-heading--5">Security & Confinement</h2>
           <p class="p-text--small">
-            Built securely on Ubuntu builders. Packaged as a strictly confined Snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
+            Built securely on Ubuntu builders. Packaged as a strictly confined snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
           </p>
         </div>
       </div>
