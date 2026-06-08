@@ -5,7 +5,7 @@
 # everything else through to the upstream `pihole` bash script.
 #
 # Run locally:   bats tests/unit/launcher-pihole.bats
-# In CI:         see .github/workflows/build.yml (lint+unit job)
+# In CI:         see .github/workflows/cicd.yml (lint+unit job)
 
 setup() {
     REPO_ROOT="$(git rev-parse --show-toplevel)"

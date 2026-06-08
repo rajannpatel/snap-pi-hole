@@ -15,7 +15,7 @@
 #   - Launchers work with the environment hooks set up
 #
 # Run locally:  bats tests/integration/snap-lifecycle.bats
-# In CI:        see .github/workflows/build.yml (lint+unit job)
+# In CI:        see .github/workflows/cicd.yml (lint+unit job)
 
 setup() {
     REPO_ROOT="$(git rev-parse --show-toplevel)"

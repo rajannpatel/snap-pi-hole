@@ -7,7 +7,7 @@
 # without a real snap installation.
 #
 # Run locally:  bats tests/unit/hooks.bats
-# In CI:        see .github/workflows/build.yml (lint+unit job)
+# In CI:        see .github/workflows/cicd.yml (lint+unit job)
 
 setup() {
     REPO_ROOT="$(git rev-parse --show-toplevel)"
