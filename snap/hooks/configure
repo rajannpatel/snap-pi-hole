@@ -63,8 +63,17 @@ get_flat_config() {
     ' 2>/dev/null || echo ""
 }
 
-# Migration mapping: "old_key:new_key"
-MIGRATIONS="dns.dnssec:dns.dnssec_enabled"
+# Configuration key migrations. Keep this structured so key names are not
+# parsed through shell word-splitting or ad hoc delimiters.
+MIGRATIONS_JSON='[
+  {"old": "dns.dnssec", "new": "dns.dnssec_enabled"}
+]'
+
+get_migration_target() {
+    printf '%s\n' "$MIGRATIONS_JSON" | jq -r --arg key "$1" '
+      first(.[] | select(.old == $key) | .new) // ""
+    '
+}
 
 # Extract the config to check for migrations
 ftl_json=$(snapctl get -d ftl)
@@ -74,16 +83,13 @@ need_reload=0
 if [ -n "$flat_config" ]; then
     while IFS='=' read -r key val; do
         [ -z "$key" ] && continue
-        for migration in $MIGRATIONS; do
-            old_key="${migration%%:*}"
-            new_key="${migration#*:}"
-            if [ "$key" = "$old_key" ]; then
-                echo "Migrating deprecated configuration parameter: ftl.${old_key} -> ftl.${new_key}" >&2
-                snapctl set "ftl.${new_key}=${val}"
-                snapctl unset "ftl.${old_key}"
-                need_reload=1
-            fi
-        done
+        new_key="$(get_migration_target "$key")"
+        [ -n "$new_key" ] || continue
+
+        echo "Migrating deprecated configuration parameter: ftl.${key} -> ftl.${new_key}" >&2
+        snapctl set "ftl.${new_key}=${val}"
+        snapctl unset "ftl.${key}"
+        need_reload=1
     done <<EOF
 $flat_config
 EOF
