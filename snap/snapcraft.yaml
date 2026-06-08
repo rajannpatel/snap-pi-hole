@@ -222,6 +222,7 @@ parts:
       testing/snap-check.sh: bin/snap-check
       testing/snap-debug.sh: bin/snap-debug
       testing/snap-setup.sh: bin/snap-setup
+      testing/port-utils.sh: bin/port-utils.sh
     stage:
       - bin/launcher-ftl
       - bin/launcher-pihole
@@ -229,6 +230,7 @@ parts:
       - bin/snap-check
       - bin/snap-debug
       - bin/snap-setup
+      - bin/port-utils.sh
     override-prime: |
       craftctl default
       python3 "$CRAFT_PROJECT_DIR/snap/local/build/filter_dpkg_status.py" "$SNAPCRAFT_PRIME"

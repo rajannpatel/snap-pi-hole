@@ -108,39 +108,9 @@ FTL_RUNNING=false
 if snapctl services "${SNAP_NAME:-pihole}.pihole-ftl" 2>/dev/null | grep -qw "active"; then
     FTL_RUNNING=true
 fi
-
-# Pure bash TCP socket check with 1-second timeout
-check_tcp() {
-    local ip=$1
-    local port=$2
-    if [ "${MOCK_TCP_CHECK:-}" = "true" ]; then
-        if [[ ",${MOCK_TCP_PORTS_IN_USE:-}," == *",$ip:$port,"* ]]; then
-            return 0
-        fi
-        return 1
-    fi
-    (
-        bash -c "exec 2>/dev/null 3<>/dev/tcp/$ip/$port" &
-        pid=$!
-        (sleep 1; kill $pid 2>/dev/null) &
-        killer_pid=$!
-        wait $pid 2>/dev/null
-        rc=$?
-        kill $killer_pid 2>/dev/null
-        exit $rc
-    )
-}
-
-check_udp() {
-    local hex_port=$1
-    if [ "${MOCK_TCP_CHECK:-}" = "true" ]; then
-        if [[ ",${MOCK_UDP_PORTS_IN_USE:-}," == *",$hex_port,"* ]]; then
-            return 0
-        fi
-        return 1
-    fi
-    grep -qi ":$hex_port " /proc/net/udp 2>/dev/null || grep -qi ":$hex_port " /proc/net/udp6 2>/dev/null
-}
+SOURCE_DIR="$(dirname "$(readlink -f "$0")")"
+# shellcheck disable=SC1091
+source "${SOURCE_DIR}/port-utils.sh"
 
 if [ "$FTL_RUNNING" = "true" ]; then
     printf "%b[OK]%b pihole-FTL service is currently active.\n\n" "${GREEN}" "${NC}"

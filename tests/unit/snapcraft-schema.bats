@@ -414,6 +414,8 @@ PYEOF
         snap/local/runtime/launcher-pihole.sh
         snap/local/testing/snap-check.sh
         snap/local/testing/snap-debug.sh
+        snap/local/testing/snap-setup.sh
+        snap/local/testing/port-utils.sh
         snap/local/build/ftl-override-build.sh
         snap/local/build/ftl-override-pull.sh
         snap/local/build/pi-hole-override-build.sh
@@ -436,6 +438,8 @@ PYEOF
         snap/local/runtime/launcher-pihole.sh
         snap/local/testing/snap-check.sh
         snap/local/testing/snap-debug.sh
+        snap/local/testing/snap-setup.sh
+        snap/local/testing/port-utils.sh
         snap/local/build/ftl-override-build.sh
         snap/local/build/ftl-override-pull.sh
         snap/local/build/pi-hole-override-build.sh
