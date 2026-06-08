@@ -3,7 +3,7 @@
 # Unit tests for the CI/CD workflow logic that cannot be run in GitHub Actions
 # without a real API call. Tests cover:
 #
-#   - update-upstream.yml: sed-based snapcraft.yaml source-tag bumps
+#   - track-upstream-releases.yml: snapcraft.yaml-only upstream tag bumps
 #   - cicd.yml: port-53 timeout guard logic (both success and failure paths)
 #   - cicd.yml: Snap Store channel mapping logic based on Pi-hole tags
 #
@@ -12,56 +12,24 @@
 
 setup() {
     REPO_ROOT="$(git rev-parse --show-toplevel)"
-    TMPDIR="$(mktemp -d)"
-    cp "${REPO_ROOT}/snap/snapcraft.yaml" "${TMPDIR}/snapcraft.yaml"
-}
-
-teardown() {
-    rm -rf "${TMPDIR}"
 }
 
 # ---------------------------------------------------------------------------
-# snapcraft.yaml source-tag sed tests (from update-upstream.yml)
+# track-upstream-releases.yml
 # ---------------------------------------------------------------------------
 
-_bump_snapcraft() {
-    local ftl="$1" pihole="$2" web="$3" target="${TMPDIR}/snapcraft.yaml"
-    sed -i "/^  ftl:/,/^    source-tag:/ s/^    source-tag: .*/    source-tag: ${ftl}/" "$target"
-    sed -i "/^  pi_hole:/,/^    source-tag:/ s/^    source-tag: .*/    source-tag: ${pihole}/" "$target"
-    sed -i "/^  web:/,/^    source-tag:/ s/^    source-tag: .*/    source-tag: ${web}/" "$target"
+@test "track-upstream workflow updates only snapcraft source-tag fields" {
+    local workflow="${REPO_ROOT}/.github/workflows/track-upstream-releases.yml"
+    grep -q 'yq -i ".parts.ftl.source-tag' "$workflow"
+    grep -q 'yq -i ".parts.pi_hole.source-tag' "$workflow"
+    grep -q 'yq -i ".parts.web.source-tag' "$workflow"
+    ! grep -q "README.md" "$workflow"
 }
 
-@test "snapcraft.yaml FTL source-tag updated" {
-    _bump_snapcraft "v9.1.0" "v6.4.2" "v6.5"
-    grep -A5 "^  ftl:" "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v9.1.0"
-}
-
-@test "snapcraft.yaml pi_hole (pi-hole) source-tag updated" {
-    _bump_snapcraft "v6.6.2" "v9.2.0" "v6.5"
-    grep -A5 "^  pi_hole:" "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v9.2.0"
-}
-
-@test "snapcraft.yaml web source-tag updated" {
-    _bump_snapcraft "v6.6.2" "v6.4.2" "v9.3.0"
-    grep -A5 "^  web:" "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v9.3.0"
-}
-
-@test "snapcraft.yaml FTL tag does not bleed into pi_hole or web sections" {
-    _bump_snapcraft "v1.0.0" "v2.0.0" "v3.0.0"
-    # Each part must have its own unique tag, not all set to the last value
-    grep -A5 "^  ftl:"  "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v1.0.0"
-    grep -A5 "^  pi_hole:" "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v2.0.0"
-    grep -A5 "^  web:"  "${TMPDIR}/snapcraft.yaml" | grep -q "source-tag: v3.0.0"
-}
-
-@test "snapcraft.yaml idempotent - running twice produces the same result" {
-    _bump_snapcraft "v9.1.0" "v9.2.0" "v9.3.0"
-    local first
-    first="$(cat "${TMPDIR}/snapcraft.yaml")"
-    _bump_snapcraft "v9.1.0" "v9.2.0" "v9.3.0"
-    local second
-    second="$(cat "${TMPDIR}/snapcraft.yaml")"
-    [ "$first" = "$second" ]
+@test "track-upstream workflow does not use opaque inline scripts for README mutation" {
+    local workflow="${REPO_ROOT}/.github/workflows/track-upstream-releases.yml"
+    ! grep -q "python3 -c" "$workflow"
+    ! grep -q "re.sub" "$workflow"
 }
 
 # ---------------------------------------------------------------------------

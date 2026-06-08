@@ -76,10 +76,6 @@ jobs:
 
           echo "updated=$UPDATED" >> $GITHUB_OUTPUT
 
-          if [ "$UPDATED" = "true" ]; then
-            python3 -c 'import re, sys; ftl, pi, web = sys.argv[1:4]; r = open("README.md").read(); r = re.sub(r"(github\.com/pi-hole/FTL\).*?\|\s*)v[\d.]+", rf"\g<1>{ftl}", r); r = re.sub(r"(github\.com/pi-hole/pi-hole\).*?\|\s*)v[\d.]+", rf"\g<1>{pi}", r); r = re.sub(r"(github\.com/pi-hole/web\).*?\|\s*)v[\d.]+", rf"\g<1>{web}", r); open("README.md", "w").write(r)' "$LATEST_FTL" "$LATEST_PIHOLE" "$LATEST_WEB"
-          fi
-
           {
             echo "pr_body<<EOF"
             cat "$BODY_FILE"
