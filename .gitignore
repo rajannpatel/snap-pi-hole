@@ -11,6 +11,11 @@ snap/.snapcraft/
 .idea/
 *.swp
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
 # OS
 .DS_Store
 
