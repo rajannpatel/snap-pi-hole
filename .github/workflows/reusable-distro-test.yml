@@ -289,27 +289,31 @@ jobs:
         run: |
           wait_for_snapd_stability() {
               echo "Ensuring snapd is completely stable and idle..."
+              local vm="test-instance"
               local idle_checks=0
               local max_idle_checks=3
 
               while [ $idle_checks -lt $max_idle_checks ]; do
-                  if ! sudo multipass exec test-instance -- echo "Online" >/dev/null 2>&1; then
-                      echo "VM is offline/rebooting. Waiting for it to come online..."
+                  if ! sudo multipass exec "$vm" -- \
+                      echo "Online" >/dev/null 2>&1; then
+                      echo "VM is offline/rebooting; waiting..."
                       sleep 10
                       idle_checks=0
                       continue
                   fi
 
-                  if sudo multipass exec test-instance -- test -f /run/systemd/shutdown/scheduled 2>/dev/null; then
-                      echo "A system reboot is scheduled by snapd. Rebooting immediately..."
-                      sudo multipass exec test-instance -- sudo reboot || true
+                  if sudo multipass exec "$vm" -- \
+                      test -f /run/systemd/shutdown/scheduled 2>/dev/null; then
+                      echo "A system reboot is scheduled; rebooting now..."
+                      sudo multipass exec "$vm" -- sudo reboot || true
                       echo "Waiting for VM to go offline..."
                       sleep 10
                       idle_checks=0
                       continue
                   fi
 
-                  if sudo multipass exec test-instance -- snap changes 2>/dev/null | grep -q "Doing"; then
+                  if sudo multipass exec "$vm" -- snap changes 2>/dev/null | \
+                      grep -q "Doing"; then
                       echo "Snapd is busy. Waiting 10 seconds..."
                       sleep 10
                       idle_checks=0
@@ -328,6 +332,46 @@ jobs:
       - name: Install and Verify Snap (Multipass)
         if: inputs.distro == 'ubuntu-core'
         run: |
+          wait_for_snapd_stability() {
+              echo "Ensuring snapd is completely stable and idle..."
+              local vm="test-instance"
+              local idle_checks=0
+              local max_idle_checks=3
+
+              while [ $idle_checks -lt $max_idle_checks ]; do
+                  if ! sudo multipass exec "$vm" -- \
+                      echo "Online" >/dev/null 2>&1; then
+                      echo "VM is offline/rebooting; waiting..."
+                      sleep 10
+                      idle_checks=0
+                      continue
+                  fi
+
+                  if sudo multipass exec "$vm" -- \
+                      test -f /run/systemd/shutdown/scheduled 2>/dev/null; then
+                      echo "A system reboot is scheduled; rebooting now..."
+                      sudo multipass exec "$vm" -- sudo reboot || true
+                      echo "Waiting for VM to go offline..."
+                      sleep 10
+                      idle_checks=0
+                      continue
+                  fi
+
+                  if sudo multipass exec "$vm" -- snap changes 2>/dev/null | \
+                      grep -q "Doing"; then
+                      echo "Snapd is busy. Waiting 10 seconds..."
+                      sleep 10
+                      idle_checks=0
+                      continue
+                  fi
+
+                  idle_checks=$((idle_checks + 1))
+                  echo "Snapd is idle (check $idle_checks/$max_idle_checks)..."
+                  sleep 5
+              done
+              echo "Snapd is fully stable and idle!"
+          }
+
           # Free port 53 inside the Ubuntu Core VM by disabling DNSStubListener
           sudo multipass exec test-instance -- sudo mkdir -p /etc/systemd/resolved.conf.d
           sudo multipass exec test-instance -- bash -c "printf '[Resolve]\nDNS=127.0.0.1\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf"
@@ -336,6 +380,7 @@ jobs:
           # Transfer and install the snap
           sudo multipass transfer "${SNAP_FILE}" test-instance:/home/ubuntu/pihole.snap
           sudo multipass exec test-instance -- sudo snap install /home/ubuntu/pihole.snap --dangerous
+          wait_for_snapd_stability
 
           for plug in network-bind network-control firewall-control network-observe \
                       system-observe hardware-observe mount-observe process-control time-control; do
@@ -346,6 +391,7 @@ jobs:
 
           # Start and enable the daemon (required since it installs disabled by default)
           sudo multipass exec test-instance -- sudo snap start --enable pihole-by-rajannpatel.pihole-ftl
+          wait_for_snapd_stability
 
       - name: Run Snap Diagnostics (Multipass)
         if: inputs.distro == 'ubuntu-core'

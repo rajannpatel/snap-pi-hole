@@ -507,6 +507,20 @@ done
 # Start the daemon
 log "Starting and enabling pihole-ftl service..."
 multipass exec "$VM_NAME" -- sudo snap start --enable pihole-by-rajannpatel.pihole-ftl
+if [ "$IS_CORE" = "true" ]; then
+    wait_for_snapd_stability
+fi
+
+# Run the same health gate used by the Ubuntu Core CI workflow.
+log "Waiting for pihole-ftl service to become active..."
+for _ in {1..30}; do
+    if multipass exec "$VM_NAME" -- snap services pihole-by-rajannpatel.pihole-ftl 2>/dev/null | grep -qw 'active'; then
+        log_success "pihole-ftl is active!"
+        break
+    fi
+    sleep 1
+done
+multipass exec "$VM_NAME" -- pihole snap-check
 
 # Get VM IP address and display verification
 sleep 5
@@ -524,7 +538,9 @@ if [ "$KEEP" = "true" ]; then
     CLEANUP_ON_EXIT=false
     log "Keeping VM '$VM_NAME' running (as requested by --keep)."
 else
-    read -r -p "Press Enter to terminate/purge the VM, or type 'keep' (then Enter) to keep it: " choice
+    if ! read -r -p "Press Enter to terminate/purge the VM, or type 'keep' (then Enter) to keep it: " choice; then
+        choice=""
+    fi
     if [ "$choice" = "keep" ]; then
         CLEANUP_ON_EXIT=false
         log "Keeping VM '$VM_NAME' running."
