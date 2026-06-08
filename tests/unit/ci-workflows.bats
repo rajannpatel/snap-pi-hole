@@ -195,6 +195,17 @@ PYEOF
     grep -q "snap_artifact_name: pihole-snap-amd64" "$workflow"
 }
 
+@test "cicd distro reusable-workflow caller grants required token permissions" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+permissions = doc["jobs"]["distro-test"].get("permissions", {})
+assert permissions.get("actions") == "read", permissions
+assert permissions.get("contents") == "read", permissions
+PYEOF
+}
+
 @test "reusable distro workflow only builds when no snap artifact is supplied" {
     local workflow="${REPO_ROOT}/.github/workflows/reusable-distro-test.yml"
     grep -q "snap_artifact_name:" "$workflow"
@@ -209,6 +220,18 @@ PYEOF
         ! grep -q "pull_request:" "$workflow"
         ! grep -q "push:" "$workflow"
     done
+}
+
+@test "standalone distro reusable-workflow callers grant required token permissions" {
+    python3 - <<PYEOF
+import glob, pathlib, yaml
+for path in sorted(glob.glob("${REPO_ROOT}/.github/workflows/test-*.yml")):
+    with open(path) as f:
+        doc = yaml.safe_load(f)
+    permissions = doc.get("permissions", {})
+    assert permissions.get("actions") == "read", f"{path}: {permissions}"
+    assert permissions.get("contents") == "read", f"{path}: {permissions}"
+PYEOF
 }
 
 @test "promote workflow validates request before releasing a revision" {

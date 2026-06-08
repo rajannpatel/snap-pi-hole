@@ -385,6 +385,9 @@ jobs:
   distro-test:
     name: distro test (${{ matrix.distro }})
     needs: [build, lint]
+    permissions:
+      actions: read
+      contents: read
     strategy:
       fail-fast: false
       matrix:
