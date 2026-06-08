@@ -4,11 +4,14 @@
       "architecture": "amd64",
       "report": "osv-amd64.json",
       "generatedAt": {
-        "datetime": "2026-06-08T02:19:48Z",
-        "label": "2026-06-08 02:19 UTC"
+        "datetime": "2026-06-08T14:33:58Z",
+        "label": "2026-06-08 14:33 UTC"
       },
       "affectedPackages": 1,
       "vulnerabilities": 2,
+      "actionableAffectedPackages": 1,
+      "actionableVulnerabilities": 1,
+      "confinedMitigationVulnerabilities": 1,
       "packages": [
         {
           "name": "curl",
@@ -47,5 +50,8 @@
     }
   ],
   "totalVulnerabilities": 2,
-  "affectedPackages": 1
+  "affectedPackages": 1,
+  "actionableVulnerabilities": 1,
+  "actionableAffectedPackages": 1,
+  "confinedMitigationVulnerabilities": 1
 }

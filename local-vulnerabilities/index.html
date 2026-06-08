@@ -172,26 +172,48 @@
           <section class="row" style="margin-bottom: 1rem;" aria-labelledby="vulnerability-title">
             <div class="col-12">
               <h1 class="p-heading--2" id="vulnerability-title" style="margin-bottom: 1.5rem;">Vulnerability Reports</h1>
-              <p class="p-heading--4">Active unpatched vulnerability matches returned by OSV-Scanner. All available package security updates are automatically applied during snap compilation at build time.</p>
+              <p class="p-heading--4">OSV-Scanner findings from the generated SBOMs.</p>
             </div>
           </section>
           
-          <div class="p-strip u-no-padding--bottom" style="background-color: #f7f7f7; padding: 1.5rem; border-radius: 4px; margin-bottom: 2rem; border-left: 4px solid #772953;">
-            <h3 class="p-heading--4" style="margin-bottom: 0.5rem; color: #772953; font-weight: 500;">The Value of Snap Confinement</h3>
-            <p class="p-text--small" style="margin-bottom: 0.5rem;">
-              This report contains both <strong>Actionable</strong> (USN available) and <strong>Unactionable</strong> (no USN or official patch available upstream) vulnerabilities.
+          <div class="p-strip" style="background-color: #f7f7f7; padding: 1.5rem; border-radius: 4px; margin-bottom: 2rem; border-left: 4px solid #772953;">
+            <h3 class="p-heading--4" style="margin-bottom: 0.5rem; color: #772953; font-weight: 500;">The value of snap confinement</h3>
+            <p style="line-height: 1.6; margin-bottom: 1.25rem;">
+              This report contains both <strong>Actionable</strong> (USN available) and <strong>Confined Mitigation</strong> (no USN or official patch available upstream) findings.
             </p>
-            <p class="p-text--small" style="margin-bottom: 0;">
-              Unlike conventional deployments, a strictly confined Snap executes within a secure sandbox. Even if a bundled library contains an unpatched vulnerability, process capabilities and host interactions are restricted by <strong>AppArmor profiles, seccomp filters, and a read-only SquashFS filesystem</strong>. This prevents a compromised service from escaping the sandbox or accessing host resources, demonstrating the key security advantage of snap confinement.
+            <p style="line-height: 1.6; margin-bottom: 0;">
+              The CI workflow publishes OSV reports for visibility and fails only when the scanner itself errors. Known-vulnerability exit code 1 is treated as a warning. Unlike conventional deployments, a strictly confined Snap executes within a sandbox: process capabilities and host interactions are restricted by <strong>AppArmor profiles, seccomp filters, and a read-only SquashFS filesystem</strong>.
             </p>
           </div>
 
-          <section class="row u-equal-height" style="margin-bottom: 2rem;" aria-label="Vulnerability scan summary">
-            <div class="col-3 vulnerability-summary-card-column"><article class="p-card vulnerability-summary-card"><span class="p-text--small-muted">ARCHITECTURE</span><h3 class="p-card__title">amd64</h3><p class="p-card__content">SBOM target scanned by OSV-Scanner.</p></article></div>
-<div class="col-3 vulnerability-summary-card-column"><article class="p-card vulnerability-summary-card"><span class="p-text--small-muted">UNPATCHED PACKAGES</span><h3 class="p-card__title">1</h3><p class="p-card__content">Packages with at least one active unpatched vulnerability.</p></article></div>
-<div class="col-3 vulnerability-summary-card-column"><article class="p-card vulnerability-summary-card"><span class="p-text--small-muted">VULNERABILITY MATCHES</span><h3 class="p-card__title">2</h3><p class="p-card__content">Total vulnerability records returned for this architecture.</p></article></div>
-<div class="col-3 vulnerability-summary-card-column"><article class="p-card vulnerability-summary-card"><span class="p-text--small-muted">REPORT</span><h3 class="p-card__title"><time datetime="2026-06-08T02:19:48Z">2026-06-08 02:19 UTC</time></h3><p class="p-card__content"><a class="p-button" href="osv-amd64.json" download>Download OSV</a></p></article></div>
-          </section>
+          <h2 class="p-heading--3">Vulnerability Summary</h2>
+          <div style="overflow-x: auto; margin-bottom: 0.5rem;">
+            <table class="p-table" id="vulnerability-summary-table">
+              <thead>
+                <tr>
+                  <th>Architecture</th>
+                  <th>Actionable USN Packages</th>
+                  <th>Actionable USN Vulnerabilities</th>
+                  <th>Raw OSV Matches</th>
+                  <th>Confined Mitigations</th>
+                  <th>Report</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>amd64</strong></td>
+                  <td>1</td>
+                  <td>1</td>
+                  <td>2</td>
+                  <td>1</td>
+                  <td><time datetime="2026-06-08T14:33:58Z">2026-06-08 14:33 UTC</time><br><div style="margin-top: 0.5rem;"><a class="p-button" href="osv-amd64.json" download>Download OSV</a></div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="p-text--small" style="margin-bottom: 2rem;">
+            Actionable counts include only vulnerability matches with a corresponding Ubuntu Security Notice (USN). Confined mitigations represent report-only matches that are sandboxed by snap confinement.
+          </p>
           <h2 class="p-heading--3">Vulnerability Details</h2>
           <div class="row vulnerability-table-controls">
             <div class="col-12">
@@ -224,7 +246,7 @@
               </tbody>
             </table>
           </div>
-          <p class="p-text--small">Full OSV JSON reports are linked in the summary cards.</p>
+          <p class="p-text--small">Full OSV JSON reports are linked in the summary table.</p>
         </div>
       </div>
     </main>

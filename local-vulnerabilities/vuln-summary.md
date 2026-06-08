@@ -1,13 +1,17 @@
 # Vulnerability Summary
 
 All available security updates are automatically applied during compilation at build time.
-This report lists both actionable vulnerabilities (with a corresponding Ubuntu Security Notice) and unactionable vulnerabilities (no patch available yet).
-Strict snap confinement mitigates risks from unpatched vulnerabilities by running the application in a highly isolated sandbox.
+Dashboard totals count only actionable vulnerabilities with a corresponding Ubuntu Security Notice (USN).
+Raw OSV matches without a USN are retained as confined-mitigation report-only findings for audit visibility.
+The CI workflow currently treats OSV exit code 1 as a warning and fails only if the scan itself errors.
 
 ## amd64
 
-- Unpatched packages: 1
-- Vulnerability matches: 2
+- Actionable USN packages: 1
+- Actionable USN vulnerabilities: 1
+- Raw OSV affected packages: 1
+- Raw OSV vulnerability matches: 2
+- Confined-mitigation report-only matches: 1
 - JSON report: `osv-amd64.json`
 
 | Package | Version | Vulnerability | CVSS 3 | Priority | Status | Published |

@@ -402,40 +402,33 @@ def status_badge(patchable):
 
 
 def write_html(summary, output_path):
-    summary_cards = []
+    summary_rows = []
     detail_rows_by_key = {}
 
     for report in summary["reports"]:
-        summary_cards.extend([
-            (
-                "ARCHITECTURE",
-                html.escape(report["architecture"]),
-                "SBOM target scanned by OSV-Scanner.",
-            ),
-            (
-                "ACTIONABLE USN PACKAGES",
-                str(report["actionableAffectedPackages"]),
-                "Packages with at least one vulnerability that has a corresponding Ubuntu Security Notice.",
-            ),
-            (
-                "ACTIONABLE USN VULNERABILITIES",
-                str(report["actionableVulnerabilities"]),
-                "USN-backed vulnerability records counted by the dashboard.",
-            ),
-            (
-                "RAW OSV MATCHES",
-                str(report["vulnerabilities"]),
-                f'{report["confinedMitigationVulnerabilities"]} confined-mitigation report-only matches.',
-            ),
-            (
-                "REPORT",
-                (
-                    f'<time datetime="{html.escape(report["generatedAt"]["datetime"])}">'
-                    f'{html.escape(report["generatedAt"]["label"])}</time>'
-                ),
-                f'<a class="p-button" href="{html.escape(report["report"])}" download>Download OSV</a>',
-            ),
-        ])
+        arch = html.escape(report["architecture"])
+        actionable_pkgs = str(report["actionableAffectedPackages"])
+        actionable_vulns = str(report["actionableVulnerabilities"])
+        raw_matches = str(report["vulnerabilities"])
+        confined_mitigations = str(report["confinedMitigationVulnerabilities"])
+        report_time = (
+            f'<time datetime="{html.escape(report["generatedAt"]["datetime"])}">'
+            f'{html.escape(report["generatedAt"]["label"])}</time>'
+        )
+        report_link = f'<a class="p-button" href="{html.escape(report["report"])}" download>Download OSV</a>'
+        
+        report_cell = f'{report_time}<br><div style="margin-top: 0.5rem;">{report_link}</div>'
+        
+        summary_rows.append(
+            f"<tr>"
+            f"<td><strong>{arch}</strong></td>"
+            f"<td>{actionable_pkgs}</td>"
+            f"<td>{actionable_vulns}</td>"
+            f"<td>{raw_matches}</td>"
+            f"<td>{confined_mitigations}</td>"
+            f"<td>{report_cell}</td>"
+            f"</tr>"
+        )
 
         for package in report["packages"]:
             for vulnerability in package["vulnerabilities"]:
@@ -520,22 +513,8 @@ def write_html(summary, output_path):
             "</tr>"
         )
 
-    summary_cards_html = "\n".join(
-        (
-            '<div class="col-3 vulnerability-summary-card-column">'
-            '<article class="p-card vulnerability-summary-card">'
-            f'<span class="p-text--small-muted">{label}</span>'
-            f'<h3 class="p-card__title">{value}</h3>'
-            f'<p class="p-card__content">{description}</p>'
-            '</article>'
-            '</div>'
-        )
-        for label, value, description in summary_cards
-    ) or (
-        '<div class="col-3"><article class="p-card">'
-        '<h3 class="p-card__title">No OSV reports</h3>'
-        '<p class="p-card__content">No OSV reports were generated.</p>'
-        '</article></div>'
+    summary_table_rows = "\n".join(summary_rows) or (
+        '<tr><td colspan="5">No OSV reports were generated.</td></tr>'
     )
     detail_body_rows = "\n".join(detail_rows) or (
         '<tr><td colspan="8">No unpatched vulnerabilities reported by OSV-Scanner.</td></tr>'
@@ -714,23 +693,41 @@ def write_html(summary, output_path):
           <section class="row" style="margin-bottom: 1rem;" aria-labelledby="vulnerability-title">
             <div class="col-12">
               <h1 class="p-heading--2" id="vulnerability-title" style="margin-bottom: 1.5rem;">Vulnerability Reports</h1>
-              <p class="p-heading--4">OSV-Scanner findings from the generated SBOMs. Actionable counts include only vulnerability matches with a corresponding Ubuntu Security Notice (USN).</p>
+              <p class="p-heading--4">OSV-Scanner findings from the generated SBOMs.</p>
             </div>
           </section>
           
-          <div class="p-strip u-no-padding--bottom" style="background-color: #f7f7f7; padding: 1.5rem; border-radius: 4px; margin-bottom: 2rem; border-left: 4px solid #772953;">
-            <h3 class="p-heading--4" style="margin-bottom: 0.5rem; color: #772953; font-weight: 500;">The Value of Snap Confinement</h3>
-            <p class="p-text--small" style="margin-bottom: 0.5rem;">
+          <div class="p-strip" style="background-color: #f7f7f7; padding: 1.5rem; border-radius: 4px; margin-bottom: 2rem; border-left: 4px solid #772953;">
+            <h3 class="p-heading--4" style="margin-bottom: 0.5rem; color: #772953; font-weight: 500;">The value of snap confinement</h3>
+            <p style="line-height: 1.6; margin-bottom: 1.25rem;">
               This report contains both <strong>Actionable</strong> (USN available) and <strong>Confined Mitigation</strong> (no USN or official patch available upstream) findings.
             </p>
-            <p class="p-text--small" style="margin-bottom: 0;">
+            <p style="line-height: 1.6; margin-bottom: 0;">
               The CI workflow publishes OSV reports for visibility and fails only when the scanner itself errors. Known-vulnerability exit code 1 is treated as a warning. Unlike conventional deployments, a strictly confined Snap executes within a sandbox: process capabilities and host interactions are restricted by <strong>AppArmor profiles, seccomp filters, and a read-only SquashFS filesystem</strong>.
             </p>
           </div>
 
-          <section class="row u-equal-height" style="margin-bottom: 2rem;" aria-label="Vulnerability scan summary">
-            {summary_cards_html}
-          </section>
+          <h2 class="p-heading--3">Vulnerability Summary</h2>
+          <div style="overflow-x: auto; margin-bottom: 0.5rem;">
+            <table class="p-table" id="vulnerability-summary-table">
+              <thead>
+                <tr>
+                  <th>Architecture</th>
+                  <th>Actionable USN Packages</th>
+                  <th>Actionable USN Vulnerabilities</th>
+                  <th>Raw OSV Matches</th>
+                  <th>Confined Mitigations</th>
+                  <th>Report</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary_table_rows}
+              </tbody>
+            </table>
+          </div>
+          <p class="p-text--small" style="margin-bottom: 2rem;">
+            Actionable counts include only vulnerability matches with a corresponding Ubuntu Security Notice (USN). Confined mitigations represent report-only matches that are sandboxed by snap confinement.
+          </p>
           <h2 class="p-heading--3">Vulnerability Details</h2>
           <div class="row vulnerability-table-controls">
             <div class="col-12">
@@ -762,7 +759,7 @@ def write_html(summary, output_path):
               </tbody>
             </table>
           </div>
-          <p class="p-text--small">Full OSV JSON reports are linked in the summary cards.</p>
+          <p class="p-text--small">Full OSV JSON reports are linked in the summary table.</p>
         </div>
       </div>
     </main>
