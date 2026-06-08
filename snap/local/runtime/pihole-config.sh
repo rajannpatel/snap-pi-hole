@@ -36,8 +36,8 @@ pihole_versions_file() {
 }
 
 pihole_seed_versions_file() {
-    pihole_versions_template="${1:-$(pihole_versions_template_file)}"
-    pihole_versions_file="${2:-$(pihole_versions_file)}"
+    pihole_versions_template="${1:-$(pihole_versions_template_file "${SNAP:-}")}"
+    pihole_versions_file="${2:-$(pihole_versions_file "${SNAP_DATA:-}")}"
 
     [ -f "$pihole_versions_template" ] || return 0
 

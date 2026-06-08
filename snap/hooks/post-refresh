@@ -20,7 +20,7 @@ fi
 HOOK_DIR="$(dirname "$0")"
 
 # Update the static version profile template during upgrade/refresh
-pihole_seed_versions_file
+pihole_seed_versions_file "$(pihole_versions_template_file "${SNAP:-}")" "$(pihole_versions_file "${SNAP_DATA:-}")"
 
 # Sync local configuration back to snapctl database to treat it as the single source of truth
 if [ -x "${SNAP:-}/bin/config-sync" ]; then
@@ -61,7 +61,7 @@ fi
 # stopped by the operator, or mid-restart  -  avoiding false-positive rollbacks.
 # (The configure hook reads the same column to decide whether to restart FTL.)
 FTL_ACTIVE=false
-if pihole_ftl_is_active; then
+if pihole_ftl_is_active "$(pihole_ftl_service_name)"; then
     FTL_ACTIVE=true
 fi
 
