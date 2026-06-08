@@ -18,6 +18,14 @@ echo "Date: $(date)"
 echo "Snap Version: $(snapctl get version || echo 'Unknown')"
 echo ""
 
+SOURCE_DIR="$(dirname "$(readlink -f "$0")")"
+PIHOLE_CONFIG_HELPER="${SOURCE_DIR}/pihole-config.sh"
+if [ ! -r "$PIHOLE_CONFIG_HELPER" ] && [ -r "${SOURCE_DIR}/../runtime/pihole-config.sh" ]; then
+    PIHOLE_CONFIG_HELPER="${SOURCE_DIR}/../runtime/pihole-config.sh"
+fi
+# shellcheck source=snap/local/runtime/pihole-config.sh
+source "$PIHOLE_CONFIG_HELPER"
+
 # --- INTERFACE CONNECTION STATE ---
 echo "--- INTERFACES ---"
 # Required for core DNS and web UI functionality:
@@ -51,12 +59,11 @@ echo ""
 
 # --- PORT CONFLICTS ---
 echo "--- PORTS ---"
-SOURCE_DIR="$(dirname "$(readlink -f "$0")")"
-# shellcheck disable=SC1091
+# shellcheck source=snap/local/testing/port-utils.sh
 source "${SOURCE_DIR}/port-utils.sh"
 
 FTL_RUNNING=false
-if snapctl services "${SNAP_NAME}.pihole-ftl" 2>/dev/null | grep -qw "active"; then
+if pihole_ftl_is_active; then
     FTL_RUNNING=true
 fi
 

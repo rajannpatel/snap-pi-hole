@@ -61,7 +61,7 @@ fi
 # stopped by the operator, or mid-restart  -  avoiding false-positive rollbacks.
 # (The configure hook reads the same column to decide whether to restart FTL.)
 FTL_ACTIVE=false
-if snapctl services "${SNAP_NAME:-pihole}".pihole-ftl 2>/dev/null | awk 'NR>1 {print $3}' | grep -qw "active"; then
+if pihole_ftl_is_active; then
     FTL_ACTIVE=true
 fi
 

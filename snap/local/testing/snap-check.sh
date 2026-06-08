@@ -26,6 +26,14 @@ fi
 echo "Pi-hole System Diagnostics"
 echo ""
 
+SOURCE_DIR="$(dirname "$(readlink -f "$0")")"
+PIHOLE_CONFIG_HELPER="${SOURCE_DIR}/pihole-config.sh"
+if [ ! -r "$PIHOLE_CONFIG_HELPER" ] && [ -r "${SOURCE_DIR}/../runtime/pihole-config.sh" ]; then
+    PIHOLE_CONFIG_HELPER="${SOURCE_DIR}/../runtime/pihole-config.sh"
+fi
+# shellcheck source=snap/local/runtime/pihole-config.sh
+source "$PIHOLE_CONFIG_HELPER"
+
 # Global exit code tracker: 0=success, 1=config error, 2=runtime error
 exit_code=0
 
@@ -60,13 +68,12 @@ check_interface "mount-observe" "false" "filesystem info in Pi-hole diagnosis pa
 # --- PORT CONFLICTS ---
 echo "--- PORTS ---"
 echo ""
-SOURCE_DIR="$(dirname "$(readlink -f "$0")")"
-# shellcheck disable=SC1091
+# shellcheck source=snap/local/testing/port-utils.sh
 source "${SOURCE_DIR}/port-utils.sh"
 
 # If FTL is running, we don't want to flag its own ports as external conflicts.
 FTL_RUNNING=false
-if snapctl services "${SNAP_NAME}".pihole-ftl 2>/dev/null | grep -qw "active"; then
+if pihole_ftl_is_active; then
     FTL_RUNNING=true
 fi
 

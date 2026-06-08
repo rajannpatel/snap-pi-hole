@@ -30,6 +30,34 @@ pihole_seed_versions_file() {
     cp "$pihole_versions_template" "$pihole_versions_file"
 }
 
+pihole_ftl_service_name() {
+    printf '%s.pihole-ftl\n' "${SNAP_NAME:-pihole}"
+}
+
+pihole_ftl_is_active() {
+    pihole_service="${1:-$(pihole_ftl_service_name)}"
+
+    snapctl services "$pihole_service" 2>/dev/null | awk '
+$1 == "Service" {
+    next;
+}
+NF >= 3 {
+    if ($3 == "active") {
+        found = 1;
+    }
+    next;
+}
+NF >= 2 {
+    if ($2 == "active") {
+        found = 1;
+    }
+}
+END {
+    exit found ? 0 : 1;
+}
+'
+}
+
 # Convert TOML to flat key-value pairs.
 # NOTE: uses only POSIX awk features (no gawk-only 3-arg match()) so it
 # behaves identically under the base snap's mawk and under gawk in CI.

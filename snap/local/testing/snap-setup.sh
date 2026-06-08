@@ -26,6 +26,14 @@ fi
 # Prepend snap staged paths to PATH to ensure we use our staged GNU coreutils, jq, etc.
 export PATH="${SNAP:-}/usr/sbin:${SNAP:-}/usr/bin:${SNAP:-}/sbin:${SNAP:-}/bin:${PATH:-}"
 
+SOURCE_DIR="$(dirname "$(readlink -f "$0")")"
+PIHOLE_CONFIG_HELPER="${SOURCE_DIR}/pihole-config.sh"
+if [ ! -r "$PIHOLE_CONFIG_HELPER" ] && [ -r "${SOURCE_DIR}/../runtime/pihole-config.sh" ]; then
+    PIHOLE_CONFIG_HELPER="${SOURCE_DIR}/../runtime/pihole-config.sh"
+fi
+# shellcheck source=snap/local/runtime/pihole-config.sh
+source "$PIHOLE_CONFIG_HELPER"
+
 echo ""
 echo ""
 echo ""
@@ -105,11 +113,11 @@ get_local_ips() {
 }
 
 FTL_RUNNING=false
-if snapctl services "${SNAP_NAME:-pihole}.pihole-ftl" 2>/dev/null | grep -qw "active"; then
+FTL_SERVICE="$(pihole_ftl_service_name)"
+if pihole_ftl_is_active "$FTL_SERVICE"; then
     FTL_RUNNING=true
 fi
-SOURCE_DIR="$(dirname "$(readlink -f "$0")")"
-# shellcheck disable=SC1091
+# shellcheck source=snap/local/testing/port-utils.sh
 source "${SOURCE_DIR}/port-utils.sh"
 
 if [ "$FTL_RUNNING" = "true" ]; then
@@ -316,11 +324,11 @@ else
 
     if [ "$START_FTL" = "y" ]; then
         echo "Enabling and starting pihole-ftl service..."
-        snapctl start --enable "${SNAP_NAME:-pihole}.pihole-ftl"
+        snapctl start --enable "$FTL_SERVICE"
         echo "Service started successfully."
     else
         echo "To start the service manually later, run:"
-        echo "  sudo snap start --enable ${SNAP_NAME:-pihole}.pihole-ftl"
+        echo "  sudo snap start --enable $FTL_SERVICE"
     fi
 fi
 echo ""

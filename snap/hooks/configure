@@ -111,7 +111,8 @@ config_changed=$(pihole_apply_flat_config "$FTL_BIN" "$flat_config" "$current_to
 
 # Restart the daemon if it's currently running, so changes take effect immediately
 if [ "$config_changed" -eq 1 ]; then
-    if snapctl services "${SNAP_NAME}".pihole-ftl 2>/dev/null | awk 'NR>1 {print $3}' | grep -qx active; then
-        snapctl restart "${SNAP_NAME}".pihole-ftl
+    ftl_service="$(pihole_ftl_service_name)"
+    if pihole_ftl_is_active "$ftl_service"; then
+        snapctl restart "$ftl_service"
     fi
 fi
