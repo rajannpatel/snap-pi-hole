@@ -3,6 +3,7 @@ import json
 import os
 import pathlib
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -359,7 +360,51 @@ def collect_release_data(client, versions):
     return {"components": results, "last_updated": dt_to_iso(max([d for d in latest_dates if d], default=None))}
 
 
-def parse_snap_version(version_str):
+def parse_revisions_file(revisions_file_path):
+    if not revisions_file_path.exists():
+        return []
+    
+    parsed = []
+    try:
+        content = revisions_file_path.read_text(encoding="utf-8")
+        for line in content.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split()
+            if not parts or not parts[0].isdigit():
+                continue
+            
+            rev = int(parts[0])
+            uploaded = parts[1]
+            arches = [a.strip() for a in parts[2].split(",") if a.strip()]
+            version = parts[3]
+            
+            channels = []
+            if len(parts) > 4:
+                channels = [c.strip() for c in parts[4].split(",") if c.strip()]
+            
+            is_stable = False
+            for ch in channels:
+                if ch.endswith("/stable*") or ch == "stable*":
+                    is_stable = True
+                    break
+            
+            parsed.append({
+                "revision": rev,
+                "uploaded": uploaded,
+                "arches": arches,
+                "version": version,
+                "is_stable": is_stable,
+            })
+    except Exception as e:
+        print(f"Warning: Failed to parse revisions file: {e}", file=sys.stderr)
+        return []
+    
+    return parsed
+
+
+def resolve_git_metadata_for_version(repo_root, version_str):
     if "+git." in version_str:
         base_version, rest = version_str.split("+git.", 1)
         parts = rest.split(".")
@@ -372,41 +417,102 @@ def parse_snap_version(version_str):
             except ValueError:
                 pass
         return base_version, git_commit, git_commit_time
+
+    tag = version_str.strip()
+    try:
+        commit = subprocess.check_output(
+            ["git", "-C", str(repo_root), "rev-parse", "--short", f"{tag}^{{commit}}"],
+            stderr=subprocess.DEVNULL
+        ).decode("utf-8").strip()
+        
+        commit_time_raw = subprocess.check_output(
+            ["git", "-C", str(repo_root), "log", "-1", "--format=%ct", commit],
+            stderr=subprocess.DEVNULL
+        ).decode("utf-8").strip()
+        
+        unix_time = int(commit_time_raw)
+        commit_time = datetime.fromtimestamp(unix_time, tz=timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        return tag, commit, commit_time
+    except (subprocess.SubprocessError, ValueError, IndexError):
+        pass
+
     return version_str, "N/A", ""
 
 
-def collect_snap_package_data(client):
+def collect_snap_package_data(client, repo_root):
     snap_data = client.get_json_or_empty(
         SNAPCRAFT_INFO_URL,
         headers={"Snap-Device-Series": "16", "Accept": "application/json"},
     )
     channel_map = snap_data.get("channel-map", [])
-    latest_by_arch = {}
-    newest_timestamp = None
+    public_by_arch = {}
     for entry in channel_map:
         channel = entry.get("channel", {})
         if channel.get("track") != "latest" or channel.get("risk") != "stable":
             continue
-        arch = channel.get("architecture", "unknown")
-        released_at = channel.get("released-at", "")
-        current = latest_by_arch.get(arch)
-        version_str = entry.get("version", "")
-        base_version, git_commit, git_commit_time = parse_snap_version(version_str)
-        if not current or (released_at and released_at > current.get("released_at", "")):
-            latest_by_arch[arch] = {
-                "architecture": arch.upper(),
-                "version": base_version,
-                "git_commit": git_commit,
-                "git_commit_time": git_commit_time,
-                "revision": entry.get("revision", ""),
-                "size_bytes": entry.get("download", {}).get("size"),
-                "released_at": released_at,
-                "download_url": entry.get("download", {}).get("url", ""),
-                "channel": channel.get("name", ""),
-            }
-        dt = parse_iso(released_at)
-        if dt and (newest_timestamp is None or dt > newest_timestamp):
-            newest_timestamp = dt
+        arch = channel.get("architecture", "unknown").upper()
+        public_by_arch[arch] = {
+            "size_bytes": entry.get("download", {}).get("size"),
+            "download_url": entry.get("download", {}).get("url", ""),
+            "released_at": channel.get("released-at", ""),
+        }
+
+    revisions_file = repo_root / "snapcraft-revisions.txt"
+    revisions_list = parse_revisions_file(revisions_file)
+
+    latest_by_arch = {}
+    newest_timestamp = None
+
+    if revisions_list:
+        for entry in revisions_list:
+            if not entry["is_stable"]:
+                continue
+            for arch in entry["arches"]:
+                arch_upper = arch.upper()
+                if arch_upper not in latest_by_arch:
+                    base_version, git_commit, git_commit_time = resolve_git_metadata_for_version(repo_root, entry["version"])
+                    pub = public_by_arch.get(arch_upper, {})
+                    latest_by_arch[arch_upper] = {
+                        "architecture": arch_upper,
+                        "version": base_version,
+                        "git_commit": git_commit,
+                        "git_commit_time": git_commit_time,
+                        "revision": entry["revision"],
+                        "size_bytes": pub.get("size_bytes"),
+                        "released_at": entry["uploaded"],
+                        "download_url": pub.get("download_url", ""),
+                        "channel": "stable",
+                    }
+                    dt = parse_iso(entry["uploaded"])
+                    if dt and (newest_timestamp is None or dt > newest_timestamp):
+                        newest_timestamp = dt
+    else:
+        for entry in channel_map:
+            channel = entry.get("channel", {})
+            if channel.get("track") != "latest" or channel.get("risk") != "stable":
+                continue
+            arch = channel.get("architecture", "unknown")
+            released_at = channel.get("released-at", "")
+            arch_upper = arch.upper()
+            current = latest_by_arch.get(arch_upper)
+            version_str = entry.get("version", "")
+            base_version, git_commit, git_commit_time = resolve_git_metadata_for_version(repo_root, version_str)
+            if not current or (released_at and released_at > current.get("released_at", "")):
+                latest_by_arch[arch_upper] = {
+                    "architecture": arch_upper,
+                    "version": base_version,
+                    "git_commit": git_commit,
+                    "git_commit_time": git_commit_time,
+                    "revision": entry.get("revision", ""),
+                    "size_bytes": entry.get("download", {}).get("size"),
+                    "released_at": released_at,
+                    "download_url": entry.get("download", {}).get("url", ""),
+                    "channel": channel.get("name", ""),
+                }
+            dt = parse_iso(released_at)
+            if dt and (newest_timestamp is None or dt > newest_timestamp):
+                newest_timestamp = dt
+
     return {"channels": list(latest_by_arch.values()), "last_updated": dt_to_iso(newest_timestamp)}
 
 
@@ -444,7 +550,7 @@ def main():
     distro_matrix = collect_distro_matrix(client)
     security = collect_security_summary(vuln_summary_path)
     releases = collect_release_data(client, versions)
-    snap_package = collect_snap_package_data(client)
+    snap_package = collect_snap_package_data(client, repo_root)
     auto_update = collect_track_upstream_status(client)
     schedule = extract_track_upstream_cron(repo_root / ".github" / "workflows" / "track-upstream-releases.yml")
 
