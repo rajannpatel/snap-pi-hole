@@ -473,3 +473,47 @@ assert "::error title=Gemini key validation::" in err_buf.getvalue(), err_buf.ge
 assert "401" in err_buf.getvalue(), err_buf.getvalue()
 PYEOF
 }
+
+@test "validate_gemini_key retries 503 and degrades gracefully returning 0" {
+    python3 - <<PYEOF
+import io
+import os
+import sys
+import urllib.error
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import validate_gemini_key
+
+auth_error = urllib.error.HTTPError(
+    "https://example.test",
+    503,
+    "service unavailable",
+    hdrs=None,
+    fp=io.BytesIO(b'{"error":"overloaded"}'),
+)
+err_buf = io.StringIO()
+calls = []
+def fake_urlopen(*args, **kwargs):
+    calls.append(args)
+    raise auth_error
+
+with mock.patch.dict(
+    os.environ,
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MAX_ATTEMPTS": "2",
+        "GEMINI_RETRY_BASE_DELAY_SECONDS": "0",
+    },
+    clear=False,
+):
+    with mock.patch("validate_gemini_key.urllib.request.urlopen", side_effect=fake_urlopen):
+        with mock.patch("validate_gemini_key.time.sleep", return_value=None):
+            with mock.patch("sys.stderr", err_buf):
+                rc = validate_gemini_key.main()
+assert rc == 0, f"expected 0, got {rc}"
+assert len(calls) == 2, f"expected 2 attempts, got {len(calls)}"
+assert "::warning title=Gemini key validation::" in err_buf.getvalue(), err_buf.getvalue()
+assert "503" in err_buf.getvalue(), err_buf.getvalue()
+PYEOF
+}

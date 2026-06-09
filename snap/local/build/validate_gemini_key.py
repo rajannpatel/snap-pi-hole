@@ -72,6 +72,13 @@ def main():
             if exc.code in {429, 500, 502, 503, 504} and attempt < max_attempts:
                 time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
                 continue
+            if exc.code in {429, 500, 502, 503, 504}:
+                print(
+                    f"::warning title=Gemini key validation::Gemini API is temporarily unavailable (HTTP {exc.code}). "
+                    f"Proceeding with build using cached justifications.",
+                    file=sys.stderr,
+                )
+                return 0
             print(
                 f"::error title=Gemini key validation::HTTP {exc.code} from Gemini API. {body_text}",
                 file=sys.stderr,
@@ -86,10 +93,11 @@ def main():
                 time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
                 continue
             print(
-                f"::error title=Gemini key validation::{type(exc).__name__}: {exc}",
+                f"::warning title=Gemini key validation::Gemini API connection timed out ({exc}). "
+                f"Proceeding with build using cached justifications.",
                 file=sys.stderr,
             )
-            return 1
+            return 0
         except Exception as exc:
             print(
                 f"::error title=Gemini key validation::{type(exc).__name__}: {exc}",

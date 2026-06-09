@@ -120,6 +120,8 @@ jobs:
     env:
       GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
       GEMINI_API_BASE_URL: ${{ vars.GEMINI_API_BASE_URL }}
+      GEMINI_MAX_ATTEMPTS: 5
+      GEMINI_RETRY_BASE_DELAY_SECONDS: 2.0
     steps:
       - uses: actions/checkout@v6
 
