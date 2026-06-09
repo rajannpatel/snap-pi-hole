@@ -1055,3 +1055,95 @@ finally:
     summary.SNAPCRAFT_YAML_PATH = original
 PYEOF
 }
+@test "no-risk disclaimer in not_appropriate is dropped so the report shows containment" {
+    python3 - <<PYEOF
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+# A model that writes "no residual risk" prose into not_appropriate (instead of
+# omitting the key) must not make the report flag residual risk.
+disclaimers = [
+    "No concrete residual risk: attacker input cannot trigger the env utility bug "
+    "via any network interface, and the effect is limited to local script failures.",
+    "None.",
+    "N/A",
+    "Not applicable.",
+    "No residual risk remains under confinement.",
+    "No meaningful residual risk; the tool is not network-reachable.",
+    "There is no risk because the binary is not shipped.",
+]
+for d in disclaimers:
+    c = summary.coerce_explanation({"appropriate": "Confinement contains it.", "not_appropriate": d})
+    assert c["not_appropriate"] == "", (d, c)
+    rec = summary.confinement_recommendation(c["appropriate"], c["not_appropriate"])
+    assert rec == summary.CONFINEMENT_CONTAINED, (d, rec)
+
+# A genuine, concrete residual risk must be preserved, even if it opens with "No".
+real = [
+    "A remote attacker can crash the running DNS resolver with a crafted query, "
+    "interrupting network-wide name resolution until the daemon restarts.",
+    "No authentication is required, so a remote client can repeatedly crash the "
+    "resolver and deny DNS to the whole network.",
+]
+for r in real:
+    c = summary.coerce_explanation({"appropriate": "x", "not_appropriate": r})
+    assert c["not_appropriate"] == r, r
+    assert summary.confinement_recommendation(c["appropriate"], c["not_appropriate"]) == summary.CONFINEMENT_RESIDUAL, r
+PYEOF
+}
+
+@test "a finding omitted from a batch response is re-queried individually" {
+    python3 - <<PYEOF
+import json
+import os
+import re
+import sys
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+class DummyResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def read(self):
+        return json.dumps(self._payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+calls = []
+
+def fake_urlopen(req, timeout=0):
+    ids = re.findall(r'"cve":\s*"([^"]+)"', json.loads(req.data.decode("utf-8"))["messages"][0]["content"])
+    calls.append(tuple(ids))
+    # The multi-finding batch drops CVE-B (truncation/omission); the individual
+    # salvage call for CVE-B answers cleanly.
+    answer = {cid: {"appropriate": f"contained-{cid}"} for cid in ids if not (cid == "CVE-B" and len(ids) > 1)}
+    return DummyResponse({"choices": [{"message": {"content": json.dumps(answer)}}]})
+
+vulns = [
+    {"cve_id": "CVE-A", "package_name": "p", "version": "1", "details": "d"},
+    {"cve_id": "CVE-B", "package_name": "p", "version": "1", "details": "d"},
+]
+with mock.patch.dict(
+    os.environ,
+    {"LLM_API_KEY": "k", "LLM_MAX_ATTEMPTS": "1", "LLM_MAX_VULNS_PER_BATCH": "2"},
+    clear=False,
+):
+    with mock.patch("summarize_osv_reports.time.sleep"):
+        with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
+            res = summary.query_llm_vulnerabilities_batch(vulns)
+
+assert not summary.is_failed_explanation(res["CVE-A"]), res
+assert not summary.is_failed_explanation(res["CVE-B"]), res
+assert res["CVE-B"]["appropriate"] == "contained-CVE-B", res
+# One batch call plus exactly one salvage call for the omitted finding.
+assert calls == [("CVE-A", "CVE-B"), ("CVE-B",)], calls
+PYEOF
+}

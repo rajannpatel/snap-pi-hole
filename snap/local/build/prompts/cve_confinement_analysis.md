@@ -95,7 +95,9 @@ interface during normal operation, and the result is a genuine impact such as a
 remotely induced crash of the running resolver. Do not invent hypotheticals.
 Statements of the form "if this somehow allowed escape, confinement might be
 bypassed", "all software can harbor unknown bugs", or speculation about code the
-snap never executes are **not** residual risks — omit them.
+snap never executes are **not** residual risks — omit them. When nothing concrete
+remains, simply leave the residual-risk section out; never write a sentence whose
+point is that there is no residual risk.
 
 If a finding only affects development or test-suite components that are never
 compiled into or shipped with the runtime snap binary, state that directly and
@@ -110,6 +112,9 @@ fences, or any prose before or after the object. Do not open with pleasantries
 such as "Sure" or "That is an interesting list"; begin directly with the analysis.
 
 - The top-level keys are the exact vulnerability identifiers from the batch.
+  **Every identifier in the batch must appear as a key**, even when your
+  conclusion is that the finding does not apply or is fully contained — never drop
+  a finding from the JSON. Use `appropriate` to explain why it is contained.
 - Each value is an object that may contain either or both of these string keys. At
   least one of the two must be present for every finding:
   - `appropriate`: a thorough, specific explanation of how snap confinement
@@ -130,6 +135,12 @@ such as "Sure" or "That is an interesting list"; begin directly with the analysi
     hypothetical, negligible, or confined to code the snap never executes on
     untrusted input. Do not manufacture a residual risk to fill the field; an
     omitted `not_appropriate` is the correct, expected outcome for most findings.
+    **Never put a no-risk disclaimer in this field.** If the conclusion is that no
+    residual risk remains, the field must be absent — do not write values such as
+    "No concrete residual risk…", "None", "N/A", or "No residual risk; the bug is
+    contained". Those belong nowhere in the output; the absence of the key already
+    communicates containment, and a contradicting sentence here makes the report
+    wrongly flag residual risk.
 
 Write as much as the bug genuinely warrants, but stay specific and evidence-based
 and avoid filler. A reachable finding typically needs a solid paragraph for

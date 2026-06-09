@@ -74,7 +74,7 @@ Build provenance (verifiable from the public GitHub Actions build; treat as grou
 
 Each finding carries cve, package, version, details, and when available aliases, severity, a fix_available flag with fixed_versions, and reference URLs; treat that as the source of truth. For each finding reason about the real attack vector, whether the vulnerable code is even reachable from the snap's DNS or web services with attacker input (many findings live in command-line, optional, or test-only code the runtime never invokes), whether the sandbox stops a host compromise (it almost always does), and only then what concrete impact remains inside the sandbox. A remotely triggerable crash of the running resolver that breaks network-wide DNS is a real residual risk; speculation about code the snap never runs is not.
 
-Return a single JSON object and nothing else: keys are the exact vulnerability identifiers, and each value is an object with either or both of two string keys. Always include "appropriate": a thorough, specific case for how snap confinement mitigates the risk (attack vector, reachability, and how AppArmor/seccomp/read-only SquashFS cap the blast radius and block host compromise) — several sentences are welcome when the bug warrants it. Include "not_appropriate" only when a concrete, reachable, material residual risk genuinely remains; omit it entirely for speculative, hypothetical, negligible, or non-shipped-code risks rather than inventing one. At least one key must be present per finding. Be specific and evidence-based; no filler, no Markdown, no text outside the JSON object.
+Return a single JSON object and nothing else: keys are the exact vulnerability identifiers (every id in the batch must appear as a key — never drop a finding, even one you judge contained or inapplicable), and each value is an object with either or both of two string keys. Always include "appropriate": a thorough, specific case for how snap confinement mitigates the risk (attack vector, reachability, and how AppArmor/seccomp/read-only SquashFS cap the blast radius and block host compromise) — several sentences are welcome when the bug warrants it. Include "not_appropriate" only when a concrete, reachable, material residual risk genuinely remains; omit it entirely for speculative, hypothetical, negligible, or non-shipped-code risks rather than inventing one, and never fill it with a no-risk disclaimer such as "No residual risk", "None", or "N/A" (its absence already signals containment). At least one key must be present per finding. Be specific and evidence-based; no filler, no Markdown, no text outside the JSON object.
 
 Batch data to process:
 {{CVE_BATCH_JSON}}
@@ -311,17 +311,47 @@ def is_failed_explanation(explanation):
     return not appropriate.strip() and not not_appropriate.strip()
 
 
+_NO_RESIDUAL_RISK_RE = re.compile(
+    r"^\W*(?:"
+    r"no\b[^.;:]*\bresidual risk"
+    r"|no\b[^.;:]*\b(?:additional|further|meaningful|concrete|practical|realistic"
+    r"|material|significant|net|extra|added|genuine|real|actual)\b[^.;:]*\brisk"
+    r"|there (?:is|are) no\b[^.;:]*\brisk"
+    r"|none\b"
+    r"|n/?a\b"
+    r"|not applicable\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _is_no_residual_risk_note(text):
+    """True when a ``not_appropriate`` value actually asserts there is no risk.
+
+    The model is told to omit the residual-risk section entirely when nothing
+    concrete remains, but it sometimes fills it with a "No concrete residual
+    risk: ..." disclaimer instead. Such a value is treated as empty so the report
+    shows the contained recommendation rather than a self-contradicting
+    residual-risk section.
+    """
+    return bool(_NO_RESIDUAL_RISK_RE.match((text or "").strip()))
+
+
 def coerce_explanation(item):
     """Normalize a model-supplied explanation to a {appropriate, not_appropriate} dict.
 
     Either key may be missing or empty; the omitted section is stored as an
-    empty string so downstream rendering can skip it. Returns None when the item
-    is not a dict or carries no usable content in either section.
+    empty string so downstream rendering can skip it. A ``not_appropriate`` value
+    that merely states there is no residual risk is dropped (the model should have
+    omitted it). Returns None when the item is not a dict or carries no usable
+    content in either section.
     """
     if not isinstance(item, dict):
         return None
     appropriate = str(item.get("appropriate", "") or "").strip()
     not_appropriate = str(item.get("not_appropriate", "") or "").strip()
+    if not_appropriate and _is_no_residual_risk_note(not_appropriate):
+        not_appropriate = ""
     if not appropriate and not not_appropriate:
         return None
     return {"appropriate": appropriate, "not_appropriate": not_appropriate}
@@ -384,6 +414,28 @@ def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
                 file=sys.stderr,
             )
         results.update(_query_vuln_batch_once(batch, model, api_key))
+
+    # Salvage pass: a finding can come back failed or omitted when its batch's
+    # combined JSON is truncated or the model drops an id it considers a
+    # non-issue. Re-query each straggler on its own, where it gets the full
+    # output-token budget and a neighbour's parse error cannot take it down. This
+    # only splits genuine multi-finding batches; a lone finding already exhausted
+    # its retries in _query_vuln_batch_once.
+    if len(vulns_to_query) > 1:
+        by_id = {v["cve_id"]: v for v in vulns_to_query}
+        failed_ids = [
+            cid for cid in by_id if is_failed_explanation(results.get(cid))
+        ]
+        for cid in failed_ids:
+            if BATCH_PACING_SECONDS > 0:
+                time.sleep(BATCH_PACING_SECONDS)
+            print(
+                f"Re-querying {cid} individually after a batch miss...",
+                file=sys.stderr,
+            )
+            salvaged = _query_vuln_batch_once([by_id[cid]], model, api_key)
+            if not is_failed_explanation(salvaged.get(cid)):
+                results[cid] = salvaged[cid]
     return results
 
 
