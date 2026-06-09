@@ -773,3 +773,118 @@ assert ("X" * (summary.MAX_DETAILS_CHARS + 1)) not in prompt, "details exceeded 
 PYEOF
 }
 
+@test "LLM query accepts findings that omit the risks section" {
+    python3 - <<PYEOF
+import json
+import os
+import sys
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+class DummyResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def read(self):
+        return json.dumps(self._payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+# Second finding omits not_appropriate entirely (no plausible residual risk).
+content = json.dumps({
+    "CVE-2026-7001": {"appropriate": "Sandbox contains the crash.", "not_appropriate": "DNS outage is a real DoS."},
+    "CVE-2026-7002": {"appropriate": "Only affects non-shipped test code."},
+})
+payload = {"choices": [{"message": {"content": content}}]}
+
+vulns = [
+    {"cve_id": "CVE-2026-7001", "package_name": "jq", "version": "1.0"},
+    {"cve_id": "CVE-2026-7002", "package_name": "jq", "version": "1.0"},
+]
+
+with mock.patch.dict(os.environ, {"LLM_API_KEY": "test-key", "LLM_MAX_ATTEMPTS": "1"}, clear=False):
+    with mock.patch("summarize_osv_reports.urllib.request.urlopen", return_value=DummyResponse(payload)):
+        res = summary.query_llm_vulnerabilities_batch(vulns)
+
+assert res["CVE-2026-7001"]["not_appropriate"] == "DNS outage is a real DoS.", res
+# Omitted risk is normalized to an empty string, and the finding is still valid.
+assert res["CVE-2026-7002"]["appropriate"] == "Only affects non-shipped test code.", res
+assert res["CVE-2026-7002"]["not_appropriate"] == "", res
+assert not summary.is_failed_explanation(res["CVE-2026-7002"]), res["CVE-2026-7002"]
+PYEOF
+}
+
+@test "is_failed_explanation accepts one-sided analysis but rejects empty content" {
+    python3 - <<PYEOF
+import sys
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+# One populated section is a valid, cacheable explanation.
+assert not summary.is_failed_explanation({"appropriate": "A", "not_appropriate": ""})
+assert not summary.is_failed_explanation({"appropriate": "", "not_appropriate": "B"})
+# No content at all, or the error placeholder, counts as a failure.
+assert summary.is_failed_explanation({"appropriate": "", "not_appropriate": ""})
+assert summary.is_failed_explanation({})
+assert summary.is_failed_explanation({"appropriate": summary.LLM_LOOKUP_ERROR_TEXT, "not_appropriate": ""})
+PYEOF
+}
+
+@test "HTML and Markdown render only the populated confinement section" {
+    python3 - <<PYEOF
+import sys
+import tempfile
+import pathlib
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+def vuln(vid, prio, appropriate, not_appropriate, pub):
+    return {
+        "id": vid, "aliases": [], "summary": "", "details": "",
+        "severity": "5.5 · MEDIUM", "priority": prio, "published": pub, "modified": pub,
+        "url": "https://example/" + vid, "patchable": False,
+        "appropriate": appropriate, "not_appropriate": not_appropriate,
+    }
+
+report = {
+    "architecture": "amd64", "report": "osv-amd64.json",
+    "generatedAt": {"datetime": "2026-06-09T00:00:00Z", "label": "2026-06-09 00:00 UTC"},
+    "affectedPackages": 1, "vulnerabilities": 2, "actionableAffectedPackages": 0,
+    "actionableVulnerabilities": 0, "confinedMitigationVulnerabilities": 2,
+    "packages": [{
+        "name": "jq", "version": "1.8.1", "ecosystem": "Ubuntu",
+        "vulnerabilities": [
+            vuln("CVE-2026-7001", "MEDIUM", "Sandbox contains the crash.", "DNS outage is a real DoS.", "2026-05-11T00:00:00Z"),
+            vuln("CVE-2026-7002", "NEGLIGIBLE", "Only affects non-shipped test code.", "", "2025-08-25T00:00:00Z"),
+        ],
+    }],
+}
+data = {"reports": [report], "totals": {
+    "affectedPackages": 1, "vulnerabilities": 2, "actionableAffectedPackages": 0,
+    "actionableVulnerabilities": 0, "confinedMitigationVulnerabilities": 2,
+}}
+
+d = pathlib.Path(tempfile.mkdtemp())
+md_path = d / "out.md"
+html_path = d / "out.html"
+summary.write_markdown(data, md_path)
+summary.write_html(data, html_path)
+md = md_path.read_text()
+html = html_path.read_text()
+
+# Both findings keep the "adequate" rationale; only the first shows residual risk.
+assert md.count("Snap confinement mitigates risk") == 2, md
+assert md.count("Risk boundary extends beyond snap confinement") == 1, md
+assert html.count("Snap confinement mitigates risk") == 2, html
+assert html.count("Risk boundary extends beyond snap confinement") == 1, html
+PYEOF
+}
+

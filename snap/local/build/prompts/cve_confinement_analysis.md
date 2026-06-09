@@ -68,25 +68,35 @@ fences, or any prose before or after the object. Do not open with pleasantries
 such as "Sure" or "That is an interesting list"; begin directly with the analysis.
 
 - The top-level keys are the exact vulnerability identifiers from the batch.
-- Each value is an object with exactly two string keys:
+- Each value is an object that may contain either or both of these string keys.
+  Include a key only when you have something substantive to say; at least one of
+  the two must be present for every finding:
   - `appropriate`: the specific, honest case for the "Confined Mitigation" label.
     Ground it in how AppArmor, seccomp, and the read-only SquashFS root contain the
     blast radius and block host compromise for this particular bug.
-  - `not_appropriate`: the candid reality check. State plainly where confinement
-    does not help, and lead with the most serious residual impact. Treat a panic,
-    crash, or hang that interrupts network-wide DNS as a real denial-of-service
-    attack rather than a contained event, and mark findings that only touch
-    non-shipped code as non-issues.
+  - `not_appropriate`: the candid reality check, included **only when a plausible,
+    material residual risk genuinely remains** under confinement. Lead with the most
+    serious residual impact, and treat a panic, crash, or hang that interrupts
+    network-wide DNS as a real denial-of-service attack rather than a contained
+    event. **Omit this key entirely when the only conceivable risks are
+    speculative, far-fetched, or negligible** — do not manufacture an implausible
+    risk just to fill the field. For a finding that only touches non-shipped
+    development or test code, omit `not_appropriate` and use `appropriate` to state
+    that it is a non-issue.
 
 Keep each explanation specific to the bug's mechanics and concise, between one and
 three sentences.
 
-Illustrative shape only (do not reuse this wording):
+Illustrative shape only (do not reuse this wording). The first finding keeps both
+sections; the second has no plausible residual risk, so it omits `not_appropriate`:
 
 {
   "UBUNTU-CVE-2025-49087": {
     "appropriate": "...",
     "not_appropriate": "..."
+  },
+  "UBUNTU-CVE-2025-11111": {
+    "appropriate": "..."
   }
 }
 

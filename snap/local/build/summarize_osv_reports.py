@@ -58,7 +58,7 @@ FALLBACK_PROMPT_TEMPLATE = """You are acting as a senior DevSecOps Engineer and 
 
 For each finding below, reason about the real attack vector, whether the snap sandbox stops a host compromise, and what happens to the Pi-hole service itself if the bug fires inside the sandbox; a crash or hang that breaks network-wide DNS is still a denial-of-service attack. Mark findings that only affect non-shipped test code as non-issues. Treat the supplied details text as the source of truth.
 
-Return a single JSON object and nothing else: keys are the exact vulnerability identifiers, and each value is an object with exactly two string keys, "appropriate" (the honest case for the confined-mitigation label) and "not_appropriate" (the candid residual risk, leading with the most serious impact). Keep each explanation specific and between one and three sentences. Do not add Markdown, code fences, or any text outside the JSON object.
+Return a single JSON object and nothing else: keys are the exact vulnerability identifiers, and each value is an object that may include either or both of two string keys. Always include "appropriate" (the honest case for the confined-mitigation label) when confinement genuinely helps. Include "not_appropriate" (the candid residual risk, leading with the most serious impact) only when a plausible, material risk truly remains; omit it entirely when the only conceivable risks are speculative, far-fetched, or negligible rather than inventing one. At least one key must be present per finding. Keep each explanation specific and between one and three sentences. Do not add Markdown, code fences, or any text outside the JSON object.
 
 Batch data to process:
 {{CVE_BATCH_JSON}}
@@ -138,15 +138,34 @@ def is_failed_explanation(explanation):
     Failure placeholders are never written to the cache, and any that already
     exist there are treated as a cache miss and re-queried, so a transient
     outage cannot permanently replace real analysis with an error message.
+
+    Either section may legitimately be empty (the model omits a section when it
+    has nothing substantive to say), but an explanation with no populated
+    section at all, or one carrying the error text, counts as a failure.
     """
     if not isinstance(explanation, dict):
         return True
-    appropriate = str(explanation.get("appropriate", ""))
-    not_appropriate = str(explanation.get("not_appropriate", ""))
-    return (
-        LLM_LOOKUP_ERROR_TEXT in appropriate
-        or LLM_LOOKUP_ERROR_TEXT in not_appropriate
-    )
+    appropriate = str(explanation.get("appropriate", "") or "")
+    not_appropriate = str(explanation.get("not_appropriate", "") or "")
+    if LLM_LOOKUP_ERROR_TEXT in appropriate or LLM_LOOKUP_ERROR_TEXT in not_appropriate:
+        return True
+    return not appropriate.strip() and not not_appropriate.strip()
+
+
+def coerce_explanation(item):
+    """Normalize a model-supplied explanation to a {appropriate, not_appropriate} dict.
+
+    Either key may be missing or empty; the omitted section is stored as an
+    empty string so downstream rendering can skip it. Returns None when the item
+    is not a dict or carries no usable content in either section.
+    """
+    if not isinstance(item, dict):
+        return None
+    appropriate = str(item.get("appropriate", "") or "").strip()
+    not_appropriate = str(item.get("not_appropriate", "") or "").strip()
+    if not appropriate and not not_appropriate:
+        return None
+    return {"appropriate": appropriate, "not_appropriate": not_appropriate}
 
 
 def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
@@ -208,33 +227,15 @@ def _query_vuln_batch_once(vulns_to_query, model, api_key):
     def normalize_explanations(payload):
         if not isinstance(payload, dict):
             raise ValueError("LLM response payload is not an object")
-        if (
-            len(vulns_to_query) == 1
-            and "appropriate" in payload
-            and "not_appropriate" in payload
-            and vulns_to_query[0]["cve_id"] not in payload
-        ):
-            cve_id = vulns_to_query[0]["cve_id"]
-            return {
-                cve_id: {
-                    "appropriate": str(payload["appropriate"]).strip(),
-                    "not_appropriate": str(payload["not_appropriate"]).strip(),
-                }
-            }
+        if len(vulns_to_query) == 1 and vulns_to_query[0]["cve_id"] not in payload:
+            direct = coerce_explanation(payload)
+            if direct is not None:
+                return {vulns_to_query[0]["cve_id"]: direct}
         res = {}
         for v in vulns_to_query:
             cve_id = v["cve_id"]
-            if cve_id in payload:
-                item = payload[cve_id]
-                if isinstance(item, dict) and "appropriate" in item and "not_appropriate" in item:
-                    res[cve_id] = {
-                        "appropriate": str(item["appropriate"]).strip(),
-                        "not_appropriate": str(item["not_appropriate"]).strip(),
-                    }
-                else:
-                    res[cve_id] = fallback_map[cve_id]
-            else:
-                res[cve_id] = fallback_map[cve_id]
+            coerced = coerce_explanation(payload.get(cve_id))
+            res[cve_id] = coerced if coerced is not None else fallback_map[cve_id]
         return res
 
     def parse_text_payload(text):
@@ -716,8 +717,8 @@ def collect_reports(reports_dir):
                         time.sleep(1.0)
 
                     v_entry = vulnerability_entry(v, has_usn)
-                    v_entry["appropriate"] = explanations["appropriate"]
-                    v_entry["not_appropriate"] = explanations["not_appropriate"]
+                    v_entry["appropriate"] = explanations.get("appropriate", "")
+                    v_entry["not_appropriate"] = explanations.get("not_appropriate", "")
                     package_vulns.append(v_entry)
 
                 affected_packages += 1
@@ -854,12 +855,16 @@ def write_markdown(summary, output_path):
             lines.extend([
                 f"### {vuln_label} ({info['package']})",
                 "",
-                f"- **Why Confined Mitigation is Appropriate**:",
-                f"  {info['appropriate']}",
-                f"- **Why Confined Mitigation is NOT Appropriate**:",
-                f"  {info['not_appropriate']}",
-                ""
             ])
+            appropriate_text = (info.get("appropriate") or "").strip()
+            not_appropriate_text = (info.get("not_appropriate") or "").strip()
+            if appropriate_text:
+                lines.append("- **Snap confinement mitigates risk**:")
+                lines.append(f"  {appropriate_text}")
+            if not_appropriate_text:
+                lines.append("- **Risk boundary extends beyond snap confinement**:")
+                lines.append(f"  {not_appropriate_text}")
+            lines.append("")
 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -982,7 +987,25 @@ def write_html(summary, output_path):
                 " ".join(architecture_labels),
             ]
         ).lower()
-        detail_rows.append(
+        appropriate_text = (row_data.get("appropriate") or "").strip()
+        not_appropriate_text = (row_data.get("not_appropriate") or "").strip()
+        explanation_blocks = []
+        if appropriate_text:
+            explanation_blocks.append(
+                f'<div style="flex: 1; min-width: 280px; border-left: 4px solid #1976d2; padding-left: 1rem;">'
+                f'<h4 style="font-size: 0.9rem; font-weight: 600; color: #1976d2; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.5px;">Snap confinement mitigates risk</h4>'
+                f'<p style="font-size: 0.875rem; line-height: 1.5; color: #333; margin: 0;">{html.escape(appropriate_text)}</p>'
+                f'</div>'
+            )
+        if not_appropriate_text:
+            explanation_blocks.append(
+                f'<div style="flex: 1; min-width: 280px; border-left: 4px solid #d32f2f; padding-left: 1rem;">'
+                f'<h4 style="font-size: 0.9rem; font-weight: 600; color: #d32f2f; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.5px;">Risk boundary extends beyond snap confinement</h4>'
+                f'<p style="font-size: 0.875rem; line-height: 1.5; color: #333; margin: 0;">{html.escape(not_appropriate_text)}</p>'
+                f'</div>'
+            )
+
+        detail_row_html = (
             f'<tr class="vulnerability-row" data-search="{html.escape(row_search)}">'
             f"<td>{html.escape(row_data['package_name'])}</td>"
             f"<td>{html.escape(row_data['package_version'])}</td>"
@@ -993,21 +1016,18 @@ def write_html(summary, output_path):
             f"<td>{publication_cell}</td>"
             f"<td>{architecture_cells}</td>"
             "</tr>\n"
-            f'<tr class="vulnerability-explanation-row" style="background-color: #fafafa;">'
-            f'<td colspan="8" style="padding: 1rem 1.5rem !important; border-bottom: 1px solid #e0e0e0;">'
-            f'<div style="display: flex; gap: 2rem; flex-wrap: wrap;">'
-            f'<div style="flex: 1; min-width: 280px; border-left: 4px solid #1976d2; padding-left: 1rem;">'
-            f'<h4 style="font-size: 0.9rem; font-weight: 600; color: #1976d2; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.5px;">Why Confined Mitigation is Appropriate</h4>'
-            f'<p style="font-size: 0.875rem; line-height: 1.5; color: #333; margin: 0;">{html.escape(row_data["appropriate"])}</p>'
-            f'</div>'
-            f'<div style="flex: 1; min-width: 280px; border-left: 4px solid #d32f2f; padding-left: 1rem;">'
-            f'<h4 style="font-size: 0.9rem; font-weight: 600; color: #d32f2f; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.5px;">Confinement Limitations / Risks</h4>'
-            f'<p style="font-size: 0.875rem; line-height: 1.5; color: #333; margin: 0;">{html.escape(row_data["not_appropriate"])}</p>'
-            f'</div>'
-            f'</div>'
-            f'</td>'
-            f'</tr>'
         )
+        if explanation_blocks:
+            detail_row_html += (
+                f'<tr class="vulnerability-explanation-row" style="background-color: #fafafa;">'
+                f'<td colspan="8" style="padding: 1rem 1.5rem !important; border-bottom: 1px solid #e0e0e0;">'
+                f'<div style="display: flex; gap: 2rem; flex-wrap: wrap;">'
+                f'{"".join(explanation_blocks)}'
+                f'</div>'
+                f'</td>'
+                f'</tr>'
+            )
+        detail_rows.append(detail_row_html)
 
     summary_table_rows = "\n".join(summary_rows) or (
         '<tr><td colspan="5">No OSV reports were generated.</td></tr>'
