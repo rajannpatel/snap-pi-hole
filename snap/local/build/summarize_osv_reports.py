@@ -51,6 +51,21 @@ SNAPCRAFT_YAML_PATH = (
     pathlib.Path(__file__).resolve().parent.parent.parent / "snapcraft.yaml"
 )
 
+# The snap's own additions that actually ship and run inside the deployed snap:
+# the patches applied to upstream sources (including the FTL C patches), the snapd
+# hooks, and the runtime wrapper scripts. These are where this project introduces
+# attack surface the upstream Pi-hole audit knowledge does not cover (for example
+# piping the GitHub release API response through `jq`). Build- and test-only trees
+# are deliberately excluded: attacker-influenced input never reaches them.
+SNAP_DIR = SNAPCRAFT_YAML_PATH.parent
+REPO_ROOT_DIR = SNAP_DIR.parent
+SNAP_RUNTIME_SOURCE_DIRS = (
+    SNAP_DIR / "local" / "patches",
+    SNAP_DIR / "hooks",
+    SNAP_DIR / "local" / "runtime",
+)
+MAX_SNAP_INVOCATION_SITES = 8
+
 # GitHub Models free tier caps a single request body at 8000 input tokens for
 # high-tier models (e.g. gpt-4.1). Vulnerabilities are sent in size-limited
 # batches so neither the request body nor the response exceeds the per-call
@@ -72,7 +87,7 @@ FALLBACK_PROMPT_TEMPLATE = """You are acting as a senior DevSecOps Engineer and 
 Build provenance (verifiable from the public GitHub Actions build; treat as ground truth and use it to dismiss findings that cannot apply to how this snap is actually compiled and shipped):
 {{BUILD_PROVENANCE}}
 
-Each finding carries cve, package, version, details, and when available aliases, severity, a fix_available flag with fixed_versions, and reference URLs; treat that as the source of truth. For each finding reason about the real attack vector, whether the vulnerable code is even reachable from the snap's DNS or web services with attacker input (many findings live in command-line, optional, or test-only code the runtime never invokes), whether the sandbox stops a host compromise (it almost always does), and only then what concrete impact remains inside the sandbox. A remotely triggerable crash of the running resolver that breaks network-wide DNS is a real residual risk; speculation about code the snap never runs is not.
+Each finding carries cve, package, version, details, and when available aliases, severity, a fix_available flag with fixed_versions, reference URLs, and a snap_invocations list of real `path:line: code` call sites grepped from the snap's own shipped patches, hooks, and runtime scripts; treat that as the source of truth. For each finding reason about the real attack vector, then whether the vulnerable code is reachable from the snap's services with attacker-influenced input — grounded in snap_invocations when present, and remembering that untrusted input can arrive indirectly (for example the snap's own update check pipes the GitHub release API response into jq). This audit does not enumerate the full upstream Pi-hole/FTL tree, so never assert that no code path passes attacker-influenced data to a component; if no path is evident, say only that none is evident and let confinement decide. Then weigh whether the sandbox stops a host compromise (it almost always does) and only then what concrete impact remains inside it. The durable, honest argument is the blast-radius bound — even if the bug fires, AppArmor/seccomp/read-only SquashFS cap the damage to the snap's own data and cannot reach the host — so lead with that rather than a fragile claim that the code is unreachable. A remotely triggerable crash of the running resolver that breaks network-wide DNS is a real residual risk; speculation about code the snap never runs is not.
 
 Return a single JSON object and nothing else: keys are the exact vulnerability identifiers (every id in the batch must appear as a key — never drop a finding, even one you judge contained or inapplicable), and each value is an object with either or both of two string keys. Always include "appropriate": a thorough, specific case for how snap confinement mitigates the risk (attack vector, reachability, and how AppArmor/seccomp/read-only SquashFS cap the blast radius and block host compromise) — several sentences are welcome when the bug warrants it. Include "not_appropriate" only when a concrete, reachable, material residual risk genuinely remains; omit it entirely for speculative, hypothetical, negligible, or non-shipped-code risks rather than inventing one, and never fill it with a no-risk disclaimer such as "No residual risk", "None", or "N/A" (its absence already signals containment). At least one key must be present per finding. Be specific and evidence-based; no filler, no Markdown, no text outside the JSON object.
 
@@ -172,6 +187,141 @@ def build_provenance_block():
     )
 
 
+def _usage_tokens(package_name):
+    """Derive grep tokens for a finding's component from its OSV package name.
+
+    Takes the leading package name plus any parenthesised binary/applet (so
+    "lmdb (mdb_load)" yields {lmdb, mdb_load} and "rust-coreutils (sort)" yields
+    {rust-coreutils, sort}). Tokens of any length are kept — including a future
+    single-character package name — provided they are plain identifiers; how each
+    token is matched (see ``_compile_usage_pattern``) is what keeps short, generic
+    names from misfiring, so length is not used to exclude them here.
+    """
+    raw = str(package_name or "")
+    tokens = {re.split(r"[\s(]", raw, 1)[0].strip()}
+    for inner in re.findall(r"\(([^)]*)\)", raw):
+        for part in re.split(r"[,\s/]+", inner):
+            tokens.add(part.strip())
+    return {t for t in tokens if len(t) >= 1 and re.fullmatch(r"[A-Za-z0-9_.+-]+", t)}
+
+
+def _compile_usage_pattern(token):
+    """Compile the search pattern used to find a token's real invocation sites.
+
+    A distinctive token (three characters or more) is specific enough that a plain
+    word-boundary match is both safe and high-recall. Short tokens such as "jq",
+    "su", "yq" — or a hypothetical one-character package name — are too generic for
+    a bare word match, which would flag every stray letter in prose. For those,
+    require the token to appear in true command position: at a statement start, in
+    a pipeline, after a separator, command substitution, backtick, or an explicit
+    command runner (sudo/exec/xargs/env/…), optionally via an absolute path, or as
+    a C ``#include`` target. Shell ``${var}`` parameter and ``$((expr))`` arithmetic
+    expansions are deliberately excluded so a package whose name collides with a
+    shell variable is not misreported. This is what lets the length floor be
+    removed without reintroducing false positives.
+    """
+    esc = re.escape(token)
+    if len(token) >= 3:
+        return re.compile(r"\b" + esc + r"\b")
+    runners = r"exec|xargs|command|sudo|env|nohup|nice|timeout|time|watch"
+    # A statement boundary, then optional leading VAR=value assignments and an
+    # optional absolute-path prefix, immediately before the token.
+    command = (
+        r"(?:^|[|;&`]|\$\(|\b(?:" + runners + r")\s+(?:-\S+\s+)*)\s*"
+        r"(?:[A-Za-z_]\w*=\S*\s+)*(?:[\w./-]*/)?"
+    )
+    include = r"#\s*include\s*[<\"]\s*(?:[\w./-]*/)*"
+    return re.compile(r"(?:" + command + "|" + include + ")" + esc + r"(?![\w.+-])")
+
+
+# C preprocessor directives begin with `#` but are code, not prose comments, so a
+# matched `#include <pkg/...>` line is kept as real evidence the component is used.
+_C_PREPROCESSOR_KEYWORDS = frozenset(
+    {
+        "include", "define", "undef", "if", "ifdef", "ifndef", "elif", "else",
+        "endif", "pragma", "error", "warning", "line",
+    }
+)
+
+
+def _is_prose_comment(text):
+    """True when ``text`` is a human comment line rather than an invocation.
+
+    Skipping these stops a passing mention of a package in a code comment (for
+    example a note about AppArmor and rust-coreutils) from being reported as a
+    real call site. C preprocessor directives are explicitly not comments.
+    """
+    if text.startswith(("//", "/*", "*")):
+        return True
+    if text.startswith("#"):
+        first = re.split(r"[^A-Za-z]", text[1:].lstrip(), 1)[0].lower()
+        return first not in _C_PREPROCESSOR_KEYWORDS
+    return False
+
+
+def _iter_snap_runtime_files():
+    for root in SNAP_RUNTIME_SOURCE_DIRS:
+        if not root.exists():
+            continue
+        for path in sorted(root.rglob("*")):
+            if path.is_file():
+                yield path
+
+
+def snap_usage_sites(package_name, limit=MAX_SNAP_INVOCATION_SITES):
+    """Find real invocation sites of a finding's component in the snap's own code.
+
+    Searches only the code this project actually ships and runs inside the snap
+    (applied patches, snapd hooks, runtime wrapper scripts) for the component's
+    tokens, and returns verifiable ``relpath:line: code`` evidence the model can
+    use to judge whether attacker-influenced data can reach the vulnerable code.
+
+    For ``.patch`` files, lines the patch removes are skipped (they are not
+    shipped) and the diff marker is stripped so the model sees the shipped code.
+    Prose comment lines are skipped so a passing mention is not misreported as a
+    call site. An empty list means no direct use was found in the snap's own
+    additions; it does **not** prove the component is unreachable, because the
+    staged upstream Pi-hole and FTL sources are not enumerated here.
+    """
+    tokens = _usage_tokens(package_name)
+    if not tokens:
+        return []
+    patterns = [_compile_usage_pattern(t) for t in tokens]
+    sites = []
+    seen = set()
+    for path in _iter_snap_runtime_files():
+        is_patch = path.suffix == ".patch"
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for lineno, raw_line in enumerate(lines, 1):
+            line = raw_line.strip()
+            if not line or line.startswith("#!"):
+                continue
+            if line.startswith(("+++", "---", "@@", "diff ", "index ")):
+                continue
+            if is_patch and line.startswith("-"):
+                continue  # removed by the patch, so not shipped
+            code = line.lstrip("+").strip() if is_patch else line
+            if _is_prose_comment(code):
+                continue
+            if not any(p.search(code) for p in patterns):
+                continue
+            try:
+                rel = path.relative_to(REPO_ROOT_DIR)
+            except ValueError:
+                rel = path
+            key = (str(rel), lineno)
+            if key in seen:
+                continue
+            seen.add(key)
+            sites.append(f"{rel}:{lineno}: {code[:200]}")
+            if len(sites) >= limit:
+                return sites
+    return sites
+
+
 def load_prompt_template():
     try:
         text = PROMPT_TEMPLATE_PATH.read_text(encoding="utf-8")
@@ -258,6 +408,12 @@ def _batch_entry(vuln):
     references = [r for r in (vuln.get("references") or []) if r]
     if references:
         entry["references"] = references[:MAX_REFERENCES]
+    # Verifiable, in-repo evidence of where this component is invoked by the
+    # snap's own shipped code, so the model grounds reachability in real call
+    # sites instead of guessing about upstream behaviour.
+    invocations = snap_usage_sites(entry["package"])
+    if invocations:
+        entry["snap_invocations"] = invocations
     return entry
 
 

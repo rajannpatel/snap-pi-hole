@@ -962,8 +962,9 @@ assert rich["fix_available"] is True, rich
 assert rich["fixed_versions"] == ["2.1.0"], rich
 assert rich["references"] == ["https://example/adv"], rich
 
-# A minimal vuln dict stays lean: optional keys are omitted entirely.
-lean = summary._batch_entry({"cve_id": "CVE-1", "package_name": "jq", "version": "1.0", "details": "x"})
+# A minimal vuln dict stays lean: optional keys (including snap_invocations, which
+# only appears when the snap's own code invokes the component) are omitted entirely.
+lean = summary._batch_entry({"cve_id": "CVE-1", "package_name": "libxml2", "version": "1.0", "details": "x"})
 assert set(lean.keys()) == {"cve", "package", "version", "details"}, lean
 PYEOF
 }
@@ -1145,5 +1146,92 @@ assert not summary.is_failed_explanation(res["CVE-B"]), res
 assert res["CVE-B"]["appropriate"] == "contained-CVE-B", res
 # One batch call plus exactly one salvage call for the omitted finding.
 assert calls == [("CVE-A", "CVE-B"), ("CVE-B",)], calls
+PYEOF
+}
+
+@test "snap_invocations ground reachability in real, verifiable call sites" {
+    python3 - <<PYEOF
+import pathlib
+import re
+import sys
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+repo = pathlib.Path("${REPO_ROOT}")
+
+# Token derivation keeps real short tool names (jq) and splits parenthesised
+# binaries, while dropping single characters.
+assert summary._usage_tokens("jq") == {"jq"}, summary._usage_tokens("jq")
+assert summary._usage_tokens("lmdb (mdb_load)") == {"lmdb", "mdb_load"}, summary._usage_tokens("lmdb (mdb_load)")
+assert "sort" in summary._usage_tokens("rust-coreutils (sort)")
+
+# There is no arbitrary length floor: a future single-character package name is
+# still tokenised, and precision comes from HOW it is matched, not from excluding
+# it. Short tokens match only genuine command/include positions and never a stray
+# letter in prose, an argument, or a shell variable/arithmetic expansion.
+assert summary._usage_tokens("q") == {"q"}, summary._usage_tokens("q")
+hits = {
+    "jq": ["echo x | jq .", "jq -n", "v=\$(jq . f)", "/usr/bin/jq -r"],
+    "su": ["su -c id", "| su -", "a; su", "exec su -", "sudo su -", "/bin/su -"],
+    "yq": ["yq '.a'", "cat f | yq .", "r=\$(yq e . f)", "xargs -0 yq", "FOO=bar yq ."],
+    "q":  ["echo x | q -r", "q --arg a", "/usr/bin/q x", "#include <q/q.h>"],
+    "m":  ["cat | m -n", "m < in"],
+}
+misses = {
+    "su": ["sudo apt", "super user", "issue here", "tar -su", "foo su"],
+    "yq": ["yquery x", "my yq note"],
+    "q":  ["query db", "unique_value=3", "QUERY=1", "sqlite q", "a q b"],
+    "m":  ["\${m}", "\${m:-1}", "\$(( m + 1 ))", "val=\${m}", "name.m", "a m b"],
+    "s":  ["\${s}/x", "this s that"],
+}
+for tok, samples in hits.items():
+    pat = summary._compile_usage_pattern(tok)
+    for sample in samples:
+        assert pat.search(sample), (tok, sample)
+for tok, samples in misses.items():
+    pat = summary._compile_usage_pattern(tok)
+    for sample in samples:
+        assert not pat.search(sample), (tok, sample)
+# A distinctive token keeps the high-recall word-boundary match (e.g. inside an
+# #include path), so removing the floor does not weaken longer names.
+assert summary._compile_usage_pattern("mbedtls").search("# include <mbedtls/x509_crt.h>")
+
+# jq IS invoked by the snap's own shipped code, so the analysis must see it.
+jq_sites = summary.snap_usage_sites("jq")
+joined = "\n".join(jq_sites)
+assert any("updatecheck.patch" in s for s in jq_sites), jq_sites
+assert "api.github.com" in joined, jq_sites          # the GitHub-API -> jq path
+assert any("hooks/configure" in s for s in jq_sites), jq_sites
+
+# Every reported site must be TRUE: the file exists and the cited line really
+# references the component (never a fabricated location).
+for site in jq_sites:
+    rel, lineno, _ = site.split(":", 2)
+    text = (repo / rel).read_text(encoding="utf-8").splitlines()[int(lineno) - 1]
+    assert re.search(r"\bjq\b", text), (site, text)
+
+# Prose comments are NOT call sites: a code comment that merely mentions
+# rust-coreutils must not be reported as an invocation.
+sort_sites = summary.snap_usage_sites("rust-coreutils (sort)")
+assert not any("launcher-ftl.sh" in s for s in sort_sites), sort_sites
+assert not any("rather than hitting AppArmor" in s for s in sort_sites), sort_sites
+
+# A linked library that the snap patches into FTL surfaces via its #include
+# directives (preprocessor lines are code, not comments), and patch metadata or
+# removed lines never leak in.
+mbedtls_sites = summary.snap_usage_sites("mbedtls")
+assert any("x509-mbedtls-rng.patch" in s for s in mbedtls_sites), mbedtls_sites
+assert not any(s.split(":", 2)[2].strip().startswith(("@@", "+++", "---")) for s in mbedtls_sites), mbedtls_sites
+
+# The grounding rides along in the batch payload and the assembled prompt for a
+# used component, and is omitted for one with no shipped invocation.
+entry = summary._batch_entry({"cve_id": "CVE-X", "package_name": "jq", "version": "1.7", "details": "d"})
+assert entry.get("snap_invocations"), entry
+prompt = summary.build_analysis_prompt([{"cve_id": "CVE-X", "package_name": "jq", "version": "1.7", "details": "d"}])
+assert "snap_invocations" in prompt and "api.github.com" in prompt, "grounding missing from prompt"
+
+lean = summary._batch_entry({"cve_id": "CVE-Y", "package_name": "libxml2", "version": "2", "details": "d"})
+assert "snap_invocations" not in lean, lean
 PYEOF
 }

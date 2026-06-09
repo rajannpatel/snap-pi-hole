@@ -3,8 +3,10 @@ Maintainer note: this Markdown file is the instruction template sent to the
 language model that audits OSV vulnerability findings for snap-pi-hole.
 `summarize_osv_reports.py` loads this file and substitutes two placeholders:
 `{{BUILD_PROVENANCE}}` with build facts derived from snapcraft.yaml, and
-`{{CVE_BATCH_JSON}}` with the batch of findings discovered during a scan. Edit
-the wording freely, but keep both placeholders and the JSON output contract
+`{{CVE_BATCH_JSON}}` with the batch of findings discovered during a scan. Each
+finding in that batch may also carry a `snap_invocations` list of real call sites
+grepped from the snap's own shipped code, so keep the analysis grounded in it.
+Edit the wording freely, but keep both placeholders and the JSON output contract
 intact so the build pipeline can still ground the model and parse the response.
 -->
 
@@ -49,6 +51,9 @@ Work every CVE in the batch through this filter before writing the output. Each
 batch entry carries the `cve` id, the affected `package` and installed `version`,
 a `details` description, and — when the scanner supplies them — `aliases`,
 `severity`, a `fix_available` flag with `fixed_versions`, and `references` URLs.
+When this project's own code invokes the affected component, the entry also
+carries `snap_invocations`: a list of real `path:line: code` call sites grepped
+from the snap's shipped patches, snapd hooks, and runtime wrapper scripts.
 Treat that supplied data as the source of truth, especially when the identifier is
 newer than your training data. Do not pad the answer with generic textbook
 definitions; reason about the execution mechanics of the specific bug against the
@@ -63,12 +68,22 @@ realities of a network-adjacent, strictly confined DNS service.
    the shipped snap, or is it interpreted, an unlinked feature, or only a build/test
    artifact? If the provenance rules the finding out, say so plainly and cite the
    specific fact — it does not apply, and there is no residual risk to report.
-3. Reachability in this snap. Is the vulnerable code path actually exercised by the
-   snap's running services — DNS resolution on port 53 or the admin web UI on ports
-   80/443 — with attacker-influenced input during normal operation? Many findings
-   live in command-line utilities, optional features, or build/test tooling that the
-   Pi-hole runtime never invokes on untrusted input. If the code is not reachable by
-   an attacker here, say so plainly: there is no residual risk to report.
+3. Reachability in this snap. Decide whether attacker-influenced input can actually
+   reach the vulnerable code during normal operation, and ground that decision in
+   evidence rather than assumption. When the finding carries `snap_invocations`,
+   those are real call sites in the snap's own shipped code where this component is
+   invoked — read each one and reason about what data flows in. Untrusted input is
+   not limited to a direct DNS query or web request: the snap's own update check
+   pipes the GitHub release API response into `jq`, and an operator reviewing FTL
+   query logs hands client-supplied domain strings to downstream tools, so data can
+   arrive indirectly too. Crucially, this audit sees the snap's own additions and
+   build provenance but does **not** enumerate every line of the staged upstream
+   Pi-hole and FTL sources, so treat the evidence as incomplete: do **not** assert
+   that no code path passes attacker-influenced data to a component — you cannot
+   verify that universal negative from a partial view, and one overlooked call site
+   would falsify it. If no reachable path is evident, say only that none is *evident
+   from the audited interfaces* and let the confinement analysis below carry the
+   verdict.
 4. Host escape under confinement. Given AppArmor confinement, seccomp system-call
    filtering, and the read-only SquashFS root, can this bug cross the sandbox
    boundary to compromise the host operating system, other snaps, or host services?
@@ -88,6 +103,17 @@ unreachable from the snap's services there is no residual risk at all. Default t
 recognizing that containment, and make the dismissal *concrete*: a grounded
 "this does not apply because the snap is built with GCC, not Clang" is far more
 trust-building than a vague reassurance.
+
+Rest the verdict on the durable argument. The strongest and most honest case for
+confinement is the blast-radius bound: even if a bug is reachable and fires,
+AppArmor, seccomp, and the read-only root cap the damage to the snap's own
+writable data and cannot reach the host, other snaps, or host services. Lead with
+that. Do **not** rest a dismissal on the fragile claim that the vulnerable code is
+simply unreachable — that is precisely the claim a knowledgeable reader can
+disprove by finding one overlooked call site (for instance, that the snap's update
+check already pipes a network response into `jq`), and a single checkable error
+erodes trust in the entire report. State reachability only as far as the evidence
+supports, and let confinement, not an unverifiable negative, do the reassuring.
 
 Treat residual risk as real **only when it is concrete, reachable, and material**:
 an attacker can plausibly trigger the bug through the snap's own DNS or web
@@ -120,10 +146,11 @@ such as "Sure" or "That is an interesting list"; begin directly with the analysi
   - `appropriate`: a thorough, specific explanation of how snap confinement
     mitigates this finding's risk. Walk through the attack vector, whether the
     finding even applies to this build (cite the relevant provenance fact),
-    whether the vulnerable code is reachable from the snap's DNS or web services,
-    and how AppArmor, seccomp, and the read-only SquashFS root cap the blast
-    radius and block host compromise. This is the section that reassures the
-    reader, so make the technical case concretely and confidently when the
+    whether the vulnerable code is reachable from the snap's services — citing the
+    `snap_invocations` call sites when present, and never claiming that no such
+    path exists — and how AppArmor, seccomp, and the read-only SquashFS root cap
+    the blast radius and block host compromise. This is the section that reassures
+    the reader, so make the technical case concretely and confidently when the
     evidence supports it.
     Several sentences are welcome; ground every claim in the bug's actual mechanics
     rather than generic confinement boilerplate.
