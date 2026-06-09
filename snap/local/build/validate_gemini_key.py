@@ -21,7 +21,7 @@ def main():
         )
         return 0
 
-    model = os.environ.get("GEMINI_MODEL") or "gemini-1.5-flash"
+    model = os.environ.get("GEMINI_MODEL") or "gemini-flash-latest"
     base_url = (
         os.environ.get("GEMINI_API_BASE_URL")
         or "https://generativelanguage.googleapis.com/v1beta"

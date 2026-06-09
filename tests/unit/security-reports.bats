@@ -440,7 +440,7 @@ with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}, clear=False):
     with mock.patch("validate_gemini_key.urllib.request.urlopen", side_effect=fake_urlopen):
         rc = validate_gemini_key.main()
 assert rc == 0, f"expected 0, got {rc}"
-assert captured["url"] == "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", captured
+assert captured["url"] == "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", captured
 assert captured["api_key"] == "test-key", captured
 PYEOF
 }
