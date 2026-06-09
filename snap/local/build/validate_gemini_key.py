@@ -21,9 +21,10 @@ def main():
         )
         return 0
 
-    model = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
-    base_url = os.environ.get(
-        "GEMINI_API_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"
+    model = os.environ.get("GEMINI_MODEL") or "gemini-1.5-flash"
+    base_url = (
+        os.environ.get("GEMINI_API_BASE_URL")
+        or "https://generativelanguage.googleapis.com/v1beta"
     ).rstrip("/")
 
     url = f"{base_url}/models/{urllib.parse.quote(model, safe='.-_')}:generateContent"

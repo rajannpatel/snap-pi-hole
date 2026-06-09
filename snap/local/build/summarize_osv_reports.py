@@ -44,8 +44,8 @@ def query_gemini_vulnerability_info(cve_id, package_name, version):
             "not_appropriate": f"If {cve_id} enables local execution or sandbox escape, confinement boundaries might be bypassed."
         }
 
-    model = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
-    base_url = os.environ.get("GEMINI_API_BASE_URL", "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
+    model = os.environ.get("GEMINI_MODEL") or "gemini-1.5-flash"
+    base_url = (os.environ.get("GEMINI_API_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
     max_attempts = max(1, int(os.environ.get("GEMINI_MAX_ATTEMPTS", "3")))
     retry_base_delay = max(0.0, float(os.environ.get("GEMINI_RETRY_BASE_DELAY_SECONDS", "1.0")))
 
