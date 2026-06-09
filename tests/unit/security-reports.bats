@@ -892,6 +892,17 @@ assert md.count("Contained by confinement") == 1, md
 assert md.count("Residual risk beyond confinement") == 1, md
 assert html.count("Contained by confinement") == 1, html
 assert html.count("Residual risk beyond confinement") == 1, html
+
+# The page search is inclusive of the confinement-analysis content: each parent
+# row's data-search carries the explanation prose and recommendation (lowercased),
+# so searching that text reveals the row and its explanation.
+import re as _re
+search_blob = " ".join(_re.findall(r'data-search="([^"]*)"', html))
+assert "sandbox contains the crash" in search_blob, search_blob
+assert "dns outage is a real dos" in search_blob, search_blob
+assert "only affects non-shipped test code" in search_blob, search_blob
+assert "residual risk beyond confinement" in search_blob, search_blob
+assert "contained by confinement" in search_blob, search_blob
 PYEOF
 }
 

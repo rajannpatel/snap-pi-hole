@@ -1022,6 +1022,10 @@ def write_html(summary, output_path):
                 f"{html.escape(publication_label)}</time>"
             )
 
+        appropriate_text = (row_data.get("appropriate") or "").strip()
+        not_appropriate_text = (row_data.get("not_appropriate") or "").strip()
+        recommendation = confinement_recommendation(appropriate_text, not_appropriate_text)
+        recommendation_label = CONFINEMENT_RECOMMENDATION_LABELS.get(recommendation, "")
         row_search = " ".join(
             [
                 row_data["package_name"],
@@ -1032,11 +1036,11 @@ def write_html(summary, output_path):
                 "actionable" if row_data["patchable"] else "unactionable confined mitigation",
                 publication_label,
                 " ".join(architecture_labels),
+                appropriate_text,
+                not_appropriate_text,
+                recommendation_label,
             ]
         ).lower()
-        appropriate_text = (row_data.get("appropriate") or "").strip()
-        not_appropriate_text = (row_data.get("not_appropriate") or "").strip()
-        recommendation = confinement_recommendation(appropriate_text, not_appropriate_text)
         recommendation_html = ""
         if recommendation:
             recommendation_html = (
@@ -1305,7 +1309,7 @@ def write_html(summary, output_path):
             <div class="col-12">
               <form class="p-search-box" onsubmit="event.preventDefault(); filterVulnerabilities();" style="margin-bottom: 0;">
                 <label class="u-off-screen" for="vulnerability-search">Search by package, version, vulnerability, CVSS 3, priority, status, publication date, or architecture</label>
-                <input type="search" id="vulnerability-search" class="p-search-box__input" placeholder="Search by package, version, vulnerability, CVSS 3, priority, status, publication date, or architecture..." oninput="filterVulnerabilities()" autocomplete="off">
+                <input type="search" id="vulnerability-search" class="p-search-box__input" placeholder="Search by package, version, vulnerability, CVSS 3, priority, status, publication date, architecture, or confinement analysis..." oninput="filterVulnerabilities()" autocomplete="off">
                 <button type="reset" class="p-search-box__reset" onclick="document.getElementById('vulnerability-search').value=''; filterVulnerabilities();"><i class="p-icon--close">Clear</i></button>
                 <button type="submit" class="p-search-box__button"><i class="p-icon--search">Search</i></button>
               </form>
