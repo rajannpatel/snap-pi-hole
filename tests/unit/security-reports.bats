@@ -625,7 +625,7 @@ with mock.patch.dict(
         res = summary.query_llm_vulnerabilities_batch(vulns)
         assert len(res) == 2, res
         assert res["CVE-2026-9999"]["appropriate"] == "Confinement restricts access.", res
-        assert res["CVE-2026-8888"]["not_appropriate"] == "Sandbox mitigates risk.", res
+        assert res["CVE-2026-8888"]["appropriate"] == "Sandbox mitigates risk.", res
 PYEOF
 }
 

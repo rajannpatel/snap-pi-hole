@@ -106,6 +106,19 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
     def normalize_explanations(payload):
         if not isinstance(payload, dict):
             raise ValueError("LLM response payload is not an object")
+        if (
+            len(vulns_to_query) == 1
+            and "appropriate" in payload
+            and "not_appropriate" in payload
+            and vulns_to_query[0]["cve_id"] not in payload
+        ):
+            cve_id = vulns_to_query[0]["cve_id"]
+            return {
+                cve_id: {
+                    "appropriate": str(payload["appropriate"]).strip(),
+                    "not_appropriate": str(payload["not_appropriate"]).strip(),
+                }
+            }
         res = {}
         for v in vulns_to_query:
             cve_id = v["cve_id"]
@@ -180,7 +193,8 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
             if exc.code in {429, 500, 502, 503, 504} and attempt < max_attempts:
                 sleep_delay = None
                 if exc.code == 429:
-                    retry_after = exc.headers.get("Retry-After")
+                    resp_headers = exc.headers or {}
+                    retry_after = resp_headers.get("Retry-After")
                     if retry_after:
                         try:
                             sleep_delay = max(2.0, float(retry_after) + 0.5)
@@ -191,7 +205,7 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
                         except ValueError:
                             pass
                     if sleep_delay is None:
-                        reset_time = exc.headers.get("x-ratelimit-reset") or exc.headers.get("X-RateLimit-Reset")
+                        reset_time = resp_headers.get("x-ratelimit-reset") or resp_headers.get("X-RateLimit-Reset")
                         if reset_time:
                             try:
                                 sleep_delay = max(2.0, float(reset_time) - time.time() + 1.0)
