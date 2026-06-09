@@ -132,12 +132,23 @@ jobs:
           go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.3.8
           echo "${HOME}/go/bin" >> "$GITHUB_PATH"
 
+      - name: Validate Gemini API key
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -n "${GEMINI_API_KEY:-}" ]; then
+            echo "::add-mask::${GEMINI_API_KEY}"
+          fi
+          python3 snap/local/build/validate_gemini_key.py
+
       - name: Scan SBOMs with OSV-Scanner
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           if [ -n "${GEMINI_API_KEY:-}" ]; then
             echo "::add-mask::${GEMINI_API_KEY}"
+          else
+            echo "::notice title=Gemini analysis::GEMINI_API_KEY is unavailable (expected for fork PRs). Using cached or fallback confinement explanations."
           fi
 
           mkdir -p osv-sbom-input vulnerability-reports

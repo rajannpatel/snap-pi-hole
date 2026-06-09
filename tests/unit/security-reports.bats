@@ -203,3 +203,273 @@ PYEOF
     [ -s "${REPORT_DIR}/vuln-summary.md" ]
     [ -s "${REPORT_DIR}/index.html" ]
 }
+
+@test "Gemini query uses header auth with configurable endpoint and model" {
+    python3 - <<PYEOF
+import json
+import os
+import sys
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+class DummyResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def read(self):
+        return json.dumps(self._payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+captured = {}
+
+def fake_urlopen(req, timeout=0):
+    captured["url"] = req.full_url
+    captured["api_key"] = req.get_header("X-goog-api-key")
+    payload = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": json.dumps({"appropriate": "A", "not_appropriate": "B"})}
+                    ]
+                }
+            }
+        ]
+    }
+    return DummyResponse(payload)
+
+with mock.patch.dict(
+    os.environ,
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MODEL": "gemini-test-model",
+        "GEMINI_API_BASE_URL": "https://example.test/v1beta",
+        "GEMINI_MAX_ATTEMPTS": "1",
+    },
+    clear=False,
+):
+    with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
+        result = summary.query_gemini_vulnerability_info("CVE-2026-1000", "curl", "1.0")
+        assert result == {"appropriate": "A", "not_appropriate": "B"}, result
+        assert "https://example.test/v1beta/models/gemini-test-model:generateContent" == captured["url"], captured
+        assert "test-key" == captured["api_key"], captured
+PYEOF
+}
+
+@test "Gemini query retries rate-limits and falls back on auth errors" {
+    python3 - <<PYEOF
+import io
+import json
+import os
+import sys
+import urllib.error
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+class DummyResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def read(self):
+        return json.dumps(self._payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+retry_state = {"count": 0}
+
+def flaky_then_success(req, timeout=0):
+    retry_state["count"] += 1
+    if retry_state["count"] == 1:
+        raise urllib.error.HTTPError(
+            req.full_url,
+            429,
+            "rate-limited",
+            hdrs=None,
+            fp=io.BytesIO(b'{"error":"too many requests"}'),
+        )
+    payload = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": json.dumps({"appropriate": "retry-ok", "not_appropriate": "retry-risk"})}
+                    ]
+                }
+            }
+        ]
+    }
+    return DummyResponse(payload)
+
+with mock.patch.dict(
+    os.environ,
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MAX_ATTEMPTS": "2",
+        "GEMINI_RETRY_BASE_DELAY_SECONDS": "0",
+    },
+    clear=False,
+):
+    with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=flaky_then_success):
+        with mock.patch("summarize_osv_reports.time.sleep", return_value=None):
+            result = summary.query_gemini_vulnerability_info("CVE-2026-1001", "curl", "1.0")
+            assert result["appropriate"] == "retry-ok", result
+            assert retry_state["count"] == 2, retry_state
+
+auth_error = urllib.error.HTTPError(
+    "https://example.test",
+    401,
+    "unauthorized",
+    hdrs=None,
+    fp=io.BytesIO(b'{"error":"invalid key"}'),
+)
+with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "bad-key", "GEMINI_MAX_ATTEMPTS": "1"}, clear=False):
+    with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=auth_error):
+        result = summary.query_gemini_vulnerability_info("CVE-2026-1002", "curl", "1.0")
+        assert "error during Gemini lookup" in result["appropriate"], result
+        assert "error during Gemini lookup" in result["not_appropriate"], result
+PYEOF
+}
+
+@test "Gemini query falls back after malformed responses" {
+    python3 - <<PYEOF
+import json
+import os
+import sys
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+class DummyResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def read(self):
+        return json.dumps(self._payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+payload = {"candidates": [{"content": {"parts": [{"text": "not valid json"}]}}]}
+
+with mock.patch.dict(
+    os.environ,
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MAX_ATTEMPTS": "2",
+        "GEMINI_RETRY_BASE_DELAY_SECONDS": "0",
+    },
+    clear=False,
+):
+    with mock.patch("summarize_osv_reports.urllib.request.urlopen", return_value=DummyResponse(payload)):
+        with mock.patch("summarize_osv_reports.time.sleep", return_value=None):
+            result = summary.query_gemini_vulnerability_info("CVE-2026-1003", "curl", "1.0")
+            assert "error during Gemini lookup" in result["appropriate"], result
+            assert "error during Gemini lookup" in result["not_appropriate"], result
+PYEOF
+}
+
+@test "validate_gemini_key prints notice and exits 0 when key is absent" {
+    python3 - <<PYEOF
+import os
+import sys
+from unittest import mock
+from io import StringIO
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import validate_gemini_key
+
+env = {k: v for k, v in os.environ.items() if k != "GEMINI_API_KEY"}
+with mock.patch.dict(os.environ, env, clear=True):
+    out = StringIO()
+    with mock.patch("sys.stdout", out):
+        rc = validate_gemini_key.main()
+assert rc == 0, f"expected 0, got {rc}"
+assert "GEMINI_API_KEY is unavailable" in out.getvalue(), out.getvalue()
+PYEOF
+}
+
+@test "validate_gemini_key returns 0 on a successful API response" {
+    python3 - <<PYEOF
+import json
+import os
+import sys
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import validate_gemini_key
+
+captured = {}
+
+class DummyResponse:
+    def __init__(self):
+        self._data = {
+            "candidates": [
+                {"content": {"parts": [{"text": "ok"}]}}
+            ]
+        }
+    def read(self):
+        return json.dumps(self._data).encode("utf-8")
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        return False
+
+def fake_urlopen(req, timeout=0):
+    captured["url"] = req.full_url
+    captured["api_key"] = req.get_header("X-goog-api-key")
+    return DummyResponse()
+
+with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}, clear=False):
+    with mock.patch("validate_gemini_key.urllib.request.urlopen", side_effect=fake_urlopen):
+        rc = validate_gemini_key.main()
+assert rc == 0, f"expected 0, got {rc}"
+assert captured["url"] == "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", captured
+assert captured["api_key"] == "test-key", captured
+PYEOF
+}
+
+@test "validate_gemini_key returns 1 and emits error annotation on HTTP failure" {
+    python3 - <<PYEOF
+import io
+import os
+import sys
+import urllib.error
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import validate_gemini_key
+
+auth_error = urllib.error.HTTPError(
+    "https://example.test",
+    401,
+    "unauthorized",
+    hdrs=None,
+    fp=io.BytesIO(b'{"error":"invalid key"}'),
+)
+err_buf = io.StringIO()
+with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "bad-key"}, clear=False):
+    with mock.patch("validate_gemini_key.urllib.request.urlopen", side_effect=auth_error):
+        with mock.patch("sys.stderr", err_buf):
+            rc = validate_gemini_key.main()
+assert rc == 1, f"expected 1, got {rc}"
+assert "::error title=Gemini key validation::" in err_buf.getvalue(), err_buf.getvalue()
+assert "401" in err_buf.getvalue(), err_buf.getvalue()
+PYEOF
+}

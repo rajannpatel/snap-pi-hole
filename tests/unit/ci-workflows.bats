@@ -171,6 +171,24 @@ BASH
     grep -q "osv-scanner scan --format json -L" "$workflow"
 }
 
+@test "cicd vulnerability-scan job validates Gemini API key before scanning" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+steps = doc["jobs"]["vulnerability-scan"]["steps"]
+names = [s.get("name", "") for s in steps]
+validate_idx = next((i for i, n in enumerate(names) if "Validate Gemini API key" in n), None)
+scan_idx     = next((i for i, n in enumerate(names) if "Scan SBOMs with OSV-Scanner" in n), None)
+assert validate_idx is not None, f"'Validate Gemini API key' step not found: {names}"
+assert scan_idx is not None, f"'Scan SBOMs with OSV-Scanner' step not found: {names}"
+assert validate_idx < scan_idx, f"Validate step ({validate_idx}) must come before Scan step ({scan_idx})"
+validate_step = steps[validate_idx]
+assert validate_step.get("env", {}).get("GEMINI_API_KEY") is not None, validate_step
+assert "validate_gemini_key.py" in validate_step.get("run", ""), validate_step
+PYEOF
+}
+
 @test "cicd vulnerability scan treats known vulnerabilities as warnings and scanner errors as failures" {
     local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
     grep -q '1)' "$workflow"
