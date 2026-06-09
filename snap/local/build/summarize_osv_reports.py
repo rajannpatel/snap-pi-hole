@@ -35,6 +35,51 @@ def save_cache(cache):
         print(f"Error saving cache: {e}", file=sys.stderr)
 
 
+PROMPT_TEMPLATE_PATH = (
+    pathlib.Path(__file__).resolve().parent / "prompts" / "cve_confinement_analysis.md"
+)
+
+PROMPT_BATCH_PLACEHOLDER = "{{CVE_BATCH_JSON}}"
+
+# Concise resilience copy used only if the external Markdown template cannot be
+# read. The authoritative, editable prompt lives in PROMPT_TEMPLATE_PATH.
+FALLBACK_PROMPT_TEMPLATE = """You are acting as a senior DevSecOps Engineer and Infrastructure Security Architect auditing CVEs for snap-pi-hole, a network-wide DNS sinkhole shipped as a strictly confined Ubuntu snap (AppArmor, seccomp, read-only SquashFS). The service answers DNS on port 53 and serves an admin web UI on ports 80 and 443.
+
+For each finding below, reason about the real attack vector, whether the snap sandbox stops a host compromise, and what happens to the Pi-hole service itself if the bug fires inside the sandbox; a crash or hang that breaks network-wide DNS is still a denial-of-service attack. Mark findings that only affect non-shipped test code as non-issues. Treat the supplied details text as the source of truth.
+
+Return a single JSON object and nothing else: keys are the exact vulnerability identifiers, and each value is an object with exactly two string keys, "appropriate" (the honest case for the confined-mitigation label) and "not_appropriate" (the candid residual risk, leading with the most serious impact). Keep each explanation specific and between one and three sentences. Do not add Markdown, code fences, or any text outside the JSON object.
+
+Batch data to process:
+{{CVE_BATCH_JSON}}
+"""
+
+
+def load_prompt_template():
+    try:
+        return PROMPT_TEMPLATE_PATH.read_text(encoding="utf-8")
+    except OSError as exc:
+        print(
+            f"Could not read prompt template at {PROMPT_TEMPLATE_PATH}: {exc}. "
+            "Falling back to the built-in prompt.",
+            file=sys.stderr,
+        )
+        return FALLBACK_PROMPT_TEMPLATE
+
+
+def build_analysis_prompt(vulns_to_query):
+    batch_payload = [
+        {
+            "cve": v["cve_id"],
+            "package": v.get("package_name", ""),
+            "version": v.get("version", ""),
+            "details": v.get("details", ""),
+        }
+        for v in vulns_to_query
+    ]
+    batch_json = json.dumps(batch_payload, indent=2, ensure_ascii=False)
+    return load_prompt_template().replace(PROMPT_BATCH_PLACEHOLDER, batch_json)
+
+
 def query_llm_vulnerabilities_batch(vulns_to_query):
     if not vulns_to_query:
         return {}
@@ -55,34 +100,7 @@ def query_llm_vulnerabilities_batch(vulns_to_query):
     max_attempts = max(1, int(os.environ.get("LLM_MAX_ATTEMPTS") or os.environ.get("GEMINI_MAX_ATTEMPTS") or "3"))
     retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or os.environ.get("GEMINI_RETRY_BASE_DELAY_SECONDS") or "1.0"))
 
-    cve_list_str = ""
-    for idx, v in enumerate(vulns_to_query, start=1):
-        cve_list_str += f"{idx}. ID: {v['cve_id']}, Package: {v['package_name']}, Version: {v['version']}\n"
-
-    prompt = f"""
-You are analyzing a set of security vulnerabilities affecting packages that are compiled/run inside a strictly confined Ubuntu snap (which uses AppArmor, seccomp filters, and a read-only SquashFS filesystem).
-
-For each of the following vulnerabilities:
-{cve_list_str}
-
-Perform the following:
-1. Explain how/why a "confined mitigation" label is appropriate (i.e., how snap's security boundaries and sandbox mitigate the vulnerability).
-2. Explain why a "confined mitigation" label might NOT be appropriate (i.e., how the vulnerability could still be exploited or cause harm despite the sandbox).
-
-Provide your response in JSON format. The response must be a JSON object where the keys are the vulnerability IDs and the values are objects with exactly these two keys:
-- "appropriate": a concise explanation (1-3 sentences)
-- "not_appropriate": a concise explanation (1-3 sentences)
-
-Example of expected format:
-{{
-  "UBUNTU-CVE-2025-49087": {{
-    "appropriate": "Snap confinement restricts process access, ensuring UBUNTU-CVE-2025-49087 is contained within the sandbox.",
-    "not_appropriate": "If UBUNTU-CVE-2025-49087 enables local execution or sandbox escape, confinement boundaries might be bypassed."
-  }}
-}}
-
-Do not include any markdown formatting, code blocks, or leading/trailing text outside the JSON object.
-"""
+    prompt = build_analysis_prompt(vulns_to_query)
 
     url = f"{base_url}/chat/completions"
     headers = {
@@ -251,8 +269,13 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
     return fallback_map
 
 
-def query_gemini_vulnerability_info(cve_id, package_name, version):
-    res = query_llm_vulnerabilities_batch([{"cve_id": cve_id, "package_name": package_name, "version": version}])
+def query_gemini_vulnerability_info(cve_id, package_name, version, details=""):
+    res = query_llm_vulnerabilities_batch([{
+        "cve_id": cve_id,
+        "package_name": package_name,
+        "version": version,
+        "details": details,
+    }])
     return res.get(cve_id, {
         "appropriate": f"Confinement provides isolation via AppArmor and seccomp, mitigating unauthorized access to host resources (error during LLM lookup).",
         "not_appropriate": f"A compromised process could potentially disrupt local services or corrupt local writable data inside the snap (error during LLM lookup)."
@@ -530,7 +553,8 @@ def collect_reports(reports_dir):
                         uncached_vulns_to_query.append({
                             "cve_id": vuln_id,
                             "package_name": package_name,
-                            "version": package_version
+                            "version": package_version,
+                            "details": (v.get("summary") or v.get("details") or "").strip(),
                         })
                         seen_uncached.add(vuln_id)
 
@@ -576,7 +600,12 @@ def collect_reports(reports_dir):
                     )
                     
                     if vuln_id not in cache:
-                        explanations = query_gemini_vulnerability_info(vuln_id, package_name, package_version)
+                        explanations = query_gemini_vulnerability_info(
+                            vuln_id,
+                            package_name,
+                            package_version,
+                            (v.get("summary") or v.get("details") or "").strip(),
+                        )
                         cache[vuln_id] = explanations
                         cache_updated = True
                         # Pacing delay to avoid hitting rate limits when processing multiple uncached CVEs
