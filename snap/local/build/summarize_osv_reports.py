@@ -43,6 +43,7 @@ PROMPT_TEMPLATE_PATH = (
 
 PROMPT_BATCH_PLACEHOLDER = "{{CVE_BATCH_JSON}}"
 PROMPT_BUILD_PROVENANCE_PLACEHOLDER = "{{BUILD_PROVENANCE}}"
+PROMPT_CONFINEMENT_PLACEHOLDER = "{{CONFINEMENT_CAPABILITIES}}"
 
 # Read so the model audits against the real build toolchain and packaging
 # instead of guessing. The snap is assembled in public GitHub Actions, so these
@@ -87,7 +88,10 @@ FALLBACK_PROMPT_TEMPLATE = """You are acting as a senior DevSecOps Engineer and 
 Build provenance (verifiable from the public GitHub Actions build; treat as ground truth and use it to dismiss findings that cannot apply to how this snap is actually compiled and shipped):
 {{BUILD_PROVENANCE}}
 
-Each finding carries cve, package, version, details, and when available aliases, severity, a fix_available flag with fixed_versions, reference URLs, and a snap_invocations list of real `path:line: code` call sites grepped from the snap's own shipped patches, hooks, and runtime scripts; treat that as the source of truth. For each finding reason about the real attack vector, then whether the vulnerable code is reachable from the snap's services with attacker-influenced input — grounded in snap_invocations when present, and remembering that untrusted input can arrive indirectly (for example the snap's own update check pipes the GitHub release API response into jq). This audit does not enumerate the full upstream Pi-hole/FTL tree, so never assert that no code path passes attacker-influenced data to a component; if no path is evident, say only that none is evident and let confinement decide. Then weigh whether the sandbox stops a host compromise (it almost always does) and only then what concrete impact remains inside it. The durable, honest argument is the blast-radius bound — even if the bug fires, AppArmor/seccomp/read-only SquashFS cap the damage to the snap's own data and cannot reach the host — so lead with that rather than a fragile claim that the code is unreachable. A remotely triggerable crash of the running resolver that breaks network-wide DNS is a real residual risk; speculation about code the snap never runs is not.
+Confinement capabilities (the exact snapd interfaces this snap declares; strict confinement is not a uniform sandbox, so bound each finding's blast radius by the interfaces held by the app the vulnerable code actually runs in — interfaces marked * reach beyond the snap's own data to the host):
+{{CONFINEMENT_CAPABILITIES}}
+
+Each finding carries cve, package, version, details, and when available aliases, severity, a fix_available flag with fixed_versions, reference URLs, and a snap_invocations list of real `path:line: code` call sites grepped from the snap's own shipped patches, hooks, and runtime scripts; treat that as the source of truth. For each finding reason about the real attack vector, then whether the vulnerable code is reachable from the snap's services with attacker-influenced input — grounded in snap_invocations when present, and remembering that untrusted input can arrive indirectly (for example the snap's own update check pipes the GitHub release API response into jq). This audit does not enumerate the full upstream Pi-hole/FTL tree, so never assert that no code path passes attacker-influenced data to a component; if no path is evident, say only that none is evident and let confinement decide. Then weigh the blast radius against the affected app's actual interfaces: AppArmor/seccomp/read-only SquashFS block the classic escapes (host filesystem writes, kernel modules, ptrace) so a host takeover is normally out of reach, but a bug in code that runs in the pihole-FTL daemon inherits its host-reaching interfaces (network-control, firewall-control, process-control, time-control) — say so rather than claiming total containment. Lead with the blast-radius bound rather than a fragile claim that the code is unreachable. A remotely triggerable crash of the running resolver that breaks network-wide DNS, DNS cache poisoning that misdirects every device, unbounded data growth that exhausts host disk, or abuse of FTL's host-reaching interfaces are real residual risks; speculation about code the snap never runs is not.
 
 Return a single JSON object and nothing else: keys are the exact vulnerability identifiers (every id in the batch must appear as a key — never drop a finding, even one you judge contained or inapplicable), and each value is an object with either or both of two string keys. Always include "appropriate": a thorough, specific case for how snap confinement mitigates the risk (attack vector, reachability, and how AppArmor/seccomp/read-only SquashFS cap the blast radius and block host compromise) — several sentences are welcome when the bug warrants it. Include "not_appropriate" only when a concrete, reachable, material residual risk genuinely remains; omit it entirely for speculative, hypothetical, negligible, or non-shipped-code risks rather than inventing one, and never fill it with a no-risk disclaimer such as "No residual risk", "None", or "N/A" (its absence already signals containment). At least one key must be present per finding. Be specific and evidence-based; no filler, no Markdown, no text outside the JSON object.
 
@@ -185,6 +189,155 @@ def build_provenance_block():
             f"- Target architectures: {f['architectures']}.",
         ]
     )
+
+
+# Curated security meaning of the snapd interfaces this snap plugs. The boolean
+# marks interfaces whose grant extends a compromised process's blast radius
+# BEYOND the snap's own writable data, to host or cross-process state.
+_INTERFACE_IMPLICATIONS = {
+    "network": ("make outbound network connections", False),
+    "network-bind": ("listen on ports to act as a server (DNS 53, web 80/443)", False),
+    "network-observe": ("read network configuration and status, read-only", False),
+    "system-observe": ("read system and process state, read-only", False),
+    "hardware-observe": ("read hardware information, read-only", False),
+    "mount-observe": ("read the mount table, read-only", False),
+    "shared-memory": ("use a private /dev/shm namespace", False),
+    "network-control": (
+        "reconfigure host network interfaces, routing, and namespaces", True),
+    "firewall-control": ("modify the host firewall (iptables/nftables)", True),
+    "process-control": ("signal and kill other processes", True),
+    "time-control": ("set the system clock", True),
+    "shutdown": ("shut down or reboot the host", True),
+    "mount-control": ("create and remove mounts", True),
+    "system-files": ("read or write declared host file paths", True),
+}
+
+# Committed fallback mirroring the snapcraft.yaml apps: block, so the capability
+# provenance stays accurate even if the file moves or PyYAML is unavailable at
+# runtime (the script never imports yaml at module load).
+_DEFAULT_SNAPCRAFT_APPS = [
+    {"name": "pihole-ftl", "role": "daemon", "plugs": [
+        "network", "network-bind", "network-observe", "system-observe",
+        "hardware-observe", "mount-observe", "network-control",
+        "firewall-control", "process-control", "time-control", "shared-memory"]},
+    {"name": "pihole", "role": "command", "plugs": [
+        "network", "network-bind", "network-observe", "system-observe",
+        "hardware-observe", "mount-observe"]},
+    {"name": "snap-check", "role": "command", "plugs": [
+        "network", "network-bind", "system-observe", "network-observe"]},
+    {"name": "snap-setup", "role": "command", "plugs": [
+        "network", "network-bind", "system-observe", "network-observe"]},
+    {"name": "snap-debug", "role": "command", "plugs": [
+        "network", "network-bind", "system-observe", "hardware-observe",
+        "mount-observe"]},
+    {"name": "sqlite3", "role": "command", "plugs": ["network", "network-bind"]},
+    {"name": "gravity-sync", "role": "timer", "plugs": [
+        "network", "network-bind", "network-observe", "system-observe",
+        "hardware-observe", "mount-observe"]},
+]
+
+_ROLE_LABELS = {
+    "daemon": "long-running daemon",
+    "timer": "scheduled task",
+    "command": "CLI/diagnostic command",
+}
+
+
+def _snapcraft_apps():
+    """Parse the apps and their plugged interfaces from snapcraft.yaml.
+
+    Uses PyYAML when available (imported lazily so the module never hard-depends
+    on it) and degrades to the committed defaults otherwise, so the capability
+    provenance is always populated.
+    """
+    try:
+        import yaml
+
+        data = yaml.safe_load(SNAPCRAFT_YAML_PATH.read_text(encoding="utf-8"))
+        apps = (data or {}).get("apps") or {}
+        parsed = []
+        for name, spec in apps.items():
+            spec = spec or {}
+            role = "command"
+            if spec.get("daemon"):
+                role = "timer" if spec.get("timer") else "daemon"
+            plugs = [p for p in (spec.get("plugs") or []) if isinstance(p, str)]
+            parsed.append({"name": name, "role": role, "plugs": plugs})
+        if parsed:
+            return parsed
+    except Exception:
+        pass
+    return [dict(app, plugs=list(app["plugs"])) for app in _DEFAULT_SNAPCRAFT_APPS]
+
+
+def confinement_capability_block():
+    """Render the snap's actual capability surface from its declared interfaces.
+
+    The model must bound a finding's blast radius by the interfaces the affected
+    app really holds, not by a generic assumption that strict confinement limits
+    everything to the snap's own data. Interfaces that reach the host are called
+    out explicitly with the apps that hold them.
+    """
+    apps = _snapcraft_apps()
+    level = _snapcraft_build_facts().get("confinement", "strict")
+    lines = [
+        f"- Confinement: `{level}` confinement (AppArmor, seccomp, and a read-only "
+        "SquashFS root). The interfaces below are exactly what this snap requests "
+        "in snapcraft.yaml; a finding's real blast radius is bounded by the "
+        "interfaces held by the app it actually runs in, not by an assumption that "
+        "strict confinement caps everything at the snap's own data.",
+        "- Component-to-app mapping: the compiled C daemon `pihole-FTL` runs as the "
+        "app holding the broadest interface set, and libraries such as mbedTLS, "
+        "nettle, libidn2, libuv, lmdb, and sqlite3 are linked into it \u2014 a "
+        "memory-safety bug in any of them inherits that daemon's capabilities. "
+        "Utilities such as jq run instead in the Pi-hole shell CLIs, the snapd "
+        "hooks, and helper apps, which hold a narrower set.",
+    ]
+    host_reaching = {}
+    unclassified = {}
+    for app in apps:
+        marked = []
+        for plug in app["plugs"]:
+            impl = _INTERFACE_IMPLICATIONS.get(plug)
+            if impl is None:
+                unclassified.setdefault(plug, set()).add(app["name"])
+                marked.append(plug + "\u2020")
+            elif impl[1]:
+                host_reaching.setdefault(plug, set()).add(app["name"])
+                marked.append(plug + "*")
+            else:
+                marked.append(plug)
+        role = _ROLE_LABELS.get(app["role"], app["role"])
+        lines.append(
+            f"- App `{app['name']}` ({role}): {', '.join(marked) or 'no extra interfaces'}."
+        )
+    if host_reaching:
+        lines.append(
+            "- Interfaces marked * reach beyond the snap's own writable data and are "
+            "real residual-risk amplifiers whenever the vulnerable code runs in an "
+            "app that holds them:"
+        )
+        for plug in sorted(host_reaching):
+            holders = ", ".join(sorted(host_reaching[plug]))
+            lines.append(
+                f"  - `{plug}` (held by {holders}): {_INTERFACE_IMPLICATIONS[plug][0]}."
+            )
+    if unclassified:
+        joined = ", ".join(
+            f"`{plug}` ({', '.join(sorted(apps))})"
+            for plug, apps in sorted(unclassified.items())
+        )
+        lines.append(
+            "- Interfaces marked \u2020 are not pre-classified here; do not assume "
+            f"they are contained \u2014 reason about what each grants: {joined}."
+        )
+    lines.append(
+        "- Writable state lives in the snap's own data directories ($SNAP_DATA, "
+        "$SNAP_COMMON) on the host filesystem with no size quota, so a bug that "
+        "drives unbounded query logging or database growth is a host "
+        "disk-exhaustion availability risk, not merely an in-snap one."
+    )
+    return "\n".join(lines)
 
 
 def _usage_tokens(package_name):
@@ -335,12 +488,16 @@ def load_prompt_template():
             file=sys.stderr,
         )
         text = FALLBACK_PROMPT_TEMPLATE
-    # Resolve the build-provenance placeholder up front so every consumer (prompt
-    # assembly and batch-overhead estimation) sees the real build facts; only the
-    # per-batch CVE placeholder remains for the caller to fill.
-    return text.replace(
+    # Resolve the provenance placeholders up front so every consumer (prompt
+    # assembly and batch-overhead estimation) sees the real build and capability
+    # facts; only the per-batch CVE placeholder remains for the caller to fill.
+    text = text.replace(
         PROMPT_BUILD_PROVENANCE_PLACEHOLDER, build_provenance_block()
     )
+    text = text.replace(
+        PROMPT_CONFINEMENT_PLACEHOLDER, confinement_capability_block()
+    )
+    return text
 
 
 def _estimate_tokens(text):

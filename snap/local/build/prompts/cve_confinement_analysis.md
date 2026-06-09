@@ -1,13 +1,15 @@
 <!--
 Maintainer note: this Markdown file is the instruction template sent to the
 language model that audits OSV vulnerability findings for snap-pi-hole.
-`summarize_osv_reports.py` loads this file and substitutes two placeholders:
-`{{BUILD_PROVENANCE}}` with build facts derived from snapcraft.yaml, and
-`{{CVE_BATCH_JSON}}` with the batch of findings discovered during a scan. Each
-finding in that batch may also carry a `snap_invocations` list of real call sites
-grepped from the snap's own shipped code, so keep the analysis grounded in it.
-Edit the wording freely, but keep both placeholders and the JSON output contract
-intact so the build pipeline can still ground the model and parse the response.
+`summarize_osv_reports.py` loads this file and substitutes three placeholders:
+`{{BUILD_PROVENANCE}}` with build facts derived from snapcraft.yaml,
+`{{CONFINEMENT_CAPABILITIES}}` with the snap's declared snapd interfaces and their
+host-reach implications, and `{{CVE_BATCH_JSON}}` with the batch of findings
+discovered during a scan. Each finding in that batch may also carry a
+`snap_invocations` list of real call sites grepped from the snap's own shipped
+code, so keep the analysis grounded in it. Edit the wording freely, but keep all
+three placeholders and the JSON output contract intact so the build pipeline can
+still ground the model and parse the response.
 -->
 
 # CVE confinement analysis prompt
@@ -24,13 +26,20 @@ security that still leaves users exposed.
 
 ## Core architecture context
 
-1. The application is a strictly confined snap. It depends on AppArmor profiles,
-   seccomp system-call filtering, and a read-only SquashFS core filesystem.
-   Writable state is limited to the snap's own data directories; the host
-   filesystem, other snaps, and host services are out of reach by default.
+1. The application is a strictly confined snap (AppArmor profiles, seccomp
+   system-call filtering, and a read-only SquashFS core filesystem). Most host
+   resources are out of reach and writable state is limited to the snap's own data
+   directories — but confinement here is not a uniform sandbox: the snap plugs
+   specific snapd interfaces, some of which reach host network, firewall, clock,
+   and processes. Treat the Confinement capabilities section below as the source of
+   truth and bound each finding's blast radius by it, rather than assuming total
+   isolation.
 2. The application serves network-wide DNS resolution on port 53 and presents an
    administrative management web UI on ports 80 and 443. It is network-adjacent by
    design, so untrusted input arrives over the network during normal operation.
+   Because it answers DNS for every device on the network, a bug that corrupts
+   resolution or cache integrity has network-wide impact even when the host itself
+   is never compromised.
 
 ## Build and runtime provenance
 
@@ -44,6 +53,18 @@ rather than compiled code simply does not apply here — say so, and cite the
 specific provenance fact that rules it out.
 
 {{BUILD_PROVENANCE}}
+
+## Confinement capabilities
+
+Strict confinement is not a uniform sandbox, and this is where blast-radius claims
+must be grounded. The facts below are the exact snapd interfaces this snap declares
+in snapcraft.yaml — verifiable ground truth — and they determine how far a
+compromise can actually reach. Bound every finding's blast radius by the interfaces
+held by the app the vulnerable code runs in. Interfaces marked `*` extend that
+radius beyond the snap's own data to the host, so do not claim a bug is fully
+contained when it runs in an app that holds them.
+
+{{CONFINEMENT_CAPABILITIES}}
 
 ## Analysis protocol
 
@@ -84,11 +105,19 @@ realities of a network-adjacent, strictly confined DNS service.
    would falsify it. If no reachable path is evident, say only that none is *evident
    from the audited interfaces* and let the confinement analysis below carry the
    verdict.
-4. Host escape under confinement. Given AppArmor confinement, seccomp system-call
-   filtering, and the read-only SquashFS root, can this bug cross the sandbox
-   boundary to compromise the host operating system, other snaps, or host services?
-   In almost all cases the answer is no — the blast radius is capped at the snap's
-   own writable data.
+4. Blast radius under the snap's actual capabilities. First decide which app the
+   vulnerable code runs in: a library bug (mbedTLS, nettle, lmdb, libidn2, sqlite3,
+   libuv) executes inside the compiled `pihole-FTL` daemon, whereas a shell utility
+   (jq, coreutils) runs in the Pi-hole CLIs, the snapd hooks, or the helper apps.
+   Then reason from *that* app's interfaces in the Confinement capabilities section.
+   AppArmor, seccomp, and the read-only SquashFS root block the classic escapes —
+   writing the host filesystem, loading kernel modules, ptracing other processes —
+   so a host *takeover* is normally out of reach. Do not equate that with full
+   containment: if the code runs in an app holding a host-reaching interface (marked
+   `*`), a compromise inherits that capability. For `pihole-FTL` that includes
+   reconfiguring host networking and firewall rules, signalling processes, and
+   setting the system clock. Name the specific interfaces in play rather than
+   assuming the blast radius stops at the snap's own data.
 5. In-sandbox service impact. If the bug does fire on a reachable path, what
    concretely happens to the Pi-hole service: a crash or hang of the running DNS
    resolver that interrupts network-wide name resolution, corruption of the snap's
@@ -106,24 +135,33 @@ trust-building than a vague reassurance.
 
 Rest the verdict on the durable argument. The strongest and most honest case for
 confinement is the blast-radius bound: even if a bug is reachable and fires,
-AppArmor, seccomp, and the read-only root cap the damage to the snap's own
-writable data and cannot reach the host, other snaps, or host services. Lead with
-that. Do **not** rest a dismissal on the fragile claim that the vulnerable code is
-simply unreachable — that is precisely the claim a knowledgeable reader can
-disprove by finding one overlooked call site (for instance, that the snap's update
-check already pipes a network response into `jq`), and a single checkable error
-erodes trust in the entire report. State reachability only as far as the evidence
-supports, and let confinement, not an unverifiable negative, do the reassuring.
+AppArmor, seccomp, and the read-only root block the classic escapes — writing the
+host filesystem, loading kernel modules, ptracing other processes — so a full host
+takeover is normally out of reach. Lead with that, but keep it bounded by the
+affected app's actual interfaces: when the vulnerable code runs in `pihole-FTL`,
+the snap holds host-reaching grants (network, firewall, process, and clock
+control) that a compromise would inherit, so the honest bound there is broader than
+the snap's own data — say so rather than overstating containment. Do **not** rest a
+dismissal on the fragile claim that the vulnerable code is simply unreachable —
+that is precisely the claim a knowledgeable reader can disprove by finding one
+overlooked call site (for instance, that the snap's update check already pipes a
+network response into `jq`), and a single checkable error erodes trust in the
+entire report. State reachability only as far as the evidence supports, and let
+confinement, not an unverifiable negative, do the reassuring.
 
 Treat residual risk as real **only when it is concrete, reachable, and material**:
 an attacker can plausibly trigger the bug through the snap's own DNS or web
-interface during normal operation, and the result is a genuine impact such as a
-remotely induced crash of the running resolver. Do not invent hypotheticals.
-Statements of the form "if this somehow allowed escape, confinement might be
-bypassed", "all software can harbor unknown bugs", or speculation about code the
-snap never executes are **not** residual risks — omit them. When nothing concrete
-remains, simply leave the residual-risk section out; never write a sentence whose
-point is that there is no residual risk.
+interface — directly or via the indirect paths above — during normal operation,
+and the result is a genuine impact. Grounded examples of material impact include a
+remotely induced crash or hang of the running resolver (network-wide loss of name
+resolution), DNS cache poisoning or answer tampering that misdirects every device
+on the network, unbounded query-log or database growth that exhausts host disk, or
+— when the vulnerable code runs in `pihole-FTL` — abuse of its host-reaching
+interfaces. Do not invent hypotheticals. Statements of the form "if this somehow
+allowed escape, confinement might be bypassed", "all software can harbor unknown
+bugs", or speculation about code the snap never executes are **not** residual risks
+— omit them. When nothing concrete remains, simply leave the residual-risk section
+out; never write a sentence whose point is that there is no residual risk.
 
 If a finding only affects development or test-suite components that are never
 compiled into or shipped with the runtime snap binary, state that directly and
@@ -148,10 +186,12 @@ such as "Sure" or "That is an interesting list"; begin directly with the analysi
     finding even applies to this build (cite the relevant provenance fact),
     whether the vulnerable code is reachable from the snap's services — citing the
     `snap_invocations` call sites when present, and never claiming that no such
-    path exists — and how AppArmor, seccomp, and the read-only SquashFS root cap
-    the blast radius and block host compromise. This is the section that reassures
-    the reader, so make the technical case concretely and confidently when the
-    evidence supports it.
+    path exists — and how confinement bounds the blast radius: AppArmor, seccomp,
+    and the read-only SquashFS root block the classic host escapes, but reason from
+    the interfaces the affected app actually holds (per Confinement capabilities)
+    rather than asserting total isolation when the code runs in an app with
+    host-reaching grants. This is the section that reassures the reader, so make the
+    technical case concretely and confidently when the evidence supports it.
     Several sentences are welcome; ground every claim in the bug's actual mechanics
     rather than generic confinement boilerplate.
   - `not_appropriate`: include this key **only when a concrete, reachable, and

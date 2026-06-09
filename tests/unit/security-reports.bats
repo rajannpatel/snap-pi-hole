@@ -1235,3 +1235,80 @@ lean = summary._batch_entry({"cve_id": "CVE-Y", "package_name": "libxml2", "vers
 assert "snap_invocations" not in lean, lean
 PYEOF
 }
+
+@test "confinement capabilities are derived from snapcraft.yaml and ground blast radius" {
+    python3 - <<PYEOF
+import pathlib
+import sys
+import tempfile
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+# 1. The real snapcraft.yaml drives the per-app interface listing.
+apps = summary._snapcraft_apps()
+by_name = {a["name"]: a for a in apps}
+assert "pihole-ftl" in by_name, by_name
+ftl = by_name["pihole-ftl"]
+assert ftl["role"] == "daemon", ftl
+# The compiled C daemon holds the host-reaching interfaces that libraries
+# linked into it would inherit; the shell-utility apps must not.
+for host_reaching in ("network-control", "firewall-control", "process-control", "time-control"):
+    assert host_reaching in ftl["plugs"], (host_reaching, ftl)
+    assert summary._INTERFACE_IMPLICATIONS[host_reaching][1] is True, host_reaching
+if "sqlite3" in by_name:
+    assert "firewall-control" not in by_name["sqlite3"]["plugs"], by_name["sqlite3"]
+
+# 2. The rendered block marks host-reaching interfaces, names their holder, and
+#    records the unbounded-storage footprint, without emitting a bare separator
+#    line that the no-repeating-separators hook forbids.
+block = summary.confinement_capability_block()
+assert "network-control*" in block, block
+assert "firewall-control" in block and "pihole-ftl" in block, block
+assert "disk-exhaustion" in block, block
+for line in block.splitlines():
+    assert set(line.strip()) - set("-=_") or not line.strip(), line
+
+# 3. The placeholder is resolved into the prompt and nothing but the per-batch
+#    placeholder is left behind.
+tpl = summary.load_prompt_template()
+assert summary.PROMPT_CONFINEMENT_PLACEHOLDER not in tpl, "confinement not resolved"
+assert "Confinement capabilities" in tpl, "section missing from prompt"
+assert "network-control" in tpl, "capabilities missing from prompt"
+import re as _re
+assert _re.findall(r"\{\{[^}]+\}\}", tpl) == [summary.PROMPT_BATCH_PLACEHOLDER], tpl
+
+# 4. Parsing is genuinely file-driven: an unknown interface is surfaced as
+#    unclassified (dagger), not silently assumed contained.
+original = summary.SNAPCRAFT_YAML_PATH
+try:
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as fh:
+        fh.write(
+            "apps:\n"
+            "  thing:\n"
+            "    daemon: simple\n"
+            "    plugs:\n"
+            "      - network\n"
+            "      - kernel-module-load\n"
+        )
+        tmp_path = pathlib.Path(fh.name)
+    summary.SNAPCRAFT_YAML_PATH = tmp_path
+    apps2 = {a["name"]: a for a in summary._snapcraft_apps()}
+    assert apps2["thing"]["plugs"] == ["network", "kernel-module-load"], apps2
+    block2 = summary.confinement_capability_block()
+    assert "kernel-module-load\u2020" in block2, block2
+finally:
+    summary.SNAPCRAFT_YAML_PATH = original
+    tmp_path.unlink(missing_ok=True)
+
+# 5. A missing file degrades to the committed defaults instead of erroring.
+original = summary.SNAPCRAFT_YAML_PATH
+try:
+    summary.SNAPCRAFT_YAML_PATH = pathlib.Path("/nonexistent/snapcraft.yaml")
+    fb = {a["name"]: a for a in summary._snapcraft_apps()}
+    assert "pihole-ftl" in fb, fb
+    assert "network-control" in fb["pihole-ftl"]["plugs"], fb
+finally:
+    summary.SNAPCRAFT_YAML_PATH = original
+PYEOF
+}
