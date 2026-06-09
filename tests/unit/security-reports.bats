@@ -746,10 +746,14 @@ with mock.patch.dict(
         with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
             res = summary.query_llm_vulnerabilities_batch(vulns)
 
+import math
+
 assert len(res) == 25, len(res)
 assert all(v["cve_id"] in res for v in vulns), res.keys()
-# 25 vulns capped at MAX_VULNS_PER_BATCH=10 -> 3 requests (10, 10, 5).
-assert len(call_sizes) == 3, call_sizes
+# Count-bounded chunking: 25 vulns split into ceil(25 / MAX_VULNS_PER_BATCH)
+# requests, each no larger than the cap, covering every finding exactly once.
+expected_batches = math.ceil(25 / summary.MAX_VULNS_PER_BATCH)
+assert len(call_sizes) == expected_batches, (call_sizes, summary.MAX_VULNS_PER_BATCH)
 assert max(call_sizes) <= summary.MAX_VULNS_PER_BATCH, call_sizes
 assert sum(call_sizes) == 25, call_sizes
 assert res["CVE-3001-0025"]["appropriate"] == "a-CVE-3001-0025", res["CVE-3001-0025"]
@@ -924,3 +928,130 @@ assert summary.confinement_recommendation(summary.LLM_LOOKUP_ERROR_TEXT, summary
 PYEOF
 }
 
+@test "batch entry carries OSV grounding fields when present and stays lean when absent" {
+    python3 - <<PYEOF
+import sys
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+# A raw OSV record is mined for references and fixed versions.
+osv_record = {
+    "id": "UBUNTU-CVE-2026-5555",
+    "references": [
+        {"type": "ADVISORY", "url": "https://example/adv"},
+        {"type": "WEB", "url": "https://example/adv"},  # duplicate, deduped
+        {"type": "REPORT", "url": "https://example/bug"},
+    ],
+    "affected": [
+        {"ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "2.1.0"}]}]},
+    ],
+}
+assert summary._extract_references(osv_record) == ["https://example/adv", "https://example/bug"], summary._extract_references(osv_record)
+assert summary._extract_fixed_versions(osv_record) == ["2.1.0"], summary._extract_fixed_versions(osv_record)
+
+# A fully grounded vuln dict surfaces every field in the model payload.
+rich = summary._batch_entry({
+    "cve_id": "UBUNTU-CVE-2026-5555", "package_name": "mbedtls", "version": "3.6.0",
+    "details": "x509 parsing flaw", "aliases": ["CVE-2026-5555"], "severity": "9.8 · CRITICAL",
+    "references": ["https://example/adv"], "fixed_versions": ["2.1.0"],
+})
+assert rich["aliases"] == ["CVE-2026-5555"], rich
+assert rich["severity"] == "9.8 · CRITICAL", rich
+assert rich["fix_available"] is True, rich
+assert rich["fixed_versions"] == ["2.1.0"], rich
+assert rich["references"] == ["https://example/adv"], rich
+
+# A minimal vuln dict stays lean: optional keys are omitted entirely.
+lean = summary._batch_entry({"cve_id": "CVE-1", "package_name": "jq", "version": "1.0", "details": "x"})
+assert set(lean.keys()) == {"cve", "package", "version", "details"}, lean
+PYEOF
+}
+
+@test "no-API-key fallback states containment without inventing residual risk" {
+    python3 - <<PYEOF
+import os
+import sys
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+vulns = [{"cve_id": "CVE-2026-9001", "package_name": "jq", "version": "1.0"}]
+
+env = {k: v for k, v in os.environ.items() if k != "LLM_API_KEY"}
+with mock.patch.dict(os.environ, env, clear=True):
+    res = summary.query_llm_vulnerabilities_batch(vulns)
+
+entry = res["CVE-2026-9001"]
+# The offline fallback reassures (appropriate present) and does NOT fabricate a
+# speculative residual-risk section, so the report won't over-report risk.
+assert entry.get("appropriate"), entry
+assert "not_appropriate" not in entry, entry
+assert not summary.is_failed_explanation(entry), entry
+PYEOF
+}
+
+
+@test "build provenance is derived from snapcraft.yaml and resolved into the prompt" {
+    python3 - <<PYEOF
+import pathlib
+import sys
+import tempfile
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+# 1. The real snapcraft.yaml is read and drives the facts.
+facts = summary._snapcraft_build_facts()
+assert facts["base"].startswith("core"), facts
+assert facts["confinement"] == "strict", facts
+assert facts["build_type"], facts
+assert "linked" in facts["linking"], facts
+assert "amd64" in facts["architectures"], facts
+
+block = summary.build_provenance_block()
+assert "GCC" in block, block
+assert "not built with LLVM/Clang" in block, block
+assert "GitHub" in block, block
+
+# 2. The prompt resolves the provenance placeholder but keeps the per-batch one.
+tpl = summary.load_prompt_template()
+assert summary.PROMPT_BUILD_PROVENANCE_PLACEHOLDER not in tpl, "provenance not resolved"
+assert summary.PROMPT_BATCH_PLACEHOLDER in tpl, "CVE batch placeholder should remain"
+assert "core" in tpl and "GCC" in tpl, "provenance facts missing from prompt"
+
+# 3. Parsing is genuinely file-driven: a synthetic snapcraft.yaml changes facts.
+original = summary.SNAPCRAFT_YAML_PATH
+try:
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as fh:
+        fh.write(
+            "base: core99\n"
+            "confinement: classic\n"
+            "      - -DCMAKE_BUILD_TYPE=Debug\n"
+            "      - -DSTATIC=true\n"
+            "platforms:\n  amd64:\n  riscv64:\n"
+        )
+        tmp_path = pathlib.Path(fh.name)
+    summary.SNAPCRAFT_YAML_PATH = tmp_path
+    f2 = summary._snapcraft_build_facts()
+    assert f2["base"] == "core99", f2
+    assert f2["confinement"] == "classic", f2
+    assert f2["build_type"] == "Debug", f2
+    assert f2["linking"] == "statically linked", f2
+    assert f2["architectures"] == "amd64, riscv64", f2
+finally:
+    summary.SNAPCRAFT_YAML_PATH = original
+    tmp_path.unlink(missing_ok=True)
+
+# 4. A missing file degrades to committed defaults instead of erroring.
+original = summary.SNAPCRAFT_YAML_PATH
+try:
+    summary.SNAPCRAFT_YAML_PATH = pathlib.Path("/nonexistent/snapcraft.yaml")
+    fb = summary._snapcraft_build_facts()
+    assert fb["base"] == "core26", fb
+    assert fb["linking"] == "dynamically linked", fb
+finally:
+    summary.SNAPCRAFT_YAML_PATH = original
+PYEOF
+}

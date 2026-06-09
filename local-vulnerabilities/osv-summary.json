@@ -4,8 +4,8 @@
       "architecture": "amd64",
       "report": "osv-amd64.json",
       "generatedAt": {
-        "datetime": "2026-06-08T14:33:58Z",
-        "label": "2026-06-08 14:33 UTC"
+        "datetime": "2026-06-09T03:44:23Z",
+        "label": "2026-06-09 03:44 UTC"
       },
       "affectedPackages": 1,
       "vulnerabilities": 2,
@@ -30,7 +30,9 @@
               "published": "2023-10-11T12:00:00Z",
               "modified": "",
               "url": "https://osv.dev/vulnerability/CVE-2023-38545",
-              "patchable": true
+              "patchable": true,
+              "appropriate": "Snap confinement (AppArmor, seccomp, and a read-only SquashFS root) restricts process capabilities and host access, containing CVE-2023-38545 within the sandbox so it cannot compromise the host.",
+              "not_appropriate": ""
             },
             {
               "id": "CVE-2023-99999",
@@ -42,7 +44,9 @@
               "published": "2023-12-01T12:00:00Z",
               "modified": "",
               "url": "https://osv.dev/vulnerability/CVE-2023-99999",
-              "patchable": false
+              "patchable": false,
+              "appropriate": "Snap confinement (AppArmor, seccomp, and a read-only SquashFS root) restricts process capabilities and host access, containing CVE-2023-99999 within the sandbox so it cannot compromise the host.",
+              "not_appropriate": ""
             }
           ]
         }

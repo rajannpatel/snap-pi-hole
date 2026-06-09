@@ -42,43 +42,155 @@ PROMPT_TEMPLATE_PATH = (
 )
 
 PROMPT_BATCH_PLACEHOLDER = "{{CVE_BATCH_JSON}}"
+PROMPT_BUILD_PROVENANCE_PLACEHOLDER = "{{BUILD_PROVENANCE}}"
+
+# Read so the model audits against the real build toolchain and packaging
+# instead of guessing. The snap is assembled in public GitHub Actions, so these
+# facts are verifiable rather than assumed.
+SNAPCRAFT_YAML_PATH = (
+    pathlib.Path(__file__).resolve().parent.parent.parent / "snapcraft.yaml"
+)
 
 # GitHub Models free tier caps a single request body at 8000 input tokens for
 # high-tier models (e.g. gpt-4.1). Vulnerabilities are sent in size-limited
 # batches so neither the request body nor the response exceeds the per-call
 # token limits; otherwise the API rejects the whole batch with HTTP 413.
+# Smaller batches give each CVE more room for a thorough, grounded analysis in
+# the (output-token-limited) response. All three are env-overridable so depth and
+# throughput can be tuned without code edits (e.g. set LLM_MAX_VULNS_PER_BATCH=1
+# for maximum per-CVE depth at the cost of more requests).
 MAX_BATCH_INPUT_TOKENS = 6500
-MAX_VULNS_PER_BATCH = 10
-MAX_DETAILS_CHARS = 600
+MAX_VULNS_PER_BATCH = max(1, int(os.environ.get("LLM_MAX_VULNS_PER_BATCH") or "3"))
+MAX_DETAILS_CHARS = max(200, int(os.environ.get("LLM_MAX_DETAILS_CHARS") or "1600"))
+MAX_REFERENCES = 6
 BATCH_PACING_SECONDS = 1.0
 
 # Concise resilience copy used only if the external Markdown template cannot be
 # read. The authoritative, editable prompt lives in PROMPT_TEMPLATE_PATH.
 FALLBACK_PROMPT_TEMPLATE = """You are acting as a senior DevSecOps Engineer and Infrastructure Security Architect auditing CVEs for snap-pi-hole, a network-wide DNS sinkhole shipped as a strictly confined Ubuntu snap (AppArmor, seccomp, read-only SquashFS). The service answers DNS on port 53 and serves an admin web UI on ports 80 and 443.
 
-For each finding below, reason about the real attack vector, whether the snap sandbox stops a host compromise, and what happens to the Pi-hole service itself if the bug fires inside the sandbox; a crash or hang that breaks network-wide DNS is still a denial-of-service attack. Mark findings that only affect non-shipped test code as non-issues. Treat the supplied details text as the source of truth.
+Build provenance (verifiable from the public GitHub Actions build; treat as ground truth and use it to dismiss findings that cannot apply to how this snap is actually compiled and shipped):
+{{BUILD_PROVENANCE}}
 
-Return a single JSON object and nothing else: keys are the exact vulnerability identifiers, and each value is an object that may include either or both of two string keys. Always include "appropriate" (how snap confinement mitigates the risk) when confinement genuinely helps. Include "not_appropriate" (where the risk boundary extends beyond snap confinement — the residual impact it cannot contain, leading with the most serious one) only when a plausible, material risk truly remains; omit it entirely when the only conceivable risks are speculative, far-fetched, or negligible rather than inventing one. At least one key must be present per finding. Keep each explanation specific and between one and three sentences. Do not add Markdown, code fences, or any text outside the JSON object.
+Each finding carries cve, package, version, details, and when available aliases, severity, a fix_available flag with fixed_versions, and reference URLs; treat that as the source of truth. For each finding reason about the real attack vector, whether the vulnerable code is even reachable from the snap's DNS or web services with attacker input (many findings live in command-line, optional, or test-only code the runtime never invokes), whether the sandbox stops a host compromise (it almost always does), and only then what concrete impact remains inside the sandbox. A remotely triggerable crash of the running resolver that breaks network-wide DNS is a real residual risk; speculation about code the snap never runs is not.
+
+Return a single JSON object and nothing else: keys are the exact vulnerability identifiers, and each value is an object with either or both of two string keys. Always include "appropriate": a thorough, specific case for how snap confinement mitigates the risk (attack vector, reachability, and how AppArmor/seccomp/read-only SquashFS cap the blast radius and block host compromise) — several sentences are welcome when the bug warrants it. Include "not_appropriate" only when a concrete, reachable, material residual risk genuinely remains; omit it entirely for speculative, hypothetical, negligible, or non-shipped-code risks rather than inventing one. At least one key must be present per finding. Be specific and evidence-based; no filler, no Markdown, no text outside the JSON object.
 
 Batch data to process:
 {{CVE_BATCH_JSON}}
 """
 
 
+def _parse_snapcraft_platforms(text):
+    """Return the target architecture keys listed under ``platforms:``."""
+    arches = []
+    in_block = False
+    for line in text.splitlines():
+        if re.match(r"^platforms:\s*$", line):
+            in_block = True
+            continue
+        if in_block:
+            match = re.match(r"^[ \t]+([A-Za-z0-9_]+):\s*$", line)
+            if match:
+                arches.append(match.group(1))
+                continue
+            # First line that is not an indented arch key ends the block.
+            if line.strip() and not line[0].isspace():
+                break
+    return arches
+
+
+def _snapcraft_build_facts():
+    """Extract a few verifiable build facts from snapcraft.yaml.
+
+    Falls back to the committed defaults so the prompt still carries accurate
+    provenance if the file moves or a field is renamed.
+    """
+    facts = {
+        "base": "core26",
+        "confinement": "strict",
+        "build_type": "Release",
+        "linking": "dynamically linked",
+        "architectures": "amd64, arm64, armhf, ppc64el, s390x, riscv64",
+    }
+    try:
+        text = SNAPCRAFT_YAML_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return facts
+
+    base = re.search(r"(?m)^base:\s*(\S+)", text)
+    if base:
+        facts["base"] = base.group(1)
+    confinement = re.search(r"(?m)^confinement:\s*(\S+)", text)
+    if confinement:
+        facts["confinement"] = confinement.group(1)
+    build_type = re.search(r"-DCMAKE_BUILD_TYPE=(\w+)", text)
+    if build_type:
+        facts["build_type"] = build_type.group(1)
+    static = re.search(r"-DSTATIC=(\w+)", text)
+    if static:
+        facts["linking"] = (
+            "statically linked"
+            if static.group(1).lower() == "true"
+            else "dynamically linked"
+        )
+    arches = _parse_snapcraft_platforms(text)
+    if arches:
+        facts["architectures"] = ", ".join(arches)
+    return facts
+
+
+def build_provenance_block():
+    """Render the build-and-runtime provenance the model audits against."""
+    f = _snapcraft_build_facts()
+    return "\n".join(
+        [
+            "- Build system: the snap is assembled by snapcraft on GitHub-hosted "
+            "Ubuntu runners in GitHub Actions. The build configuration is public "
+            "and reproducible, so the facts below are verifiable from the build "
+            "itself rather than assumed \u2014 rely on them as ground truth.",
+            f"- Base and confinement: built on the `{f['base']}` base under "
+            f"`{f['confinement']}` confinement (AppArmor, seccomp, and a "
+            "read-only SquashFS root).",
+            "- Compiled-from-source component: only the C daemon `pihole-FTL` "
+            "(the DNS/DHCP/API/embedded web server, with a vendored dnsmasq) is "
+            f"compiled here, via CMake ({f['build_type']} build, {f['linking']}) "
+            "with the build environment's standard GNU toolchain (GCC / "
+            "build-essential). It is not built with LLVM/Clang, so "
+            "Clang/LLVM-specific codegen issues (for example select-optimize "
+            "side-channels) cannot apply to it.",
+            "- Interpreted components: the Pi-hole core CLI is POSIX shell and "
+            "the web admin UI is PHP/JS/CSS assets; neither is compiled, so "
+            "C/C++ memory-safety vulnerability classes cannot apply to them.",
+            "- Third-party libraries (for example mbedTLS, nettle, sqlite3, "
+            "libidn2, libuv, readline, coreutils, jq) are staged as pre-built "
+            "binaries from the Ubuntu archive for this base; this project does "
+            "not recompile them, so their machine code follows Canonical's "
+            "standard archive build (GCC), not a custom or LLVM toolchain.",
+            f"- Target architectures: {f['architectures']}.",
+        ]
+    )
+
+
 def load_prompt_template():
     try:
         text = PROMPT_TEMPLATE_PATH.read_text(encoding="utf-8")
+        # Strip HTML maintainer comments so they are not sent to the model and so
+        # a placeholder mentioned inside a comment is not substituted twice.
+        text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL).strip()
     except OSError as exc:
         print(
             f"Could not read prompt template at {PROMPT_TEMPLATE_PATH}: {exc}. "
             "Falling back to the built-in prompt.",
             file=sys.stderr,
         )
-        return FALLBACK_PROMPT_TEMPLATE
-    # Strip HTML maintainer comments so they are not sent to the model and so a
-    # placeholder mentioned inside a comment is not substituted as a second copy
-    # of the batch JSON.
-    return re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL).strip()
+        text = FALLBACK_PROMPT_TEMPLATE
+    # Resolve the build-provenance placeholder up front so every consumer (prompt
+    # assembly and batch-overhead estimation) sees the real build facts; only the
+    # per-batch CVE placeholder remains for the caller to fill.
+    return text.replace(
+        PROMPT_BUILD_PROVENANCE_PLACEHOLDER, build_provenance_block()
+    )
 
 
 def _estimate_tokens(text):
@@ -93,13 +205,60 @@ def _truncate_details(details):
     return text[:MAX_DETAILS_CHARS].rstrip() + "\u2026"
 
 
+def _extract_references(vuln_obj, limit=MAX_REFERENCES):
+    """Collect up to ``limit`` distinct reference URLs from an OSV record."""
+    urls = []
+    for ref in vuln_obj.get("references") or []:
+        url = ref.get("url") if isinstance(ref, dict) else None
+        if url and url not in urls:
+            urls.append(url)
+        if len(urls) >= limit:
+            break
+    return urls
+
+
+def _extract_fixed_versions(vuln_obj):
+    """Collect distinct fixed versions from an OSV record's affected ranges.
+
+    A populated list signals that an upstream fix exists, which is material
+    grounding for the model when it weighs a confined-mitigation label.
+    """
+    fixed = []
+    for affected in vuln_obj.get("affected") or []:
+        for rng in affected.get("ranges") or []:
+            for event in rng.get("events") or []:
+                version = event.get("fixed") if isinstance(event, dict) else None
+                if version and version not in fixed:
+                    fixed.append(version)
+    return fixed
+
+
 def _batch_entry(vuln):
-    return {
+    """Build the per-CVE payload sent to the model, including grounding fields.
+
+    Optional fields (aliases, severity, references, fixed versions) are included
+    only when present so callers that supply a minimal vuln dict stay lean.
+    """
+    entry = {
         "cve": vuln["cve_id"],
         "package": vuln.get("package_name", ""),
         "version": vuln.get("version", ""),
         "details": _truncate_details(vuln.get("details", "")),
     }
+    aliases = [a for a in (vuln.get("aliases") or []) if a]
+    if aliases:
+        entry["aliases"] = aliases[:8]
+    severity = (vuln.get("severity") or "").strip()
+    if severity:
+        entry["severity"] = severity
+    fixed_versions = [f for f in (vuln.get("fixed_versions") or []) if f]
+    if fixed_versions:
+        entry["fix_available"] = True
+        entry["fixed_versions"] = fixed_versions
+    references = [r for r in (vuln.get("references") or []) if r]
+    if references:
+        entry["references"] = references[:MAX_REFERENCES]
+    return entry
 
 
 def build_analysis_prompt(vulns_to_query):
@@ -204,8 +363,11 @@ def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
         print("LLM_API_KEY not set. Using fallback placeholders for batch vulnerabilities.", file=sys.stderr)
         return {
             v["cve_id"]: {
-                "appropriate": f"Snap confinement restricts process access, ensuring {v['cve_id']} is contained within the sandbox.",
-                "not_appropriate": f"If {v['cve_id']} enables local execution or sandbox escape, confinement boundaries might be bypassed."
+                "appropriate": (
+                    "Snap confinement (AppArmor, seccomp, and a read-only SquashFS root) "
+                    f"restricts process capabilities and host access, containing {v['cve_id']} "
+                    "within the sandbox so it cannot compromise the host."
+                ),
             }
             for v in vulns_to_query
         }
@@ -241,6 +403,7 @@ def _query_vuln_batch_once(vulns_to_query, model, api_key):
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "response_format": {"type": "json_object"},
+        "max_tokens": max(256, int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or "4000")),
     }
 
     fallback_map = {
@@ -673,7 +836,11 @@ def collect_reports(reports_dir):
                             "cve_id": vuln_id,
                             "package_name": package_name,
                             "version": package_version,
-                            "details": (v.get("summary") or v.get("details") or "").strip(),
+                            "details": (v.get("details") or v.get("summary") or "").strip(),
+                            "aliases": v.get("aliases", []),
+                            "severity": cvss3_severity_text(v),
+                            "references": _extract_references(v),
+                            "fixed_versions": _extract_fixed_versions(v),
                         })
                         seen_uncached.add(vuln_id)
 
@@ -687,7 +854,7 @@ def collect_reports(reports_dir):
         batch_results = query_llm_vulnerabilities_batch(uncached_vulns_to_query, model=selected_model)
         for vuln_id, explanations in batch_results.items():
             runtime_explanations[vuln_id] = explanations
-            if not is_failed_explanation(explanations):
+            if api_key and not is_failed_explanation(explanations):
                 cache[vuln_id] = explanations
                 cache_updated = True
 

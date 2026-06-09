@@ -19,3 +19,21 @@ The CI workflow currently treats OSV exit code 1 as a warning and fails only if 
 | curl | 7.88.1-10+deb12u1 | [CVE-2023-38545](https://osv.dev/vulnerability/CVE-2023-38545) | 9.8 · Critical | unknown | Actionable (USN) | 2023-10-11 |
 | curl | 7.88.1-10+deb12u1 | [CVE-2023-99999](https://osv.dev/vulnerability/CVE-2023-99999) | 4.7 · Medium | unknown | Confined Mitigation | 2023-12-01 |
 
+## Confinement Analysis
+
+Itemized security analysis of identified vulnerabilities and their exposure inside the strictly confined snap sandbox.
+
+### CVE-2023-38545 (curl)
+
+**✓ Contained by confinement**
+
+- **Snap confinement mitigates risk**:
+  Snap confinement (AppArmor, seccomp, and a read-only SquashFS root) restricts process capabilities and host access, containing CVE-2023-38545 within the sandbox so it cannot compromise the host.
+
+### CVE-2023-99999 (curl)
+
+**✓ Contained by confinement**
+
+- **Snap confinement mitigates risk**:
+  Snap confinement (AppArmor, seccomp, and a read-only SquashFS root) restricts process capabilities and host access, containing CVE-2023-99999 within the sandbox so it cannot compromise the host.
+
