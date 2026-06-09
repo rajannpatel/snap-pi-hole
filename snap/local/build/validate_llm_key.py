@@ -12,9 +12,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from llm_model import DEFAULT_MODEL
+
 
 def main():
-    api_key = os.environ.get("LLM_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("LLM_API_KEY")
     if not api_key:
         print(
             "::notice title=LLM validation::"
@@ -22,10 +24,11 @@ def main():
         )
         return 0
 
-    model = os.environ.get("LLM_MODEL") or os.environ.get("GEMINI_MODEL") or "gpt-4o"
+    # The live key check uses a stable, known-good model; the best analysis
+    # model is discovered separately at scan time (see summarize_osv_reports).
+    model = DEFAULT_MODEL
     base_url = (
         os.environ.get("LLM_API_BASE_URL")
-        or os.environ.get("GEMINI_API_BASE_URL")
         or "https://models.github.ai/inference"
     ).rstrip("/")
 
@@ -44,8 +47,8 @@ def main():
         method="POST",
     )
 
-    max_attempts = max(1, int(os.environ.get("LLM_MAX_ATTEMPTS") or os.environ.get("GEMINI_MAX_ATTEMPTS") or "3"))
-    retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or os.environ.get("GEMINI_RETRY_BASE_DELAY_SECONDS") or "1.0"))
+    max_attempts = max(1, int(os.environ.get("LLM_MAX_ATTEMPTS") or "3"))
+    retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or "1.0"))
 
     for attempt in range(1, max_attempts + 1):
         try:

@@ -12,11 +12,12 @@ import urllib.request
 from datetime import datetime, timezone
 
 from report_assets import vanilla_framework_css_link
+from llm_model import select_best_model, DEFAULT_MODEL
 
 
 def load_cache():
     repo_root = pathlib.Path(__file__).resolve().parent.parent.parent.parent
-    cache_file = repo_root / "local-vulnerabilities" / "gemini-cache.json"
+    cache_file = repo_root / "local-vulnerabilities" / "llm-cache.json"
     if cache_file.exists():
         try:
             return json.loads(cache_file.read_text(encoding="utf-8"))
@@ -27,7 +28,7 @@ def load_cache():
 
 def save_cache(cache):
     repo_root = pathlib.Path(__file__).resolve().parent.parent.parent.parent
-    cache_file = repo_root / "local-vulnerabilities" / "gemini-cache.json"
+    cache_file = repo_root / "local-vulnerabilities" / "llm-cache.json"
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     try:
         cache_file.write_text(json.dumps(cache, indent=2) + "\n", encoding="utf-8")
@@ -80,11 +81,31 @@ def build_analysis_prompt(vulns_to_query):
     return load_prompt_template().replace(PROMPT_BATCH_PLACEHOLDER, batch_json)
 
 
-def query_llm_vulnerabilities_batch(vulns_to_query):
+LLM_LOOKUP_ERROR_TEXT = "error during LLM lookup"
+
+
+def is_failed_explanation(explanation):
+    """Return True when an explanation is a lookup-failure placeholder.
+
+    Failure placeholders are never written to the cache, and any that already
+    exist there are treated as a cache miss and re-queried, so a transient
+    outage cannot permanently replace real analysis with an error message.
+    """
+    if not isinstance(explanation, dict):
+        return True
+    appropriate = str(explanation.get("appropriate", ""))
+    not_appropriate = str(explanation.get("not_appropriate", ""))
+    return (
+        LLM_LOOKUP_ERROR_TEXT in appropriate
+        or LLM_LOOKUP_ERROR_TEXT in not_appropriate
+    )
+
+
+def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
     if not vulns_to_query:
         return {}
 
-    api_key = os.environ.get("LLM_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("LLM_API_KEY")
     if not api_key:
         print("LLM_API_KEY not set. Using fallback placeholders for batch vulnerabilities.", file=sys.stderr)
         return {
@@ -95,10 +116,10 @@ def query_llm_vulnerabilities_batch(vulns_to_query):
             for v in vulns_to_query
         }
 
-    model = os.environ.get("LLM_MODEL") or os.environ.get("GEMINI_MODEL") or "gpt-4o"
-    base_url = (os.environ.get("LLM_API_BASE_URL") or os.environ.get("GEMINI_API_BASE_URL") or "https://models.github.ai/inference").rstrip("/")
-    max_attempts = max(1, int(os.environ.get("LLM_MAX_ATTEMPTS") or os.environ.get("GEMINI_MAX_ATTEMPTS") or "3"))
-    retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or os.environ.get("GEMINI_RETRY_BASE_DELAY_SECONDS") or "1.0"))
+    model = model or DEFAULT_MODEL
+    base_url = (os.environ.get("LLM_API_BASE_URL") or "https://models.github.ai/inference").rstrip("/")
+    max_attempts = max(1, int(os.environ.get("LLM_MAX_ATTEMPTS") or "3"))
+    retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or "1.0"))
 
     prompt = build_analysis_prompt(vulns_to_query)
 
@@ -115,8 +136,8 @@ def query_llm_vulnerabilities_batch(vulns_to_query):
 
     fallback_map = {
         v["cve_id"]: {
-            "appropriate": f"Confinement provides isolation via AppArmor and seccomp, mitigating unauthorized access to host resources (error during LLM lookup).",
-            "not_appropriate": f"A compromised process could potentially disrupt local services or corrupt local writable data inside the snap (error during LLM lookup)."
+            "appropriate": LLM_LOOKUP_ERROR_TEXT,
+            "not_appropriate": LLM_LOOKUP_ERROR_TEXT
         }
         for v in vulns_to_query
     }
@@ -269,16 +290,16 @@ def query_llm_vulnerabilities_batch(vulns_to_query):
     return fallback_map
 
 
-def query_gemini_vulnerability_info(cve_id, package_name, version, details=""):
+def query_vulnerability_info(cve_id, package_name, version, details="", model=None):
     res = query_llm_vulnerabilities_batch([{
         "cve_id": cve_id,
         "package_name": package_name,
         "version": version,
         "details": details,
-    }])
+    }], model=model)
     return res.get(cve_id, {
-        "appropriate": f"Confinement provides isolation via AppArmor and seccomp, mitigating unauthorized access to host resources (error during LLM lookup).",
-        "not_appropriate": f"A compromised process could potentially disrupt local services or corrupt local writable data inside the snap (error during LLM lookup)."
+        "appropriate": LLM_LOOKUP_ERROR_TEXT,
+        "not_appropriate": LLM_LOOKUP_ERROR_TEXT
     })
 
 
@@ -528,6 +549,12 @@ def collect_reports(reports_dir):
 
     cache = load_cache()
     cache_updated = False
+    # Explanations fetched during this run (including failures), so a stale or
+    # failed cache entry is not re-queried per CVE after the batch pre-scan.
+    runtime_explanations = {}
+    # Resolved once (if any live lookups are needed) to the best model the CI
+    # token can call; see select_best_model.
+    selected_model = None
 
     # Discovery pre-scan: find all uncached vulnerabilities to fetch in a single batch request
     uncached_vulns_to_query = []
@@ -549,7 +576,9 @@ def collect_reports(reports_dir):
                 package_version = pkg.get("version", "")
                 for v in vulns:
                     vuln_id = v.get("id", "")
-                    if vuln_id and vuln_id not in cache and vuln_id not in seen_uncached:
+                    cached = cache.get(vuln_id)
+                    needs_query = cached is None or is_failed_explanation(cached)
+                    if vuln_id and needs_query and vuln_id not in seen_uncached:
                         uncached_vulns_to_query.append({
                             "cve_id": vuln_id,
                             "package_name": package_name,
@@ -558,12 +587,19 @@ def collect_reports(reports_dir):
                         })
                         seen_uncached.add(vuln_id)
 
+    api_key = os.environ.get("LLM_API_KEY")
+    if uncached_vulns_to_query and api_key:
+        selected_model = select_best_model(api_key)
+        print(f"Selected LLM model for analysis: {selected_model}", file=sys.stderr)
+
     if uncached_vulns_to_query:
         print(f"Querying LLM in batch for {len(uncached_vulns_to_query)} uncached vulnerabilities...", file=sys.stderr)
-        batch_results = query_llm_vulnerabilities_batch(uncached_vulns_to_query)
+        batch_results = query_llm_vulnerabilities_batch(uncached_vulns_to_query, model=selected_model)
         for vuln_id, explanations in batch_results.items():
-            cache[vuln_id] = explanations
-            cache_updated = True
+            runtime_explanations[vuln_id] = explanations
+            if not is_failed_explanation(explanations):
+                cache[vuln_id] = explanations
+                cache_updated = True
 
     for report_path in sorted(reports_dir.glob("osv-*.json")):
         if report_path.name == "osv-summary.json":
@@ -599,21 +635,27 @@ def collect_reports(reports_dir):
                         or any("/USN-" in ref.get("url", "") or "/notices/USN-" in ref.get("url", "") for ref in references)
                     )
                     
-                    if vuln_id not in cache:
-                        explanations = query_gemini_vulnerability_info(
+                    explanations = cache.get(vuln_id)
+                    if explanations is None or is_failed_explanation(explanations):
+                        explanations = runtime_explanations.get(vuln_id)
+                    if explanations is None:
+                        explanations = query_vulnerability_info(
                             vuln_id,
                             package_name,
                             package_version,
                             (v.get("summary") or v.get("details") or "").strip(),
+                            model=selected_model,
                         )
-                        cache[vuln_id] = explanations
-                        cache_updated = True
+                        runtime_explanations[vuln_id] = explanations
+                        if not is_failed_explanation(explanations):
+                            cache[vuln_id] = explanations
+                            cache_updated = True
                         # Pacing delay to avoid hitting rate limits when processing multiple uncached CVEs
                         time.sleep(1.0)
-                    
+
                     v_entry = vulnerability_entry(v, has_usn)
-                    v_entry["appropriate"] = cache[vuln_id]["appropriate"]
-                    v_entry["not_appropriate"] = cache[vuln_id]["not_appropriate"]
+                    v_entry["appropriate"] = explanations["appropriate"]
+                    v_entry["not_appropriate"] = explanations["not_appropriate"]
                     package_vulns.append(v_entry)
 
                 affected_packages += 1

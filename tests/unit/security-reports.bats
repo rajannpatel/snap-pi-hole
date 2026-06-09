@@ -204,7 +204,7 @@ PYEOF
     [ -s "${REPORT_DIR}/index.html" ]
 }
 
-@test "LLM query uses header auth with configurable endpoint and model" {
+@test "LLM query uses header auth with configurable endpoint and default model" {
     python3 - <<PYEOF
 import json
 import os
@@ -232,6 +232,7 @@ captured = {}
 def fake_urlopen(req, timeout=0):
     captured["url"] = req.full_url
     captured["api_key"] = req.get_header("Authorization")
+    captured["body"] = json.loads(req.data.decode("utf-8"))
     payload = {
         "choices": [
             {
@@ -247,17 +248,17 @@ with mock.patch.dict(
     os.environ,
     {
         "LLM_API_KEY": "test-key",
-        "LLM_MODEL": "gpt-4o",
         "LLM_API_BASE_URL": "https://example.test",
         "LLM_MAX_ATTEMPTS": "1",
     },
     clear=False,
 ):
     with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
-        result = summary.query_gemini_vulnerability_info("CVE-2026-1000", "curl", "1.0")
+        result = summary.query_vulnerability_info("CVE-2026-1000", "curl", "1.0")
         assert result == {"appropriate": "A", "not_appropriate": "B"}, result
         assert "https://example.test/chat/completions" == captured["url"], captured
         assert "Bearer test-key" == captured["api_key"], captured
+        assert captured["body"]["model"] == summary.DEFAULT_MODEL, captured
 PYEOF
 }
 
@@ -320,7 +321,7 @@ with mock.patch.dict(
 ):
     with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=flaky_then_success):
         with mock.patch("summarize_osv_reports.time.sleep", return_value=None):
-            result = summary.query_gemini_vulnerability_info("CVE-2026-1001", "curl", "1.0")
+            result = summary.query_vulnerability_info("CVE-2026-1001", "curl", "1.0")
             assert result["appropriate"] == "retry-ok", result
             assert retry_state["count"] == 2, retry_state
 
@@ -333,7 +334,7 @@ auth_error = urllib.error.HTTPError(
 )
 with mock.patch.dict(os.environ, {"LLM_API_KEY": "bad-key", "LLM_MAX_ATTEMPTS": "1"}, clear=False):
     with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=auth_error):
-        result = summary.query_gemini_vulnerability_info("CVE-2026-1002", "curl", "1.0")
+        result = summary.query_vulnerability_info("CVE-2026-1002", "curl", "1.0")
         assert "error during LLM lookup" in result["appropriate"], result
         assert "error during LLM lookup" in result["not_appropriate"], result
 PYEOF
@@ -375,7 +376,7 @@ with mock.patch.dict(
 ):
     with mock.patch("summarize_osv_reports.urllib.request.urlopen", return_value=DummyResponse(payload)):
         with mock.patch("summarize_osv_reports.time.sleep", return_value=None):
-            result = summary.query_gemini_vulnerability_info("CVE-2026-1003", "curl", "1.0")
+            result = summary.query_vulnerability_info("CVE-2026-1003", "curl", "1.0")
             assert "error during LLM lookup" in result["appropriate"], result
             assert "error during LLM lookup" in result["not_appropriate"], result
 PYEOF
@@ -391,7 +392,7 @@ from io import StringIO
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
 import validate_llm_key
 
-env = {k: v for k, v in os.environ.items() if k not in ("LLM_API_KEY", "GEMINI_API_KEY")}
+env = {k: v for k, v in os.environ.items() if k != "LLM_API_KEY"}
 with mock.patch.dict(os.environ, env, clear=True):
     out = StringIO()
     with mock.patch("sys.stdout", out):
@@ -626,6 +627,73 @@ with mock.patch.dict(
         assert len(res) == 2, res
         assert res["CVE-2026-9999"]["appropriate"] == "Confinement restricts access.", res
         assert res["CVE-2026-8888"]["appropriate"] == "Sandbox mitigates risk.", res
+PYEOF
+}
+
+@test "select_best_model picks the newest free-tier OpenAI text model" {
+    python3 - <<PYEOF
+import json
+import sys
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import llm_model
+
+class DummyResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def read(self):
+        return json.dumps(self._payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+catalog = [
+    {"id": "openai/gpt-4o", "publisher": "OpenAI", "rate_limit_tier": "high",
+     "version": "2024-11-20", "supported_input_modalities": ["text"],
+     "supported_output_modalities": ["text"]},
+    {"id": "openai/gpt-4.1", "publisher": "OpenAI", "rate_limit_tier": "high",
+     "version": "2025-04-14", "supported_input_modalities": ["text"],
+     "supported_output_modalities": ["text"]},
+    {"id": "openai/gpt-4.1-mini", "publisher": "OpenAI", "rate_limit_tier": "low",
+     "version": "2025-04-14", "supported_input_modalities": ["text"],
+     "supported_output_modalities": ["text"]},
+    {"id": "openai/gpt-5", "publisher": "OpenAI", "rate_limit_tier": "custom",
+     "version": "2025-08-07", "supported_input_modalities": ["text"],
+     "supported_output_modalities": ["text"]},
+    {"id": "other/flagship", "publisher": "NotOpenAI", "rate_limit_tier": "high",
+     "version": "2026-01-01", "supported_input_modalities": ["text"],
+     "supported_output_modalities": ["text"]},
+    {"id": "openai/text-embedding-3-large", "publisher": "OpenAI",
+     "rate_limit_tier": "embeddings", "version": "2024-01-25",
+     "supported_input_modalities": ["text"], "supported_output_modalities": ["embeddings"]},
+]
+
+with mock.patch("llm_model.urllib.request.urlopen", return_value=DummyResponse(catalog)):
+    selected = llm_model.select_best_model("test-key")
+    assert selected == "openai/gpt-4.1", selected
+PYEOF
+}
+
+@test "select_best_model falls back to the default model on catalog failure" {
+    python3 - <<PYEOF
+import sys
+import urllib.error
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import llm_model
+
+with mock.patch(
+    "llm_model.urllib.request.urlopen",
+    side_effect=urllib.error.URLError("network down"),
+):
+    selected = llm_model.select_best_model("test-key")
+    assert selected == llm_model.DEFAULT_MODEL, selected
 PYEOF
 }
 
