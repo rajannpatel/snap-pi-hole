@@ -117,6 +117,9 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     environment: snap-publishing
+    env:
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+      GEMINI_API_BASE_URL: ${{ vars.GEMINI_API_BASE_URL }}
     steps:
       - uses: actions/checkout@v6
 
