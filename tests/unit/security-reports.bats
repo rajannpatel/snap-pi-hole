@@ -885,6 +885,31 @@ assert md.count("Snap confinement mitigates risk") == 2, md
 assert md.count("Risk boundary extends beyond snap confinement") == 1, md
 assert html.count("Snap confinement mitigates risk") == 2, html
 assert html.count("Risk boundary extends beyond snap confinement") == 1, html
+
+# A binary confinement recommendation is derived from section presence:
+# the contained-only finding is reassuring; the two-sided finding flags residual risk.
+assert md.count("Contained by confinement") == 1, md
+assert md.count("Residual risk beyond confinement") == 1, md
+assert html.count("Contained by confinement") == 1, html
+assert html.count("Residual risk beyond confinement") == 1, html
+PYEOF
+}
+
+@test "confinement_recommendation suppresses on errors and reflects section presence" {
+    python3 - <<PYEOF
+import sys
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+# Only the mitigation case present -> contained.
+assert summary.confinement_recommendation("Sandbox contains it.", "") == summary.CONFINEMENT_CONTAINED
+# A residual-risk section present (one- or two-sided) -> residual.
+assert summary.confinement_recommendation("Sandbox contains it.", "DNS outage is a real DoS.") == summary.CONFINEMENT_RESIDUAL
+assert summary.confinement_recommendation("", "DNS outage is a real DoS.") == summary.CONFINEMENT_RESIDUAL
+# No analysis, or a failed lookup, yields no recommendation badge.
+assert summary.confinement_recommendation("", "") is None
+assert summary.confinement_recommendation(summary.LLM_LOOKUP_ERROR_TEXT, summary.LLM_LOOKUP_ERROR_TEXT) is None
 PYEOF
 }
 

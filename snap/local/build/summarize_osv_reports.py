@@ -58,7 +58,7 @@ FALLBACK_PROMPT_TEMPLATE = """You are acting as a senior DevSecOps Engineer and 
 
 For each finding below, reason about the real attack vector, whether the snap sandbox stops a host compromise, and what happens to the Pi-hole service itself if the bug fires inside the sandbox; a crash or hang that breaks network-wide DNS is still a denial-of-service attack. Mark findings that only affect non-shipped test code as non-issues. Treat the supplied details text as the source of truth.
 
-Return a single JSON object and nothing else: keys are the exact vulnerability identifiers, and each value is an object that may include either or both of two string keys. Always include "appropriate" (the honest case for the confined-mitigation label) when confinement genuinely helps. Include "not_appropriate" (the candid residual risk, leading with the most serious impact) only when a plausible, material risk truly remains; omit it entirely when the only conceivable risks are speculative, far-fetched, or negligible rather than inventing one. At least one key must be present per finding. Keep each explanation specific and between one and three sentences. Do not add Markdown, code fences, or any text outside the JSON object.
+Return a single JSON object and nothing else: keys are the exact vulnerability identifiers, and each value is an object that may include either or both of two string keys. Always include "appropriate" (how snap confinement mitigates the risk) when confinement genuinely helps. Include "not_appropriate" (where the risk boundary extends beyond snap confinement — the residual impact it cannot contain, leading with the most serious one) only when a plausible, material risk truly remains; omit it entirely when the only conceivable risks are speculative, far-fetched, or negligible rather than inventing one. At least one key must be present per finding. Keep each explanation specific and between one and three sentences. Do not add Markdown, code fences, or any text outside the JSON object.
 
 Batch data to process:
 {{CVE_BATCH_JSON}}
@@ -166,6 +166,33 @@ def coerce_explanation(item):
     if not appropriate and not not_appropriate:
         return None
     return {"appropriate": appropriate, "not_appropriate": not_appropriate}
+
+
+CONFINEMENT_CONTAINED = "contained"
+CONFINEMENT_RESIDUAL = "residual"
+CONFINEMENT_RECOMMENDATION_LABELS = {
+    CONFINEMENT_CONTAINED: "\u2713 Contained by confinement",
+    CONFINEMENT_RESIDUAL: "\u26a0 Residual risk beyond confinement",
+}
+
+
+def confinement_recommendation(appropriate_text, not_appropriate_text):
+    """Derive a binary confinement recommendation from section presence.
+
+    Returns CONFINEMENT_CONTAINED when only the mitigation case is present,
+    CONFINEMENT_RESIDUAL when a residual-risk section remains, or None when the
+    analysis is missing or carries the lookup-error placeholder, so a failed
+    lookup never renders a misleading recommendation.
+    """
+    appropriate = (appropriate_text or "").strip()
+    not_appropriate = (not_appropriate_text or "").strip()
+    if LLM_LOOKUP_ERROR_TEXT in appropriate or LLM_LOOKUP_ERROR_TEXT in not_appropriate:
+        return None
+    if not_appropriate:
+        return CONFINEMENT_RESIDUAL
+    if appropriate:
+        return CONFINEMENT_CONTAINED
+    return None
 
 
 def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
@@ -858,6 +885,10 @@ def write_markdown(summary, output_path):
             ])
             appropriate_text = (info.get("appropriate") or "").strip()
             not_appropriate_text = (info.get("not_appropriate") or "").strip()
+            recommendation = confinement_recommendation(appropriate_text, not_appropriate_text)
+            if recommendation:
+                lines.append(f"**{CONFINEMENT_RECOMMENDATION_LABELS[recommendation]}**")
+                lines.append("")
             if appropriate_text:
                 lines.append("- **Snap confinement mitigates risk**:")
                 lines.append(f"  {appropriate_text}")
@@ -882,6 +913,22 @@ def status_badge(patchable):
             '<span class="p-chip__value">Confined Mitigation</span>'
             '</span>'
         )
+
+
+def confinement_recommendation_badge(recommendation):
+    if recommendation == CONFINEMENT_CONTAINED:
+        return (
+            '<span class="p-chip" style="background-color: #e8f5e9; border: 1px solid #a5d6a7; color: #1b5e20;" title="No residual risk remains beyond snap confinement">'
+            '<span class="p-chip__value">\u2713 Contained by confinement</span>'
+            '</span>'
+        )
+    if recommendation == CONFINEMENT_RESIDUAL:
+        return (
+            '<span class="p-chip" style="background-color: #fff3e0; border: 1px solid #ffcc80; color: #e65100;" title="Residual risk extends beyond snap confinement">'
+            '<span class="p-chip__value">\u26a0 Residual risk beyond confinement</span>'
+            '</span>'
+        )
+    return ""
 
 
 def write_html(summary, output_path):
@@ -989,6 +1036,14 @@ def write_html(summary, output_path):
         ).lower()
         appropriate_text = (row_data.get("appropriate") or "").strip()
         not_appropriate_text = (row_data.get("not_appropriate") or "").strip()
+        recommendation = confinement_recommendation(appropriate_text, not_appropriate_text)
+        recommendation_html = ""
+        if recommendation:
+            recommendation_html = (
+                f'<div style="margin-bottom: 0.75rem;">'
+                f'{confinement_recommendation_badge(recommendation)}'
+                f'</div>'
+            )
         explanation_blocks = []
         if appropriate_text:
             explanation_blocks.append(
@@ -1021,6 +1076,7 @@ def write_html(summary, output_path):
             detail_row_html += (
                 f'<tr class="vulnerability-explanation-row" style="background-color: #fafafa;">'
                 f'<td colspan="8" style="padding: 1rem 1.5rem !important; border-bottom: 1px solid #e0e0e0;">'
+                f'{recommendation_html}'
                 f'<div style="display: flex; gap: 2rem; flex-wrap: wrap;">'
                 f'{"".join(explanation_blocks)}'
                 f'</div>'
@@ -1427,7 +1483,7 @@ def write_html(summary, output_path):
   </script>
 </body>
 </html>
-""")
+""", encoding="utf-8")
 
 
 def main():

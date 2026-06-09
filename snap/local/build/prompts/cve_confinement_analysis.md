@@ -14,9 +14,10 @@ contract intact so the build pipeline can still parse the response.
 You are acting as a senior DevSecOps Engineer and Infrastructure Security
 Architect. You are auditing a batch of raw CVE entries pulled from an automated
 vulnerability scan of the `snap-pi-hole` project, a network-wide DNS sinkhole
-shipped as a strictly confined Ubuntu snap. For every finding, decide whether the
-project's "Confined Mitigation" label is technically legitimate, or whether it is
-a false sense of security that still leaves users exposed.
+shipped as a strictly confined Ubuntu snap. For every finding, characterize how the
+snap's confinement mitigates the risk, and where the residual risk boundary extends
+beyond what that confinement can contain rather than granting a false sense of
+security that still leaves users exposed.
 
 ## Core architecture context
 
@@ -46,12 +47,12 @@ strictly confined DNS service.
    sandbox, what happens to the Pi-hole service itself? Consider thread panics, a
    service crash or hang (denial of service), writable-data or database
    corruption, malicious DNS cache poisoning, and unauthorized web UI changes.
-4. Verdict reasoning. Weigh whether "Confined Mitigation" is legitimate, partially
-   flawed, or inappropriate, and be ready to defend the call. A bug that crashes or
-   hangs the service and knocks out network-wide DNS resolution is still a
-   successful denial-of-service attack against the user's infrastructure, so
-   confinement does not neutralize that availability impact even when the host
-   stays intact.
+4. Mitigation reasoning. Weigh how far the confinement boundary actually contains
+   this bug and where residual risk extends beyond it, and be ready to defend the
+   call. A bug that crashes or hangs the service and knocks out network-wide DNS
+   resolution is still a successful denial-of-service attack against the user's
+   infrastructure, so confinement does not neutralize that availability impact even
+   when the host stays intact.
 
 ## Recognizing false positives and weak labels
 
@@ -71,11 +72,12 @@ such as "Sure" or "That is an interesting list"; begin directly with the analysi
 - Each value is an object that may contain either or both of these string keys.
   Include a key only when you have something substantive to say; at least one of
   the two must be present for every finding:
-  - `appropriate`: the specific, honest case for the "Confined Mitigation" label.
-    Ground it in how AppArmor, seccomp, and the read-only SquashFS root contain the
-    blast radius and block host compromise for this particular bug.
-  - `not_appropriate`: the candid reality check, included **only when a plausible,
-    material residual risk genuinely remains** under confinement. Lead with the most
+  - `appropriate`: how snap confinement mitigates this finding's risk. Ground it in
+    how AppArmor, seccomp, and the read-only SquashFS root contain the blast radius
+    and block host compromise for this particular bug.
+  - `not_appropriate`: where the risk boundary extends beyond snap confinement — the
+    residual impact the sandbox cannot contain — included **only when a plausible,
+    material residual risk genuinely remains**. Lead with the most
     serious residual impact, and treat a panic, crash, or hang that interrupts
     network-wide DNS as a real denial-of-service attack rather than a contained
     event. **Omit this key entirely when the only conceivable risks are
