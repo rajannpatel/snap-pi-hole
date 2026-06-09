@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate that GEMINI_API_KEY is set and accepted by the Gemini API.
+"""Validate that LLM_API_KEY is set and accepted by the OpenAI/GitHub Models API.
 
 Exits with status 0 on success, 1 on failure.
 Emits GitHub Actions workflow commands so failures surface in the CI UI.
@@ -14,49 +14,49 @@ import urllib.request
 
 
 def main():
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("LLM_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print(
-            "::notice title=Gemini validation::"
-            "GEMINI_API_KEY is unavailable (expected for fork PRs). Skipping live key check."
+            "::notice title=LLM validation::"
+            "LLM_API_KEY is unavailable (expected for fork PRs). Skipping live key check."
         )
         return 0
 
-    model = os.environ.get("GEMINI_MODEL") or "gemini-flash-latest"
+    model = os.environ.get("LLM_MODEL") or os.environ.get("GEMINI_MODEL") or "gpt-4o"
     base_url = (
-        os.environ.get("GEMINI_API_BASE_URL")
-        or "https://generativelanguage.googleapis.com/v1beta"
+        os.environ.get("LLM_API_BASE_URL")
+        or os.environ.get("GEMINI_API_BASE_URL")
+        or "https://models.github.ai/inference"
     ).rstrip("/")
 
-    url = f"{base_url}/models/{urllib.parse.quote(model, safe='.-_')}:generateContent"
+    url = f"{base_url}/chat/completions"
     body = {
-        "contents": [{"parts": [{"text": "Reply with exactly the word: ok"}]}],
-        "generationConfig": {"responseMimeType": "text/plain"},
+        "model": model,
+        "messages": [{"role": "user", "content": "Reply with exactly the word: ok"}],
     }
     req = urllib.request.Request(
         url,
         data=json.dumps(body).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
-            "x-goog-api-key": api_key,
+            "Authorization": f"Bearer {api_key}",
         },
         method="POST",
     )
 
-    max_attempts = max(1, int(os.environ.get("GEMINI_MAX_ATTEMPTS", "3")))
-    retry_base_delay = max(0.0, float(os.environ.get("GEMINI_RETRY_BASE_DELAY_SECONDS", "1.0")))
+    max_attempts = max(1, int(os.environ.get("LLM_MAX_ATTEMPTS") or os.environ.get("GEMINI_MAX_ATTEMPTS") or "3"))
+    retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or os.environ.get("GEMINI_RETRY_BASE_DELAY_SECONDS") or "1.0"))
 
     for attempt in range(1, max_attempts + 1):
         try:
             with urllib.request.urlopen(req, timeout=20) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             text = (
-                data.get("candidates", [{}])[0]
-                .get("content", {})
-                .get("parts", [{}])[0]
-                .get("text", "")
+                data.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
             )
-            print(f"Gemini API key is valid. Model responded: {text.strip()!r}")
+            print(f"LLM API key is valid. Model responded: {text.strip()!r}")
             return 0
         except urllib.error.HTTPError as exc:
             body_text = ""
@@ -65,42 +65,57 @@ def main():
             except Exception:
                 pass
             print(
-                f"Gemini key validation HTTP error (attempt {attempt}/{max_attempts}): status {exc.code}. "
+                f"LLM key validation HTTP error (attempt {attempt}/{max_attempts}): status {exc.code}. "
                 f"Response body: {body_text or '<empty>'}",
                 file=sys.stderr,
             )
             if exc.code in {429, 500, 502, 503, 504} and attempt < max_attempts:
-                time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
+                sleep_delay = None
+                if exc.code == 429 and body_text:
+                    import re
+                    match = re.search(r"(?:retry in|try again in|retry after) (\d+\.?\d*)(?:\s*s|\s*second)", body_text, re.IGNORECASE)
+                    if match:
+                        try:
+                            sleep_delay = float(match.group(1)) + 0.5
+                            print(
+                                f"Rate limit detected. Sleeping for {sleep_delay:.2f}s as requested by API.",
+                                file=sys.stderr,
+                            )
+                        except ValueError:
+                            pass
+                if sleep_delay is None:
+                    sleep_delay = min(retry_base_delay * (2 ** (attempt - 1)), 8.0)
+                time.sleep(sleep_delay)
                 continue
             if exc.code in {429, 500, 502, 503, 504}:
                 print(
-                    f"::warning title=Gemini key validation::Gemini API is temporarily unavailable (HTTP {exc.code}). "
+                    f"::warning title=LLM key validation::API is temporarily unavailable (HTTP {exc.code}). "
                     f"Proceeding with build using cached justifications.",
                     file=sys.stderr,
                 )
                 return 0
             print(
-                f"::error title=Gemini key validation::HTTP {exc.code} from Gemini API. {body_text}",
+                f"::error title=LLM key validation::HTTP {exc.code} from LLM API. {body_text}",
                 file=sys.stderr,
             )
             return 1
         except (urllib.error.URLError, TimeoutError) as exc:
             print(
-                f"Gemini key validation network error (attempt {attempt}/{max_attempts}): {exc}",
+                f"LLM key validation network error (attempt {attempt}/{max_attempts}): {exc}",
                 file=sys.stderr,
             )
             if attempt < max_attempts:
                 time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
                 continue
             print(
-                f"::warning title=Gemini key validation::Gemini API connection timed out ({exc}). "
+                f"::warning title=LLM key validation::API connection timed out ({exc}). "
                 f"Proceeding with build using cached justifications.",
                 file=sys.stderr,
             )
             return 0
         except Exception as exc:
             print(
-                f"::error title=Gemini key validation::{type(exc).__name__}: {exc}",
+                f"::error title=LLM key validation::{type(exc).__name__}: {exc}",
                 file=sys.stderr,
             )
             return 1

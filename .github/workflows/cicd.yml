@@ -117,11 +117,14 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     environment: snap-publishing
+    permissions:
+      contents: read
+      models: read
     env:
-      GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
-      GEMINI_API_BASE_URL: ${{ vars.GEMINI_API_BASE_URL }}
-      GEMINI_MAX_ATTEMPTS: 5
-      GEMINI_RETRY_BASE_DELAY_SECONDS: 2.0
+      LLM_MODEL: ${{ vars.LLM_MODEL || 'gpt-4o' }}
+      LLM_API_BASE_URL: ${{ vars.LLM_API_BASE_URL || 'https://models.github.ai/inference' }}
+      LLM_MAX_ATTEMPTS: 5
+      LLM_RETRY_BASE_DELAY_SECONDS: 2.0
     steps:
       - uses: actions/checkout@v6
 
@@ -137,23 +140,23 @@ jobs:
           go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.3.8
           echo "${HOME}/go/bin" >> "$GITHUB_PATH"
 
-      - name: Validate Gemini API key
+      - name: Validate LLM API key
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LLM_API_KEY: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -n "${GEMINI_API_KEY:-}" ]; then
-            echo "::add-mask::${GEMINI_API_KEY}"
+          if [ -n "${LLM_API_KEY:-}" ]; then
+            echo "::add-mask::${LLM_API_KEY}"
           fi
           python3 snap/local/build/validate_gemini_key.py
 
       - name: Scan SBOMs with OSV-Scanner
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LLM_API_KEY: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -n "${GEMINI_API_KEY:-}" ]; then
-            echo "::add-mask::${GEMINI_API_KEY}"
+          if [ -n "${LLM_API_KEY:-}" ]; then
+            echo "::add-mask::${LLM_API_KEY}"
           else
-            echo "::notice title=Gemini analysis::GEMINI_API_KEY is unavailable (expected for fork PRs). Using cached or fallback confinement explanations."
+            echo "::notice title=LLM analysis::LLM_API_KEY is unavailable. Using cached or fallback confinement explanations."
           fi
 
           mkdir -p osv-sbom-input vulnerability-reports

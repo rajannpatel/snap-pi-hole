@@ -36,18 +36,18 @@ def save_cache(cache):
 
 
 def query_gemini_vulnerability_info(cve_id, package_name, version):
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("LLM_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        print(f"GEMINI_API_KEY not set. Using fallback placeholders for {cve_id}.", file=sys.stderr)
+        print(f"LLM_API_KEY not set. Using fallback placeholders for {cve_id}.", file=sys.stderr)
         return {
             "appropriate": f"Snap confinement restricts process access, ensuring {cve_id} is contained within the sandbox.",
             "not_appropriate": f"If {cve_id} enables local execution or sandbox escape, confinement boundaries might be bypassed."
         }
 
-    model = os.environ.get("GEMINI_MODEL") or "gemini-flash-latest"
-    base_url = (os.environ.get("GEMINI_API_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
-    max_attempts = max(1, int(os.environ.get("GEMINI_MAX_ATTEMPTS", "3")))
-    retry_base_delay = max(0.0, float(os.environ.get("GEMINI_RETRY_BASE_DELAY_SECONDS", "1.0")))
+    model = os.environ.get("LLM_MODEL") or os.environ.get("GEMINI_MODEL") or "gpt-4o"
+    base_url = (os.environ.get("LLM_API_BASE_URL") or os.environ.get("GEMINI_API_BASE_URL") or "https://models.github.ai/inference").rstrip("/")
+    max_attempts = max(1, int(os.environ.get("LLM_MAX_ATTEMPTS") or os.environ.get("GEMINI_MAX_ATTEMPTS") or "3"))
+    retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or os.environ.get("GEMINI_RETRY_BASE_DELAY_SECONDS") or "1.0"))
 
     prompt = f"""
 For the vulnerability {cve_id} in package {package_name} (version {version}), which is packaged as a strictly confined Ubuntu snap (using AppArmor, seccomp filters, and a read-only SquashFS filesystem):
@@ -60,27 +60,26 @@ Provide your response in JSON format with exactly the following two keys:
 
 Do not include any markdown formatting, code blocks, or leading/trailing text outside the JSON object.
 """
-    url = f"{base_url}/models/{urllib.parse.quote(model, safe='.-_')}:generateContent"
+    url = f"{base_url}/chat/completions"
     headers = {
         "Content-Type": "application/json",
-        "x-goog-api-key": api_key,
+        "Authorization": f"Bearer {api_key}",
     }
     body = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "responseMimeType": "application/json"
-        }
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "response_format": {"type": "json_object"},
     }
     fallback = {
-        "appropriate": f"Confinement provides isolation via AppArmor and seccomp, mitigating unauthorized access to host resources (error during Gemini lookup).",
-        "not_appropriate": f"A compromised process could potentially disrupt local services or corrupt local writable data inside the snap (error during Gemini lookup)."
+        "appropriate": f"Confinement provides isolation via AppArmor and seccomp, mitigating unauthorized access to host resources (error during LLM lookup).",
+        "not_appropriate": f"A compromised process could potentially disrupt local services or corrupt local writable data inside the snap (error during LLM lookup)."
     }
 
     def normalize_explanations(payload):
         if not isinstance(payload, dict):
-            raise ValueError("Gemini response payload is not an object")
+            raise ValueError("LLM response payload is not an object")
         if "appropriate" not in payload or "not_appropriate" not in payload:
-            raise ValueError("Missing required keys in Gemini response payload")
+            raise ValueError("Missing required keys in LLM response payload")
         return {
             "appropriate": str(payload["appropriate"]).strip(),
             "not_appropriate": str(payload["not_appropriate"]).strip(),
@@ -89,7 +88,7 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
     def parse_text_payload(text):
         stripped = str(text or "").strip()
         if not stripped:
-            raise ValueError("Gemini response text is empty")
+            raise ValueError("LLM response text is empty")
         try:
             return normalize_explanations(json.loads(stripped))
         except json.JSONDecodeError:
@@ -109,31 +108,27 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
         if start != -1 and end != -1 and start < end:
             candidate = stripped[start:end + 1]
             return normalize_explanations(json.loads(candidate))
-        raise ValueError("Unable to parse Gemini JSON payload")
+        raise ValueError("Unable to parse LLM JSON payload")
 
-    def parse_gemini_response(raw_payload):
+    def parse_llm_response(raw_payload):
         if isinstance(raw_payload, dict) and {
             "appropriate",
             "not_appropriate",
         }.issubset(raw_payload.keys()):
             return normalize_explanations(raw_payload)
 
-        candidates = raw_payload.get("candidates", []) if isinstance(raw_payload, dict) else []
-        for candidate in candidates:
-            content = candidate.get("content", {}) if isinstance(candidate, dict) else {}
-            for part in content.get("parts", []) or []:
-                if not isinstance(part, dict):
-                    continue
-                if "text" in part:
-                    return parse_text_payload(part.get("text"))
-        raise ValueError("No parseable Gemini response content")
+        choices = raw_payload.get("choices", []) if isinstance(raw_payload, dict) else []
+        if choices:
+            text = choices[0].get("message", {}).get("content", "")
+            return parse_text_payload(text)
+        raise ValueError("No parseable LLM response content")
 
     for attempt in range(1, max_attempts + 1):
         try:
             req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
             with urllib.request.urlopen(req, timeout=15) as response:
                 res_data = json.loads(response.read().decode("utf-8"))
-                return parse_gemini_response(res_data)
+                return parse_llm_response(res_data)
         except urllib.error.HTTPError as exc:
             response_body = ""
             try:
@@ -141,28 +136,43 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
             except Exception:
                 response_body = ""
             print(
-                f"Gemini API HTTP error for {cve_id}: status {exc.code}. "
+                f"LLM API HTTP error for {cve_id}: status {exc.code}. "
                 f"Response body: {response_body or '<empty>'}",
                 file=sys.stderr,
             )
             if exc.code in {429, 500, 502, 503, 504} and attempt < max_attempts:
-                time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
+                sleep_delay = None
+                if exc.code == 429 and response_body:
+                    import re
+                    match = re.search(r"(?:retry in|try again in|retry after) (\d+\.?\d*)(?:\s*s|\s*second)", response_body, re.IGNORECASE)
+                    if match:
+                        try:
+                            sleep_delay = float(match.group(1)) + 0.5
+                            print(
+                                f"Rate limit detected for {cve_id}. Sleeping for {sleep_delay:.2f}s as requested by API.",
+                                file=sys.stderr,
+                            )
+                        except ValueError:
+                            pass
+                if sleep_delay is None:
+                    sleep_delay = min(retry_base_delay * (2 ** (attempt - 1)), 8.0)
+                time.sleep(sleep_delay)
                 continue
             break
         except urllib.error.URLError as exc:
-            print(f"Gemini API connection error for {cve_id}: {exc}.", file=sys.stderr)
+            print(f"LLM API connection error for {cve_id}: {exc}.", file=sys.stderr)
             if attempt < max_attempts:
                 time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
                 continue
             break
         except (json.JSONDecodeError, KeyError, IndexError, ValueError) as exc:
-            print(f"Gemini API response parsing error for {cve_id}: {exc}.", file=sys.stderr)
+            print(f"LLM API response parsing error for {cve_id}: {exc}.", file=sys.stderr)
             if attempt < max_attempts:
                 time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
                 continue
             break
         except Exception as exc:
-            print(f"Unexpected Gemini lookup error for {cve_id}: {type(exc).__name__}: {exc}.", file=sys.stderr)
+            print(f"Unexpected LLM lookup error for {cve_id}: {type(exc).__name__}: {exc}.", file=sys.stderr)
             break
     return fallback
 

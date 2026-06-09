@@ -204,7 +204,7 @@ PYEOF
     [ -s "${REPORT_DIR}/index.html" ]
 }
 
-@test "Gemini query uses header auth with configurable endpoint and model" {
+@test "LLM query uses header auth with configurable endpoint and model" {
     python3 - <<PYEOF
 import json
 import os
@@ -231,14 +231,12 @@ captured = {}
 
 def fake_urlopen(req, timeout=0):
     captured["url"] = req.full_url
-    captured["api_key"] = req.get_header("X-goog-api-key")
+    captured["api_key"] = req.get_header("Authorization")
     payload = {
-        "candidates": [
+        "choices": [
             {
-                "content": {
-                    "parts": [
-                        {"text": json.dumps({"appropriate": "A", "not_appropriate": "B"})}
-                    ]
+                "message": {
+                    "content": json.dumps({"appropriate": "A", "not_appropriate": "B"})
                 }
             }
         ]
@@ -248,22 +246,22 @@ def fake_urlopen(req, timeout=0):
 with mock.patch.dict(
     os.environ,
     {
-        "GEMINI_API_KEY": "test-key",
-        "GEMINI_MODEL": "gemini-test-model",
-        "GEMINI_API_BASE_URL": "https://example.test/v1beta",
-        "GEMINI_MAX_ATTEMPTS": "1",
+        "LLM_API_KEY": "test-key",
+        "LLM_MODEL": "gpt-4o",
+        "LLM_API_BASE_URL": "https://example.test",
+        "LLM_MAX_ATTEMPTS": "1",
     },
     clear=False,
 ):
     with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
         result = summary.query_gemini_vulnerability_info("CVE-2026-1000", "curl", "1.0")
         assert result == {"appropriate": "A", "not_appropriate": "B"}, result
-        assert "https://example.test/v1beta/models/gemini-test-model:generateContent" == captured["url"], captured
-        assert "test-key" == captured["api_key"], captured
+        assert "https://example.test/chat/completions" == captured["url"], captured
+        assert "Bearer test-key" == captured["api_key"], captured
 PYEOF
 }
 
-@test "Gemini query retries rate-limits and falls back on auth errors" {
+@test "LLM query retries rate-limits and falls back on auth errors" {
     python3 - <<PYEOF
 import io
 import json
@@ -301,12 +299,10 @@ def flaky_then_success(req, timeout=0):
             fp=io.BytesIO(b'{"error":"too many requests"}'),
         )
     payload = {
-        "candidates": [
+        "choices": [
             {
-                "content": {
-                    "parts": [
-                        {"text": json.dumps({"appropriate": "retry-ok", "not_appropriate": "retry-risk"})}
-                    ]
+                "message": {
+                    "content": json.dumps({"appropriate": "retry-ok", "not_appropriate": "retry-risk"})
                 }
             }
         ]
@@ -316,9 +312,9 @@ def flaky_then_success(req, timeout=0):
 with mock.patch.dict(
     os.environ,
     {
-        "GEMINI_API_KEY": "test-key",
-        "GEMINI_MAX_ATTEMPTS": "2",
-        "GEMINI_RETRY_BASE_DELAY_SECONDS": "0",
+        "LLM_API_KEY": "test-key",
+        "LLM_MAX_ATTEMPTS": "2",
+        "LLM_RETRY_BASE_DELAY_SECONDS": "0",
     },
     clear=False,
 ):
@@ -335,15 +331,15 @@ auth_error = urllib.error.HTTPError(
     hdrs=None,
     fp=io.BytesIO(b'{"error":"invalid key"}'),
 )
-with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "bad-key", "GEMINI_MAX_ATTEMPTS": "1"}, clear=False):
+with mock.patch.dict(os.environ, {"LLM_API_KEY": "bad-key", "LLM_MAX_ATTEMPTS": "1"}, clear=False):
     with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=auth_error):
         result = summary.query_gemini_vulnerability_info("CVE-2026-1002", "curl", "1.0")
-        assert "error during Gemini lookup" in result["appropriate"], result
-        assert "error during Gemini lookup" in result["not_appropriate"], result
+        assert "error during LLM lookup" in result["appropriate"], result
+        assert "error during LLM lookup" in result["not_appropriate"], result
 PYEOF
 }
 
-@test "Gemini query falls back after malformed responses" {
+@test "LLM query falls back after malformed responses" {
     python3 - <<PYEOF
 import json
 import os
@@ -366,22 +362,22 @@ class DummyResponse:
     def __exit__(self, exc_type, exc, tb):
         return False
 
-payload = {"candidates": [{"content": {"parts": [{"text": "not valid json"}]}}]}
+payload = {"choices": [{"message": {"content": "not valid json"}}]}
 
 with mock.patch.dict(
     os.environ,
     {
-        "GEMINI_API_KEY": "test-key",
-        "GEMINI_MAX_ATTEMPTS": "2",
-        "GEMINI_RETRY_BASE_DELAY_SECONDS": "0",
+        "LLM_API_KEY": "test-key",
+        "LLM_MAX_ATTEMPTS": "2",
+        "LLM_RETRY_BASE_DELAY_SECONDS": "0",
     },
     clear=False,
 ):
     with mock.patch("summarize_osv_reports.urllib.request.urlopen", return_value=DummyResponse(payload)):
         with mock.patch("summarize_osv_reports.time.sleep", return_value=None):
             result = summary.query_gemini_vulnerability_info("CVE-2026-1003", "curl", "1.0")
-            assert "error during Gemini lookup" in result["appropriate"], result
-            assert "error during Gemini lookup" in result["not_appropriate"], result
+            assert "error during LLM lookup" in result["appropriate"], result
+            assert "error during LLM lookup" in result["not_appropriate"], result
 PYEOF
 }
 
@@ -395,13 +391,13 @@ from io import StringIO
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
 import validate_gemini_key
 
-env = {k: v for k, v in os.environ.items() if k != "GEMINI_API_KEY"}
+env = {k: v for k, v in os.environ.items() if k not in ("LLM_API_KEY", "GEMINI_API_KEY")}
 with mock.patch.dict(os.environ, env, clear=True):
     out = StringIO()
     with mock.patch("sys.stdout", out):
         rc = validate_gemini_key.main()
 assert rc == 0, f"expected 0, got {rc}"
-assert "GEMINI_API_KEY is unavailable" in out.getvalue(), out.getvalue()
+assert "LLM_API_KEY is unavailable" in out.getvalue(), out.getvalue()
 PYEOF
 }
 
@@ -420,8 +416,8 @@ captured = {}
 class DummyResponse:
     def __init__(self):
         self._data = {
-            "candidates": [
-                {"content": {"parts": [{"text": "ok"}]}}
+            "choices": [
+                {"message": {"content": "ok"}}
             ]
         }
     def read(self):
@@ -433,15 +429,15 @@ class DummyResponse:
 
 def fake_urlopen(req, timeout=0):
     captured["url"] = req.full_url
-    captured["api_key"] = req.get_header("X-goog-api-key")
+    captured["api_key"] = req.get_header("Authorization")
     return DummyResponse()
 
-with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}, clear=False):
+with mock.patch.dict(os.environ, {"LLM_API_KEY": "test-key"}, clear=False):
     with mock.patch("validate_gemini_key.urllib.request.urlopen", side_effect=fake_urlopen):
         rc = validate_gemini_key.main()
 assert rc == 0, f"expected 0, got {rc}"
-assert captured["url"] == "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", captured
-assert captured["api_key"] == "test-key", captured
+assert captured["url"] == "https://models.github.ai/inference/chat/completions", captured
+assert captured["api_key"] == "Bearer test-key", captured
 PYEOF
 }
 
@@ -464,12 +460,12 @@ auth_error = urllib.error.HTTPError(
     fp=io.BytesIO(b'{"error":"invalid key"}'),
 )
 err_buf = io.StringIO()
-with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "bad-key"}, clear=False):
+with mock.patch.dict(os.environ, {"LLM_API_KEY": "bad-key"}, clear=False):
     with mock.patch("validate_gemini_key.urllib.request.urlopen", side_effect=auth_error):
         with mock.patch("sys.stderr", err_buf):
             rc = validate_gemini_key.main()
 assert rc == 1, f"expected 1, got {rc}"
-assert "::error title=Gemini key validation::" in err_buf.getvalue(), err_buf.getvalue()
+assert "::error title=LLM key validation::" in err_buf.getvalue(), err_buf.getvalue()
 assert "401" in err_buf.getvalue(), err_buf.getvalue()
 PYEOF
 }
@@ -501,9 +497,9 @@ def fake_urlopen(*args, **kwargs):
 with mock.patch.dict(
     os.environ,
     {
-        "GEMINI_API_KEY": "test-key",
-        "GEMINI_MAX_ATTEMPTS": "2",
-        "GEMINI_RETRY_BASE_DELAY_SECONDS": "0",
+        "LLM_API_KEY": "test-key",
+        "LLM_MAX_ATTEMPTS": "2",
+        "LLM_RETRY_BASE_DELAY_SECONDS": "0",
     },
     clear=False,
 ):
@@ -513,7 +509,56 @@ with mock.patch.dict(
                 rc = validate_gemini_key.main()
 assert rc == 0, f"expected 0, got {rc}"
 assert len(calls) == 2, f"expected 2 attempts, got {len(calls)}"
-assert "::warning title=Gemini key validation::" in err_buf.getvalue(), err_buf.getvalue()
+assert "::warning title=LLM key validation::" in err_buf.getvalue(), err_buf.getvalue()
 assert "503" in err_buf.getvalue(), err_buf.getvalue()
+PYEOF
+}
+
+@test "validate_gemini_key extracts rate limit delay from 429 response body" {
+    python3 - <<PYEOF
+import io
+import os
+import sys
+import urllib.error
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import validate_gemini_key
+
+rate_limit_error = urllib.error.HTTPError(
+    "https://example.test",
+    429,
+    "Too Many Requests",
+    hdrs=None,
+    fp=io.BytesIO(b'{"message": "Please retry in 50.72s."}'),
+)
+err_buf = io.StringIO()
+calls = []
+def fake_urlopen(*args, **kwargs):
+    calls.append(args)
+    raise rate_limit_error
+
+slept_durations = []
+def fake_sleep(seconds):
+    slept_durations.append(seconds)
+
+with mock.patch.dict(
+    os.environ,
+    {
+        "LLM_API_KEY": "test-key",
+        "LLM_MAX_ATTEMPTS": "2",
+        "LLM_RETRY_BASE_DELAY_SECONDS": "1.0",
+    },
+    clear=False,
+):
+    with mock.patch("validate_gemini_key.urllib.request.urlopen", side_effect=fake_urlopen):
+        with mock.patch("validate_gemini_key.time.sleep", side_effect=fake_sleep):
+            with mock.patch("sys.stderr", err_buf):
+                rc = validate_gemini_key.main()
+assert rc == 0, f"expected 0, got {rc}"
+assert len(calls) == 2, f"expected 2 attempts, got {len(calls)}"
+assert len(slept_durations) == 1, slept_durations
+assert 51.21 <= slept_durations[0] <= 51.23, slept_durations
+assert "Rate limit detected. Sleeping for 51.22s" in err_buf.getvalue(), err_buf.getvalue()
 PYEOF
 }
