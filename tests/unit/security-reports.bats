@@ -204,7 +204,7 @@ PYEOF
     [ -s "${REPORT_DIR}/index.html" ]
 }
 
-@test "Gemini query supports configurable endpoint and model on success" {
+@test "Gemini query uses header auth with configurable endpoint and model" {
     python3 - <<PYEOF
 import json
 import os
@@ -231,6 +231,7 @@ captured = {}
 
 def fake_urlopen(req, timeout=0):
     captured["url"] = req.full_url
+    captured["api_key"] = req.get_header("x-goog-api-key")
     payload = {
         "candidates": [
             {
@@ -257,7 +258,8 @@ with mock.patch.dict(
     with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
         result = summary.query_gemini_vulnerability_info("CVE-2026-1000", "curl", "1.0")
         assert result == {"appropriate": "A", "not_appropriate": "B"}, result
-        assert "https://example.test/v1beta/models/gemini-test-model:generateContent?key=test-key" == captured["url"], captured
+        assert "https://example.test/v1beta/models/gemini-test-model:generateContent" == captured["url"], captured
+        assert "test-key" == captured["api_key"], captured
 PYEOF
 }
 
@@ -413,6 +415,8 @@ from unittest import mock
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
 import validate_gemini_key
 
+captured = {}
+
 class DummyResponse:
     def __init__(self):
         self._data = {
@@ -427,10 +431,17 @@ class DummyResponse:
     def __exit__(self, *a):
         return False
 
+def fake_urlopen(req, timeout=0):
+    captured["url"] = req.full_url
+    captured["api_key"] = req.get_header("x-goog-api-key")
+    return DummyResponse()
+
 with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}, clear=False):
-    with mock.patch("validate_gemini_key.urllib.request.urlopen", return_value=DummyResponse()):
+    with mock.patch("validate_gemini_key.urllib.request.urlopen", side_effect=fake_urlopen):
         rc = validate_gemini_key.main()
 assert rc == 0, f"expected 0, got {rc}"
+assert captured["url"] == "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", captured
+assert captured["api_key"] == "test-key", captured
 PYEOF
 }
 

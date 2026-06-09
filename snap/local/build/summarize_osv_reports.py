@@ -44,7 +44,7 @@ def query_gemini_vulnerability_info(cve_id, package_name, version):
             "not_appropriate": f"If {cve_id} enables local execution or sandbox escape, confinement boundaries might be bypassed."
         }
 
-    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+    model = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
     base_url = os.environ.get("GEMINI_API_BASE_URL", "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
     max_attempts = max(1, int(os.environ.get("GEMINI_MAX_ATTEMPTS", "3")))
     retry_base_delay = max(0.0, float(os.environ.get("GEMINI_RETRY_BASE_DELAY_SECONDS", "1.0")))
@@ -60,12 +60,10 @@ Provide your response in JSON format with exactly the following two keys:
 
 Do not include any markdown formatting, code blocks, or leading/trailing text outside the JSON object.
 """
-    url = (
-        f"{base_url}/models/{urllib.parse.quote(model, safe='.-_')}:generateContent"
-        f"?key={urllib.parse.quote(api_key, safe='')}"
-    )
+    url = f"{base_url}/models/{urllib.parse.quote(model, safe='.-_')}:generateContent"
     headers = {
         "Content-Type": "application/json",
+        "x-goog-api-key": api_key,
     }
     body = {
         "contents": [{"parts": [{"text": prompt}]}],

@@ -21,15 +21,12 @@ def main():
         )
         return 0
 
-    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+    model = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
     base_url = os.environ.get(
         "GEMINI_API_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"
     ).rstrip("/")
 
-    url = (
-        f"{base_url}/models/{urllib.parse.quote(model, safe='.-_')}:generateContent"
-        f"?key={urllib.parse.quote(api_key, safe='')}"
-    )
+    url = f"{base_url}/models/{urllib.parse.quote(model, safe='.-_')}:generateContent"
     body = {
         "contents": [{"parts": [{"text": "Reply with exactly the word: ok"}]}],
         "generationConfig": {"responseMimeType": "text/plain"},
@@ -37,7 +34,10 @@ def main():
     req = urllib.request.Request(
         url,
         data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": api_key,
+        },
         method="POST",
     )
     try:
