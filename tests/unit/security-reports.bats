@@ -562,3 +562,70 @@ assert 51.21 <= slept_durations[0] <= 51.23, slept_durations
 assert "Rate limit detected. Sleeping for 51.22s" in err_buf.getvalue(), err_buf.getvalue()
 PYEOF
 }
+
+@test "LLM query processes batch requests and populates cache correctly" {
+    python3 - <<PYEOF
+import json
+import os
+import sys
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+class DummyResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def read(self):
+        return json.dumps(self._payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+# Mock payload returning a single JSON response containing entries for both CVEs
+mock_json_content = json.dumps({
+    "CVE-2026-9999": {
+        "appropriate": "Confinement restricts access.",
+        "not_appropriate": "Host bypass possible."
+    },
+    "CVE-2026-8888": {
+        "appropriate": "Sandbox mitigates risk.",
+        "not_appropriate": "Bypasses seccomp."
+    }
+})
+
+payload = {
+    "choices": [
+        {
+            "message": {
+                "content": mock_json_content
+            }
+        }
+    ]
+}
+
+vulns = [
+    {"cve_id": "CVE-2026-9999", "package_name": "curl", "version": "1.0"},
+    {"cve_id": "CVE-2026-8888", "package_name": "git", "version": "2.0"}
+]
+
+with mock.patch.dict(
+    os.environ,
+    {
+        "LLM_API_KEY": "test-key",
+        "LLM_MAX_ATTEMPTS": "1",
+    },
+    clear=False,
+):
+    with mock.patch("summarize_osv_reports.urllib.request.urlopen", return_value=DummyResponse(payload)):
+        res = summary.query_llm_vulnerabilities_batch(vulns)
+        assert len(res) == 2, res
+        assert res["CVE-2026-9999"]["appropriate"] == "Confinement restricts access.", res
+        assert res["CVE-2026-8888"]["not_appropriate"] == "Sandbox mitigates risk.", res
+PYEOF
+}
+

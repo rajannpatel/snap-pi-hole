@@ -35,13 +35,19 @@ def save_cache(cache):
         print(f"Error saving cache: {e}", file=sys.stderr)
 
 
-def query_gemini_vulnerability_info(cve_id, package_name, version):
+def query_llm_vulnerabilities_batch(vulns_to_query):
+    if not vulns_to_query:
+        return {}
+
     api_key = os.environ.get("LLM_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        print(f"LLM_API_KEY not set. Using fallback placeholders for {cve_id}.", file=sys.stderr)
+        print("LLM_API_KEY not set. Using fallback placeholders for batch vulnerabilities.", file=sys.stderr)
         return {
-            "appropriate": f"Snap confinement restricts process access, ensuring {cve_id} is contained within the sandbox.",
-            "not_appropriate": f"If {cve_id} enables local execution or sandbox escape, confinement boundaries might be bypassed."
+            v["cve_id"]: {
+                "appropriate": f"Snap confinement restricts process access, ensuring {v['cve_id']} is contained within the sandbox.",
+                "not_appropriate": f"If {v['cve_id']} enables local execution or sandbox escape, confinement boundaries might be bypassed."
+            }
+            for v in vulns_to_query
         }
 
     model = os.environ.get("LLM_MODEL") or os.environ.get("GEMINI_MODEL") or "gpt-4o"
@@ -49,17 +55,35 @@ def query_gemini_vulnerability_info(cve_id, package_name, version):
     max_attempts = max(1, int(os.environ.get("LLM_MAX_ATTEMPTS") or os.environ.get("GEMINI_MAX_ATTEMPTS") or "3"))
     retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or os.environ.get("GEMINI_RETRY_BASE_DELAY_SECONDS") or "1.0"))
 
+    cve_list_str = ""
+    for idx, v in enumerate(vulns_to_query, start=1):
+        cve_list_str += f"{idx}. ID: {v['cve_id']}, Package: {v['package_name']}, Version: {v['version']}\n"
+
     prompt = f"""
-For the vulnerability {cve_id} in package {package_name} (version {version}), which is packaged as a strictly confined Ubuntu snap (using AppArmor, seccomp filters, and a read-only SquashFS filesystem):
+You are analyzing a set of security vulnerabilities affecting packages that are compiled/run inside a strictly confined Ubuntu snap (which uses AppArmor, seccomp filters, and a read-only SquashFS filesystem).
+
+For each of the following vulnerabilities:
+{cve_list_str}
+
+Perform the following:
 1. Explain how/why a "confined mitigation" label is appropriate (i.e., how snap's security boundaries and sandbox mitigate the vulnerability).
 2. Explain why a "confined mitigation" label might NOT be appropriate (i.e., how the vulnerability could still be exploited or cause harm despite the sandbox).
 
-Provide your response in JSON format with exactly the following two keys:
+Provide your response in JSON format. The response must be a JSON object where the keys are the vulnerability IDs and the values are objects with exactly these two keys:
 - "appropriate": a concise explanation (1-3 sentences)
 - "not_appropriate": a concise explanation (1-3 sentences)
 
+Example of expected format:
+{{
+  "UBUNTU-CVE-2025-49087": {{
+    "appropriate": "Snap confinement restricts process access, ensuring UBUNTU-CVE-2025-49087 is contained within the sandbox.",
+    "not_appropriate": "If UBUNTU-CVE-2025-49087 enables local execution or sandbox escape, confinement boundaries might be bypassed."
+  }}
+}}
+
 Do not include any markdown formatting, code blocks, or leading/trailing text outside the JSON object.
 """
+
     url = f"{base_url}/chat/completions"
     headers = {
         "Content-Type": "application/json",
@@ -70,20 +94,33 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
         "messages": [{"role": "user", "content": prompt}],
         "response_format": {"type": "json_object"},
     }
-    fallback = {
-        "appropriate": f"Confinement provides isolation via AppArmor and seccomp, mitigating unauthorized access to host resources (error during LLM lookup).",
-        "not_appropriate": f"A compromised process could potentially disrupt local services or corrupt local writable data inside the snap (error during LLM lookup)."
+
+    fallback_map = {
+        v["cve_id"]: {
+            "appropriate": f"Confinement provides isolation via AppArmor and seccomp, mitigating unauthorized access to host resources (error during LLM lookup).",
+            "not_appropriate": f"A compromised process could potentially disrupt local services or corrupt local writable data inside the snap (error during LLM lookup)."
+        }
+        for v in vulns_to_query
     }
 
     def normalize_explanations(payload):
         if not isinstance(payload, dict):
             raise ValueError("LLM response payload is not an object")
-        if "appropriate" not in payload or "not_appropriate" not in payload:
-            raise ValueError("Missing required keys in LLM response payload")
-        return {
-            "appropriate": str(payload["appropriate"]).strip(),
-            "not_appropriate": str(payload["not_appropriate"]).strip(),
-        }
+        res = {}
+        for v in vulns_to_query:
+            cve_id = v["cve_id"]
+            if cve_id in payload:
+                item = payload[cve_id]
+                if isinstance(item, dict) and "appropriate" in item and "not_appropriate" in item:
+                    res[cve_id] = {
+                        "appropriate": str(item["appropriate"]).strip(),
+                        "not_appropriate": str(item["not_appropriate"]).strip(),
+                    }
+                else:
+                    res[cve_id] = fallback_map[cve_id]
+            else:
+                res[cve_id] = fallback_map[cve_id]
+        return res
 
     def parse_text_payload(text):
         stripped = str(text or "").strip()
@@ -111,24 +148,24 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
         raise ValueError("Unable to parse LLM JSON payload")
 
     def parse_llm_response(raw_payload):
-        if isinstance(raw_payload, dict) and {
-            "appropriate",
-            "not_appropriate",
-        }.issubset(raw_payload.keys()):
-            return normalize_explanations(raw_payload)
-
         choices = raw_payload.get("choices", []) if isinstance(raw_payload, dict) else []
         if choices:
             text = choices[0].get("message", {}).get("content", "")
             return parse_text_payload(text)
         raise ValueError("No parseable LLM response content")
 
+    # Retry loop
     for attempt in range(1, max_attempts + 1):
         try:
-            req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=15) as response:
-                res_data = json.loads(response.read().decode("utf-8"))
-                return parse_llm_response(res_data)
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(body).encode("utf-8"),
+                headers=headers,
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=45) as response:
+                resp_data = json.loads(response.read().decode("utf-8"))
+                return parse_llm_response(resp_data)
         except urllib.error.HTTPError as exc:
             response_body = ""
             try:
@@ -136,7 +173,7 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
             except Exception:
                 response_body = ""
             print(
-                f"LLM API HTTP error for {cve_id}: status {exc.code}. "
+                f"LLM API HTTP error for batch query (attempt {attempt}/{max_attempts}): status {exc.code}. "
                 f"Response body: {response_body or '<empty>'}",
                 file=sys.stderr,
             )
@@ -146,9 +183,9 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
                     retry_after = exc.headers.get("Retry-After")
                     if retry_after:
                         try:
-                            sleep_delay = float(retry_after) + 0.5
+                            sleep_delay = max(2.0, float(retry_after) + 0.5)
                             print(
-                                f"Rate limit detected for {cve_id} via Retry-After header. Sleeping for {sleep_delay:.2f}s.",
+                                f"Rate limit detected for batch query. Sleeping for {sleep_delay:.2f}s via Retry-After header.",
                                 file=sys.stderr,
                             )
                         except ValueError:
@@ -157,9 +194,9 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
                         reset_time = exc.headers.get("x-ratelimit-reset") or exc.headers.get("X-RateLimit-Reset")
                         if reset_time:
                             try:
-                                sleep_delay = max(0.5, float(reset_time) - time.time() + 1.0)
+                                sleep_delay = max(2.0, float(reset_time) - time.time() + 1.0)
                                 print(
-                                    f"Rate limit detected for {cve_id} via x-ratelimit-reset header. Sleeping for {sleep_delay:.2f}s.",
+                                    f"Rate limit detected for batch query. Sleeping for {sleep_delay:.2f}s via x-ratelimit-reset header.",
                                     file=sys.stderr,
                                 )
                             except ValueError:
@@ -169,35 +206,43 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
                         match = re.search(r"(?:retry in|try again in|retry after) (\d+\.?\d*)(?:\s*s|\s*second)", response_body, re.IGNORECASE)
                         if match:
                             try:
-                                sleep_delay = float(match.group(1)) + 0.5
+                                sleep_delay = max(2.0, float(match.group(1)) + 0.5)
                                 print(
-                                    f"Rate limit detected for {cve_id} via response body. Sleeping for {sleep_delay:.2f}s as requested by API.",
+                                    f"Rate limit detected for batch query. Sleeping for {sleep_delay:.2f}s via response body.",
                                     file=sys.stderr,
                                 )
                             except ValueError:
                                 pass
                 if sleep_delay is None:
                     cap = 30.0 if exc.code == 429 else 8.0
-                    sleep_delay = min(retry_base_delay * (2 ** (attempt - 1)), cap)
+                    sleep_delay = max(2.0, min(retry_base_delay * (2 ** (attempt - 1)), cap)) if exc.code == 429 else min(retry_base_delay * (2 ** (attempt - 1)), cap)
                 time.sleep(sleep_delay)
                 continue
             break
         except urllib.error.URLError as exc:
-            print(f"LLM API connection error for {cve_id}: {exc}.", file=sys.stderr)
+            print(f"LLM API connection error for batch query: {exc}.", file=sys.stderr)
             if attempt < max_attempts:
                 time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
                 continue
             break
         except (json.JSONDecodeError, KeyError, IndexError, ValueError) as exc:
-            print(f"LLM API response parsing error for {cve_id}: {exc}.", file=sys.stderr)
+            print(f"LLM API response parsing error for batch query: {exc}.", file=sys.stderr)
             if attempt < max_attempts:
                 time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
                 continue
             break
         except Exception as exc:
-            print(f"Unexpected LLM lookup error for {cve_id}: {type(exc).__name__}: {exc}.", file=sys.stderr)
+            print(f"Unexpected LLM lookup error for batch query: {type(exc).__name__}: {exc}.", file=sys.stderr)
             break
-    return fallback
+    return fallback_map
+
+
+def query_gemini_vulnerability_info(cve_id, package_name, version):
+    res = query_llm_vulnerabilities_batch([{"cve_id": cve_id, "package_name": package_name, "version": version}])
+    return res.get(cve_id, {
+        "appropriate": f"Confinement provides isolation via AppArmor and seccomp, mitigating unauthorized access to host resources (error during LLM lookup).",
+        "not_appropriate": f"A compromised process could potentially disrupt local services or corrupt local writable data inside the snap (error during LLM lookup)."
+    })
 
 
 
@@ -447,6 +492,41 @@ def collect_reports(reports_dir):
     cache = load_cache()
     cache_updated = False
 
+    # Discovery pre-scan: find all uncached vulnerabilities to fetch in a single batch request
+    uncached_vulns_to_query = []
+    seen_uncached = set()
+    for report_path in sorted(reports_dir.glob("osv-*.json")):
+        if report_path.name == "osv-summary.json":
+            continue
+        try:
+            data = json.loads(report_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        for result in data.get("results", []):
+            for package in result.get("packages", []):
+                vulns = package.get("vulnerabilities", [])
+                if not vulns:
+                    continue
+                pkg = package.get("package", {})
+                package_name = pkg.get("name", "unknown")
+                package_version = pkg.get("version", "")
+                for v in vulns:
+                    vuln_id = v.get("id", "")
+                    if vuln_id and vuln_id not in cache and vuln_id not in seen_uncached:
+                        uncached_vulns_to_query.append({
+                            "cve_id": vuln_id,
+                            "package_name": package_name,
+                            "version": package_version
+                        })
+                        seen_uncached.add(vuln_id)
+
+    if uncached_vulns_to_query:
+        print(f"Querying LLM in batch for {len(uncached_vulns_to_query)} uncached vulnerabilities...", file=sys.stderr)
+        batch_results = query_llm_vulnerabilities_batch(uncached_vulns_to_query)
+        for vuln_id, explanations in batch_results.items():
+            cache[vuln_id] = explanations
+            cache_updated = True
+
     for report_path in sorted(reports_dir.glob("osv-*.json")):
         if report_path.name == "osv-summary.json":
             continue
@@ -485,6 +565,8 @@ def collect_reports(reports_dir):
                         explanations = query_gemini_vulnerability_info(vuln_id, package_name, package_version)
                         cache[vuln_id] = explanations
                         cache_updated = True
+                        # Pacing delay to avoid hitting rate limits when processing multiple uncached CVEs
+                        time.sleep(1.0)
                     
                     v_entry = vulnerability_entry(v, has_usn)
                     v_entry["appropriate"] = cache[vuln_id]["appropriate"]
