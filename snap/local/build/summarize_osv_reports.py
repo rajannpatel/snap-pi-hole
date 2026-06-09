@@ -3,6 +3,7 @@ import html
 import json
 import math
 import pathlib
+import re
 import sys
 import os
 import time
@@ -42,6 +43,15 @@ PROMPT_TEMPLATE_PATH = (
 
 PROMPT_BATCH_PLACEHOLDER = "{{CVE_BATCH_JSON}}"
 
+# GitHub Models free tier caps a single request body at 8000 input tokens for
+# high-tier models (e.g. gpt-4.1). Vulnerabilities are sent in size-limited
+# batches so neither the request body nor the response exceeds the per-call
+# token limits; otherwise the API rejects the whole batch with HTTP 413.
+MAX_BATCH_INPUT_TOKENS = 6500
+MAX_VULNS_PER_BATCH = 10
+MAX_DETAILS_CHARS = 600
+BATCH_PACING_SECONDS = 1.0
+
 # Concise resilience copy used only if the external Markdown template cannot be
 # read. The authoritative, editable prompt lives in PROMPT_TEMPLATE_PATH.
 FALLBACK_PROMPT_TEMPLATE = """You are acting as a senior DevSecOps Engineer and Infrastructure Security Architect auditing CVEs for snap-pi-hole, a network-wide DNS sinkhole shipped as a strictly confined Ubuntu snap (AppArmor, seccomp, read-only SquashFS). The service answers DNS on port 53 and serves an admin web UI on ports 80 and 443.
@@ -57,7 +67,7 @@ Batch data to process:
 
 def load_prompt_template():
     try:
-        return PROMPT_TEMPLATE_PATH.read_text(encoding="utf-8")
+        text = PROMPT_TEMPLATE_PATH.read_text(encoding="utf-8")
     except OSError as exc:
         print(
             f"Could not read prompt template at {PROMPT_TEMPLATE_PATH}: {exc}. "
@@ -65,20 +75,58 @@ def load_prompt_template():
             file=sys.stderr,
         )
         return FALLBACK_PROMPT_TEMPLATE
+    # Strip HTML maintainer comments so they are not sent to the model and so a
+    # placeholder mentioned inside a comment is not substituted as a second copy
+    # of the batch JSON.
+    return re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL).strip()
+
+
+def _estimate_tokens(text):
+    """Rough token estimate (~4 chars/token) used only to size request batches."""
+    return (len(text) + 3) // 4
+
+
+def _truncate_details(details):
+    text = str(details or "").strip()
+    if len(text) <= MAX_DETAILS_CHARS:
+        return text
+    return text[:MAX_DETAILS_CHARS].rstrip() + "\u2026"
+
+
+def _batch_entry(vuln):
+    return {
+        "cve": vuln["cve_id"],
+        "package": vuln.get("package_name", ""),
+        "version": vuln.get("version", ""),
+        "details": _truncate_details(vuln.get("details", "")),
+    }
 
 
 def build_analysis_prompt(vulns_to_query):
-    batch_payload = [
-        {
-            "cve": v["cve_id"],
-            "package": v.get("package_name", ""),
-            "version": v.get("version", ""),
-            "details": v.get("details", ""),
-        }
-        for v in vulns_to_query
-    ]
+    batch_payload = [_batch_entry(v) for v in vulns_to_query]
     batch_json = json.dumps(batch_payload, indent=2, ensure_ascii=False)
     return load_prompt_template().replace(PROMPT_BATCH_PLACEHOLDER, batch_json)
+
+
+def iter_vuln_batches(vulns_to_query):
+    """Split vulnerabilities into batches that fit the per-request token budget."""
+    template = load_prompt_template()
+    overhead = _estimate_tokens(template.replace(PROMPT_BATCH_PLACEHOLDER, ""))
+    batch_budget = max(500, MAX_BATCH_INPUT_TOKENS - overhead)
+    chunk = []
+    chunk_tokens = 0
+    for vuln in vulns_to_query:
+        entry_tokens = _estimate_tokens(json.dumps(_batch_entry(vuln), indent=2, ensure_ascii=False))
+        too_many = len(chunk) >= MAX_VULNS_PER_BATCH
+        too_big = bool(chunk) and (chunk_tokens + entry_tokens) > batch_budget
+        if chunk and (too_many or too_big):
+            yield chunk
+            chunk = []
+            chunk_tokens = 0
+        chunk.append(vuln)
+        chunk_tokens += entry_tokens
+    if chunk:
+        yield chunk
 
 
 LLM_LOOKUP_ERROR_TEXT = "error during LLM lookup"
@@ -117,6 +165,21 @@ def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
         }
 
     model = model or DEFAULT_MODEL
+    batches = list(iter_vuln_batches(vulns_to_query))
+    results = {}
+    for index, batch in enumerate(batches):
+        if index > 0 and BATCH_PACING_SECONDS > 0:
+            time.sleep(BATCH_PACING_SECONDS)
+        if len(batches) > 1:
+            print(
+                f"Querying LLM batch {index + 1}/{len(batches)} ({len(batch)} vulnerabilities)...",
+                file=sys.stderr,
+            )
+        results.update(_query_vuln_batch_once(batch, model, api_key))
+    return results
+
+
+def _query_vuln_batch_once(vulns_to_query, model, api_key):
     base_url = (os.environ.get("LLM_API_BASE_URL") or "https://models.github.ai/inference").rstrip("/")
     max_attempts = max(1, int(os.environ.get("LLM_MAX_ATTEMPTS") or "3"))
     retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or "1.0"))
@@ -255,7 +318,6 @@ def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
                             except ValueError:
                                 pass
                     if sleep_delay is None and response_body:
-                        import re
                         match = re.search(r"(?:retry in|try again in|retry after) (\d+\.?\d*)(?:\s*s|\s*second)", response_body, re.IGNORECASE)
                         if match:
                             try:

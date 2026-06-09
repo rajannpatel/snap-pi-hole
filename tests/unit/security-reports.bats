@@ -697,3 +697,79 @@ with mock.patch(
 PYEOF
 }
 
+@test "LLM query splits large vulnerability sets into token-limited batches" {
+    python3 - <<PYEOF
+import json
+import os
+import re
+import sys
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+class DummyResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def read(self):
+        return json.dumps(self._payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+call_sizes = []
+
+def fake_urlopen(req, timeout=0):
+    content = json.loads(req.data.decode("utf-8"))["messages"][0]["content"]
+    # Batch entries use the lowercase "cve" key; the prompt's example output
+    # keys CVEs differently, so this counts only the data actually sent.
+    batch_ids = re.findall(r'"cve":\s*"([^"]+)"', content)
+    call_sizes.append(len(batch_ids))
+    answer = {cid: {"appropriate": f"a-{cid}", "not_appropriate": f"n-{cid}"} for cid in batch_ids}
+    return DummyResponse({"choices": [{"message": {"content": json.dumps(answer)}}]})
+
+vulns = [
+    {"cve_id": f"CVE-3001-{i:04d}", "package_name": "jq", "version": "1.0", "details": "short"}
+    for i in range(1, 26)
+]
+
+with mock.patch.dict(
+    os.environ,
+    {"LLM_API_KEY": "test-key", "LLM_MAX_ATTEMPTS": "1"},
+    clear=False,
+):
+    with mock.patch("summarize_osv_reports.time.sleep"):
+        with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
+            res = summary.query_llm_vulnerabilities_batch(vulns)
+
+assert len(res) == 25, len(res)
+assert all(v["cve_id"] in res for v in vulns), res.keys()
+# 25 vulns capped at MAX_VULNS_PER_BATCH=10 -> 3 requests (10, 10, 5).
+assert len(call_sizes) == 3, call_sizes
+assert max(call_sizes) <= summary.MAX_VULNS_PER_BATCH, call_sizes
+assert sum(call_sizes) == 25, call_sizes
+assert res["CVE-3001-0025"]["appropriate"] == "a-CVE-3001-0025", res["CVE-3001-0025"]
+PYEOF
+}
+
+@test "build_analysis_prompt truncates overly long vulnerability details" {
+    python3 - <<PYEOF
+import sys
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+long_details = "X" * 5000
+prompt = summary.build_analysis_prompt([
+    {"cve_id": "CVE-3002-0001", "package_name": "jq", "version": "1.0", "details": long_details}
+])
+# The 5000-char detail must be truncated to the cap (plus an ellipsis marker).
+assert ("X" * summary.MAX_DETAILS_CHARS) in prompt, "expected truncated run of X"
+assert ("X" * (summary.MAX_DETAILS_CHARS + 1)) not in prompt, "details exceeded cap"
+PYEOF
+}
+
