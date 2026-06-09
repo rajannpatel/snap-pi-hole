@@ -231,7 +231,7 @@ captured = {}
 
 def fake_urlopen(req, timeout=0):
     captured["url"] = req.full_url
-    captured["api_key"] = req.get_header("x-goog-api-key")
+    captured["api_key"] = req.get_header("X-goog-api-key")
     payload = {
         "candidates": [
             {
@@ -433,7 +433,7 @@ class DummyResponse:
 
 def fake_urlopen(req, timeout=0):
     captured["url"] = req.full_url
-    captured["api_key"] = req.get_header("x-goog-api-key")
+    captured["api_key"] = req.get_header("X-goog-api-key")
     return DummyResponse()
 
 with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}, clear=False):
