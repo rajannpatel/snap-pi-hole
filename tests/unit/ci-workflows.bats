@@ -185,7 +185,7 @@ assert scan_idx is not None, f"'Scan SBOMs with OSV-Scanner' step not found: {na
 assert validate_idx < scan_idx, f"Validate step ({validate_idx}) must come before Scan step ({scan_idx})"
 validate_step = steps[validate_idx]
 assert validate_step.get("env", {}).get("LLM_API_KEY") is not None, validate_step
-assert "validate_gemini_key.py" in validate_step.get("run", ""), validate_step
+assert "validate_llm_key.py" in validate_step.get("run", ""), validate_step
 PYEOF
 }
 

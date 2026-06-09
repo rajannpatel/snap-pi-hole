@@ -381,7 +381,7 @@ with mock.patch.dict(
 PYEOF
 }
 
-@test "validate_gemini_key prints notice and exits 0 when key is absent" {
+@test "validate_llm_key prints notice and exits 0 when key is absent" {
     python3 - <<PYEOF
 import os
 import sys
@@ -389,19 +389,19 @@ from unittest import mock
 from io import StringIO
 
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import validate_gemini_key
+import validate_llm_key
 
 env = {k: v for k, v in os.environ.items() if k not in ("LLM_API_KEY", "GEMINI_API_KEY")}
 with mock.patch.dict(os.environ, env, clear=True):
     out = StringIO()
     with mock.patch("sys.stdout", out):
-        rc = validate_gemini_key.main()
+        rc = validate_llm_key.main()
 assert rc == 0, f"expected 0, got {rc}"
 assert "LLM_API_KEY is unavailable" in out.getvalue(), out.getvalue()
 PYEOF
 }
 
-@test "validate_gemini_key returns 0 on a successful API response" {
+@test "validate_llm_key returns 0 on a successful API response" {
     python3 - <<PYEOF
 import json
 import os
@@ -409,7 +409,7 @@ import sys
 from unittest import mock
 
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import validate_gemini_key
+import validate_llm_key
 
 captured = {}
 
@@ -433,15 +433,15 @@ def fake_urlopen(req, timeout=0):
     return DummyResponse()
 
 with mock.patch.dict(os.environ, {"LLM_API_KEY": "test-key"}, clear=False):
-    with mock.patch("validate_gemini_key.urllib.request.urlopen", side_effect=fake_urlopen):
-        rc = validate_gemini_key.main()
+    with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
+        rc = validate_llm_key.main()
 assert rc == 0, f"expected 0, got {rc}"
 assert captured["url"] == "https://models.github.ai/inference/chat/completions", captured
 assert captured["api_key"] == "Bearer test-key", captured
 PYEOF
 }
 
-@test "validate_gemini_key returns 1 and emits error annotation on HTTP failure" {
+@test "validate_llm_key returns 1 and emits error annotation on HTTP failure" {
     python3 - <<PYEOF
 import io
 import os
@@ -450,7 +450,7 @@ import urllib.error
 from unittest import mock
 
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import validate_gemini_key
+import validate_llm_key
 
 auth_error = urllib.error.HTTPError(
     "https://example.test",
@@ -461,16 +461,16 @@ auth_error = urllib.error.HTTPError(
 )
 err_buf = io.StringIO()
 with mock.patch.dict(os.environ, {"LLM_API_KEY": "bad-key"}, clear=False):
-    with mock.patch("validate_gemini_key.urllib.request.urlopen", side_effect=auth_error):
+    with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=auth_error):
         with mock.patch("sys.stderr", err_buf):
-            rc = validate_gemini_key.main()
+            rc = validate_llm_key.main()
 assert rc == 1, f"expected 1, got {rc}"
 assert "::error title=LLM key validation::" in err_buf.getvalue(), err_buf.getvalue()
 assert "401" in err_buf.getvalue(), err_buf.getvalue()
 PYEOF
 }
 
-@test "validate_gemini_key retries 503 and degrades gracefully returning 0" {
+@test "validate_llm_key retries 503 and degrades gracefully returning 0" {
     python3 - <<PYEOF
 import io
 import os
@@ -479,7 +479,7 @@ import urllib.error
 from unittest import mock
 
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import validate_gemini_key
+import validate_llm_key
 
 auth_error = urllib.error.HTTPError(
     "https://example.test",
@@ -503,10 +503,10 @@ with mock.patch.dict(
     },
     clear=False,
 ):
-    with mock.patch("validate_gemini_key.urllib.request.urlopen", side_effect=fake_urlopen):
-        with mock.patch("validate_gemini_key.time.sleep", return_value=None):
+    with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
+        with mock.patch("validate_llm_key.time.sleep", return_value=None):
             with mock.patch("sys.stderr", err_buf):
-                rc = validate_gemini_key.main()
+                rc = validate_llm_key.main()
 assert rc == 0, f"expected 0, got {rc}"
 assert len(calls) == 2, f"expected 2 attempts, got {len(calls)}"
 assert "::warning title=LLM key validation::" in err_buf.getvalue(), err_buf.getvalue()
@@ -514,7 +514,7 @@ assert "503" in err_buf.getvalue(), err_buf.getvalue()
 PYEOF
 }
 
-@test "validate_gemini_key extracts rate limit delay from 429 response body" {
+@test "validate_llm_key extracts rate limit delay from 429 response body" {
     python3 - <<PYEOF
 import io
 import os
@@ -523,7 +523,7 @@ import urllib.error
 from unittest import mock
 
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import validate_gemini_key
+import validate_llm_key
 
 rate_limit_error = urllib.error.HTTPError(
     "https://example.test",
@@ -551,10 +551,10 @@ with mock.patch.dict(
     },
     clear=False,
 ):
-    with mock.patch("validate_gemini_key.urllib.request.urlopen", side_effect=fake_urlopen):
-        with mock.patch("validate_gemini_key.time.sleep", side_effect=fake_sleep):
+    with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
+        with mock.patch("validate_llm_key.time.sleep", side_effect=fake_sleep):
             with mock.patch("sys.stderr", err_buf):
-                rc = validate_gemini_key.main()
+                rc = validate_llm_key.main()
 assert rc == 0, f"expected 0, got {rc}"
 assert len(calls) == 2, f"expected 2 attempts, got {len(calls)}"
 assert len(slept_durations) == 1, slept_durations

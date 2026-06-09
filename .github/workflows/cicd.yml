@@ -147,7 +147,7 @@ jobs:
           if [ -n "${LLM_API_KEY:-}" ]; then
             echo "::add-mask::${LLM_API_KEY}"
           fi
-          python3 snap/local/build/validate_gemini_key.py
+          python3 snap/local/build/validate_llm_key.py
 
       - name: Scan SBOMs with OSV-Scanner
         env:
