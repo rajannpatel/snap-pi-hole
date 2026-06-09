@@ -5,7 +5,9 @@ import math
 import pathlib
 import sys
 import os
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
@@ -42,6 +44,11 @@ def query_gemini_vulnerability_info(cve_id, package_name, version):
             "not_appropriate": f"If {cve_id} enables local execution or sandbox escape, confinement boundaries might be bypassed."
         }
 
+    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+    base_url = os.environ.get("GEMINI_API_BASE_URL", "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
+    max_attempts = max(1, int(os.environ.get("GEMINI_MAX_ATTEMPTS", "3")))
+    retry_base_delay = max(0.0, float(os.environ.get("GEMINI_RETRY_BASE_DELAY_SECONDS", "1.0")))
+
     prompt = f"""
 For the vulnerability {cve_id} in package {package_name} (version {version}), which is packaged as a strictly confined Ubuntu snap (using AppArmor, seccomp filters, and a read-only SquashFS filesystem):
 1. Explain how/why a "confined mitigation" label is appropriate (i.e., how snap's security boundaries and sandbox mitigate the vulnerability).
@@ -53,10 +60,12 @@ Provide your response in JSON format with exactly the following two keys:
 
 Do not include any markdown formatting, code blocks, or leading/trailing text outside the JSON object.
 """
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    url = (
+        f"{base_url}/models/{urllib.parse.quote(model, safe='.-_')}:generateContent"
+        f"?key={urllib.parse.quote(api_key, safe='')}"
+    )
     headers = {
         "Content-Type": "application/json",
-        "x-goog-api-key": api_key,
     }
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -69,24 +78,94 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
         "not_appropriate": f"A compromised process could potentially disrupt local services or corrupt local writable data inside the snap (error during Gemini lookup)."
     }
 
-    try:
-        req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=15) as response:
-            res_data = json.loads(response.read().decode("utf-8"))
-            text_content = res_data["candidates"][0]["content"]["parts"][0]["text"]
-            parsed_res = json.loads(text_content.strip())
-            if "appropriate" in parsed_res and "not_appropriate" in parsed_res:
-                return parsed_res
-            else:
-                raise ValueError("Missing required keys in Gemini API response")
-    except urllib.error.HTTPError as exc:
-        print(f"Gemini API HTTP error for {cve_id}: status {exc.code}.", file=sys.stderr)
-    except urllib.error.URLError:
-        print(f"Gemini API connection error for {cve_id}.", file=sys.stderr)
-    except (json.JSONDecodeError, KeyError, IndexError, ValueError):
-        print(f"Gemini API response parsing error for {cve_id}.", file=sys.stderr)
-    except Exception as exc:
-        print(f"Unexpected Gemini lookup error for {cve_id}: {type(exc).__name__}.", file=sys.stderr)
+    def normalize_explanations(payload):
+        if not isinstance(payload, dict):
+            raise ValueError("Gemini response payload is not an object")
+        if "appropriate" not in payload or "not_appropriate" not in payload:
+            raise ValueError("Missing required keys in Gemini response payload")
+        return {
+            "appropriate": str(payload["appropriate"]).strip(),
+            "not_appropriate": str(payload["not_appropriate"]).strip(),
+        }
+
+    def parse_text_payload(text):
+        stripped = str(text or "").strip()
+        if not stripped:
+            raise ValueError("Gemini response text is empty")
+        try:
+            return normalize_explanations(json.loads(stripped))
+        except json.JSONDecodeError:
+            pass
+
+        if stripped.startswith("```"):
+            stripped = stripped.strip("`")
+            if stripped.lower().startswith("json"):
+                stripped = stripped[4:].lstrip()
+            try:
+                return normalize_explanations(json.loads(stripped))
+            except json.JSONDecodeError:
+                pass
+
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start != -1 and end != -1 and start < end:
+            candidate = stripped[start:end + 1]
+            return normalize_explanations(json.loads(candidate))
+        raise ValueError("Unable to parse Gemini JSON payload")
+
+    def parse_gemini_response(raw_payload):
+        if isinstance(raw_payload, dict) and {
+            "appropriate",
+            "not_appropriate",
+        }.issubset(raw_payload.keys()):
+            return normalize_explanations(raw_payload)
+
+        candidates = raw_payload.get("candidates", []) if isinstance(raw_payload, dict) else []
+        for candidate in candidates:
+            content = candidate.get("content", {}) if isinstance(candidate, dict) else {}
+            for part in content.get("parts", []) or []:
+                if not isinstance(part, dict):
+                    continue
+                if "text" in part:
+                    return parse_text_payload(part.get("text"))
+        raise ValueError("No parseable Gemini response content")
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=15) as response:
+                res_data = json.loads(response.read().decode("utf-8"))
+                return parse_gemini_response(res_data)
+        except urllib.error.HTTPError as exc:
+            response_body = ""
+            try:
+                response_body = exc.read().decode("utf-8", errors="replace").strip()
+            except Exception:
+                response_body = ""
+            print(
+                f"Gemini API HTTP error for {cve_id}: status {exc.code}. "
+                f"Response body: {response_body or '<empty>'}",
+                file=sys.stderr,
+            )
+            if exc.code in {429, 500, 502, 503, 504} and attempt < max_attempts:
+                time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
+                continue
+            break
+        except urllib.error.URLError as exc:
+            print(f"Gemini API connection error for {cve_id}: {exc}.", file=sys.stderr)
+            if attempt < max_attempts:
+                time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
+                continue
+            break
+        except (json.JSONDecodeError, KeyError, IndexError, ValueError) as exc:
+            print(f"Gemini API response parsing error for {cve_id}: {exc}.", file=sys.stderr)
+            if attempt < max_attempts:
+                time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
+                continue
+            break
+        except Exception as exc:
+            print(f"Unexpected Gemini lookup error for {cve_id}: {type(exc).__name__}: {exc}.", file=sys.stderr)
+            break
     return fallback
 
 

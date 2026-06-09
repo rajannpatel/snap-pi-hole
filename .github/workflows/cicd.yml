@@ -138,6 +138,8 @@ jobs:
         run: |
           if [ -n "${GEMINI_API_KEY:-}" ]; then
             echo "::add-mask::${GEMINI_API_KEY}"
+          else
+            echo "::notice title=Gemini analysis::GEMINI_API_KEY is unavailable (expected for fork PRs). Using cached or fallback confinement explanations."
           fi
 
           mkdir -p osv-sbom-input vulnerability-reports

@@ -203,3 +203,182 @@ PYEOF
     [ -s "${REPORT_DIR}/vuln-summary.md" ]
     [ -s "${REPORT_DIR}/index.html" ]
 }
+
+@test "Gemini query supports configurable endpoint and model on success" {
+    python3 - <<PYEOF
+import json
+import os
+import sys
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+class DummyResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def read(self):
+        return json.dumps(self._payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+captured = {}
+
+def fake_urlopen(req, timeout=0):
+    captured["url"] = req.full_url
+    payload = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": json.dumps({"appropriate": "A", "not_appropriate": "B"})}
+                    ]
+                }
+            }
+        ]
+    }
+    return DummyResponse(payload)
+
+with mock.patch.dict(
+    os.environ,
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MODEL": "gemini-test-model",
+        "GEMINI_API_BASE_URL": "https://example.test/v1beta",
+        "GEMINI_MAX_ATTEMPTS": "1",
+    },
+    clear=False,
+):
+    with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
+        result = summary.query_gemini_vulnerability_info("CVE-2026-1000", "curl", "1.0")
+        assert result == {"appropriate": "A", "not_appropriate": "B"}, result
+        assert "https://example.test/v1beta/models/gemini-test-model:generateContent?key=test-key" == captured["url"], captured
+PYEOF
+}
+
+@test "Gemini query retries rate-limits and falls back on auth errors" {
+    python3 - <<PYEOF
+import io
+import json
+import os
+import sys
+import urllib.error
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+class DummyResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def read(self):
+        return json.dumps(self._payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+retry_state = {"count": 0}
+
+def flaky_then_success(req, timeout=0):
+    retry_state["count"] += 1
+    if retry_state["count"] == 1:
+        raise urllib.error.HTTPError(
+            req.full_url,
+            429,
+            "rate-limited",
+            hdrs=None,
+            fp=io.BytesIO(b'{"error":"too many requests"}'),
+        )
+    payload = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": json.dumps({"appropriate": "retry-ok", "not_appropriate": "retry-risk"})}
+                    ]
+                }
+            }
+        ]
+    }
+    return DummyResponse(payload)
+
+with mock.patch.dict(
+    os.environ,
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MAX_ATTEMPTS": "2",
+        "GEMINI_RETRY_BASE_DELAY_SECONDS": "0",
+    },
+    clear=False,
+):
+    with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=flaky_then_success):
+        with mock.patch("summarize_osv_reports.time.sleep", return_value=None):
+            result = summary.query_gemini_vulnerability_info("CVE-2026-1001", "curl", "1.0")
+            assert result["appropriate"] == "retry-ok", result
+            assert retry_state["count"] == 2, retry_state
+
+auth_error = urllib.error.HTTPError(
+    "https://example.test",
+    401,
+    "unauthorized",
+    hdrs=None,
+    fp=io.BytesIO(b'{"error":"invalid key"}'),
+)
+with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "bad-key", "GEMINI_MAX_ATTEMPTS": "1"}, clear=False):
+    with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=auth_error):
+        result = summary.query_gemini_vulnerability_info("CVE-2026-1002", "curl", "1.0")
+        assert "error during Gemini lookup" in result["appropriate"], result
+        assert "error during Gemini lookup" in result["not_appropriate"], result
+PYEOF
+}
+
+@test "Gemini query falls back after malformed responses" {
+    python3 - <<PYEOF
+import json
+import os
+import sys
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+class DummyResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def read(self):
+        return json.dumps(self._payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+payload = {"candidates": [{"content": {"parts": [{"text": "not valid json"}]}}]}
+
+with mock.patch.dict(
+    os.environ,
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MAX_ATTEMPTS": "2",
+        "GEMINI_RETRY_BASE_DELAY_SECONDS": "0",
+    },
+    clear=False,
+):
+    with mock.patch("summarize_osv_reports.urllib.request.urlopen", return_value=DummyResponse(payload)):
+        with mock.patch("summarize_osv_reports.time.sleep", return_value=None):
+            result = summary.query_gemini_vulnerability_info("CVE-2026-1003", "curl", "1.0")
+            assert "error during Gemini lookup" in result["appropriate"], result
+            assert "error during Gemini lookup" in result["not_appropriate"], result
+PYEOF
+}
