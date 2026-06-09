@@ -121,7 +121,7 @@ jobs:
       contents: read
       models: read
     env:
-      LLM_MODEL: ${{ vars.LLM_MODEL || 'gpt-4o' }}
+      LLM_MODEL: ${{ vars.LLM_MODEL || 'gpt-4o-mini' }}
       LLM_API_BASE_URL: ${{ vars.LLM_API_BASE_URL || 'https://models.github.ai/inference' }}
       LLM_MAX_ATTEMPTS: 5
       LLM_RETRY_BASE_DELAY_SECONDS: 2.0

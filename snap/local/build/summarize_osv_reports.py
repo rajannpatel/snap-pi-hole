@@ -142,20 +142,43 @@ Do not include any markdown formatting, code blocks, or leading/trailing text ou
             )
             if exc.code in {429, 500, 502, 503, 504} and attempt < max_attempts:
                 sleep_delay = None
-                if exc.code == 429 and response_body:
-                    import re
-                    match = re.search(r"(?:retry in|try again in|retry after) (\d+\.?\d*)(?:\s*s|\s*second)", response_body, re.IGNORECASE)
-                    if match:
+                if exc.code == 429:
+                    retry_after = exc.headers.get("Retry-After")
+                    if retry_after:
                         try:
-                            sleep_delay = float(match.group(1)) + 0.5
+                            sleep_delay = float(retry_after) + 0.5
                             print(
-                                f"Rate limit detected for {cve_id}. Sleeping for {sleep_delay:.2f}s as requested by API.",
+                                f"Rate limit detected for {cve_id} via Retry-After header. Sleeping for {sleep_delay:.2f}s.",
                                 file=sys.stderr,
                             )
                         except ValueError:
                             pass
+                    if sleep_delay is None:
+                        reset_time = exc.headers.get("x-ratelimit-reset") or exc.headers.get("X-RateLimit-Reset")
+                        if reset_time:
+                            try:
+                                sleep_delay = max(0.5, float(reset_time) - time.time() + 1.0)
+                                print(
+                                    f"Rate limit detected for {cve_id} via x-ratelimit-reset header. Sleeping for {sleep_delay:.2f}s.",
+                                    file=sys.stderr,
+                                )
+                            except ValueError:
+                                pass
+                    if sleep_delay is None and response_body:
+                        import re
+                        match = re.search(r"(?:retry in|try again in|retry after) (\d+\.?\d*)(?:\s*s|\s*second)", response_body, re.IGNORECASE)
+                        if match:
+                            try:
+                                sleep_delay = float(match.group(1)) + 0.5
+                                print(
+                                    f"Rate limit detected for {cve_id} via response body. Sleeping for {sleep_delay:.2f}s as requested by API.",
+                                    file=sys.stderr,
+                                )
+                            except ValueError:
+                                pass
                 if sleep_delay is None:
-                    sleep_delay = min(retry_base_delay * (2 ** (attempt - 1)), 8.0)
+                    cap = 30.0 if exc.code == 429 else 8.0
+                    sleep_delay = min(retry_base_delay * (2 ** (attempt - 1)), cap)
                 time.sleep(sleep_delay)
                 continue
             break
