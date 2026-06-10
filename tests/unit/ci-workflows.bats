@@ -44,6 +44,12 @@ teardown() {
         skip "yq is not installed"
     fi
 
+    # Verify if the installed yq is the Go-based yq (mikefarah/yq)
+    echo "test_key: value" > "${TEST_WORKDIR}/test.yaml"
+    if ! yq -i '.test_key = "new_value"' "${TEST_WORKDIR}/test.yaml" >/dev/null 2>&1; then
+        skip "Go-based yq (mikefarah/yq) is required for this test"
+    fi
+
     local target="${TEST_WORKDIR}/snapcraft.yaml"
     yq -i '.parts.ftl.source-tag = "v9.1.0"' "$target"
     yq -i '.parts.pi_hole.source-tag = "v9.2.0"' "$target"

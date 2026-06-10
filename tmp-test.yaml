@@ -1,0 +1,350 @@
+name: pihole-by-rajannpatel
+title: Pi-hole
+summary: Network-wide ad blocking via your own DNS server
+license: MIT
+icon: snap/gui/pihole.png
+adopt-info: pi_hole
+description: |
+  Pi-hole is a Linux network-level advertisement and Internet tracker
+  blocking application which acts as a DNS sinkhole, intended for use on
+  a private network. It is designed to be installed on embedded devices
+  with network capability, such as a Raspberry Pi, but it can be used on
+  other machines running Linux and cloud implementations.
+# grade: devel
+grade: stable
+# build-base: devel
+
+confinement: strict
+# We use core26 because Pi-hole FTL v6.6.2 dropped support for mbedTLS 2.x
+# and now strictly requires mbedTLS >= 3.5.0, as well as Nettle >= 3.9.
+base: core26
+ua-services:
+  - esm-apps
+# Document the current data-format baseline. Bump to `epoch: 1*` (note
+# the trailing asterisk) the first time we ship a revision that changes
+# pihole.toml, the gravity.db schema, or a layout path in a way that
+# the new revision needs to migrate on first start  -  snapd will then
+# hold users on the old epoch until the migration code is in place.
+epoch: 0
+# core22+ supports all major Ubuntu OS architectures natively.
+platforms:
+  amd64:
+  arm64:
+  armhf:
+  ppc64el:
+  s390x:
+  riscv64:
+# Bind-mount the paths FTL and the bash scripts have hardcoded onto
+# writable snap data locations. Inside the snap's mount namespace
+# /etc/pihole *is* $SNAP_DATA/etc/pihole, transparently  -  no source
+# patching needed for path layout.
+#
+# Paths audited against pi-hole/FTL v6.6.2 and pi-hole/pi-hole v6.4.2
+# sources; see README.md "Architecture" for the cross-reference.
+layout:
+  # Primary config + state dir (pihole.toml, gravity.db, pihole-FTL.db,
+  # dhcp.leases, custom.list, cli_pw, tls.pem, …).
+  /etc/pihole:
+    bind: $SNAP_DATA/etc/pihole
+  # Optional dnsmasq drop-in dir, only consumed when
+  # misc.etc_dnsmasq_d=true in pihole.toml.
+  /etc/dnsmasq.d:
+    bind: $SNAP_DATA/etc/dnsmasq.d
+  # Civetweb document root: pi-hole/web v6.5 ships here and is served by
+  # the embedded HTTP server. Read-only from inside the snap.
+  /var/www/html:
+    bind: $SNAP/var/www/html
+  # Log files (FTL.log, pihole.log, webserver.log).
+  /var/log/pihole:
+    bind: $SNAP_COMMON/var/log/pihole
+  # Bash-script helper dir (`pihole`, gravity.sh, piholeDebug.sh, etc.).
+  # Read-only  -  these are part of the squashfs.
+  /opt/pihole:
+    bind: $SNAP/opt/pihole
+  # Repository templates and migration scripts (`gravity-db.sh`, SQLite SQL templates).
+  # Read-only  -  these are part of the squashfs.
+  /etc/.pihole:
+    bind: $SNAP/etc/.pihole
+  # Expose the pihole CLI wrapper at its upstream hardcoded location so FTL's
+  # Civetweb API endpoint can invoke it for updates.
+  # Note: We must use a `bind-file` layout rather than a `symlink` layout here.
+  # Since `/usr/local` is blocked by default AppArmor templates, snapd does not
+  # generate AppArmor path exceptions for symlinks under blocked paths. Using
+  # `bind-file` forces snapd to generate AppArmor read/execute rules for the path.
+  /usr/local/bin/pihole:
+    bind-file: $SNAP/bin/launcher-pihole
+parts:
+  # ---------------------------------------------------------------------
+  # pihole-FTL: the DNS/DHCP/API/web daemon. C, CMake build.
+  # Embeds a vendored dnsmasq.
+  # ---------------------------------------------------------------------
+  ftl:
+    plugin: cmake
+    source: https://github.com/pi-hole/FTL.git
+    source-type: git
+    source-tag: v6.6.2
+    source-depth: 1
+    override-pull: $CRAFT_PROJECT_DIR/snap/local/build/ftl-override-pull.sh
+    cmake-parameters:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DCMAKE_INSTALL_PREFIX=/usr
+      - -DSTATIC=false
+      - -DCMAKE_C_FLAGS="-Wno-error=discarded-qualifiers"
+    build-environment:
+      - GIT_HASH: "snap"
+      - GIT_BRANCH: "snap"
+    override-build: $CRAFT_PROJECT_DIR/snap/local/build/ftl-override-build.sh
+    prime:
+      - -snap-meta
+    build-packages:
+      # --- Build Tools & Utilities ---
+      - build-essential
+      - cmake
+      - git
+      - python3
+      - xxd
+      - bind9-dnsutils
+      # --- Development Headers ---
+      - libcap-dev
+      - libgmp-dev
+      - libidn2-dev
+      - libmbedtls-dev
+      - libreadline-dev
+      - libsqlite3-dev
+      - libssl-dev
+      - libunistring-dev # added in FTL v6.6.x for Unicode handling
+      - libuv1-dev
+      # --- Nettle Stack ---
+      - nettle-dev
+      # Pulled dynamically by nettle-dev, but listed here to track
+      # the Y2038 64-bit time_t transition on armhf for core26
+      - libnettle8t64
+    stage-packages:
+      # --- Standalone Tools ---
+      # Staging GNU coreutils bundles standard commands (mkdir, cp, timeout, truncate)
+      # inside the snap, avoiding AppArmor execution denials triggered by the base
+      # snap's rust-coreutils (/usr/lib/cargo/bin/coreutils/...) path.
+      - coreutils
+      - bind9-dnsutils
+      - jq
+      # Staging iproute2 bundles `ss` inside the snap, avoiding AppArmor denials
+      # when querying socket statuses via host/base executables on Ubuntu Core.
+      - iproute2
+      # --- Web / Downloader Stack ---
+      # curl is used by gravity.sh to download adlists. It is not present on
+      # minimal Ubuntu installations (e.g. ubuntu:lts LXC images).
+      - curl
+      # HTTPS trust roots required by curl
+      - ca-certificates
+      # --- Core Libraries (Y2038 t64 transitions for core26) ---
+      - libreadline8t64
+      - libuv1t64
+      - libnettle8t64
+      # --- Core Libraries (Standard) ---
+      - libcap2
+      - libgmp10
+      - libidn2-0
+      - libsqlite3-0
+      - libunistring5
+      # --- MbedTLS Stack ---
+      # mbedtls 3.6 SONAMEs on core26.
+      - libmbedtls21
+      # Explicitly defined transitive dependencies of libmbedtls21.
+      # Listed explicitly so the link line is reproducible from this file alone.
+      - libmbedcrypto16
+      - libmbedx509-7
+  # ---------------------------------------------------------------------
+  # pi-hole core: the `pihole` CLI and supporting shell scripts.
+  # Patched in-place to swap out `service`/`systemctl` calls for snapctl
+  #  -  the rest of the path remapping is handled by the layout block.
+  # ---------------------------------------------------------------------
+  pi_hole:
+    plugin: dump
+    source: https://github.com/pi-hole/pi-hole.git
+    source-type: git
+    source-tag: v6.4.2
+    source-depth: 1
+    after: [ftl, web]
+    override-pull: $CRAFT_PROJECT_DIR/snap/local/build/pi-hole-override-pull.sh
+    override-build: $CRAFT_PROJECT_DIR/snap/local/build/pi-hole-override-build.sh
+    organize:
+      pihole: opt/pihole/pihole
+      gravity.sh: opt/pihole/gravity.sh
+      manpages: usr/share/man-src
+    stage:
+      - opt/pihole
+      - etc/.pihole
+      - usr/share/man-src
+  # ---------------------------------------------------------------------
+  # Embedded web admin UI assets, served by FTL's civetweb instance.
+  # ---------------------------------------------------------------------
+  web:
+    plugin: dump
+    source: https://github.com/pi-hole/web.git
+    source-type: git
+    source-tag: v6.5
+    source-depth: 1
+    override-build: $CRAFT_PROJECT_DIR/snap/local/build/web-override-build.sh
+    organize:
+      "*": var/www/html/admin/
+    stage:
+      - var/www/html
+    # Drop upstream-repo housekeeping that has no business inside the
+    # snap. Trims ~MB of bloat and shrinks the attack surface.
+    prime:
+      - -var/www/html/admin/snap-meta
+      - -var/www/html/admin/.github
+      - -var/www/html/admin/.gitignore
+      - -var/www/html/admin/.gitattributes
+      - -var/www/html/admin/.editorconfig
+      - -var/www/html/admin/.eslintrc*
+      - -var/www/html/admin/.stylelintrc*
+      - -var/www/html/admin/test
+      - -var/www/html/admin/tests
+      - -var/www/html/admin/*.md
+      - -var/www/html/admin/CONTRIBUTING*
+      - -var/www/html/admin/CODE_OF_CONDUCT*
+      - -var/www/html/admin/package.json
+      - -var/www/html/admin/package-lock.json
+      - -var/www/html/admin/composer.*
+      - -var/www/html/admin/Gruntfile.js
+  # ---------------------------------------------------------------------
+  # Launcher scripts and hook helpers that live in this repo.
+  # ---------------------------------------------------------------------
+  wrappers:
+    plugin: dump
+    source: snap/local/
+    source-type: local
+    organize:
+      runtime/launcher-ftl.sh: bin/launcher-ftl
+      runtime/launcher-pihole.sh: bin/launcher-pihole
+      runtime/config-sync.sh: bin/config-sync
+      runtime/pihole-config.sh: bin/pihole-config.sh
+      testing/snap-check.sh: bin/snap-check
+      testing/snap-debug.sh: bin/snap-debug
+      testing/snap-setup.sh: bin/snap-setup
+      testing/port-utils.sh: bin/port-utils.sh
+    stage:
+      - bin/launcher-ftl
+      - bin/launcher-pihole
+      - bin/config-sync
+      - bin/pihole-config.sh
+      - bin/snap-check
+      - bin/snap-debug
+      - bin/snap-setup
+      - bin/port-utils.sh
+    override-prime: |
+      craftctl default
+      python3 "$CRAFT_PROJECT_DIR/snap/local/build/filter_dpkg_status.py" "$SNAPCRAFT_PRIME"
+
+
+apps:
+  # The daemon. Disabled on install so the operator can free port 53 and
+  # review interface connections before it starts.
+  pihole-ftl:
+    command: bin/launcher-ftl
+    daemon: simple
+    install-mode: disable
+    restart-condition: on-failure
+    # Keep the old FTL process running during `snap refresh` so DNS stays
+    # up for all clients while snapd swaps in the new revision.  snapd
+    # will send SIGTERM to the old process only after the new revision's
+    # daemon has started successfully.  Without this, a mid-day refresh
+    # drops DNS for every device on the network for several seconds.
+    refresh-mode: endure
+    # Give FTL time to flush its query DB and gravity state on shutdown.
+    stop-timeout: 60s
+    plugs:
+      - network
+      - network-bind
+      - network-observe
+      - system-observe
+      - hardware-observe
+      - mount-observe
+      - network-control # required for DHCP server mode only
+      - firewall-control # required for DHCP server mode only
+      - process-control
+      - time-control
+      # FTL creates /dev/shm/FTL-<pid>-lock files for inter-process
+      # coordination. The default AppArmor template denies arbitrary
+      # writes under /dev/shm. `private: true` gives FTL its own
+      # /dev/shm/snap.pihole/ namespace mapped transparently as /dev/shm.
+      - shared-memory
+  # The `pihole` CLI: `pihole status`, `pihole -g`, `pihole setpassword`, etc.
+  # The launcher intercepts subcommands that don't make sense inside a
+  # snap (self-update, repair, uninstall, checkout, updatechecker) and
+  # prints the snap-native equivalent.
+  pihole:
+    command: bin/launcher-pihole
+    aliases: [pihole]
+    plugs:
+      - network
+      - network-bind
+      - network-observe
+      - system-observe
+      - hardware-observe
+      - mount-observe
+  # Diagnostic tool to proactively detect and remediate port conflicts
+  snap-check:
+    command: bin/snap-check
+    plugs:
+      - network
+      - network-bind
+      - system-observe
+      - network-observe
+  # Diagnostic setup/repair configuration wizard
+  snap-setup:
+    command: bin/snap-setup
+    plugs:
+      - network
+      - network-bind
+      - system-observe
+      - network-observe
+  # Full system diagnostic dump
+  snap-debug:
+    command: bin/snap-debug
+    plugs:
+      - network
+      - network-bind
+      - system-observe
+      - hardware-observe
+      - mount-observe
+  sqlite3:
+    command: usr/bin/pihole-FTL sqlite3
+    plugs:
+      - network
+      - network-bind
+  # Automated gravity sync. Runs weekly (Sun 03:00-05:00). Snap app timers are
+  # static and cannot be changed via `snap set` (the configure hook rejects
+  # timer.* keys). Operators customize the schedule with a host-side systemd
+  # drop-in on snap.<name>.gravity-sync.timer  -  see the wiki "Automated
+  # updates" reference.
+  gravity-sync:
+    command: bin/launcher-pihole -g
+    daemon: oneshot
+    timer: sun,03:00~05:00
+    plugs:
+      - network
+      - network-bind
+      - network-observe
+      - system-observe
+      - hardware-observe
+      - mount-observe
+hooks:
+  post-refresh:
+    plugs:
+      - network
+      - network-bind
+      - network-observe
+      - system-observe
+      - hardware-observe
+      - mount-observe
+# install only mkdir's directories (which the layout bind-mounts already
+# grant write access to) and configure only calls snapctl + pihole-FTL.
+plugs:
+  # Private /dev/shm namespace for FTL. snapd creates
+  # /dev/shm/snap.pihole/ on connect and bind-mounts it as /dev/shm
+  # inside the snap's namespace, so FTL's hardcoded /dev/shm/FTL-*
+  # paths "just work" without patching.
+  shared-memory:
+    private: true

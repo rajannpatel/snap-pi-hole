@@ -82,7 +82,7 @@ import generate_dashboard_data as dashboard
 
 class FakeClient:
     def get_json_or_empty(self, url, headers=None, params=None):
-        if url.endswith("/actions/workflows/test-failing.yml/runs"):
+        if url.endswith("/actions/workflows/cicd.yml/runs"):
             return {
                 "workflow_runs": [
                     {
@@ -102,13 +102,14 @@ class FakeClient:
                     {"name": "setup", "conclusion": "success", "html_url": ""},
                     {
                         "name": "distro test (failing)",
-                        "conclusion": "timed_out",
+                        "status": "completed",
+                        "conclusion": "failure",
+                        "started_at": "2026-06-08T10:00:00Z",
+                        "completed_at": "2026-06-08T10:03:05Z",
                         "html_url": "https://example.test/job/456",
                     },
                 ]
             }
-        if url.endswith("/actions/workflows/test-missing.yml/runs"):
-            return {"workflow_runs": []}
         raise AssertionError(f"unexpected URL: {url}")
 
 original = dashboard.DISTRO_WORKFLOWS

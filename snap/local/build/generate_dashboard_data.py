@@ -223,44 +223,123 @@ def collect_build_status(client):
     }
 
 
+def get_status_badge_url(status):
+    if status == "success":
+        color = "success"
+        label = "passed"
+    elif status in {"failure", "timed_out", "cancelled", "startup_failure", "action_required"}:
+        color = "critical"
+        label = "failed"
+    elif status in {"in_progress", "running"}:
+        color = "blue"
+        label = "running"
+    elif status in {"queued", "waiting", "no_data", "unknown"}:
+        color = "lightgrey"
+        label = "no--data" if status == "no_data" else "queued"
+    else:
+        color = "lightgrey"
+        label = status
+    return f"https://img.shields.io/badge/status-{label}-{color}?style=flat-square"
+
+
+def job_duration_seconds(job):
+    started = parse_iso(job.get("started_at"))
+    ended = parse_iso(job.get("completed_at"))
+    if not started or not ended:
+        return None
+    return max(0, int((ended - started).total_seconds()))
+
+
 def collect_distro_matrix(client):
     matrix = []
     failed_links = []
     latest_timestamps = []
 
+    id_to_matrix_val = {
+        "ubuntu": "ubuntu",
+        "ubuntu-daily": "ubuntu-daily",
+        "ubuntu-core": "ubuntu-core",
+        "debian": "debian",
+        "debian-stable": "debian-stable",
+        "fedora": "fedora",
+        "rocky": "rockylinux",
+        "alma": "almalinux",
+        "opensuse-leap": "opensuse-leap",
+        "opensuse-tumbleweed": "opensuse-tumbleweed",
+        "arch": "archlinux",
+    }
+
+    # Fetch recent runs of the main CI/CD pipeline (cicd.yml)
+    runs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/workflows/cicd.yml/runs"
+    runs_data = client.get_json_or_empty(
+        runs_url,
+        params={"per_page": 10, "branch": "main", "event": "push"},
+    )
+    runs = runs_data.get("workflow_runs", [])
+
+    # Find the most recent run that contains the distro test matrix jobs
+    jobs = []
+    target_run = None
+    for run in runs:
+        run_id = run.get("id")
+        jobs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run_id}/jobs"
+        jobs_data = client.get_json_or_empty(jobs_url, params={"per_page": 100})
+        candidate_jobs = jobs_data.get("jobs", [])
+        if any(j.get("name", "").startswith("distro test (") for j in candidate_jobs):
+            jobs = candidate_jobs
+            target_run = run
+            break
+
     for item in DISTRO_WORKFLOWS:
-        run = latest_workflow_run(client, item["workflow"])
-        duration = run_duration_seconds(run) if run else None
-        failed_job = None
-        if run and summarize_state(run) in {"failure", "timed_out", "cancelled", "action_required", "startup_failure"}:
-            failed_job = find_failed_job_link(client, run.get("id"))
-            if failed_job and failed_job.get("url"):
-                failed_links.append(
-                    {
-                        "distro": item["label"],
-                        "workflow": item["workflow"],
-                        "run_number": run.get("run_number"),
-                        "job_name": failed_job.get("job_name", "Failed job"),
-                        "url": failed_job["url"],
-                    }
-                )
-        updated = run.get("updated_at") if run else ""
-        latest_timestamps.append(parse_iso(updated))
+        job = None
+        matrix_val = id_to_matrix_val.get(item["id"], item["id"])
+        target_name = f"distro test ({matrix_val})"
+        for j in jobs:
+            if j.get("name") == target_name:
+                job = j
+                break
+
+        status = summarize_state(job)
+        conclusion = job.get("conclusion") if job else "no_data"
+        duration = job_duration_seconds(job) if job else None
+        updated = ""
+        if job:
+            updated = job.get("completed_at") or job.get("started_at") or ""
+        if not updated and target_run:
+            updated = target_run.get("updated_at") or ""
+
+        if updated:
+            latest_timestamps.append(parse_iso(updated))
+
+        run_url = job.get("html_url") if job else (target_run.get("html_url") if target_run else "")
+        failed_job_url = ""
+        if job and status in {"failure", "timed_out", "cancelled", "action_required", "startup_failure"}:
+            failed_job_url = job.get("html_url") or ""
+            failed_links.append(
+                {
+                    "distro": item["label"],
+                    "workflow": item["workflow"],
+                    "run_number": target_run.get("run_number") if target_run else None,
+                    "job_name": job.get("name", "Failed job"),
+                    "url": failed_job_url,
+                }
+            )
+
         matrix.append(
             {
                 "id": item["id"],
                 "label": item["label"],
                 "family": item["family"],
                 "workflow": item["workflow"],
-                "status_badge_url": f"https://img.shields.io/github/actions/workflow/status/{OWNER}/{REPO}/{item['workflow']}?style=flat-square&label=",
-                "status": summarize_state(run),
-                "conclusion": run.get("conclusion") if run else "no_data",
-                "run_number": run.get("run_number") if run else None,
+                "status_badge_url": get_status_badge_url(status),
+                "status": status,
+                "conclusion": conclusion,
+                "run_number": target_run.get("run_number") if target_run else None,
                 "updated_at": updated,
                 "duration_seconds": duration,
                 "duration_label": human_duration(duration),
-                "run_url": run.get("html_url") if run else "",
-                "failed_job_url": (failed_job or {}).get("url", ""),
+                "run_url": run_url,
+                "failed_job_url": failed_job_url,
             }
         )
 
