@@ -56,9 +56,7 @@ def write_patch(filename, original, modified):
     print(f"  Written  {patch_path}  ({len(diff)} diff lines)")
 
 
-# ---------------------------------------------------------------------------
 # piholeLogFlush.sh
-# ---------------------------------------------------------------------------
 print("\n=== piholeLogFlush.sh ===")
 src = fetch("piholeLogFlush.sh")
 mod = src
@@ -67,9 +65,7 @@ mod = mod.replace("service pihole-FTL restart", "snapctl restart pihole-ftl")
 mod = mod.replace("service pihole-FTL start",   "snapctl start pihole-ftl")
 write_patch("piholeLogFlush.sh", src, mod)
 
-# ---------------------------------------------------------------------------
 # piholeDebug.sh
-# ---------------------------------------------------------------------------
 print("\n=== piholeDebug.sh ===")
 src = fetch("piholeDebug.sh")
 mod = src
@@ -112,9 +108,7 @@ for needle, label in checks:
 
 write_patch("piholeDebug.sh", src, mod)
 
-# ---------------------------------------------------------------------------
 # updatecheck.sh
-# ---------------------------------------------------------------------------
 print("\n=== updatecheck.sh ===")
 src = fetch("updatecheck.sh")
 mod = src

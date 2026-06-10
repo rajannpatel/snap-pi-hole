@@ -76,9 +76,7 @@ teardown() {
     rm -rf "${TEST_TMPDIR}"
 }
 
-# ---------------------------------------------------------------------------
 # install hook
-# ---------------------------------------------------------------------------
 
 @test "install hook creates required data directories" {
     HOOK="${TEST_TMPDIR}/install"
@@ -105,9 +103,7 @@ teardown() {
     [ "$status" -eq 0 ]
 }
 
-# ---------------------------------------------------------------------------
 # pre-refresh hook
-# ---------------------------------------------------------------------------
 
 @test "pre-refresh hook always exits 0 (never blocks an upgrade)" {
     run "${REPO_ROOT}/snap/hooks/pre-refresh"
@@ -126,9 +122,7 @@ teardown() {
     [[ "$output" == *"dig"* ]]
 }
 
-# ---------------------------------------------------------------------------
 # remove hook
-# ---------------------------------------------------------------------------
 
 @test "remove hook does not delete the resolved dropin when it exists" {
     DROPIN="${TEST_TMPDIR}/pihole.conf"
@@ -174,9 +168,7 @@ teardown() {
     [[ "$output" == *"sudo sh -c 'rm -f \"${DROPIN}\" && systemctl restart systemd-resolved'"* ]]
 }
 
-# ---------------------------------------------------------------------------
 # configure hook
-# ---------------------------------------------------------------------------
 
 @test "configure hook calls pihole-FTL --config for a set key" {
     # Only set webserver.port via JSON
@@ -349,9 +341,7 @@ teardown() {
     grep -q "restart" "${TEST_TMPDIR}/snapctl.log"
 }
 
-# ---------------------------------------------------------------------------
 # post-refresh hook
-# ---------------------------------------------------------------------------
 
 @test "post-refresh hook copies versions template if it exists" {
     HOOK="${TEST_TMPDIR}/post-refresh"

@@ -30,8 +30,7 @@ if [ -d "${SNAP_DATA}/etc/pihole" ]; then
 fi
 
 cat >&2 <<EOF
-Pi-hole snap is refreshing. DNS hand-off notice
------------------------------------------------
+Pi-hole snap is refreshing (DNS hand-off notice):
 The running Pi-hole FTL daemon will continue serving DNS for all clients
 on your network while the new snap revision is prepared.
 

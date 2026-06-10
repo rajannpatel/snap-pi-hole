@@ -20,9 +20,7 @@ teardown() {
     rm -rf "${TEST_WORKDIR}"
 }
 
-# ---------------------------------------------------------------------------
 # track-upstream-releases.yml
-# ---------------------------------------------------------------------------
 
 @test "track-upstream workflow updates only snapcraft source-tag fields" {
     local workflow="${REPO_ROOT}/.github/workflows/track-upstream-releases.yml"
@@ -60,9 +58,7 @@ teardown() {
     [ "$output" = $'v9.1.0\tv9.2.0\tv9.3.0' ]
 }
 
-# ---------------------------------------------------------------------------
 # Port-53 timeout guard logic (from cicd.yml smoke test)
-# ---------------------------------------------------------------------------
 
 _run_port53_guard() {
     local port_open="$1"   # 'yes' | 'no'
@@ -99,9 +95,7 @@ BASH
     [[ "$output" == *"::error::"* ]]
 }
 
-# ---------------------------------------------------------------------------
 # Channel mapping logic (from cicd.yml)
-# ---------------------------------------------------------------------------
 
 _run_channel_mapping() {
     local SNAP_VERSION="$1"

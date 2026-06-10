@@ -24,9 +24,7 @@ setup() {
     REPO_ROOT="$(git rev-parse --show-toplevel)"
 }
 
-# ---------------------------------------------------------------------------
 # 1. Top-level snap metadata
-# ---------------------------------------------------------------------------
 
 @test "snapcraft.yaml confinement is strict" {
     grep -q "^confinement: strict" "${REPO_ROOT}/snap/snapcraft.yaml"
@@ -59,9 +57,7 @@ assert doc.get("adopt-info") == "pi_hole", \
 PYEOF
 }
 
-# ---------------------------------------------------------------------------
 # 2. Parts and layout structure
-# ---------------------------------------------------------------------------
 
 @test "snapcraft.yaml all four parts exist (ftl, pi_hole, web, wrappers)" {
     python3 - <<PYEOF
@@ -100,9 +96,7 @@ for path in required:
 PYEOF
 }
 
-# ---------------------------------------------------------------------------
 # 3. Daemon: apps.pihole-ftl
-# ---------------------------------------------------------------------------
 
 @test "snapcraft.yaml pihole-ftl has refresh-mode endure (DNS stays up across refresh)" {
     python3 - <<PYEOF
@@ -156,9 +150,7 @@ assert "system-observe" in plugs, f"system-observe missing from pihole-ftl plugs
 PYEOF
 }
 
-# ---------------------------------------------------------------------------
 # 4. Other apps and timers
-# ---------------------------------------------------------------------------
 
 @test "snapcraft.yaml pihole CLI app uses launcher-pihole command" {
     python3 - <<PYEOF
@@ -199,7 +191,6 @@ assert app.get("timer") == "sun,03:00~05:00", \
 PYEOF
 }
 
-# ---------------------------------------------------------------------------
 # 5. Version single-source-of-truth invariants
 #
 # The only places versions live in this file are the three `source-tag:`
@@ -207,7 +198,6 @@ PYEOF
 # baked into pihole-FTL, and the `versions` template that powers `pihole -v`
 # are all derived at build time from the tags actually fetched. These tests
 # prevent a silent revert to hardcoded duplicates.
-# ---------------------------------------------------------------------------
 
 @test "snapcraft.yaml each upstream part declares source-tag" {
     python3 - <<PYEOF
@@ -355,10 +345,8 @@ assert "-var/www/html/admin/snap-meta" in (web.get("prime") or []), \
 PYEOF
 }
 
-# ---------------------------------------------------------------------------
 # 6. Build-rule safety nets
 # Catch snapcraft schema gotchas locally before the CI runner does.
-# ---------------------------------------------------------------------------
 
 @test "snapcraft.yaml organize globs always have trailing-slash destinations" {
     # snapcraft 9.x rejects an organize rule whose source glob matches
@@ -392,9 +380,7 @@ PYEOF
     [ "$status" -eq 0 ]
 }
 
-# ---------------------------------------------------------------------------
 # 7. Repository file presence
-# ---------------------------------------------------------------------------
 
 @test "hooks install, configure, pre-refresh, post-refresh, remove all exist and are executable" {
     for hook in install configure pre-refresh post-refresh remove; do
@@ -435,9 +421,7 @@ if missing:
 PYEOF
 }
 
-# ---------------------------------------------------------------------------
 # 8. Shell script integrity
-# ---------------------------------------------------------------------------
 
 @test "shell scripts exist on disk" {
     local scripts=(
@@ -492,9 +476,7 @@ PYEOF
     done
 }
 
-# ---------------------------------------------------------------------------
 # 9. Confinement hardening patches
-# ---------------------------------------------------------------------------
 
 @test "snapcraft.yaml pi_hole override-pull includes sandboxing patches and patch-rot guards" {
     python3 - <<PYEOF

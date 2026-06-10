@@ -89,9 +89,7 @@ EOF
     chmod +x "${SNAP}/usr/bin/sleep"
 }
 
-# ---------------------------------------------------------------------------
 # Directory and config seeding
-# ---------------------------------------------------------------------------
 
 @test "creates required directories when they do not exist" {
     SNAP="${SNAP}" SNAP_DATA="${SNAP_DATA}" SNAP_COMMON="${SNAP_COMMON}" bash "${LAUNCHER}" 2>/dev/null || true
@@ -129,10 +127,7 @@ EOF
     fi
 }
 
-# ---------------------------------------------------------------------------
-
 # Environment setup
-# ---------------------------------------------------------------------------
 
 @test "exports HOME as SNAP_DATA" {
     # Replace FTL stub with one that records HOME
@@ -158,9 +153,7 @@ EOF
     [[ "$output" == *"run/pihole"* ]]
 }
 
-# ---------------------------------------------------------------------------
 # First-run gravity seeding
-# ---------------------------------------------------------------------------
 
 @test "first-run gravity seeding runs initial gravity, inserts default adlist, and runs pass 2 when FTL DNS is ready" {
     _remove_gravity_db

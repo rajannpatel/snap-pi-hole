@@ -72,7 +72,7 @@ teardown() {
     rm -rf "${TMPDIR}"
 }
 
-# --- blocked subcommands -------------------------------------------------
+# blocked subcommands
 
 @test "block -up and point at snap refresh" {
     run "${LAUNCHER}" -up
@@ -119,7 +119,7 @@ teardown() {
     [[ "$output" == *"systemctl restart systemd-resolved"* ]]
 }
 
-# --- pass-through --------------------------------------------------------
+# pass-through
 
 @test "pass status through to upstream script" {
     run "${LAUNCHER}" status
@@ -151,7 +151,7 @@ teardown() {
     [[ "$output" == "STUB:-h" ]]
 }
 
-# --- regression guards ---------------------------------------------------
+# regression guards
 
 @test "blocked subcommands do not invoke upstream script" {
     # Replace the stub with one that fails loudly. If a 'blocked'
@@ -168,7 +168,7 @@ EOF
     done
 }
 
-# --- error channel -------------------------------------------------------
+# error channel
 
 @test "blocked subcommand error message goes to stderr" {
     # Verify blocked commands print to stderr (not stdout) by checking
@@ -179,7 +179,7 @@ EOF
     [[ "$output" != *"STUB:"* ]]
 }
 
-# --- exit code propagation -----------------------------------------------
+# exit code propagation
 
 @test "propagate non-zero exit code from upstream" {
     cat > "${STUB}" <<'EOF'
@@ -195,7 +195,7 @@ EOF
     [ "$status" -eq 0 ]
 }
 
-# --- environment ----------------------------------------------------------
+# environment
 
 @test "export HOME as SNAP_DATA" {
     cat > "${STUB}" <<'EOF'
@@ -218,7 +218,7 @@ EOF
     [[ "$output" == *"${TMPDIR}/opt"* ]]
 }
 
-# --- root privilege checks ------------------------------------------------
+# root privilege checks
 
 @test "reject administrative commands when run as non-root in snap environment" {
     export SNAP_REVISION="123"
@@ -257,7 +257,7 @@ EOF
     [[ "$output" == "STUB_SNAP_CHECK:" ]]
 }
 
-# --- snap specific diagnostic subcommands routing -------------------------
+# snap specific diagnostic subcommands routing
 
 @test "route snap-check and snap-debug to their custom scripts" {
     # 1. snap-check

@@ -74,7 +74,7 @@ assert time2 == ""
 PYEOF
 }
 
-@test "dashboard data: distro matrix reads cicd.yml distro-test jobs (failed, passed, no-data)" {
+@test "dashboard data: distro matrix reads cicd.yml distro-test jobs (failed, passed, running, queued, no-data)" {
     python3 - <<PYEOF
 import sys
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
@@ -118,6 +118,22 @@ class FakeClient:
                         "completed_at": "2026-06-08T10:02:00Z",
                         "html_url": "https://example.test/job/457",
                     },
+                    {
+                        "name": "distro test (running) / Validate Snap Installation",
+                        "status": "in_progress",
+                        "conclusion": None,
+                        "started_at": "2026-06-08T10:00:00Z",
+                        "completed_at": None,
+                        "html_url": "https://example.test/job/458",
+                    },
+                    {
+                        "name": "distro test (queued) / Validate Snap Installation",
+                        "status": "queued",
+                        "conclusion": None,
+                        "started_at": None,
+                        "completed_at": None,
+                        "html_url": "https://example.test/job/459",
+                    },
                 ]
             }
         raise AssertionError(f"unexpected URL: {url}")
@@ -127,6 +143,8 @@ try:
     dashboard.DISTRO_WORKFLOWS = [
         {"id": "failing", "label": "Failing OS", "workflow": "test-failing.yml", "family": "Test"},
         {"id": "passing", "label": "Passing OS", "workflow": "test-passing.yml", "family": "Test"},
+        {"id": "running", "label": "Running OS", "workflow": "test-running.yml", "family": "Test"},
+        {"id": "queued", "label": "Queued OS", "workflow": "test-queued.yml", "family": "Test"},
         {"id": "missing", "label": "Missing OS", "workflow": "test-missing.yml", "family": "Test"},
     ]
     matrix = dashboard.collect_distro_matrix(FakeClient())
@@ -152,6 +170,18 @@ assert rows["passing"]["status_badge_url"] == (
     "https://img.shields.io/badge/status-passed-success?style=flat-square"
 ), rows["passing"]
 assert rows["passing"]["failed_job_url"] == "", rows["passing"]
+
+# Running distro: running badge, status in_progress
+assert rows["running"]["status"] == "in_progress", rows["running"]
+assert rows["running"]["status_badge_url"] == (
+    "https://img.shields.io/badge/status-running-blue?style=flat-square"
+), rows["running"]
+
+# Queued distro: queued badge, status queued
+assert rows["queued"]["status"] == "queued", rows["queued"]
+assert rows["queued"]["status_badge_url"] == (
+    "https://img.shields.io/badge/status-queued-lightgrey?style=flat-square"
+), rows["queued"]
 
 # Missing distro: no matching job -> no_data row
 assert rows["missing"]["status"] == "no_data", rows["missing"]
@@ -199,7 +229,7 @@ class FakeClient:
                 ch("latest", "edge",   "amd64", "v6.4.2+git.0ffee9d.1781062076", 382, "2026-06-10T17:00:00Z", 100),
                 ch("latest", "stable", "arm64", "v6.4.2+git.0ffee9d.1781062076", 383, "2026-06-10T17:00:00Z", 110),
                 # Launchpad arch stuck on edge with an older revision (build failing).
-                ch("latest", "edge",   "s390x", "v6.4.2", 137, "2026-05-22T00:00:00Z", 120),
+                ch("latest", "edge",   "s390x", "v6.4.2", 137, "2025-05-22T00:00:00Z", 120),
             ]
         }
 
@@ -229,5 +259,49 @@ assert s390x["full_version"] == "v6.4.2", s390x
 
 # GitHub arches sort ahead of Launchpad arches.
 assert [c["architecture"] for c in result["channels"]] == ["AMD64", "ARM64", "S390X"], result["channels"]
+PYEOF
+}
+
+@test "dashboard data: snapcraft-only mode generates payload and writes to output file" {
+    python3 - <<PYEOF
+import json
+import pathlib
+import sys
+from unittest.mock import patch
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+# Setup mock data for snap package
+mock_snap_package = {
+    "last_updated": "2026-06-10T12:00:00Z",
+    "channels": [
+        {
+            "architecture": "AMD64",
+            "build_source": "github",
+            "full_version": "v6.4.2",
+            "revision": 123
+        }
+    ]
+}
+
+# Define output path
+out_path = pathlib.Path("${TEST_TMPDIR}/snapcraft-dashboard-data.json")
+
+# Mock sys.argv and collect_snap_package_data
+test_argv = ["generate_dashboard_data.py", "--snapcraft-only", "${REPO_ROOT}", str(out_path)]
+
+with patch("sys.argv", test_argv), \
+     patch("generate_dashboard_data.collect_snap_package_data", return_value=mock_snap_package):
+    dashboard.main()
+
+# Verify output file exists and has correct structure
+assert out_path.exists(), "Output file was not created"
+with open(out_path, "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+assert "generated_at" in data
+assert data["data_last_updated"] == "2026-06-10T12:00:00Z"
+assert data["snap_package"] == mock_snap_package
 PYEOF
 }

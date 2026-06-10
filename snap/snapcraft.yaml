@@ -74,10 +74,8 @@ layout:
   /usr/local/bin/pihole:
     bind-file: $SNAP/bin/launcher-pihole
 parts:
-  # ---------------------------------------------------------------------
   # pihole-FTL: the DNS/DHCP/API/web daemon. C, CMake build.
   # Embeds a vendored dnsmasq.
-  # ---------------------------------------------------------------------
   ftl:
     plugin: cmake
     source: https://github.com/pi-hole/FTL.git
@@ -153,11 +151,9 @@ parts:
       # Listed explicitly so the link line is reproducible from this file alone.
       - libmbedcrypto16
       - libmbedx509-7
-  # ---------------------------------------------------------------------
   # pi-hole core: the `pihole` CLI and supporting shell scripts.
   # Patched in-place to swap out `service`/`systemctl` calls for snapctl
   #  -  the rest of the path remapping is handled by the layout block.
-  # ---------------------------------------------------------------------
   pi_hole:
     plugin: dump
     source: https://github.com/pi-hole/pi-hole.git
@@ -175,9 +171,7 @@ parts:
       - opt/pihole
       - etc/.pihole
       - usr/share/man-src
-  # ---------------------------------------------------------------------
   # Embedded web admin UI assets, served by FTL's civetweb instance.
-  # ---------------------------------------------------------------------
   web:
     plugin: dump
     source: https://github.com/pi-hole/web.git
@@ -208,9 +202,7 @@ parts:
       - -var/www/html/admin/package-lock.json
       - -var/www/html/admin/composer.*
       - -var/www/html/admin/Gruntfile.js
-  # ---------------------------------------------------------------------
   # Launcher scripts and hook helpers that live in this repo.
-  # ---------------------------------------------------------------------
   wrappers:
     plugin: dump
     source: snap/local/

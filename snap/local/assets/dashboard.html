@@ -37,11 +37,8 @@
       line-height: 1.5rem;
       margin: 0;
     }
-    .freshness-legend {
-      align-items: center;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
+    .dashboard-card__intro {
+      padding-bottom: 1rem;
     }
     .freshness-chip {
       align-items: center;
@@ -75,9 +72,15 @@
     }
     .freshness-chip--inline {
       border: none;
+      flex-wrap: wrap;
+      font-variant: normal;
+      font-weight: 400;
+      letter-spacing: normal;
       margin-left: 0.5rem;
       padding: 0 0 0 0.1rem;
+      text-transform: none;
       vertical-align: middle;
+      white-space: normal;
     }
     .security-spotlight {
       display: flex;
@@ -138,30 +141,6 @@
       50% { opacity: 0.5; }
     }
     .is-building {
-      animation: dashboard-pulse 1.2s ease-in-out infinite;
-    }
-    .live-indicator {
-      align-items: center;
-      border: 1px solid #d9d9d9;
-      border-radius: 999px;
-      display: inline-flex;
-      font-size: 0.72rem;
-      gap: 0.4rem;
-      letter-spacing: 0.02em;
-      margin-top: 0.5rem;
-      padding: 0.15rem 0.6rem;
-      text-transform: uppercase;
-      vertical-align: middle;
-    }
-    .live-indicator__dot {
-      background: #757575;
-      border-radius: 50%;
-      height: 0.55rem;
-      width: 0.55rem;
-    }
-    .live-indicator.is-live .live-indicator__dot { background: #0e8420; }
-    .live-indicator.is-building .live-indicator__dot {
-      background: #0b6bc5;
       animation: dashboard-pulse 1.2s ease-in-out infinite;
     }
     .matrix-building {
@@ -316,43 +295,13 @@
           </nav>
           <h1 id="dashboard-title" class="p-heading--2">CI/CD Reports Dashboard</h1>
           <p>Live operational status for build, security, dependencies, compatibility, and release health.</p>
-          <span id="live-indicator" class="live-indicator" hidden aria-live="polite">
-            <span class="live-indicator__dot"></span>
-            <span id="live-indicator-text">Live</span>
-          </span>
         </div>
       </header>
-
-      <section aria-label="Data freshness" style="margin-top: 1rem; margin-bottom: 1.5rem;">
-        <div class="freshness-legend">
-          <span class="freshness-chip" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser.">
-            <span class="freshness-chip__dot"></span>
-            <span class="freshness-chip__label">Live · GitHub API</span>
-            <span class="freshness-chip__detail" data-freshness-detail>connecting…</span>
-          </span>
-          <span class="freshness-chip" data-freshness="snap" title="Snap Store package metadata, refreshed hourly via a published gist (api.snapcraft.io is not reachable from the browser).">
-            <span class="freshness-chip__dot"></span>
-            <span class="freshness-chip__label">Snap Store · hourly</span>
-            <span class="freshness-chip__detail" data-freshness-detail>loading…</span>
-          </span>
-          <span class="freshness-chip" data-freshness="build" title="CI-baked data with no live API: security totals and bundled component versions. Refreshes when a build deploys this page.">
-            <span class="freshness-chip__dot"></span>
-            <span class="freshness-chip__label">Build snapshot</span>
-            <span class="freshness-chip__detail" data-freshness-detail>loading…</span>
-          </span>
-          <span class="freshness-chip" data-freshness="cadence" title="How often the track-upstream workflow checks for new Pi-hole releases.">
-            <span class="freshness-chip__dot"></span>
-            <span class="freshness-chip__label">Upstream check</span>
-            <span class="freshness-chip__detail"><span id="update-frequency">Loading…</span></span>
-          </span>
-        </div>
-        <p class="dashboard-card__hint" id="update-frequency-detail" style="margin-top: 0.5rem;">Every datapoint refreshes itself; chips show when each source was last read and the countdown to its next refresh.</p>
-      </section>
 
       <section class="p-section" style="margin-top: 1rem;" aria-label="Reports content">
         <div class="row">
           <div class="col-12">
-            <h3 class="p-muted-heading">Reports</h3>
+            <h3 class="p-muted-heading">Reports<span class="freshness-chip freshness-chip--inline" data-freshness="build" title="Page publishing snapshot from the generated dashboard data, refreshed when this page is deployed."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Page publishing</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
           </div>
         </div>
         <div class="p-section--shallow">
@@ -402,7 +351,7 @@
       <section aria-labelledby="build-status-title" style="margin-bottom: 2rem;">
         <div class="row">
           <div class="col-12">
-            <h3 class="p-muted-heading" id="build-status-title">Build Status<span class="freshness-chip freshness-chip--inline" data-freshness="live"><span class="freshness-chip__dot"></span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
+            <h3 class="p-muted-heading" id="build-status-title">Build Status<span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
           </div>
         </div>
         <div class="row" style="margin-bottom: 1rem;">
@@ -452,11 +401,13 @@
             <div class="col-12">
               <hr class="p-rule">
             </div>
-            <div class="col-3">
-              <h3 class="p-muted-heading u-no-padding--top u-no-margin--bottom">Compatibility</h3>
-              <h2>Test status matrix<span class="freshness-chip freshness-chip--inline" data-freshness="live"><span class="freshness-chip__dot"></span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h2>
+            <div class="col-12">
+              <h3 class="p-muted-heading u-no-padding--top u-no-margin--bottom">Compatibility<span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
+              <h2>Test status matrix</h2>
             </div>
-            <div class="col-9">
+          </div>
+          <div class="row">
+            <div class="col-12">
               <div style="overflow-x: auto;">
                 <table class="p-table matrix-table">
                   <caption class="u-off-screen">Distribution test status matrix</caption>
@@ -483,7 +434,7 @@
       <section aria-labelledby="release-title">
         <div class="row">
           <div class="col-12">
-            <h3 class="p-muted-heading" id="release-title">Release Info</h3>
+            <h3 class="p-muted-heading" id="release-title">Release Info<span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
           </div>
         </div>
         <div class="row u-equal-height">
@@ -502,7 +453,14 @@
               <hr class="u-sv1">
               <h3>Last track-upstream update</h3>
               <p class="p-card__content" id="last-track-update-status">Loading...</p>
-              <p class="p-card__content mono" id="last-track-update">--</p>
+              <p class="p-card__content mono u-no-margin--bottom" id="last-track-update">--</p>
+              <p class="p-card__content u-no-margin--bottom" style="margin-top: 0.5rem;">
+                <span class="freshness-chip freshness-chip--inline" data-freshness="cadence" title="How often the track-upstream workflow checks for new Pi-hole releases.">
+                  <span class="freshness-chip__dot"></span>
+                  <span class="freshness-chip__label">Upstream check</span>
+                  <span class="freshness-chip__detail"><span id="update-frequency">Loading…</span></span>
+                </span>
+              </p>
             </article>
           </div>
         </div>
@@ -511,11 +469,13 @@
             <div class="col-12">
               <hr class="p-rule">
             </div>
-            <div class="col-3">
-              <h3 class="p-muted-heading u-no-padding--top u-no-margin--bottom">Snapcraft channels</h3>
-              <h2>Package availability<span class="freshness-chip freshness-chip--inline" data-freshness="snap"><span class="freshness-chip__dot"></span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h2>
+            <div class="col-12">
+              <h3 class="p-muted-heading u-no-padding--top u-no-margin--bottom">Snapcraft channels<span class="freshness-chip freshness-chip--inline" data-freshness="snap" title="Snap Store package metadata, refreshed hourly via a published gist (api.snapcraft.io is not reachable from the browser)."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Snap Store</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
+              <h2>Package availability</h2>
             </div>
-            <div class="col-9">
+          </div>
+          <div class="row">
+            <div class="col-12">
               <p class="p-heading--4">Latest published revision per architecture, with its build source and serving status.</p>
               <div id="snap-package-freshness" hidden style="margin-bottom: 1rem;"></div>
               <div style="overflow-x: auto;">
@@ -540,8 +500,7 @@
                 <strong>amd64</strong> and <strong>arm64</strong> are built on GitHub-hosted runners with snapcraft
                 <code>9.x/candidate</code> and are the revisions served on snapcraft.io today. The remaining
                 architectures are built on Launchpad, which only offers snapcraft from the <code>stable</code> channel;
-                snapcraft <code>9/stable</code> is not yet available, so those builds currently fail and stay on older
-                revisions (edge channel only).
+                snapcraft <code>9/stable</code> is not yet available, so their stable builds currently fail.
               </p>
             </div>
           </div>
@@ -553,8 +512,8 @@
           <div class="grid-row--50-50-on-large">
             <hr class="p-rule">
             <div class="grid-col">
-              <h3 class="p-muted-heading u-no-padding--top u-no-margin--bottom">Release tracking</h3>
-              <h2>Pi-hole components<span class="freshness-chip freshness-chip--inline" data-freshness="live"><span class="freshness-chip__dot"></span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h2>
+              <h3 class="p-muted-heading u-no-padding--top u-no-margin--bottom">Release tracking<span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
+              <h2>Pi-hole components</h2>
             </div>
             <div class="grid-col">
               <p class="p-heading--4">Version lag and update indicators for FTL, Core, and Web compared with upstream releases.</p>
@@ -582,14 +541,14 @@
       <section aria-labelledby="security-title" style="margin-bottom: 2rem;">
         <div class="row">
           <div class="col-12">
-            <h2 class="p-heading--3 dashboard-section-title" id="security-title">Security<span class="freshness-chip freshness-chip--inline" data-freshness="build"><span class="freshness-chip__dot"></span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h2>
+            <h3 class="p-muted-heading" id="security-title">Security<span class="freshness-chip freshness-chip--inline" data-freshness="build" title="CI-baked dashboard data, refreshed when this page is deployed."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Build snapshot</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
           </div>
         </div>
         <div class="row u-equal-height">
           <div class="col-6">
             <article class="p-card dashboard-card">
               <h3>Vulnerability status</h3>
-              <p class="p-card__content">Outstanding OSV-Scanner findings from the generated SBOMs.</p>
+            <p class="p-card__content dashboard-card__intro">Outstanding OSV-Scanner findings from the generated SBOMs.</p>
               <div class="security-spotlight" aria-label="Security summary spotlight">
                 <div class="security-spotlight__metric">
                   <hr class="p-rule--highlight security-spotlight__rule">
@@ -612,7 +571,7 @@
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/layers.png" alt="Layers icon">
               <hr class="u-sv1">
               <h3>Architecture breakdown</h3>
-              <p class="p-card__content">Vulnerability summary by architecture.</p>
+              <p class="p-card__content dashboard-card__intro">Vulnerability summary by architecture.</p>
               <div style="overflow-x: auto;">
                 <table class="p-table">
                   <thead>
@@ -620,7 +579,7 @@
                       <th>Architecture</th>
                       <th>Actionable USN Vulnerabilities</th>
                       <th>Mitigated by Confinement</th>
-                      <th>Report</th>
+                      <th>JSON</th>
                     </tr>
                   </thead>
                   <tbody id="security-arch-body">
@@ -629,7 +588,7 @@
                 </table>
               </div>
               <div class="p-card__footer">
-                <a class="p-button" href="vulnerabilities/">Open vulnerability reports</a>
+                <a class="p-button" href="vulnerabilities/">Vulnerability reports</a>
               </div>
             </article>
           </div>
@@ -658,7 +617,7 @@
           </ul>
         </div>
         <div class="col-4">
-          <h2 class="p-heading--5">Security & Confinement</h2>
+            <h3 class="p-muted-heading">Security & Confinement</h3>
           <p class="p-text--small">
             Built securely on Ubuntu builders. Packaged as a strictly confined snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
           </p>
@@ -668,29 +627,32 @@
   </div>
 
   <script>
-    const statusClass = (status) => `status-${(status || "neutral").replace(/[^a-z_]/gi, "_").toLowerCase()}`;
+    // 1. CONFIGURATION & STATE
     const REPO_SLUG = "rajannpatel/snap-pi-hole";
     const GITHUB_API_BASE = "https://api.github.com";
+
+    // Build/job pipeline status categories
     const BUILDING_STATES = new Set(["queued", "in_progress", "requested", "waiting", "pending", "running"]);
     const FAILURE_STATES = new Set(["failure", "timed_out", "cancelled", "action_required", "startup_failure"]);
+    const isBuildingStatus = (status) => BUILDING_STATES.has(status);
+
+    // Live API polling parameters
     const LIVE_POLL_MS_BUILDING = 60000;
     const LIVE_POLL_MS_IDLE = 120000;
     const LIVE_POLL_MS_BACKOFF = 900000;
     const LIVE_RATE_FLOOR = 8;
-    const isBuildingStatus = (status) => BUILDING_STATES.has(status);
+
+    // Core live application state variables
     const liveState = { rateRemaining: null, pollTimer: null, releaseLagDone: false, releaseLagDue: false, lastCicdRunId: null };
     const matrixState = { rows: [], failedLinks: [] };
 
-    // Snap Store metadata is published hourly to a gist (api.snapcraft.io has no
-    // CORS, so the browser cannot read it directly). The gist's stable raw URL is
-    // discovered once per session, then re-read on the hour at no API-rate cost.
+    // Snap Store Gist integration (workaround for lack of CORS support on api.snapcraft.io)
     const SNAP_GIST_FILENAME = "snapcraft-dashboard-data.json";
     const SNAP_GIST_DESCRIPTION = "snap-pi-hole dashboard data (auto-updated hourly; do not edit)";
     const SNAP_MIN_REFETCH_MS = 300000;
     const snapState = { gistId: null, rawUrl: null, discovered: false, hasGistData: false, generatedAt: null, lastFetch: 0, nextAt: null, inFlight: false };
 
-    // Three independent freshness clocks drive the chips. live = GitHub API data,
-    // snap = hourly gist, build = the committed snapshot (changes only on deploy).
+    // Freshness clocks state tracking
     const freshnessState = {
       live: { updatedAt: null, nextAt: null, status: "idle" },
       snap: { updatedAt: null, nextAt: null, fromGist: false, source: "build-time snapshot" },
@@ -699,6 +661,8 @@
     let freshnessTimer = null;
     let dependencyRows = [];
     let durationTrendResizeHandler = null;
+
+    // Brand design assets
     const osBadgeByFamily = {
       Ubuntu: "https://img.shields.io/badge/-%20-E95420?style=flat-square&logo=ubuntu&logoColor=white",
       Debian: "https://img.shields.io/badge/-%20-A81D33?style=flat-square&logo=debian&logoColor=white",
@@ -709,6 +673,12 @@
       Arch: "https://img.shields.io/badge/-%20-1793D1?style=flat-square&logo=archlinux&logoColor=white",
     };
 
+    // 2. FORMATTING & UTILITY HELPERS
+
+    // Maps API status values to CSS class targets
+    const statusClass = (status) => `status-${(status || "neutral").replace(/[^a-z_]/gi, "_").toLowerCase()}`;
+
+    // Translates date strings into formatted local dates/times
     function formatDate(value) {
       if (!value) return "Unknown";
       const date = new Date(value);
@@ -716,6 +686,7 @@
       return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
     }
 
+    // Translates integer bytes into binary unit labels
     function formatBytes(bytes) {
       if (!bytes && bytes !== 0) return "Unknown";
       const units = ["B", "KB", "MB", "GB"];
@@ -728,6 +699,7 @@
       return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
     }
 
+    // Converts seconds to human-readable duration strings
     function humanDuration(seconds) {
       if (seconds === null || seconds === undefined) return "Unknown";
       if (seconds < 60) return `${seconds}s`;
@@ -739,17 +711,71 @@
       return `${hours}h ${mins}m`;
     }
 
+    // Safely sets textContent of an element if it exists
     function setText(id, value) {
       const node = document.getElementById(id);
       if (node) node.textContent = value;
     }
 
+    // Maps build conclusions to graph node fill colors
     function trendPointColor(conclusion) {
       if (conclusion === "success") return "#0e8420";
       if (conclusion === "failure") return "#c7162b";
       return "#0b6bc5";
     }
 
+    // Calculates run duration in seconds
+    function liveRunDurationSeconds(run) {
+      const started = new Date(run.run_started_at || run.created_at);
+      const ended = new Date(run.updated_at);
+      if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) return null;
+      return Math.max(0, Math.round((ended - started) / 1000));
+    }
+
+    // Computes the average days between recent completed main-branch push runs
+    function liveUpdateFrequencyDays(cicdRuns) {
+      const times = cicdRuns
+        .filter((run) => run.event === "push" && run.status === "completed")
+        .slice(0, 12)
+        .map((run) => new Date(run.updated_at).getTime())
+        .filter((value) => !Number.isNaN(value))
+        .sort((a, b) => b - a);
+      if (times.length < 2) return null;
+      let total = 0;
+      for (let i = 0; i < times.length - 1; i += 1) {
+        total += (times[i] - times[i + 1]) / 86400000;
+      }
+      return Math.round((total / (times.length - 1)) * 100) / 100;
+    }
+
+    // Calculates job duration in seconds
+    function jobDurationSeconds(job) {
+      const started = new Date(job.started_at);
+      const ended = new Date(job.completed_at);
+      if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) return null;
+      return Math.max(0, Math.round((ended - started) / 1000));
+    }
+
+    // Generates flat status shield badge URLs matching status
+    function statusBadgeUrl(status) {
+      let color, label;
+      if (status === "success") {
+        color = "success"; label = "passed";
+      } else if (FAILURE_STATES.has(status)) {
+        color = "critical"; label = "failed";
+      } else if (status === "in_progress" || status === "running") {
+        color = "blue"; label = "running";
+      } else if (status === "queued" || status === "waiting" || status === "no_data" || status === "unknown") {
+        color = "lightgrey"; label = status === "no_data" ? "no--data" : "queued";
+      } else {
+        color = "lightgrey"; label = status;
+      }
+      return `https://img.shields.io/badge/status-${label}-${color}?style=flat-square`;
+    }
+
+    // 3. CORE PAGE RENDERING (DOM GENERATORS & DRAWER FUNCTIONS)
+
+    // Draws the SVG build duration trend line graph and configures interactive tooltips
     function renderDurationTrendChart(trendRows) {
       const container = document.getElementById("duration-trend-chart");
       if (!container) return;
@@ -980,6 +1006,7 @@
       window.addEventListener("resize", durationTrendResizeHandler, { passive: true });
     }
 
+    // Updates build status metrics cards and duration baseline/regression descriptions
     function renderBuildStatus(buildStatus) {
       const latest = buildStatus.latest_run || {};
       setText("latest-run-title", latest.number ? `Run #${latest.number}` : "No run data");
@@ -1019,6 +1046,7 @@
       renderDurationTrendChart(trend);
     }
 
+    // Populates a list of hyperlinks pointing to failed pipeline log files
     function renderFailedLogs(testMatrix) {
       const list = document.getElementById("failed-log-links");
       if (!list) return;
@@ -1036,6 +1064,7 @@
       });
     }
 
+    // Generates rows for the distribution OS compatibility matrix table
     function renderMatrixRows() {
       const tbody = document.getElementById("compatibility-matrix-body");
       if (!tbody) return;
@@ -1070,48 +1099,276 @@
       });
     }
 
-    // ---- Live data (client-side, no rebuild required) -----------------------
-    // GitHub's REST API is CORS-enabled, so the browser can read it directly.
-    // A single call to /actions/runs returns the newest runs across every
-    // workflow, which powers the matrix, the build-status card, the duration
-    // trend, the failed-logs list and the track-upstream timestamp at once.
-    // Unauthenticated access is capped at 60 requests/hour per IP, so every
-    // failure (rate limit, CORS, offline) is swallowed and the build-time JSON
-    // is kept as a fallback. While a pipeline is building we poll on a timer
-    // and back off automatically when the remaining budget runs low.
-
-    function liveRunDurationSeconds(run) {
-      const started = new Date(run.run_started_at || run.created_at);
-      const ended = new Date(run.updated_at);
-      if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) return null;
-      return Math.max(0, Math.round((ended - started) / 1000));
-    }
-
-    function jobDurationSeconds(job) {
-      const started = new Date(job.started_at);
-      const ended = new Date(job.completed_at);
-      if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) return null;
-      return Math.max(0, Math.round((ended - started) / 1000));
-    }
-
-    // JS mirror of the build-time get_status_badge_url(): keeps the shield image
-    // consistent with whatever live status we resolve for a row.
-    function statusBadgeUrl(status) {
-      let color, label;
-      if (status === "success") {
-        color = "success"; label = "passed";
-      } else if (FAILURE_STATES.has(status)) {
-        color = "critical"; label = "failed";
-      } else if (status === "in_progress" || status === "running") {
-        color = "blue"; label = "running";
-      } else if (status === "queued" || status === "waiting" || status === "no_data" || status === "unknown") {
-        color = "lightgrey"; label = status === "no_data" ? "no--data" : "queued";
-      } else {
-        color = "lightgrey"; label = status;
+    // Draws target architectural security vulnerability metrics tables
+    function renderSecurity(security) {
+      setText("security-total-vulns", String(security.total_vulnerabilities ?? 0));
+      setText("security-confined-vulns", String(security.confined_mitigation_vulnerabilities ?? 0));
+      const body = document.getElementById("security-arch-body");
+      if (!body) return;
+      const archRows = security.architectures || [];
+      if (!archRows.length) {
+        body.innerHTML = "<tr><td colspan=\"4\">No vulnerability report summary found.</td></tr>";
+        return;
       }
-      return `https://img.shields.io/badge/status-${label}-${color}?style=flat-square`;
+      body.innerHTML = "";
+      archRows.forEach((row) => {
+        const tr = document.createElement("tr");
+        const architecture = String(row.architecture || "").toLowerCase();
+        const osvUrl = row.report ? `vulnerabilities/${row.report}` : "";
+        const vexUrl = architecture ? `vulnerabilities/vex-${architecture}.cdx.json` : "";
+        tr.innerHTML = `
+          <td>${String(row.architecture || "").toUpperCase()}</td>
+          <td>${row.vulnerabilities ?? 0}</td>
+          <td>${row.confined_mitigation_vulnerabilities ?? 0}</td>
+          <td>
+            ${row.report ? `
+              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                <a class="p-button" href="${osvUrl}" download title="Download the OSV JSON report">OSV</a>
+                <a class="p-button" href="${vexUrl}" download title="Download the CycloneDX VEX JSON report">VEX</a>
+              </div>
+            ` : "N/A"}
+          </td>
+        `;
+        body.appendChild(tr);
+      });
     }
 
+    // Draws rows for component dependency local/upstream version grids
+    function renderDependencies() {
+      const body = document.getElementById("dependency-rows");
+      if (!body) return;
+      const rows = dependencyRows;
+      body.innerHTML = "";
+      if (!rows.length) {
+        body.innerHTML = "<tr><td colspan=\"5\">No dependency rows match current filter.</td></tr>";
+        return;
+      }
+      rows.forEach((item) => {
+        const lag = item.lag_days === null || item.lag_days === undefined ? "Unknown" : `${item.lag_days}d`;
+        const indicator = item.update_available ? `<span class="status-chip status-failure">Update available</span>` : `<span class="status-chip status-success">Up to date</span>`;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${item.name}</td>
+          <td class="mono">${item.local_tag || "Unknown"}</td>
+          <td class="mono">${item.upstream_tag || "Unknown"}</td>
+          <td class="mono">${lag}</td>
+          <td>${indicator}</td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    // Renders active snap-package store upload/freshness notification banners
+    function renderSnapFreshness(snapPackage, rows) {
+      const el = document.getElementById("snap-package-freshness");
+      if (!el) return;
+      const sha = snapPackage.expected_commit || "";
+      const rev = (rows || []).map((r) => r.revision).filter(Boolean)[0];
+      const lastKnown = rev ? ` (revision ${rev})` : "";
+      const notes = {
+        current: { cls: "positive", text: `Up to date — commit <code>${sha}</code> is the live stable revision.` },
+        uploaded_not_selected: { cls: "caution", text: `Commit <code>${sha}</code> is uploaded but is not yet the selected stable revision.` },
+        pending: { cls: "caution", text: `Commit <code>${sha}</code> published successfully and is still propagating to the Snap Store. Showing the last known revision${lastKnown}.` },
+        publish_failed: { cls: "negative", text: `Publishing commit <code>${sha}</code> to the Snap Store failed after retries. Showing the last known good revision${lastKnown}.` },
+      };
+      const note = sha ? notes[snapPackage.freshness] : null;
+      if (!note) {
+        el.hidden = true;
+        el.removeAttribute("class");
+        el.innerHTML = "";
+        return;
+      }
+      el.className = `p-notification--${note.cls} is-inline`;
+      el.innerHTML = `<div class="p-notification__content"><p class="p-notification__message">${note.text}</p></div>`;
+      el.hidden = false;
+    }
+
+    // Aggregates and displays general snap store track updates and release indicators
+    function renderReleaseInfo(data) {
+      const frequencyDays = data.build_status.update_frequency_days;
+      setText("snap-update-frequency", frequencyDays ? `${frequencyDays} days` : "Unknown");
+      const trackRun = data.auto_update.latest_success_run || {};
+      setText("last-track-update", formatDate(trackRun.updated_at));
+      setText("last-track-update-status", trackRun.url ? "Latest successful track-upstream run available." : "No successful track-upstream runs found.");
+
+      // The committed snapshot only seeds the snap table until the hourly gist
+      // loads; once it has, the gist is authoritative and must not be overwritten
+      // by the build-time copy on subsequent snapshot re-pulls.
+      if (!snapState.hasGistData) {
+        renderSnapPackage(data.snap_package || {});
+        setSnapClock((data.snap_package || {}).last_updated || data.data_last_updated, false);
+      }
+    }
+
+    // Draws target architectural snap release version tables
+    function renderSnapPackage(snapPackage) {
+      const packageBody = document.getElementById("snap-package-rows");
+      if (!packageBody) return;
+      const rows = snapPackage.channels || [];
+      renderSnapFreshness(snapPackage || {}, rows);
+      packageBody.innerHTML = "";
+      if (!rows.length) {
+        packageBody.innerHTML = "<tr><td colspan=\"7\">snap package metadata unavailable.</td></tr>";
+        return;
+      }
+      rows.forEach((row) => {
+        const isGitHub = row.build_source === "github";
+        const builtOn = isGitHub
+          ? `<span class="p-status-label p-status-label--information">GitHub runners</span>`
+          : `<span class="p-status-label">Launchpad</span>`;
+        const channel = row.channel || (row.on_stable ? "stable" : "edge");
+        let status;
+        if (row.build_status === "current") {
+          status = `<span class="p-status-label p-status-label--positive">Serving · ${channel}</span>`;
+        } else if (isGitHub) {
+          status = `<span class="p-status-label p-status-label--caution">Behind · ${channel}</span>`;
+        } else {
+          status = `<span class="p-status-label p-status-label--caution">Build failing · stable</span>`;
+        }
+        const version = row.full_version || row.version || "Unknown";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.architecture || "Unknown"}</td>
+          <td>${builtOn}</td>
+          <td class="mono snap-version">${version}</td>
+          <td class="mono">${row.revision || "Unknown"}</td>
+          <td>${status}</td>
+          <td class="mono">${formatBytes(row.size_bytes)}</td>
+          <td class="mono">${formatDate(row.released_at)}</td>
+        `;
+        packageBody.appendChild(tr);
+      });
+    }
+
+    // Renders the summary textual copy descriptive tags for report cards
+    function renderReportSummaries(data) {
+      const latestRun = data.build_status?.latest_run || {};
+      setText(
+        "report-coverage-summary",
+        `Latest CI/CD run #${latestRun.number || "?"} finished with ${latestRun.status || "unknown"} status in ${latestRun.duration_label || "unknown duration"}.`
+      );
+
+      const bundled = data.dependencies?.bundled_versions || {};
+      const bundledSummary = [
+        `FTL ${bundled.ftl || "unknown"}`,
+        `Core ${bundled.pi_hole || "unknown"}`,
+        `Web ${bundled.web || "unknown"}`,
+      ].join(" · ");
+      setText("report-sbom-summary", `Bundled component versions currently tracked: ${bundledSummary}.`);
+
+      const security = data.security || {};
+      const rawMatches = security.raw_vulnerability_matches ?? security.total_vulnerabilities ?? 0;
+      const confinedMatches = security.confined_mitigation_vulnerabilities ?? Math.max(0, rawMatches - (security.total_vulnerabilities ?? 0));
+      setText(
+        "report-vuln-summary",
+        `${security.total_vulnerabilities ?? 0} actionable USN vulnerability matches across ${security.affected_packages ?? 0} actionable packages. ${confinedMatches} non-USN OSV matches are tracked as confined-mitigation report-only findings.`
+      );
+    }
+
+    // 4. TIME & FRESHNESS CLOCKS
+
+    // Returns a relative time description (e.g. "5m ago")
+    function relativeTime(value) {
+      if (!value) return "unknown";
+      const then = new Date(value).getTime();
+      if (Number.isNaN(then)) return "unknown";
+      const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
+      if (secs < 60) return `${secs}s ago`;
+      const mins = Math.round(secs / 60);
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.round(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      return `${Math.round(hrs / 24)}d ago`;
+    }
+
+    // Builds a countdown MM:SS string from milliseconds
+    function countdownLabel(toMs) {
+      if (!toMs) return null;
+      const secs = Math.max(0, Math.round((toMs - Date.now()) / 1000));
+      const mins = Math.floor(secs / 60);
+      return `${mins}:${String(secs % 60).padStart(2, "0")}`;
+    }
+
+    // Resolves time values to the nearest next top-of-the-hour boundary
+    function nextHourBoundary(fromMs) {
+      const date = new Date(fromMs);
+      date.setMinutes(0, 0, 0);
+      date.setHours(date.getHours() + 1);
+      return date.getTime();
+    }
+
+    // Resets snap store freshness clock metadata fields
+    function setSnapClock(updatedAt, fromGist) {
+      freshnessState.snap.updatedAt = updatedAt || null;
+      freshnessState.snap.fromGist = fromGist;
+      freshnessState.snap.source = fromGist ? "Snap Store · hourly gist" : "build-time snapshot";
+      freshnessState.snap.nextAt = fromGist ? snapState.nextAt : null;
+    }
+
+    // Evaluates status details text labels of target freshness kinds
+    function freshnessDetail(kind) {
+      if (kind === "live") {
+        const clock = freshnessState.live;
+        if (clock.status === "stale") return "unavailable — using snapshot";
+        if (!clock.updatedAt) return "connecting…";
+        const cd = countdownLabel(clock.nextAt);
+        return `updated ${relativeTime(clock.updatedAt)}${cd ? ` · next ${cd}` : ""}`;
+      }
+      if (kind === "snap") {
+        const clock = freshnessState.snap;
+        if (!clock.updatedAt) return clock.source;
+        const cd = countdownLabel(clock.nextAt);
+        return `updated ${relativeTime(clock.updatedAt)}${cd ? ` · next ${cd}` : ""}`;
+      }
+      if (kind === "build") {
+        const clock = freshnessState.build;
+        return clock.updatedAt ? `published ${relativeTime(clock.updatedAt)} · on deploy` : "on deploy";
+      }
+      return "";
+    }
+
+    // Resolves state flags (stale, building, fresh, muted) of target freshness kinds
+    function freshnessStatus(kind) {
+      if (kind === "live") {
+        const status = freshnessState.live.status;
+        if (status === "building") return "building";
+        if (status === "stale") return "stale";
+        if (status === "fresh" || status === "active" || status === "idle") return "fresh";
+        return "muted";
+      }
+      if (kind === "snap") return freshnessState.snap.fromGist ? "fresh" : "muted";
+      return "muted";
+    }
+
+    // Orchestrates visual refresh of the inline freshness chips
+    function renderFreshnessChips() {
+      document.querySelectorAll("[data-freshness]").forEach((chip) => {
+        const kind = chip.getAttribute("data-freshness");
+        if (kind === "cadence") {
+          chip.dataset.status = "muted";
+          return;
+        }
+        chip.dataset.status = freshnessStatus(kind);
+        const detail = chip.querySelector("[data-freshness-detail]");
+        if (detail) detail.textContent = freshnessDetail(kind);
+      });
+    }
+
+    // Spawns the central 1-second ticks loop for ticking relative times and countdown timers
+    function startFreshnessTicker() {
+      if (freshnessTimer) clearInterval(freshnessTimer);
+      freshnessTimer = setInterval(() => {
+        renderFreshnessChips();
+        if (snapState.nextAt && Date.now() >= snapState.nextAt) {
+          maybeRefreshSnap();
+        }
+      }, 1000);
+    }
+
+    // 5. LIVE GITHUB ACTIONS API SYNCHRONIZATION
+
+    // Fetches the 100 newest workflow runs from the GitHub Actions endpoint
     async function fetchRecentRuns() {
       let response;
       try {
@@ -1133,6 +1390,7 @@
       }
     }
 
+    // Fetches all jobs generated by a target run ID
     async function fetchRunJobs(runId) {
       let response;
       try {
@@ -1154,6 +1412,7 @@
       }
     }
 
+    // Maps workflow file names to their newest workflow run record
     function latestRunByWorkflow(runs) {
       const map = {};
       runs.forEach((run) => {
@@ -1163,10 +1422,7 @@
       return map;
     }
 
-    // Resolve the cicd.yml run whose `distro test (...)` jobs back the matrix.
-    // Prefer the newest run; if it has not spawned the distro jobs yet (e.g. a
-    // run that just started), fall back to the newest completed run. Bounded to
-    // at most two jobs calls to stay friendly to the rate limit.
+    // Finds the newest runs and jobs that contain active distro test matrix items
     async function liveMatrixJobsAndRun(cicdRuns) {
       const candidates = [];
       if (cicdRuns[0]) candidates.push(cicdRuns[0]);
@@ -1181,6 +1437,7 @@
       return { jobs: null, run: cicdRuns[0] || null };
     }
 
+    // Translates GHA job lists into compatibility matrix records and failing log links
     function applyLiveMatrixFromJobs(jobs, run) {
       if (!jobs || !jobs.length) return { matched: false, building: false };
       let matched = 0;
@@ -1191,8 +1448,6 @@
         const prefix = `distro test (${key})`;
         const job = jobs.find((candidate) => (candidate.name || "").startsWith(prefix));
         if (!job) {
-          // Job not present in this run (not started yet) -> keep build-time data
-          // and preserve any matching fallback failed-log link.
           const fallback = (matrixState.failedLinks || []).find((link) => link.workflow === row.workflow);
           if (fallback) liveFailedLinks.push(fallback);
           return row;
@@ -1226,6 +1481,7 @@
       return { matched: true, building };
     }
 
+    // Reconstructs and redraws the main CI/CD build status block metrics
     function applyLiveBuildStatus(runs) {
       const cicdRuns = runs.filter((run) => (run.path || "").endsWith("/cicd.yml") && run.head_branch === "main");
       if (!cicdRuns.length) return false;
@@ -1253,6 +1509,9 @@
         if (latestCompletedDuration !== null) regression = Math.round((latestCompletedDuration - baseline) * 10) / 10;
       }
 
+      const frequencyDays = liveUpdateFrequencyDays(cicdRuns);
+      if (frequencyDays !== null) setText("snap-update-frequency", `${frequencyDays} days`);
+
       renderBuildStatus({
         latest_run: {
           number: latest.run_number,
@@ -1268,7 +1527,6 @@
         duration_regression_seconds: regression,
       });
 
-      // Keep the report coverage summary in step with the live latest run.
       const covDuration = humanDuration(liveRunDurationSeconds(latest));
       const covText = isBuildingStatus(latestStatus)
         ? `Latest CI/CD run #${latest.run_number || "?"} is currently ${(latestStatus || "running").replace("_", " ")} (running for ${covDuration}).`
@@ -1278,6 +1536,7 @@
       return isBuildingStatus(latestStatus);
     }
 
+    // Updates track-upstream status timestamps with live values
     function applyLiveTrackUpstream(latestByWorkflow) {
       const run = latestByWorkflow["track-upstream-releases.yml"];
       if (!run) return;
@@ -1287,40 +1546,13 @@
       }
     }
 
-    function updateLiveIndicator(state) {
-      const node = document.getElementById("live-indicator");
-      if (!node) return;
-      if (state === "off") {
-        node.hidden = true;
-        return;
-      }
-      node.hidden = false;
-      const building = state === "building";
-      node.classList.toggle("is-building", building);
-      node.classList.toggle("is-live", !building);
-      let label, title;
-      if (building) {
-        label = "Build in progress…";
-        title = "A CI/CD pipeline run is currently building. Live data auto-refreshes every 60 seconds.";
-      } else if (state === "active") {
-        label = "GitHub runner active";
-        title = "A GitHub Actions workflow is currently running, but the build pipeline itself is idle. Live data auto-refreshes about every minute.";
-      } else {
-        label = "All GitHub runners are idle";
-        title = "No GitHub Actions workflows are running. Live data auto-refreshes about every two minutes, straight from the GitHub API in your browser.";
-      }
-      node.title = title;
-      setText("live-indicator-text", label);
-    }
-
+    // Updates state of the top header live indicator pill (active, building)
+    // Sets up the poll timeout clock
     function scheduleLivePoll(building) {
       if (liveState.pollTimer) {
         clearTimeout(liveState.pollTimer);
         liveState.pollTimer = null;
       }
-      // The loop always reschedules so every datapoint keeps updating. When the
-      // unauthenticated rate budget runs low we back off to a long interval
-      // (rather than stopping) so it self-heals once the hourly window resets.
       const budgetOk = liveState.rateRemaining === null || liveState.rateRemaining > LIVE_RATE_FLOOR;
       const interval = !budgetOk
         ? LIVE_POLL_MS_BACKOFF
@@ -1329,35 +1561,25 @@
       liveState.pollTimer = setTimeout(refreshLiveData, interval);
     }
 
+    // High level orchestrator for synchronizing live GitHub API states
     async function refreshLiveData() {
-      // 1) Re-pull the committed snapshot so the sections that have no live API
-      //    (vulnerability totals, snap-store metadata, bundled versions) reflect
-      //    the freshest published values and the snapshot timestamp stays honest.
       try {
         const snapshot = await loadDashboardData();
         renderBakedSections(snapshot);
       } catch (error) {
-        // Keep whatever is already on screen if the snapshot is unreachable.
+        // Fallback to screen state if offline
       }
 
-      // 2) Live GitHub data drives the matrix, build-status card, duration trend
-      //    chart, failed-logs list and the track-upstream timestamp.
       const runs = await fetchRecentRuns();
       if (!runs) {
-        updateLiveIndicator("off");
         freshnessState.live.status = "stale";
         renderFreshnessChips();
         scheduleLivePoll(false);
         return;
       }
-      // Live data is in hand -> stamp the moment it was pulled.
       freshnessState.live.updatedAt = new Date().toISOString();
       const latestByWorkflow = latestRunByWorkflow(runs);
 
-      // Matrix is driven by the distro-test jobs inside the newest cicd.yml run.
-      // Only spend job-list calls when the matrix could have changed (a new or
-      // still-building cicd run); otherwise the previously fetched live rows
-      // remain on screen, which keeps idle polling within the rate budget.
       const cicdRuns = runs.filter((run) => (run.path || "").endsWith("/cicd.yml") && run.head_branch === "main");
       let matrixBuilding = false;
       const latestCicd = cicdRuns[0] || null;
@@ -1370,7 +1592,6 @@
           const result = applyLiveMatrixFromJobs(jobs, run);
           matrixBuilding = result.building;
           liveState.lastCicdRunId = latestCicd.id;
-          // Bundled-vs-upstream lag only moves when a new build lands.
           liveState.releaseLagDue = true;
         } else {
           matrixBuilding = matrixState.rows.some((row) => isBuildingStatus(row.status));
@@ -1382,11 +1603,8 @@
 
       const building = matrixBuilding || buildBuilding;
       const anyRunning = runs.some((run) => BUILDING_STATES.has((run.status || "").toLowerCase()));
-      updateLiveIndicator(building ? "building" : (anyRunning ? "active" : "idle"));
       freshnessState.live.status = building ? "building" : (anyRunning ? "active" : "idle");
 
-      // 3) Best-effort upstream release lag (one call per component repo): only
-      //    on first load or after a new build, and only if the budget is comfy.
       if (!liveState.releaseLagDone || liveState.releaseLagDue) {
         liveState.releaseLagDone = true;
         liveState.releaseLagDue = false;
@@ -1397,10 +1615,7 @@
       renderFreshnessChips();
     }
 
-    // Best-effort live refresh of the upstream side of the release-lag table.
-    // The bundled versions are fixed at build time; only the upstream release
-    // can change between builds. Each component is a separate repository, so
-    // this is skipped entirely unless the rate-limit budget is comfortable.
+    // Pulls upstream tags to refresh release-lag metrics live from the client
     async function refreshReleaseLag() {
       if (!dependencyRows.length) return;
       if (liveState.rateRemaining !== null && liveState.rateRemaining <= 20) return;
@@ -1441,227 +1656,9 @@
       if (changed) renderDependencies();
     }
 
-    function renderSecurity(security) {
-      setText("security-total-vulns", String(security.total_vulnerabilities ?? 0));
-      setText("security-confined-vulns", String(security.confined_mitigation_vulnerabilities ?? 0));
-      const body = document.getElementById("security-arch-body");
-      if (!body) return;
-      const archRows = security.architectures || [];
-      if (!archRows.length) {
-        body.innerHTML = "<tr><td colspan=\"4\">No vulnerability report summary found.</td></tr>";
-        return;
-      }
-      body.innerHTML = "";
-      archRows.forEach((row) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${String(row.architecture || "").toUpperCase()}</td>
-          <td>${row.vulnerabilities ?? 0}</td>
-          <td>${row.confined_mitigation_vulnerabilities ?? 0}</td>
-          <td>${row.report ? `<a href="vulnerabilities/${row.report}" target="_blank" rel="noopener noreferrer">JSON</a>` : "N/A"}</td>
-        `;
-        body.appendChild(tr);
-      });
-    }
+    // 6. HOURLY SNAP STORE GIST METADATA SYNCHRONIZATION
 
-    function renderDependencies() {
-      const body = document.getElementById("dependency-rows");
-      if (!body) return;
-      const rows = dependencyRows;
-      body.innerHTML = "";
-      if (!rows.length) {
-        body.innerHTML = "<tr><td colspan=\"5\">No dependency rows match current filter.</td></tr>";
-        return;
-      }
-      rows.forEach((item) => {
-        const lag = item.lag_days === null || item.lag_days === undefined ? "Unknown" : `${item.lag_days}d`;
-        const indicator = item.update_available ? `<span class="status-chip status-failure">Update available</span>` : `<span class="status-chip status-success">Up to date</span>`;
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${item.name}</td>
-          <td class="mono">${item.local_tag || "Unknown"}</td>
-          <td class="mono">${item.upstream_tag || "Unknown"}</td>
-          <td class="mono">${lag}</td>
-          <td>${indicator}</td>
-        `;
-        body.appendChild(tr);
-      });
-    }
-
-    function renderSnapFreshness(snapPackage, rows) {
-      const el = document.getElementById("snap-package-freshness");
-      if (!el) return;
-      const sha = snapPackage.expected_commit || "";
-      const rev = (rows || []).map((r) => r.revision).filter(Boolean)[0];
-      const lastKnown = rev ? ` (revision ${rev})` : "";
-      const notes = {
-        current: { cls: "positive", text: `Up to date — commit <code>${sha}</code> is the live stable revision.` },
-        uploaded_not_selected: { cls: "caution", text: `Commit <code>${sha}</code> is uploaded but is not yet the selected stable revision.` },
-        pending: { cls: "caution", text: `Commit <code>${sha}</code> published successfully and is still propagating to the Snap Store. Showing the last known revision${lastKnown}.` },
-        publish_failed: { cls: "negative", text: `Publishing commit <code>${sha}</code> to the Snap Store failed after retries. Showing the last known good revision${lastKnown}.` },
-      };
-      const note = sha ? notes[snapPackage.freshness] : null;
-      if (!note) {
-        el.hidden = true;
-        el.removeAttribute("class");
-        el.innerHTML = "";
-        return;
-      }
-      el.className = `p-notification--${note.cls} is-inline`;
-      el.innerHTML = `<div class="p-notification__content"><p class="p-notification__message">${note.text}</p></div>`;
-      el.hidden = false;
-    }
-
-    function renderReleaseInfo(data) {
-      const frequencyDays = data.build_status.update_frequency_days;
-      setText("snap-update-frequency", frequencyDays ? `${frequencyDays} days` : "Unknown");
-      const trackRun = data.auto_update.latest_success_run || {};
-      setText("last-track-update", formatDate(trackRun.updated_at));
-      setText("last-track-update-status", trackRun.url ? "Latest successful track-upstream run available." : "No successful track-upstream runs found.");
-
-      // The committed snapshot only seeds the snap table until the hourly gist
-      // loads; once it has, the gist is authoritative and must not be overwritten
-      // by the build-time copy on subsequent snapshot re-pulls.
-      if (!snapState.hasGistData) {
-        renderSnapPackage(data.snap_package || {});
-        setSnapClock((data.snap_package || {}).last_updated || data.data_last_updated, false);
-      }
-    }
-
-    function renderSnapPackage(snapPackage) {
-      const packageBody = document.getElementById("snap-package-rows");
-      if (!packageBody) return;
-      const rows = snapPackage.channels || [];
-      renderSnapFreshness(snapPackage || {}, rows);
-      packageBody.innerHTML = "";
-      if (!rows.length) {
-        packageBody.innerHTML = "<tr><td colspan=\"7\">snap package metadata unavailable.</td></tr>";
-        return;
-      }
-      rows.forEach((row) => {
-        const isGitHub = row.build_source === "github";
-        const builtOn = isGitHub
-          ? `<span class="p-status-label p-status-label--information">GitHub runners</span>`
-          : `<span class="p-status-label">Launchpad</span>`;
-        const channel = row.channel || (row.on_stable ? "stable" : "edge");
-        let status;
-        if (row.build_status === "current") {
-          status = `<span class="p-status-label p-status-label--positive">Serving · ${channel}</span>`;
-        } else if (isGitHub) {
-          status = `<span class="p-status-label p-status-label--caution">Behind · ${channel}</span>`;
-        } else {
-          status = `<span class="p-status-label p-status-label--caution">Build failing · ${channel} only</span>`;
-        }
-        const version = row.full_version || row.version || "Unknown";
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${row.architecture || "Unknown"}</td>
-          <td>${builtOn}</td>
-          <td class="mono snap-version">${version}</td>
-          <td class="mono">${row.revision || "Unknown"}</td>
-          <td>${status}</td>
-          <td class="mono">${formatBytes(row.size_bytes)}</td>
-          <td class="mono">${formatDate(row.released_at)}</td>
-        `;
-        packageBody.appendChild(tr);
-      });
-    }
-
-    // ---- Freshness clocks + chips -------------------------------------------
-    function relativeTime(value) {
-      if (!value) return "unknown";
-      const then = new Date(value).getTime();
-      if (Number.isNaN(then)) return "unknown";
-      const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
-      if (secs < 60) return `${secs}s ago`;
-      const mins = Math.round(secs / 60);
-      if (mins < 60) return `${mins}m ago`;
-      const hrs = Math.round(mins / 60);
-      if (hrs < 24) return `${hrs}h ago`;
-      return `${Math.round(hrs / 24)}d ago`;
-    }
-
-    function countdownLabel(toMs) {
-      if (!toMs) return null;
-      const secs = Math.max(0, Math.round((toMs - Date.now()) / 1000));
-      const mins = Math.floor(secs / 60);
-      return `${mins}:${String(secs % 60).padStart(2, "0")}`;
-    }
-
-    function nextHourBoundary(fromMs) {
-      const date = new Date(fromMs);
-      date.setMinutes(0, 0, 0);
-      date.setHours(date.getHours() + 1);
-      return date.getTime();
-    }
-
-    function setSnapClock(updatedAt, fromGist) {
-      freshnessState.snap.updatedAt = updatedAt || null;
-      freshnessState.snap.fromGist = fromGist;
-      freshnessState.snap.source = fromGist ? "Snap Store · hourly gist" : "build-time snapshot";
-      freshnessState.snap.nextAt = fromGist ? snapState.nextAt : null;
-    }
-
-    function freshnessDetail(kind) {
-      if (kind === "live") {
-        const clock = freshnessState.live;
-        if (clock.status === "stale") return "unavailable — using snapshot";
-        if (!clock.updatedAt) return "connecting…";
-        const cd = countdownLabel(clock.nextAt);
-        return `updated ${relativeTime(clock.updatedAt)}${cd ? ` · next ${cd}` : ""}`;
-      }
-      if (kind === "snap") {
-        const clock = freshnessState.snap;
-        if (!clock.updatedAt) return clock.source;
-        const cd = countdownLabel(clock.nextAt);
-        return `updated ${relativeTime(clock.updatedAt)}${cd ? ` · next ${cd}` : ""}`;
-      }
-      if (kind === "build") {
-        const clock = freshnessState.build;
-        return clock.updatedAt ? `updated ${relativeTime(clock.updatedAt)} · on deploy` : "on deploy";
-      }
-      return "";
-    }
-
-    function freshnessStatus(kind) {
-      if (kind === "live") {
-        const status = freshnessState.live.status;
-        if (status === "building") return "building";
-        if (status === "stale") return "stale";
-        if (status === "fresh" || status === "active" || status === "idle") return "fresh";
-        return "muted";
-      }
-      if (kind === "snap") return freshnessState.snap.fromGist ? "fresh" : "muted";
-      return "muted";
-    }
-
-    function renderFreshnessChips() {
-      document.querySelectorAll("[data-freshness]").forEach((chip) => {
-        const kind = chip.getAttribute("data-freshness");
-        if (kind === "cadence") {
-          chip.dataset.status = "muted";
-          return;
-        }
-        chip.dataset.status = freshnessStatus(kind);
-        const detail = chip.querySelector("[data-freshness-detail]");
-        if (detail) detail.textContent = freshnessDetail(kind);
-      });
-    }
-
-    function startFreshnessTicker() {
-      if (freshnessTimer) clearInterval(freshnessTimer);
-      // A single 1s clock advances every "updated Xs ago" label and countdown,
-      // and triggers the hourly snap re-read the moment its countdown expires.
-      freshnessTimer = setInterval(() => {
-        renderFreshnessChips();
-        if (snapState.nextAt && Date.now() >= snapState.nextAt) {
-          maybeRefreshSnap();
-        }
-      }, 1000);
-    }
-
-    // ---- Hourly snap data from the published gist ---------------------------
+    // Searches the target user's gists to find the auto-published raw url path
     async function discoverSnapGist() {
       if (snapState.rawUrl) return snapState.rawUrl;
       const owner = REPO_SLUG.split("/")[0];
@@ -1680,8 +1677,6 @@
           list.find((gist) => gist && gist.files && gist.files[SNAP_GIST_FILENAME]);
         if (!match) return null;
         snapState.gistId = match.id;
-        // The unversioned raw URL always serves the latest revision and is
-        // CORS-enabled + CDN-cached, so later refreshes cost no API calls.
         snapState.rawUrl = `https://gist.githubusercontent.com/${owner}/${match.id}/raw/${SNAP_GIST_FILENAME}`;
         return snapState.rawUrl;
       } catch (error) {
@@ -1689,6 +1684,7 @@
       }
     }
 
+    // Fetches the snapcraft JSON payload from the discovered Gist endpoint
     async function fetchSnapcraftData() {
       const url = await discoverSnapGist();
       if (!url) return null;
@@ -1703,6 +1699,7 @@
       }
     }
 
+    // Resolves and displays gist snap-store data
     function applySnapData(payload) {
       renderSnapPackage(payload.snap_package || {});
       snapState.hasGistData = true;
@@ -1711,6 +1708,7 @@
       renderFreshnessChips();
     }
 
+    // Triggers hourly snap-data refresh
     async function maybeRefreshSnap() {
       const now = Date.now();
       if (snapState.inFlight) return;
@@ -1729,42 +1727,17 @@
       const boundary = nextHourBoundary(Date.now());
       if (payload) {
         const advanced = payload.generated_at !== snapState.generatedAt;
-        // If the gist has not regenerated yet, retry shortly (never past the
-        // next top-of-hour, when the workflow is scheduled to publish again).
         snapState.nextAt = advanced ? boundary : Math.min(Date.now() + SNAP_MIN_REFETCH_MS, boundary);
         applySnapData(payload);
       } else {
-        // Gist missing (e.g. the hourly workflow has not run yet) or unreachable:
-        // keep the build-time snapshot and try again on the hour.
         snapState.nextAt = boundary;
         renderFreshnessChips();
       }
     }
 
-    function renderReportSummaries(data) {
-      const latestRun = data.build_status?.latest_run || {};
-      setText(
-        "report-coverage-summary",
-        `Latest CI/CD run #${latestRun.number || "?"} finished with ${latestRun.status || "unknown"} status in ${latestRun.duration_label || "unknown duration"}.`
-      );
+    // 7. INITIALIZATION / BOOTSTRAP
 
-      const bundled = data.dependencies?.bundled_versions || {};
-      const bundledSummary = [
-        `FTL ${bundled.ftl || "unknown"}`,
-        `Core ${bundled.pi_hole || "unknown"}`,
-        `Web ${bundled.web || "unknown"}`,
-      ].join(" · ");
-      setText("report-sbom-summary", `Bundled component versions currently tracked: ${bundledSummary}.`);
-
-      const security = data.security || {};
-      const rawMatches = security.raw_vulnerability_matches ?? security.total_vulnerabilities ?? 0;
-      const confinedMatches = security.confined_mitigation_vulnerabilities ?? Math.max(0, rawMatches - (security.total_vulnerabilities ?? 0));
-      setText(
-        "report-vuln-summary",
-        `${security.total_vulnerabilities ?? 0} actionable USN vulnerability matches across ${security.affected_packages ?? 0} actionable packages. ${confinedMatches} non-USN OSV matches are tracked as confined-mitigation report-only findings.`
-      );
-    }
-
+    // Loads local dashboard-data.json
     async function loadDashboardData() {
       const response = await fetch("./dashboard-data.json", { cache: "no-store" });
       if (!response.ok) {
@@ -1773,12 +1746,9 @@
       return response.json();
     }
 
-    // Sections sourced from CORS-blocked or CI-only data (snap-store metadata,
-    // vulnerability scans, bundled versions). The browser cannot recompute these
-    // live, so the loop re-pulls the committed snapshot on every tick to show the
-    // freshest published values and keep the snapshot timestamp honest.
+    // Renders baked/snapshot data sections
     function renderBakedSections(data) {
-      freshnessState.build.updatedAt = data.data_last_updated || null;
+      freshnessState.build.updatedAt = data.generated_at || data.data_last_updated || null;
       const freq = data.auto_update?.frequency || {};
       setText("update-frequency", freq.label || "Unknown");
       renderSecurity(data.security || {});
@@ -1787,14 +1757,12 @@
       renderFreshnessChips();
     }
 
+    // Primary entry point to boot the reports page UI dashboard
     async function initDashboard() {
       startFreshnessTicker();
       try {
         const data = await loadDashboardData();
-        setText("update-frequency-detail", "");
 
-        // First paint from the committed snapshot; the live loop immediately
-        // overlays fresh GitHub data and keeps re-pulling the snapshot.
         renderBuildStatus(data.build_status || {});
         renderFailedLogs(data.test_matrix || {});
         matrixState.rows = data.test_matrix?.rows || [];
@@ -1803,15 +1771,11 @@
         dependencyRows = data.release_info?.components || [];
         renderDependencies();
         renderBakedSections(data);
-        // Overlay the authoritative hourly snap metadata from the gist, then keep
-        // the live GitHub loop running. Both are best-effort; on failure the page
-        // keeps the committed snapshot it just painted.
         maybeRefreshSnap();
         refreshLiveData();
       } catch (error) {
         freshnessState.build.updatedAt = null;
         setText("update-frequency", "Unavailable");
-        setText("update-frequency-detail", "Failed to load dashboard data.");
         renderFreshnessChips();
         const matrixBody = document.getElementById("compatibility-matrix-body");
         if (matrixBody) {

@@ -49,9 +49,7 @@ teardown() {
     rm -rf "${TEST_TMPDIR}"
 }
 
-# ---------------------------------------------------------------------------
 # Stub setup helpers
-# ---------------------------------------------------------------------------
 
 _setup_stubs() {
     # Stub snapctl with logging and snapctl_ftl.json as backing state.
@@ -136,9 +134,7 @@ STUB
     chmod +x "${TEST_TMPDIR}/opt/pihole"
 }
 
-# ---------------------------------------------------------------------------
 # Lifecycle Integration Tests
-# ---------------------------------------------------------------------------
 
 @test "install creates required directories" {
     run "${TEST_TMPDIR}/hook-install"
@@ -206,9 +202,7 @@ STUB
     # Should not error even if dropin doesn't exist
 }
 
-# ---------------------------------------------------------------------------
 # Launcher Interaction Tests
-# ---------------------------------------------------------------------------
 
 @test "launcher-ftl executes after install hook has run" {
     # Install creates directories
@@ -256,9 +250,7 @@ STUB
     [[ "$output" == *"HOME=${SNAP_DATA}"* ]]
 }
 
-# ---------------------------------------------------------------------------
 # Configuration Persistence Tests
-# ---------------------------------------------------------------------------
 
 @test "pre-refresh does not delete user data (pihole.toml)" {
     # Install and seed pihole.toml
@@ -324,9 +316,7 @@ STUB
     ! grep -q "RESTART:" "${TEST_TMPDIR}/snapctl.log" 2>/dev/null || true
 }
 
-# ---------------------------------------------------------------------------
 # Error Recovery Tests
-# ---------------------------------------------------------------------------
 
 @test "partial install (missing a dir) is recoverable" {
     # Run install
@@ -366,9 +356,7 @@ STUB
     [ "$status" -eq 0 ]
 }
 
-# ---------------------------------------------------------------------------
 # Post-Refresh Integration Tests
-# ---------------------------------------------------------------------------
 
 @test "post-refresh copies versions template and runs configure hook successfully" {
     # Install setup

@@ -1464,7 +1464,6 @@ def confinement_recommendation_badge(recommendation):
     return ""
 
 
-# ---------------------------------------------------------------------------
 # CycloneDX VEX (Vulnerability Exploitability eXchange) generation
 #
 # The same confinement analysis that backs the HTML and Markdown reports is
@@ -1473,7 +1472,6 @@ def confinement_recommendation_badge(recommendation):
 # exploitability assessment with off-the-shelf tooling. A "Contained by
 # confinement" finding becomes a not_affected / protected_at_runtime claim; a
 # finding with residual risk becomes exploitable with a recommended response.
-# ---------------------------------------------------------------------------
 
 VEX_SPEC_VERSION = "1.5"
 VEX_PRODUCT_NAME = "pihole-by-rajannpatel"

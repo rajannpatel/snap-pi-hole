@@ -70,9 +70,7 @@ EOF
     chmod +x "${SNAP}/usr/bin/awk"
 }
 
-# ---------------------------------------------------------------------------
 # Missing / empty input
-# ---------------------------------------------------------------------------
 
 @test "config-sync exits 0 and warns when pihole.toml is absent" {
     run "${CONFIG_SYNC}"
@@ -89,9 +87,7 @@ EOF
     [ ! -f "${CAPTURED_JSON}" ]
 }
 
-# ---------------------------------------------------------------------------
 # Parsing correctness (host default awk)
-# ---------------------------------------------------------------------------
 
 @test "config-sync flattens scalars, arrays, and nested sections into snapctl JSON" {
     cat > "${TOML_FILE}" <<'EOF'
@@ -135,10 +131,8 @@ EOF
     [ "$status" -eq 0 ]
 }
 
-# ---------------------------------------------------------------------------
 # Portability guard: the parser must work under mawk (the base snap's awk),
 # not just gawk. A gawk-only feature (e.g. 3-arg match) would error here.
-# ---------------------------------------------------------------------------
 
 @test "config-sync parser is mawk-compatible (no gawk-only awk extensions)" {
     _force_awk mawk
