@@ -17,6 +17,14 @@ GITHUB_API = "https://api.github.com"
 SNAP_NAME = "pihole-by-rajannpatel"
 SNAPCRAFT_INFO_URL = f"https://api.snapcraft.io/v2/snaps/info/{SNAP_NAME}"
 
+# GitHub-hosted runners only build amd64 and arm64 (see the build matrix in
+# .github/workflows/cicd.yml). Every other architecture is built on Launchpad,
+# which only offers snapcraft from the stable channel. snapcraft 9/stable is not
+# yet released, so those Launchpad builds currently fail and their published
+# revisions lag behind the GitHub-built ones.
+GITHUB_BUILD_ARCHES = {"AMD64", "ARM64"}
+RISK_RANK = {"stable": 4, "candidate": 3, "beta": 2, "edge": 1}
+
 DISTRO_WORKFLOWS = [
     {"id": "ubuntu", "label": "Ubuntu 26.04", "workflow": "test-ubuntu.yml", "family": "Ubuntu"},
     {"id": "ubuntu-daily", "label": "Ubuntu Daily 26.04", "workflow": "test-ubuntu-daily.yml", "family": "Ubuntu"},
@@ -561,79 +569,69 @@ def collect_snap_package_data(client, repo_root):
         headers={"Snap-Device-Series": "16", "Accept": "application/json"},
     )
     channel_map = snap_data.get("channel-map", [])
-    public_by_arch = {}
+
+    # Pick the best (highest-risk, then newest) published revision per architecture
+    # in the latest track. amd64/arm64 are promoted all the way to stable (the
+    # GitHub builds served on snapcraft.io); the Launchpad architectures only reach
+    # edge with older revisions because their builds are failing.
+    best_by_arch = {}
+    stable_arches = set()
     for entry in channel_map:
         channel = entry.get("channel", {})
-        if channel.get("track") != "latest" or channel.get("risk") != "stable":
+        if channel.get("track") != "latest":
             continue
-        arch = channel.get("architecture", "unknown").upper()
-        public_by_arch[arch] = {
-            "size_bytes": entry.get("download", {}).get("size"),
-            "download_url": entry.get("download", {}).get("url", ""),
-            "released_at": channel.get("released-at", ""),
-        }
-
-    revisions_file = repo_root / "snapcraft-revisions.txt"
-    revisions_list = parse_revisions_file(revisions_file)
-    revisions_list.sort(
-        key=lambda e: e["revision"] if isinstance(e.get("revision"), int) else -1,
-        reverse=True,
-    )
-
-    latest_by_arch = {}
-    newest_timestamp = None
-
-    if revisions_list:
-        for entry in revisions_list:
-            if not entry["is_stable"]:
-                continue
-            for arch in entry["arches"]:
-                arch_upper = arch.upper()
-                if arch_upper not in latest_by_arch:
-                    base_version, git_commit, git_commit_time = resolve_git_metadata_for_version(repo_root, entry["version"])
-                    pub = public_by_arch.get(arch_upper, {})
-                    latest_by_arch[arch_upper] = {
-                        "architecture": arch_upper,
-                        "version": base_version,
-                        "git_commit": git_commit,
-                        "git_commit_time": git_commit_time,
-                        "revision": entry["revision"],
-                        "size_bytes": pub.get("size_bytes"),
-                        "released_at": entry["uploaded"],
-                        "download_url": pub.get("download_url", ""),
-                        "channel": "stable",
-                    }
-                    dt = parse_iso(entry["uploaded"])
-                    if dt and (newest_timestamp is None or dt > newest_timestamp):
-                        newest_timestamp = dt
-    else:
-        for entry in channel_map:
-            channel = entry.get("channel", {})
-            if channel.get("track") != "latest" or channel.get("risk") != "stable":
-                continue
-            arch = channel.get("architecture", "unknown")
-            released_at = channel.get("released-at", "")
-            arch_upper = arch.upper()
-            current = latest_by_arch.get(arch_upper)
+        risk = channel.get("risk", "")
+        arch_upper = channel.get("architecture", "unknown").upper()
+        released_at = channel.get("released-at", "")
+        if risk == "stable":
+            stable_arches.add(arch_upper)
+        rank = RISK_RANK.get(risk, 0)
+        current = best_by_arch.get(arch_upper)
+        if current is None or rank > current["_rank"] or (
+            rank == current["_rank"] and released_at > current.get("released_at", "")
+        ):
             version_str = entry.get("version", "")
             base_version, git_commit, git_commit_time = resolve_git_metadata_for_version(repo_root, version_str)
-            if not current or (released_at and released_at > current.get("released_at", "")):
-                latest_by_arch[arch_upper] = {
-                    "architecture": arch_upper,
-                    "version": base_version,
-                    "git_commit": git_commit,
-                    "git_commit_time": git_commit_time,
-                    "revision": entry.get("revision", ""),
-                    "size_bytes": entry.get("download", {}).get("size"),
-                    "released_at": released_at,
-                    "download_url": entry.get("download", {}).get("url", ""),
-                    "channel": channel.get("name", ""),
-                }
-            dt = parse_iso(released_at)
-            if dt and (newest_timestamp is None or dt > newest_timestamp):
-                newest_timestamp = dt
+            best_by_arch[arch_upper] = {
+                "architecture": arch_upper,
+                "full_version": version_str,
+                "version": base_version,
+                "git_commit": git_commit,
+                "git_commit_time": git_commit_time,
+                "revision": entry.get("revision", ""),
+                "size_bytes": entry.get("download", {}).get("size"),
+                "released_at": released_at,
+                "download_url": entry.get("download", {}).get("url", ""),
+                "channel": risk,
+                "_rank": rank,
+            }
 
-    channels = list(latest_by_arch.values())
+    # The newest released revision is the version actually being served; use it to
+    # flag architectures whose builds have fallen behind.
+    reference_version = ""
+    newest_timestamp = None
+    for info in best_by_arch.values():
+        dt = parse_iso(info.get("released_at", ""))
+        if dt and (newest_timestamp is None or dt > newest_timestamp):
+            newest_timestamp = dt
+            reference_version = info.get("full_version", "")
+
+    channels = []
+    for arch_upper, info in best_by_arch.items():
+        info.pop("_rank", None)
+        info["build_source"] = "github" if arch_upper in GITHUB_BUILD_ARCHES else "launchpad"
+        info["on_stable"] = arch_upper in stable_arches
+        info["build_status"] = (
+            "current"
+            if reference_version and info.get("full_version", "") == reference_version
+            else "stale"
+        )
+        channels.append(info)
+
+    # GitHub-built architectures first, then Launchpad; alphabetical within groups.
+    channels.sort(key=lambda c: (0 if c["build_source"] == "github" else 1, c["architecture"]))
+
+    revisions_list = parse_revisions_file(repo_root / "snapcraft-revisions.txt")
     freshness = compute_snap_freshness(
         channels,
         revisions_list,

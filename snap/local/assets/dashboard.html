@@ -249,6 +249,24 @@
     .mono {
       font-family: "Ubuntu Mono", monospace;
     }
+    /* Vanilla's .p-table forces fixed layout + ellipsis truncation; the snap table
+       must show the full version string, so size columns to content and let the
+       long version wrap (instead of clipping) when the viewport is narrow. */
+    .snap-package-table {
+      table-layout: auto;
+      width: 100%;
+    }
+    .snap-package-table th,
+    .snap-package-table td {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: nowrap;
+    }
+    .snap-package-table td.snap-version {
+      overflow-wrap: anywhere;
+      white-space: normal;
+      min-width: 16ch;
+    }
     .build-detail-grid {
       margin-top: 0.5rem;
     }
@@ -498,17 +516,17 @@
               <h2>Package availability<span class="freshness-chip freshness-chip--inline" data-freshness="snap"><span class="freshness-chip__dot"></span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h2>
             </div>
             <div class="col-9">
-              <p class="p-heading--4">Latest stable channel package metadata across supported architectures.</p>
+              <p class="p-heading--4">Latest published revision per architecture, with its build source and serving status.</p>
               <div id="snap-package-freshness" hidden style="margin-bottom: 1rem;"></div>
               <div style="overflow-x: auto;">
-                <table class="p-table">
+                <table class="p-table snap-package-table">
                   <thead>
                     <tr>
                       <th>Architecture</th>
+                      <th>Built on</th>
                       <th>Version</th>
                       <th>Revision</th>
-                      <th>Git Hash</th>
-                      <th>Commit Date</th>
+                      <th>Status</th>
                       <th>Size</th>
                       <th>Released</th>
                     </tr>
@@ -518,6 +536,13 @@
                   </tbody>
                 </table>
               </div>
+              <p class="dashboard-card__hint" style="margin-top: 0.5rem;">
+                <strong>amd64</strong> and <strong>arm64</strong> are built on GitHub-hosted runners with snapcraft
+                <code>9.x/candidate</code> and are the revisions served on snapcraft.io today. The remaining
+                architectures are built on Launchpad, which only offers snapcraft from the <code>stable</code> channel;
+                snapcraft <code>9/stable</code> is not yet available, so those builds currently fail and stay on older
+                revisions (edge channel only).
+              </p>
             </div>
           </div>
         </section>
@@ -1514,18 +1539,28 @@
         return;
       }
       rows.forEach((row) => {
-        const gitHashCell = row.git_commit && row.git_commit !== "N/A"
-          ? `<a href="https://github.com/rajannpatel/snap-pi-hole/commit/${row.git_commit}">${row.git_commit}</a>`
-          : "N/A";
-        const commitDateCell = row.git_commit_time ? formatDate(row.git_commit_time) : "N/A";
+        const isGitHub = row.build_source === "github";
+        const builtOn = isGitHub
+          ? `<span class="p-status-label p-status-label--information">GitHub runners</span>`
+          : `<span class="p-status-label">Launchpad</span>`;
+        const channel = row.channel || (row.on_stable ? "stable" : "edge");
+        let status;
+        if (row.build_status === "current") {
+          status = `<span class="p-status-label p-status-label--positive">Serving · ${channel}</span>`;
+        } else if (isGitHub) {
+          status = `<span class="p-status-label p-status-label--caution">Behind · ${channel}</span>`;
+        } else {
+          status = `<span class="p-status-label p-status-label--caution">Build failing · ${channel} only</span>`;
+        }
+        const version = row.full_version || row.version || "Unknown";
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${row.architecture || "Unknown"}</td>
-          <td class="mono">${row.version || "Unknown"}</td>
+          <td>${builtOn}</td>
+          <td class="mono snap-version">${version}</td>
           <td class="mono">${row.revision || "Unknown"}</td>
-          <td class="mono">${gitHashCell}</td>
-          <td class="mono">${commitDateCell}</td>
+          <td>${status}</td>
           <td class="mono">${formatBytes(row.size_bytes)}</td>
           <td class="mono">${formatDate(row.released_at)}</td>
         `;

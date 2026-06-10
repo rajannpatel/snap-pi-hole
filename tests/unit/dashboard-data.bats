@@ -173,3 +173,61 @@ assert matrix["failed_links"] == [
 assert matrix["last_updated"].isoformat() == "2026-06-08T10:03:05+00:00", matrix["last_updated"]
 PYEOF
 }
+
+@test "dashboard data: snap package classifies GitHub vs Launchpad builds and keeps full version" {
+    python3 - <<PYEOF
+import pathlib
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+def ch(track, risk, arch, version, revision, released, size):
+    return {
+        "channel": {"track": track, "risk": risk, "architecture": arch, "released-at": released},
+        "version": version,
+        "revision": revision,
+        "download": {"size": size, "url": f"https://example.test/{arch}.snap"},
+    }
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        assert url == dashboard.SNAPCRAFT_INFO_URL, url
+        return {
+            "channel-map": [
+                # GitHub arches promoted all the way to stable, newest version.
+                ch("latest", "stable", "amd64", "v6.4.2+git.0ffee9d.1781062076", 382, "2026-06-10T17:00:00Z", 100),
+                ch("latest", "edge",   "amd64", "v6.4.2+git.0ffee9d.1781062076", 382, "2026-06-10T17:00:00Z", 100),
+                ch("latest", "stable", "arm64", "v6.4.2+git.0ffee9d.1781062076", 383, "2026-06-10T17:00:00Z", 110),
+                # Launchpad arch stuck on edge with an older revision (build failing).
+                ch("latest", "edge",   "s390x", "v6.4.2", 137, "2026-05-22T00:00:00Z", 120),
+            ]
+        }
+
+# repo_root points at a non-git temp dir so resolve_expected_commit() returns ""
+# (freshness "unknown") and no snapcraft-revisions.txt is present.
+result = dashboard.collect_snap_package_data(FakeClient(), pathlib.Path("${TEST_TMPDIR}"))
+by_arch = {c["architecture"]: c for c in result["channels"]}
+
+# GitHub-built, current, served on stable, full +git version preserved.
+amd = by_arch["AMD64"]
+assert amd["build_source"] == "github", amd
+assert amd["build_status"] == "current", amd
+assert amd["on_stable"] is True, amd
+assert amd["channel"] == "stable", amd
+assert amd["full_version"] == "v6.4.2+git.0ffee9d.1781062076", amd
+assert amd["revision"] == 382, amd
+
+assert by_arch["ARM64"]["build_source"] == "github", by_arch["ARM64"]
+
+# Launchpad-built, stale, edge only, older version.
+s390x = by_arch["S390X"]
+assert s390x["build_source"] == "launchpad", s390x
+assert s390x["build_status"] == "stale", s390x
+assert s390x["on_stable"] is False, s390x
+assert s390x["channel"] == "edge", s390x
+assert s390x["full_version"] == "v6.4.2", s390x
+
+# GitHub arches sort ahead of Launchpad arches.
+assert [c["architecture"] for c in result["channels"]] == ["AMD64", "ARM64", "S390X"], result["channels"]
+PYEOF
+}

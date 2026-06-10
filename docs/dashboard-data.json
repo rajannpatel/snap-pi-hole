@@ -349,28 +349,96 @@
     "channels": [
       {
         "architecture": "AMD64",
+        "full_version": "v6.4.2+git.0ffee9d.1781062076",
         "version": "v6.4.2",
-        "git_commit": "N/A",
-        "git_commit_time": "",
-        "revision": 325,
+        "git_commit": "0ffee9d",
+        "git_commit_time": "2026-06-10T03:27:56Z",
+        "revision": 382,
         "size_bytes": 16793600,
-        "released_at": "2026-06-08T00:55:20.303918+00:00",
-        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_325.snap",
-        "channel": "stable"
+        "released_at": "2026-06-10T17:40:21.505182+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_382.snap",
+        "channel": "stable",
+        "build_source": "github",
+        "on_stable": true,
+        "build_status": "current"
       },
       {
         "architecture": "ARM64",
+        "full_version": "v6.4.2+git.0ffee9d.1781062076",
+        "version": "v6.4.2",
+        "git_commit": "0ffee9d",
+        "git_commit_time": "2026-06-10T03:27:56Z",
+        "revision": 383,
+        "size_bytes": 15921152,
+        "released_at": "2026-06-10T17:41:06.923389+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_383.snap",
+        "channel": "stable",
+        "build_source": "github",
+        "on_stable": true,
+        "build_status": "current"
+      },
+      {
+        "architecture": "ARMHF",
+        "full_version": "v6.4.2",
         "version": "v6.4.2",
         "git_commit": "N/A",
         "git_commit_time": "",
-        "revision": 324,
-        "size_bytes": 15917056,
-        "released_at": "2026-06-08T00:54:42.152742+00:00",
-        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_324.snap",
-        "channel": "stable"
+        "revision": 135,
+        "size_bytes": 31666176,
+        "released_at": "2026-05-22T00:34:38.073663+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_135.snap",
+        "channel": "edge",
+        "build_source": "launchpad",
+        "on_stable": false,
+        "build_status": "stale"
+      },
+      {
+        "architecture": "PPC64EL",
+        "full_version": "v6.4.2",
+        "version": "v6.4.2",
+        "git_commit": "N/A",
+        "git_commit_time": "",
+        "revision": 128,
+        "size_bytes": 38027264,
+        "released_at": "2026-05-21T23:35:09.256527+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_128.snap",
+        "channel": "edge",
+        "build_source": "launchpad",
+        "on_stable": false,
+        "build_status": "stale"
+      },
+      {
+        "architecture": "RISCV64",
+        "full_version": "v6.4.2",
+        "version": "v6.4.2",
+        "git_commit": "N/A",
+        "git_commit_time": "",
+        "revision": 138,
+        "size_bytes": 36081664,
+        "released_at": "2026-05-22T08:09:06.994542+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_138.snap",
+        "channel": "edge",
+        "build_source": "launchpad",
+        "on_stable": false,
+        "build_status": "stale"
+      },
+      {
+        "architecture": "S390X",
+        "full_version": "v6.4.2",
+        "version": "v6.4.2",
+        "git_commit": "N/A",
+        "git_commit_time": "",
+        "revision": 137,
+        "size_bytes": 33792000,
+        "released_at": "2026-05-22T01:39:52.352027+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_137.snap",
+        "channel": "edge",
+        "build_source": "launchpad",
+        "on_stable": false,
+        "build_status": "stale"
       }
     ],
-    "last_updated": "2026-06-08T00:55:20Z"
+    "last_updated": "2026-06-10T17:41:06Z"
   },
   "auto_update": {
     "frequency": {
