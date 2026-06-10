@@ -10,6 +10,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from datetime import datetime, timezone
 
 from report_assets import vanilla_framework_css_link
@@ -1463,6 +1464,216 @@ def confinement_recommendation_badge(recommendation):
     return ""
 
 
+# ---------------------------------------------------------------------------
+# CycloneDX VEX (Vulnerability Exploitability eXchange) generation
+#
+# The same confinement analysis that backs the HTML and Markdown reports is
+# emitted as a standards-compliant CycloneDX 1.5 VEX document per architecture,
+# so downstream consumers (and CRA-style audits) can ingest the snap's
+# exploitability assessment with off-the-shelf tooling. A "Contained by
+# confinement" finding becomes a not_affected / protected_at_runtime claim; a
+# finding with residual risk becomes exploitable with a recommended response.
+# ---------------------------------------------------------------------------
+
+VEX_SPEC_VERSION = "1.5"
+VEX_PRODUCT_NAME = "pihole-by-rajannpatel"
+# Fixed namespace so a given product/architecture/timestamp resolves to a
+# stable serialNumber (reproducible builds and deterministic tests).
+VEX_NAMESPACE = uuid.UUID("1b671a64-40d5-491e-99b0-da01ff1f3341")
+
+VEX_STATE_NOT_AFFECTED = "not_affected"
+VEX_STATE_EXPLOITABLE = "exploitable"
+VEX_STATE_IN_TRIAGE = "in_triage"
+
+# Snap confinement is a runtime control, so a contained finding is expressed
+# with the canonical CycloneDX "protected_at_runtime" justification.
+VEX_JUSTIFICATION_RUNTIME = "protected_at_runtime"
+
+# OSV CVSS severity word -> CycloneDX rating severity enum.
+_VEX_SEVERITY_MAP = {
+    "critical": "critical",
+    "high": "high",
+    "medium": "medium",
+    "low": "low",
+    "negligible": "info",
+}
+
+
+def vex_filename(architecture):
+    return f"vex-{architecture}.cdx.json"
+
+
+def vex_serial_number(architecture, timestamp):
+    seed = f"{VEX_PRODUCT_NAME}:{architecture}:{timestamp}"
+    return f"urn:uuid:{uuid.uuid5(VEX_NAMESPACE, seed)}"
+
+
+def _vex_purl(package_name, package_version, architecture):
+    purl = f"pkg:deb/ubuntu/{urllib.parse.quote(package_name, safe='')}"
+    if package_version:
+        purl += f"@{urllib.parse.quote(package_version, safe='')}"
+    purl += f"?arch={urllib.parse.quote(architecture, safe='')}"
+    return purl
+
+
+def vex_ratings(severity_text):
+    """Map the report's "9.8 · Critical" severity string to CycloneDX ratings."""
+    severity_text = (severity_text or "").strip()
+    score = None
+    parts = severity_text.split("\u00b7")
+    if len(parts) == 2:
+        try:
+            score = float(parts[0].strip())
+        except ValueError:
+            score = None
+    cdx_severity = _VEX_SEVERITY_MAP.get(severity_priority(severity_text), "unknown")
+    if score is None and cdx_severity == "unknown":
+        return []
+    rating = {"source": {"name": "OSV"}, "severity": cdx_severity}
+    if score is not None:
+        rating["score"] = score
+        rating["method"] = "CVSSv3"
+    return [rating]
+
+
+def vex_analysis(appropriate_text, not_appropriate_text, patchable):
+    """Translate the confinement analysis into a CycloneDX analysis object.
+
+    A contained finding asserts ``not_affected`` because snap confinement
+    protects it at runtime; a finding with residual risk is reported as
+    ``exploitable`` with a response that reflects whether an upstream fix
+    (USN) exists; an absent or failed analysis stays ``in_triage`` so a lookup
+    failure never silently claims containment.
+    """
+    appropriate = (appropriate_text or "").strip()
+    not_appropriate = (not_appropriate_text or "").strip()
+    recommendation = confinement_recommendation(appropriate, not_appropriate)
+    if recommendation == CONFINEMENT_CONTAINED:
+        return {
+            "state": VEX_STATE_NOT_AFFECTED,
+            "justification": VEX_JUSTIFICATION_RUNTIME,
+            "detail": appropriate,
+        }
+    if recommendation == CONFINEMENT_RESIDUAL:
+        if appropriate and not_appropriate:
+            detail = f"{appropriate}\n\nResidual risk: {not_appropriate}"
+        else:
+            detail = not_appropriate or appropriate
+        analysis = {
+            "state": VEX_STATE_EXPLOITABLE,
+            "response": ["update"] if patchable else ["can_not_fix"],
+        }
+        if detail:
+            analysis["detail"] = detail
+        return analysis
+    return {"state": VEX_STATE_IN_TRIAGE}
+
+
+def build_vex_vulnerability(vulnerability, package_name, component_ref, architecture):
+    vuln_id = display_vulnerability_id(vulnerability.get("id", "unknown"))
+    entry = {
+        "bom-ref": f"vex-{architecture}-{package_name}-{vuln_id}",
+        "id": vuln_id,
+    }
+    url = vulnerability.get("url")
+    if url:
+        entry["source"] = {"name": "OSV", "url": url}
+    ratings = vex_ratings(vulnerability.get("severity", ""))
+    if ratings:
+        entry["ratings"] = ratings
+    aliases = [
+        alias
+        for alias in vulnerability.get("aliases", [])
+        if alias and alias != vulnerability.get("id")
+    ]
+    if aliases:
+        entry["references"] = [
+            {
+                "id": alias,
+                "source": {"name": "USN" if alias.startswith("USN-") else "OSV"},
+            }
+            for alias in aliases
+        ]
+    published = vulnerability.get("published") or vulnerability.get("modified")
+    if published:
+        entry["published"] = published
+    entry["affects"] = [{"ref": component_ref}]
+    entry["analysis"] = vex_analysis(
+        vulnerability.get("appropriate", ""),
+        vulnerability.get("not_appropriate", ""),
+        vulnerability.get("patchable", False),
+    )
+    return entry
+
+
+def build_vex_document(report, serial_number=None):
+    """Build a CycloneDX 1.5 VEX document for a single architecture report."""
+    architecture = report["architecture"]
+    timestamp = report.get("generatedAt", {}).get("datetime") or (
+        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    )
+
+    components = {}
+    vulnerabilities = []
+    for package in report.get("packages", []):
+        package_name = package.get("name", "unknown")
+        package_version = package.get("version", "")
+        component_ref = _vex_purl(package_name, package_version, architecture)
+        if component_ref not in components:
+            component = {
+                "type": "library",
+                "bom-ref": component_ref,
+                "name": package_name,
+                "purl": component_ref,
+            }
+            if package_version:
+                component["version"] = package_version
+            components[component_ref] = component
+        for vulnerability in package.get("vulnerabilities", []):
+            vulnerabilities.append(
+                build_vex_vulnerability(
+                    vulnerability, package_name, component_ref, architecture
+                )
+            )
+
+    document = {
+        "bomFormat": "CycloneDX",
+        "specVersion": VEX_SPEC_VERSION,
+        "serialNumber": serial_number or vex_serial_number(architecture, timestamp),
+        "version": 1,
+        "metadata": {
+            "timestamp": timestamp,
+            "component": {
+                "type": "application",
+                "bom-ref": f"{VEX_PRODUCT_NAME}@{architecture}",
+                "name": VEX_PRODUCT_NAME,
+                "purl": f"pkg:snap/{VEX_PRODUCT_NAME}?arch={architecture}",
+            },
+            "tools": [{"vendor": "snap-pi-hole", "name": "summarize_osv_reports.py"}],
+        },
+        "vulnerabilities": vulnerabilities,
+    }
+    if components:
+        document["components"] = list(components.values())
+    return document
+
+
+def write_vex_documents(summary, reports_dir):
+    """Write one CycloneDX VEX document per architecture report.
+
+    Returns the filenames written so callers and tests can locate them.
+    """
+    written = []
+    for report in summary.get("reports", []):
+        document = build_vex_document(report)
+        filename = vex_filename(report["architecture"])
+        (reports_dir / filename).write_text(
+            json.dumps(document, indent=2) + "\n", encoding="utf-8"
+        )
+        written.append(filename)
+    return written
+
+
 def write_html(summary, output_path):
     summary_rows = []
     detail_rows_by_key = {}
@@ -1478,8 +1689,13 @@ def write_html(summary, output_path):
             f'{html.escape(report["generatedAt"]["label"])}</time>'
         )
         report_link = f'<a class="p-button" href="{html.escape(report["report"])}" download>Download OSV</a>'
-        
-        report_cell = f'{report_time}<br><div style="margin-top: 0.5rem;">{report_link}</div>'
+        vex_link = f'<a class="p-button" href="{html.escape(vex_filename(report["architecture"]))}" download>Download VEX</a>'
+
+        report_cell = (
+            f'{report_time}<br>'
+            f'<div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">'
+            f'{report_link}{vex_link}</div>'
+        )
         
         summary_rows.append(
             f"<tr>"
@@ -1834,7 +2050,7 @@ def write_html(summary, output_path):
             </table>
           </div>
           <p class="p-text--small" style="margin-bottom: 2rem;">
-            Actionable counts include only vulnerability matches with a corresponding Ubuntu Security Notice (USN). Confined mitigations represent report-only matches that are sandboxed by snap confinement.
+            Actionable counts include only vulnerability matches with a corresponding Ubuntu Security Notice (USN). Confined mitigations represent report-only matches that are sandboxed by snap confinement. <strong>Download VEX</strong> exports each architecture's confinement analysis as a standards-compliant CycloneDX VEX document.
           </p>
           <h2 class="p-heading--3">Vulnerability Details</h2>
           <div class="row vulnerability-table-controls">
@@ -1867,7 +2083,7 @@ def write_html(summary, output_path):
               </tbody>
             </table>
           </div>
-          <p class="p-text--small">Full OSV JSON reports are linked in the summary table.</p>
+          <p class="p-text--small">Full OSV JSON reports and CycloneDX VEX documents are linked in the summary table.</p>
         </div>
       </div>
     </main>
@@ -2032,6 +2248,7 @@ def main():
     )
     write_markdown(summary, reports_dir / "vuln-summary.md")
     write_html(summary, reports_dir / "index.html")
+    write_vex_documents(summary, reports_dir)
 
 
 if __name__ == "__main__":

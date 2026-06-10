@@ -1312,3 +1312,145 @@ finally:
     summary.SNAPCRAFT_YAML_PATH = original
 PYEOF
 }
+
+@test "summarizer emits a valid CycloneDX VEX document per architecture" {
+    write_osv_report "${REPORT_DIR}/osv-amd64.json"
+    write_osv_report "${REPORT_DIR}/osv-arm64.json"
+
+    python3 "${REPO_ROOT}/snap/local/build/summarize_osv_reports.py" "$REPORT_DIR"
+
+    [ -f "${REPORT_DIR}/vex-amd64.cdx.json" ]
+    [ -f "${REPORT_DIR}/vex-arm64.cdx.json" ]
+
+    # Structural CycloneDX 1.5 invariants plus self-consistency: every
+    # vulnerability's affects[].ref must resolve to a declared component.
+    run jq -e '
+      .bomFormat == "CycloneDX" and
+      .specVersion == "1.5" and
+      (.serialNumber | startswith("urn:uuid:")) and
+      .version == 1 and
+      (.metadata.component.purl | contains("arch=amd64")) and
+      (.vulnerabilities | length) == 2 and
+      (.vulnerabilities | all(.analysis.state as $s | ["not_affected","exploitable","in_triage"] | index($s) != null)) and
+      ([.components[]."bom-ref"] as $refs | .vulnerabilities | all(.affects[0].ref as $r | $refs | index($r) != null))
+    ' "${REPORT_DIR}/vex-amd64.cdx.json"
+    [ "$status" -eq 0 ]
+
+    # The USN alias is preserved as a cross-reference on the matching finding.
+    run jq -e '
+      .vulnerabilities[] | select(.id == "CVE-2023-38545") | .references[0].id == "USN-6425-1"
+    ' "${REPORT_DIR}/vex-amd64.cdx.json"
+    [ "$status" -eq 0 ]
+}
+
+@test "VEX serial numbers are deterministic per architecture and timestamp" {
+    python3 - <<PYEOF
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+# Same inputs -> identical serial; differing arch or timestamp -> different.
+a = summary.vex_serial_number("amd64", "2026-06-09T00:00:00Z")
+b = summary.vex_serial_number("amd64", "2026-06-09T00:00:00Z")
+c = summary.vex_serial_number("arm64", "2026-06-09T00:00:00Z")
+d = summary.vex_serial_number("amd64", "2026-06-10T00:00:00Z")
+assert a == b, (a, b)
+assert a != c and a != d, (a, c, d)
+assert a.startswith("urn:uuid:"), a
+assert summary.vex_filename("armhf") == "vex-armhf.cdx.json"
+PYEOF
+}
+
+@test "build_vex_document maps confinement analysis to CycloneDX VEX states" {
+    python3 - <<PYEOF
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+def vuln(vid, appropriate, not_appropriate, patchable):
+    return {
+        "id": vid, "aliases": [], "summary": "", "details": "",
+        "severity": "9.8 \u00b7 CRITICAL", "priority": "CRITICAL",
+        "published": "2026-01-01T00:00:00Z", "modified": "2026-01-01T00:00:00Z",
+        "url": "https://example/" + vid, "patchable": patchable,
+        "appropriate": appropriate, "not_appropriate": not_appropriate,
+    }
+
+report = {
+    "architecture": "amd64", "report": "osv-amd64.json",
+    "generatedAt": {"datetime": "2026-06-09T00:00:00Z", "label": "2026-06-09 00:00 UTC"},
+    "packages": [{
+        "name": "curl", "version": "8.0.0", "ecosystem": "Ubuntu",
+        "vulnerabilities": [
+            vuln("CVE-2026-0001", "Sandbox contains it.", "", True),
+            vuln("CVE-2026-0002", "Partly contained.", "Leaks to host.", True),
+            vuln("CVE-2026-0003", "Partly contained.", "Leaks to host.", False),
+            vuln("CVE-2026-0004", "", "", False),
+            vuln("CVE-2026-0005", summary.LLM_LOOKUP_ERROR_TEXT, "", True),
+        ],
+    }],
+}
+
+doc = summary.build_vex_document(report)
+by_id = {v["id"]: v for v in doc["vulnerabilities"]}
+
+# Contained -> not_affected, protected_at_runtime.
+a = by_id["CVE-2026-0001"]["analysis"]
+assert a["state"] == "not_affected", a
+assert a["justification"] == "protected_at_runtime", a
+
+# Residual + USN available -> exploitable / update.
+a = by_id["CVE-2026-0002"]["analysis"]
+assert a["state"] == "exploitable", a
+assert a["response"] == ["update"], a
+assert "Residual risk: Leaks to host." in a["detail"], a
+
+# Residual + no fix -> exploitable / can_not_fix.
+a = by_id["CVE-2026-0003"]["analysis"]
+assert a["state"] == "exploitable", a
+assert a["response"] == ["can_not_fix"], a
+
+# Absent analysis and failed LLM lookups stay in_triage (never silently contained).
+assert by_id["CVE-2026-0004"]["analysis"]["state"] == "in_triage", by_id["CVE-2026-0004"]
+assert by_id["CVE-2026-0005"]["analysis"]["state"] == "in_triage", by_id["CVE-2026-0005"]
+
+# Every analysis.response uses only valid CycloneDX enum values.
+valid_responses = {"can_not_fix", "will_not_fix", "update", "rollback", "workaround_available"}
+for v in doc["vulnerabilities"]:
+    for r in v["analysis"].get("response", []):
+        assert r in valid_responses, r
+
+# Document envelope and component self-consistency.
+assert doc["bomFormat"] == "CycloneDX", doc["bomFormat"]
+assert doc["specVersion"] == "1.5", doc["specVersion"]
+assert doc["serialNumber"].startswith("urn:uuid:"), doc["serialNumber"]
+component_refs = {c["bom-ref"] for c in doc["components"]}
+for v in doc["vulnerabilities"]:
+    assert v["affects"][0]["ref"] in component_refs, v
+
+# An explicit serial_number argument overrides the derived one (test seam).
+fixed = summary.build_vex_document(report, serial_number="urn:uuid:fixed")
+assert fixed["serialNumber"] == "urn:uuid:fixed", fixed["serialNumber"]
+PYEOF
+}
+
+@test "write_vex_documents returns written filenames and HTML links to the VEX" {
+    write_osv_report "${REPORT_DIR}/osv-amd64.json"
+
+    python3 - <<PYEOF
+import sys, pathlib
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+reports_dir = pathlib.Path("${REPORT_DIR}")
+data = summary.collect_reports(reports_dir)
+written = summary.write_vex_documents(data, reports_dir)
+assert written == ["vex-amd64.cdx.json"], written
+assert (reports_dir / "vex-amd64.cdx.json").exists()
+
+summary.write_html(data, reports_dir / "index.html")
+html = (reports_dir / "index.html").read_text()
+assert 'href="vex-amd64.cdx.json"' in html, "VEX download link missing"
+assert ">Download VEX<" in html, "Download VEX button missing"
+PYEOF
+}
