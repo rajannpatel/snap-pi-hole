@@ -84,6 +84,54 @@
     .status-neutral,
     .status-skipped,
     .status-unknown { background: #757575; }
+    .status-building { background: #0b6bc5; }
+    @keyframes dashboard-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .is-building {
+      animation: dashboard-pulse 1.2s ease-in-out infinite;
+    }
+    .live-indicator {
+      align-items: center;
+      border: 1px solid #d9d9d9;
+      border-radius: 999px;
+      display: inline-flex;
+      font-size: 0.72rem;
+      gap: 0.4rem;
+      letter-spacing: 0.02em;
+      margin-top: 0.5rem;
+      padding: 0.15rem 0.6rem;
+      text-transform: uppercase;
+      vertical-align: middle;
+    }
+    .live-indicator__dot {
+      background: #757575;
+      border-radius: 50%;
+      height: 0.55rem;
+      width: 0.55rem;
+    }
+    .live-indicator.is-live .live-indicator__dot { background: #0e8420; }
+    .live-indicator.is-building .live-indicator__dot {
+      background: #0b6bc5;
+      animation: dashboard-pulse 1.2s ease-in-out infinite;
+    }
+    .matrix-building {
+      align-items: center;
+      display: inline-flex;
+      gap: 0.4rem;
+    }
+    .matrix-building__spinner {
+      animation: dashboard-spin 0.9s linear infinite;
+      border: 2px solid rgba(11, 107, 197, 0.25);
+      border-radius: 50%;
+      border-top-color: #0b6bc5;
+      height: 0.85rem;
+      width: 0.85rem;
+    }
+    @keyframes dashboard-spin {
+      to { transform: rotate(360deg); }
+    }
     .trend-chart-wrap {
       height: clamp(9rem, 21vh, 14rem);
       margin-top: 0.75rem;
@@ -202,6 +250,10 @@
           </nav>
           <h1 id="dashboard-title" class="p-heading--2">CI/CD Reports Dashboard</h1>
           <p>Live operational status for build, security, dependencies, compatibility, and release health.</p>
+          <span id="live-indicator" class="live-indicator" hidden>
+            <span class="live-indicator__dot"></span>
+            <span id="live-indicator-text">Live</span>
+          </span>
         </div>
       </header>
 
@@ -287,6 +339,23 @@
         <div class="row">
           <div class="col-12">
             <h3 class="p-muted-heading" id="build-status-title">Build Status</h3>
+          </div>
+        </div>
+        <div class="row" style="margin-bottom: 1rem;">
+          <div class="col-12">
+            <article class="p-card dashboard-card">
+              <h3 style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                Latest pipeline run
+                <span id="latest-run-title" class="mono p-text--small u-no-margin"></span>
+                <span id="latest-run-status-chip" class="status-chip status-neutral">unknown</span>
+              </h3>
+              <p class="p-card__content mono u-no-margin">
+                <span id="latest-run-duration">Unknown</span> · <span id="latest-run-updated">Updated: Unknown</span>
+              </p>
+              <p class="p-card__content u-no-margin--bottom">
+                <a id="latest-run-link" href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" target="_blank" rel="noopener noreferrer">View pipeline run</a>
+              </p>
+            </article>
           </div>
         </div>
         <div class="row">
@@ -529,7 +598,15 @@
 
   <script>
     const statusClass = (status) => `status-${(status || "neutral").replace(/[^a-z_]/gi, "_").toLowerCase()}`;
-    const matrixState = { rows: [] };
+    const REPO_SLUG = "rajannpatel/snap-pi-hole";
+    const GITHUB_API_BASE = "https://api.github.com";
+    const BUILDING_STATES = new Set(["queued", "in_progress", "requested", "waiting", "pending", "running"]);
+    const FAILURE_STATES = new Set(["failure", "timed_out", "cancelled", "action_required", "startup_failure"]);
+    const LIVE_POLL_MS = 60000;
+    const LIVE_RATE_FLOOR = 8;
+    const isBuildingStatus = (status) => BUILDING_STATES.has(status);
+    const liveState = { rateRemaining: null, pollTimer: null, releaseLagDone: false };
+    const matrixState = { rows: [], failedLinks: [] };
     let dependencyRows = [];
     let durationTrendResizeHandler = null;
     const osBadgeByFamily = {
@@ -559,6 +636,17 @@
         index += 1;
       }
       return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+    }
+
+    function humanDuration(seconds) {
+      if (seconds === null || seconds === undefined) return "Unknown";
+      if (seconds < 60) return `${seconds}s`;
+      const minutes = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      if (minutes < 60) return `${minutes}m ${secs}s`;
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return `${hours}h ${mins}m`;
     }
 
     function setText(id, value) {
@@ -805,12 +893,15 @@
     function renderBuildStatus(buildStatus) {
       const latest = buildStatus.latest_run || {};
       setText("latest-run-title", latest.number ? `Run #${latest.number}` : "No run data");
-      setText("latest-run-duration", latest.duration_label || "Unknown");
+      const building = isBuildingStatus(latest.status);
+      setText("latest-run-duration", building ? `Running for ${latest.duration_label || "0s"}` : (latest.duration_label || "Unknown"));
       setText("latest-run-updated", `Updated: ${formatDate(latest.updated_at)}`);
       const chip = document.getElementById("latest-run-status-chip");
       if (chip) {
-        chip.className = `status-chip ${statusClass(latest.status)}`;
-        chip.textContent = (latest.status || "unknown").replace("_", " ");
+        chip.className = building
+          ? "status-chip status-building is-building"
+          : `status-chip ${statusClass(latest.status)}`;
+        chip.textContent = building ? "building" : (latest.status || "unknown").replace("_", " ");
       }
       const latestLink = document.getElementById("latest-run-link");
       if (latestLink && latest.url) {
@@ -874,7 +965,9 @@
         const badgeCell = badgeSrc
           ? `<img class="os-badge" src="${badgeSrc}" alt="${logoAlt}">`
           : `<span class="mono">${row.family || ""}</span>`;
-        const statusCell = `<img class="status-shield" src="${row.status_badge_url}" alt="${statusBadgeAlt}">`;
+        const statusCell = isBuildingStatus(row.status)
+          ? `<span class="matrix-building" role="status"><span class="matrix-building__spinner" aria-hidden="true"></span><span class="status-chip status-building is-building">building</span></span>`
+          : `<img class="status-shield" src="${row.status_badge_url}" alt="${statusBadgeAlt}">`;
         tr.innerHTML = `
           <td class="os-logo-col">${badgeCell}</td>
           <td class="distribution-col">${row.label}</td>
@@ -885,6 +978,240 @@
         `;
         tbody.appendChild(tr);
       });
+    }
+
+    // ---- Live data (client-side, no rebuild required) -----------------------
+    // GitHub's REST API is CORS-enabled, so the browser can read it directly.
+    // A single call to /actions/runs returns the newest runs across every
+    // workflow, which powers the matrix, the build-status card, the duration
+    // trend, the failed-logs list and the track-upstream timestamp at once.
+    // Unauthenticated access is capped at 60 requests/hour per IP, so every
+    // failure (rate limit, CORS, offline) is swallowed and the build-time JSON
+    // is kept as a fallback. While a pipeline is building we poll on a timer
+    // and back off automatically when the remaining budget runs low.
+
+    function liveRunDurationSeconds(run) {
+      const started = new Date(run.run_started_at || run.created_at);
+      const ended = new Date(run.updated_at);
+      if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) return null;
+      return Math.max(0, Math.round((ended - started) / 1000));
+    }
+
+    async function fetchRecentRuns() {
+      let response;
+      try {
+        response = await fetch(
+          `${GITHUB_API_BASE}/repos/${REPO_SLUG}/actions/runs?per_page=100`,
+          { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" }
+        );
+      } catch (error) {
+        return null;
+      }
+      const remaining = Number(response.headers.get("X-RateLimit-Remaining"));
+      if (!Number.isNaN(remaining)) liveState.rateRemaining = remaining;
+      if (!response.ok) return null;
+      try {
+        const payload = await response.json();
+        return payload.workflow_runs || [];
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function latestRunByWorkflow(runs) {
+      const map = {};
+      runs.forEach((run) => {
+        const file = (run.path || "").split("/").pop();
+        if (file && !(file in map)) map[file] = run;
+      });
+      return map;
+    }
+
+    function applyLiveMatrix(latestByWorkflow) {
+      const matched = new Set();
+      matrixState.rows = matrixState.rows.map((row) => {
+        const run = latestByWorkflow[row.workflow];
+        if (!run) return row;
+        matched.add(row.workflow);
+        const durationSeconds = liveRunDurationSeconds(run);
+        const status = run.status === "completed" ? (run.conclusion || "unknown") : (run.status || "queued");
+        return {
+          ...row,
+          status,
+          conclusion: run.conclusion || (run.status === "completed" ? "unknown" : run.status),
+          run_number: run.run_number ?? row.run_number,
+          updated_at: run.updated_at || row.updated_at,
+          duration_seconds: durationSeconds,
+          duration_label: humanDuration(durationSeconds),
+          run_url: run.html_url || row.run_url,
+          failed_job_url: "",
+        };
+      });
+      if (!matched.size) return false;
+
+      renderMatrixRows();
+
+      const liveFailedLinks = [];
+      matrixState.rows.forEach((row) => {
+        if (matched.has(row.workflow)) {
+          if (FAILURE_STATES.has(row.status)) {
+            liveFailedLinks.push({ distro: row.label, workflow: row.workflow, job_name: "distro test", url: row.run_url });
+          }
+        } else {
+          const fallback = (matrixState.failedLinks || []).find((link) => link.workflow === row.workflow);
+          if (fallback) liveFailedLinks.push(fallback);
+        }
+      });
+      renderFailedLogs({ failed_links: liveFailedLinks });
+      return true;
+    }
+
+    function applyLiveBuildStatus(runs) {
+      const cicdRuns = runs.filter((run) => (run.path || "").endsWith("/cicd.yml") && run.head_branch === "main");
+      if (!cicdRuns.length) return false;
+
+      const latest = cicdRuns[0];
+      const latestStatus = latest.status === "completed" ? (latest.conclusion || "unknown") : (latest.status || "queued");
+      const trend = cicdRuns.slice(0, 12).map((run) => {
+        const duration = liveRunDurationSeconds(run);
+        return {
+          run_number: run.run_number,
+          conclusion: run.conclusion || "unknown",
+          duration_seconds: run.status === "completed" ? duration : null,
+          duration_label: humanDuration(duration),
+          updated_at: run.updated_at || "",
+          url: run.html_url || "",
+        };
+      });
+
+      const completed = cicdRuns.filter((run) => run.status === "completed");
+      const recent = completed.slice(1, 6).map(liveRunDurationSeconds).filter((value) => value !== null);
+      const baseline = recent.length ? Math.round((recent.reduce((a, b) => a + b, 0) / recent.length) * 10) / 10 : null;
+      let regression = null;
+      if (completed.length && baseline !== null) {
+        const latestCompletedDuration = liveRunDurationSeconds(completed[0]);
+        if (latestCompletedDuration !== null) regression = Math.round((latestCompletedDuration - baseline) * 10) / 10;
+      }
+
+      renderBuildStatus({
+        latest_run: {
+          number: latest.run_number,
+          status: latestStatus,
+          conclusion: latest.conclusion || latestStatus,
+          url: latest.html_url || "",
+          updated_at: latest.updated_at || "",
+          duration_seconds: liveRunDurationSeconds(latest),
+          duration_label: humanDuration(liveRunDurationSeconds(latest)),
+        },
+        duration_trend: trend,
+        duration_baseline_seconds: baseline,
+        duration_regression_seconds: regression,
+      });
+
+      return isBuildingStatus(latestStatus);
+    }
+
+    function applyLiveTrackUpstream(latestByWorkflow) {
+      const run = latestByWorkflow["track-upstream-releases.yml"];
+      if (!run) return;
+      if (run.status === "completed" && run.conclusion === "success") {
+        setText("last-track-update", formatDate(run.updated_at));
+        setText("last-track-update-status", "Latest successful track-upstream run available.");
+      }
+    }
+
+    function updateLiveIndicator(state) {
+      const node = document.getElementById("live-indicator");
+      if (!node) return;
+      if (state === "off") {
+        node.hidden = true;
+        return;
+      }
+      node.hidden = false;
+      node.classList.toggle("is-building", state === "building");
+      node.classList.toggle("is-live", state === "live");
+      const label = state === "building" ? "Live · building" : "Live";
+      setText("live-indicator-text", label);
+    }
+
+    function scheduleLivePoll(building) {
+      if (liveState.pollTimer) {
+        clearTimeout(liveState.pollTimer);
+        liveState.pollTimer = null;
+      }
+      const budgetOk = liveState.rateRemaining === null || liveState.rateRemaining > LIVE_RATE_FLOOR;
+      if (building && budgetOk) {
+        liveState.pollTimer = setTimeout(refreshLiveData, LIVE_POLL_MS);
+      }
+    }
+
+    async function refreshLiveData() {
+      const runs = await fetchRecentRuns();
+      if (!runs) {
+        updateLiveIndicator("off");
+        return;
+      }
+      const latestByWorkflow = latestRunByWorkflow(runs);
+      const matrixBuilding = matrixState.rows.some((row) => {
+        const run = latestByWorkflow[row.workflow];
+        return run && run.status !== "completed";
+      });
+      applyLiveMatrix(latestByWorkflow);
+      const buildBuilding = applyLiveBuildStatus(runs);
+      applyLiveTrackUpstream(latestByWorkflow);
+
+      const building = matrixBuilding || buildBuilding;
+      updateLiveIndicator(building ? "building" : "live");
+      scheduleLivePoll(building);
+
+      if (!liveState.releaseLagDone) {
+        liveState.releaseLagDone = true;
+        refreshReleaseLag();
+      }
+    }
+
+    // Best-effort live refresh of the upstream side of the release-lag table.
+    // The bundled versions are fixed at build time; only the upstream release
+    // can change between builds. Each component is a separate repository, so
+    // this is skipped entirely unless the rate-limit budget is comfortable.
+    async function refreshReleaseLag() {
+      if (!dependencyRows.length) return;
+      if (liveState.rateRemaining !== null && liveState.rateRemaining <= 20) return;
+
+      let changed = false;
+      for (const item of dependencyRows) {
+        if (!item.repository) continue;
+        let release;
+        try {
+          const response = await fetch(
+            `${GITHUB_API_BASE}/repos/${item.repository}/releases/latest`,
+            { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" }
+          );
+          const remaining = Number(response.headers.get("X-RateLimit-Remaining"));
+          if (!Number.isNaN(remaining)) liveState.rateRemaining = remaining;
+          if (!response.ok) continue;
+          release = await response.json();
+        } catch (error) {
+          continue;
+        }
+        const upstreamTag = release.tag_name;
+        if (!upstreamTag) continue;
+        const upstreamDate = release.published_at || item.upstream_release_date;
+        const updateAvailable = Boolean(item.local_tag && upstreamTag && item.local_tag !== upstreamTag);
+        let lagDays = item.lag_days;
+        const localDate = new Date(item.local_release_date);
+        const upDate = new Date(upstreamDate);
+        if (!Number.isNaN(localDate.getTime()) && !Number.isNaN(upDate.getTime())) {
+          lagDays = Math.max(0, Math.floor((upDate - localDate) / 86400000));
+        }
+        item.upstream_tag = upstreamTag;
+        item.upstream_release_date = upstreamDate;
+        item.update_available = updateAvailable;
+        item.lag_days = lagDays;
+        if (release.html_url) item.release_notes_url = release.html_url;
+        changed = true;
+      }
+      if (changed) renderDependencies();
     }
 
     function renderSecurity(security) {
@@ -1038,12 +1365,14 @@
         renderBuildStatus(data.build_status || {});
         renderFailedLogs(data.test_matrix || {});
         matrixState.rows = data.test_matrix?.rows || [];
+        matrixState.failedLinks = data.test_matrix?.failed_links || [];
         renderMatrixRows();
         renderSecurity(data.security || {});
         dependencyRows = data.release_info?.components || [];
         renderDependencies();
         renderReleaseInfo(data);
         renderReportSummaries(data);
+        refreshLiveData();
       } catch (error) {
         setText("data-updated", "Unavailable");
         setText("update-frequency", "Unavailable");

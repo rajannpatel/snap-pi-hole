@@ -82,7 +82,7 @@ import generate_dashboard_data as dashboard
 
 class FakeClient:
     def get_json_or_empty(self, url, headers=None, params=None):
-        if url.endswith("/actions/workflows/cicd.yml/runs"):
+        if url.endswith("/actions/workflows/test-failing.yml/runs"):
             return {
                 "workflow_runs": [
                     {
@@ -96,12 +96,14 @@ class FakeClient:
                     }
                 ]
             }
+        if url.endswith("/actions/workflows/test-missing.yml/runs"):
+            return {"workflow_runs": []}
         if url.endswith("/actions/runs/123/jobs"):
             return {
                 "jobs": [
                     {"name": "setup", "conclusion": "success", "html_url": ""},
                     {
-                        "name": "distro test (failing)",
+                        "name": "test / Validate Snap Installation",
                         "status": "completed",
                         "conclusion": "failure",
                         "started_at": "2026-06-08T10:00:00Z",
@@ -126,7 +128,12 @@ rows = {row["id"]: row for row in matrix["rows"]}
 assert rows["failing"]["status"] == "failure", rows["failing"]
 assert rows["failing"]["duration_seconds"] == 185, rows["failing"]
 assert rows["failing"]["duration_label"] == "3m 5s", rows["failing"]
+assert rows["failing"]["run_number"] == 42, rows["failing"]
 assert rows["failing"]["failed_job_url"] == "https://example.test/job/456", rows["failing"]
+assert rows["failing"]["status_badge_url"] == (
+    "https://img.shields.io/github/actions/workflow/status/"
+    "rajannpatel/snap-pi-hole/test-failing.yml?style=flat-square&label="
+), rows["failing"]
 assert rows["missing"]["status"] == "no_data", rows["missing"]
 assert rows["missing"]["conclusion"] == "no_data", rows["missing"]
 assert rows["missing"]["duration_label"] == "Unknown", rows["missing"]
@@ -135,7 +142,7 @@ assert matrix["failed_links"] == [
         "distro": "Failing OS",
         "workflow": "test-failing.yml",
         "run_number": 42,
-        "job_name": "distro test (failing)",
+        "job_name": "test / Validate Snap Installation",
         "url": "https://example.test/job/456",
     }
 ], matrix["failed_links"]
