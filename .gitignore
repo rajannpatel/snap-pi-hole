@@ -30,3 +30,4 @@ coverage/
 local-sbom/
 local-sbom.json
 local-extracted-snap/
+.deckwork/
