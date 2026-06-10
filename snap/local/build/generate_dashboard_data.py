@@ -139,26 +139,6 @@ def run_duration_seconds(run):
     return max(0, int((ended - started).total_seconds()))
 
 
-def find_failed_job_link(client, run_id):
-    jobs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run_id}/jobs"
-    jobs_data = client.get_json_or_empty(jobs_url, params={"per_page": 100})
-    for job in jobs_data.get("jobs", []):
-        if job.get("conclusion") in {"failure", "timed_out", "cancelled", "action_required", "startup_failure"}:
-            return {
-                "job_name": job.get("name", "Failed job"),
-                "url": job.get("html_url", ""),
-                "conclusion": job.get("conclusion", "failure"),
-            }
-    return None
-
-
-def latest_workflow_run(client, workflow_file):
-    url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/workflows/{workflow_file}/runs"
-    data = client.get_json_or_empty(url, params={"per_page": 1})
-    runs = data.get("workflow_runs", [])
-    return runs[0] if runs else None
-
-
 def calculate_update_frequency_days(timestamps):
     ordered = sorted([t for t in timestamps if t], reverse=True)
     if len(ordered) < 2:
@@ -223,17 +203,62 @@ def collect_build_status(client):
     }
 
 
-def live_status_badge_url(workflow_file):
-    """Shields.io badge that reflects the workflow's latest run status live.
+def get_status_badge_url(status):
+    if status == "success":
+        color = "success"
+        label = "passed"
+    elif status in {"failure", "timed_out", "cancelled", "startup_failure", "action_required"}:
+        color = "critical"
+        label = "failed"
+    elif status in {"in_progress", "running"}:
+        color = "blue"
+        label = "running"
+    elif status in {"queued", "waiting", "no_data", "unknown"}:
+        color = "lightgrey"
+        label = "no--data" if status == "no_data" else "queued"
+    else:
+        color = "lightgrey"
+        label = status
+    return f"https://img.shields.io/badge/status-{label}-{color}?style=flat-square"
 
-    Shields fetches and caches the status server-side, so the badge stays
-    current on every page load without consuming the visitor's GitHub API
-    rate limit.
+
+def job_duration_seconds(job):
+    started = parse_iso(job.get("started_at"))
+    ended = parse_iso(job.get("completed_at"))
+    if not started or not ended:
+        return None
+    return max(0, int((ended - started).total_seconds()))
+
+
+def distro_job_key(workflow_file):
+    """Map a test-<distro>.yml workflow to its cicd.yml matrix job key.
+
+    The cicd.yml pipeline runs each distribution as a matrix job named
+    ``distro test (<key>)`` where <key> matches the workflow file stem, e.g.
+    test-rockylinux.yml -> rockylinux -> "distro test (rockylinux)".
     """
-    return (
-        f"https://img.shields.io/github/actions/workflow/status/"
-        f"{OWNER}/{REPO}/{workflow_file}?style=flat-square&label="
+    base = workflow_file
+    if base.startswith("test-"):
+        base = base[len("test-"):]
+    if base.endswith(".yml"):
+        base = base[: -len(".yml")]
+    return base
+
+
+def latest_cicd_run_with_distro_jobs(client):
+    """Return (run, jobs) for the newest cicd.yml run that contains the
+    per-distribution ``distro test (...)`` matrix jobs."""
+    runs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/workflows/cicd.yml/runs"
+    runs_data = client.get_json_or_empty(
+        runs_url,
+        params={"per_page": 10, "branch": "main", "event": "push"},
     )
+    for run in runs_data.get("workflow_runs", []):
+        jobs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run.get('id')}/jobs"
+        jobs = client.get_json_or_empty(jobs_url, params={"per_page": 100}).get("jobs", [])
+        if any(job.get("name", "").startswith("distro test (") for job in jobs):
+            return run, jobs
+    return None, []
 
 
 def collect_distro_matrix(client):
@@ -243,37 +268,39 @@ def collect_distro_matrix(client):
 
     failure_states = {"failure", "timed_out", "cancelled", "action_required", "startup_failure"}
 
-    for item in DISTRO_WORKFLOWS:
-        # Each distribution is exercised by its own test-<distro>.yml workflow,
-        # so the latest run of that workflow is the source of truth.
-        run = latest_workflow_run(client, item["workflow"])
+    # Each distribution is exercised as a `distro test (<key>)` matrix job inside
+    # the main cicd.yml pipeline, which runs on every push to main, so the newest
+    # pipeline run that carries those jobs is the source of truth for the matrix.
+    target_run, jobs = latest_cicd_run_with_distro_jobs(client)
+    run_number = target_run.get("run_number") if target_run else None
 
-        status = summarize_state(run)
-        conclusion = run.get("conclusion") if run else "no_data"
-        duration = run_duration_seconds(run) if run else None
-        updated = run.get("updated_at", "") if run else ""
-        run_url = run.get("html_url", "") if run else ""
-        run_number = run.get("run_number") if run else None
+    for item in DISTRO_WORKFLOWS:
+        prefix = f"distro test ({distro_job_key(item['workflow'])})"
+        job = next((j for j in jobs if j.get("name", "").startswith(prefix)), None)
+
+        status = summarize_state(job)
+        conclusion = job.get("conclusion") if job else "no_data"
+        duration = job_duration_seconds(job) if job else None
+        updated = (job.get("completed_at") or job.get("started_at") or "") if job else ""
+        if not updated and target_run:
+            updated = target_run.get("updated_at", "")
+        run_url = (job.get("html_url", "") if job else "") or (target_run.get("html_url", "") if target_run else "")
 
         if updated:
             latest_timestamps.append(parse_iso(updated))
 
         failed_job_url = ""
-        if run and status in failure_states:
-            failed = find_failed_job_link(client, run.get("id"))
-            if failed:
-                failed_job_url = failed.get("url", "") or run_url
-                failed_links.append(
-                    {
-                        "distro": item["label"],
-                        "workflow": item["workflow"],
-                        "run_number": run_number,
-                        "job_name": failed.get("job_name", "Failed job"),
-                        "url": failed_job_url,
-                    }
-                )
-            else:
-                failed_job_url = run_url
+        if job and status in failure_states:
+            failed_job_url = job.get("html_url", "") or run_url
+            failed_links.append(
+                {
+                    "distro": item["label"],
+                    "workflow": item["workflow"],
+                    "run_number": run_number,
+                    "job_name": job.get("name", "Failed job"),
+                    "url": failed_job_url,
+                }
+            )
 
         matrix.append(
             {
@@ -281,7 +308,8 @@ def collect_distro_matrix(client):
                 "label": item["label"],
                 "family": item["family"],
                 "workflow": item["workflow"],
-                "status_badge_url": live_status_badge_url(item["workflow"]),
+                "distro": distro_job_key(item["workflow"]),
+                "status_badge_url": get_status_badge_url(status),
                 "status": status,
                 "conclusion": conclusion,
                 "run_number": run_number,
@@ -638,15 +666,39 @@ def dt_to_iso(value):
     return value.isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def build_snapcraft_payload(client, repo_root):
+    snap_package = collect_snap_package_data(client, repo_root)
+    return {
+        "generated_at": utc_now_iso(),
+        "data_last_updated": snap_package.get("last_updated") or utc_now_iso(),
+        "snap_package": snap_package,
+    }
+
+
 def main():
-    repo_root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
-    output_path = pathlib.Path(sys.argv[2] if len(sys.argv) > 2 else repo_root / "docs" / "dashboard-data.json")
-    vuln_summary_path = pathlib.Path(
-        sys.argv[3] if len(sys.argv) > 3 else repo_root / "vulnerability-reports" / "osv-summary.json"
-    )
+    args = [a for a in sys.argv[1:] if a != "--snapcraft-only"]
+    snapcraft_only = "--snapcraft-only" in sys.argv[1:]
+    repo_root = pathlib.Path(args[0] if len(args) > 0 else ".").resolve()
 
     token = os.environ.get("GITHUB_TOKEN", "")
     client = HTTPClient(token=token)
+
+    # Snapcraft-exclusive data (snap-store metadata) has no browser-reachable
+    # API and changes independently of code pushes, so it lives in its own file
+    # refreshed on an hourly schedule rather than only at deploy time.
+    if snapcraft_only:
+        output_path = pathlib.Path(
+            args[1] if len(args) > 1 else repo_root / "docs" / "snapcraft-dashboard-data.json"
+        )
+        payload = build_snapcraft_payload(client, repo_root)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        return
+
+    output_path = pathlib.Path(args[1] if len(args) > 1 else repo_root / "docs" / "dashboard-data.json")
+    vuln_summary_path = pathlib.Path(
+        args[2] if len(args) > 2 else repo_root / "vulnerability-reports" / "osv-summary.json"
+    )
 
     versions = extract_snapcraft_versions(repo_root / "snap" / "snapcraft.yaml")
     build_status = collect_build_status(client)

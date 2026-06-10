@@ -1,0 +1,90 @@
+name: Refresh snapcraft dashboard data
+
+# The snap-store package metadata is the only dashboard data that has no
+# browser-reachable API (api.snapcraft.io sends no CORS headers) and that can
+# change between code pushes as the Store propagates a freshly published
+# revision. It is therefore generated on its own hourly schedule and published
+# to a GitHub Gist that the dashboard reads client-side. A gist is used instead
+# of a repo branch so that nothing is ever committed to this repository: the
+# repo history, branch list and Actions-triggering surface all stay untouched.
+#
+# Gists are user-level resources, so the default GITHUB_TOKEN cannot write them.
+# This workflow needs a Personal Access Token with the "gist" scope stored as
+# the GIST_TOKEN secret. No gist has to be created by hand: the first run finds
+# an existing managed gist or creates a new public one, then reuses it forever.
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: refresh-snapcraft-data
+  cancel-in-progress: true
+
+# No repository write access is required: the only side effect is updating a
+# gist via the GIST_TOKEN secret.
+permissions:
+  contents: read
+
+env:
+  DATA_FILE: snapcraft-dashboard-data.json
+  # Marker that identifies the gist this workflow owns, so it never clobbers an
+  # unrelated gist that happens to share the file name. Kept in sync with the
+  # dashboard's discovery logic.
+  GIST_DESCRIPTION: "snap-pi-hole dashboard data (auto-updated hourly; do not edit)"
+
+jobs:
+  refresh:
+    name: Regenerate snapcraft-dashboard-data.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Generate snapcraft dashboard data
+        run: |
+          # Uses only the public api.snapcraft.io info endpoint plus local git
+          # history, so no Snap Store credentials are required.
+          python3 snap/local/build/generate_dashboard_data.py --snapcraft-only . "${DATA_FILE}"
+          echo "----- ${DATA_FILE} -----"
+          cat "${DATA_FILE}"
+
+      - name: Publish to gist
+        env:
+          GH_TOKEN: ${{ secrets.GIST_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::error::GIST_TOKEN secret is not set. Create a PAT with the 'gist' scope and add it as the GIST_TOKEN repository secret." >&2
+            exit 1
+          fi
+
+          # Build the gist API request body, embedding the file content safely.
+          python3 - "${DATA_FILE}" "${GIST_DESCRIPTION}" > body.json <<'PY'
+          import json, sys
+          data_file, description = sys.argv[1], sys.argv[2]
+          with open(data_file, encoding="utf-8") as handle:
+              content = handle.read()
+          print(json.dumps({
+              "description": description,
+              "public": True,
+              "files": {data_file: {"content": content}},
+          }))
+          PY
+
+          # Find a gist we already own that carries our marker description and
+          # the expected file name. Reuse it if present, otherwise create one.
+          gist_id="$(gh api --paginate /gists \
+            --jq ".[] | select(.files[\"${DATA_FILE}\"]) | select(.description == \"${GIST_DESCRIPTION}\") | .id" \
+            | head -n1)"
+
+          if [ -n "${gist_id}" ]; then
+            echo "Updating existing gist ${gist_id}."
+            gh api --method PATCH "/gists/${gist_id}" --input body.json \
+              --jq '"Updated " + .html_url'
+          else
+            echo "No managed gist found; creating a new public gist."
+            gh api --method POST /gists --input body.json \
+              --jq '"Created " + .html_url + " (id " + .id + ")"'
+          fi

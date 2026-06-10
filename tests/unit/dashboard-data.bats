@@ -74,7 +74,7 @@ assert time2 == ""
 PYEOF
 }
 
-@test "dashboard data: distro matrix records failed job links and no-data rows" {
+@test "dashboard data: distro matrix reads cicd.yml distro-test jobs (failed, passed, no-data)" {
     python3 - <<PYEOF
 import sys
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
@@ -82,7 +82,7 @@ import generate_dashboard_data as dashboard
 
 class FakeClient:
     def get_json_or_empty(self, url, headers=None, params=None):
-        if url.endswith("/actions/workflows/test-failing.yml/runs"):
+        if url.endswith("/actions/workflows/cicd.yml/runs"):
             return {
                 "workflow_runs": [
                     {
@@ -90,25 +90,33 @@ class FakeClient:
                         "status": "completed",
                         "conclusion": "failure",
                         "run_number": 42,
+                        "head_branch": "main",
+                        "event": "push",
                         "run_started_at": "2026-06-08T10:00:00Z",
                         "updated_at": "2026-06-08T10:03:05Z",
                         "html_url": "https://example.test/run/123",
                     }
                 ]
             }
-        if url.endswith("/actions/workflows/test-missing.yml/runs"):
-            return {"workflow_runs": []}
         if url.endswith("/actions/runs/123/jobs"):
             return {
                 "jobs": [
-                    {"name": "setup", "conclusion": "success", "html_url": ""},
+                    {"name": "build (amd64)", "status": "completed", "conclusion": "success", "html_url": ""},
                     {
-                        "name": "test / Validate Snap Installation",
+                        "name": "distro test (failing) / Validate Snap Installation",
                         "status": "completed",
                         "conclusion": "failure",
                         "started_at": "2026-06-08T10:00:00Z",
                         "completed_at": "2026-06-08T10:03:05Z",
                         "html_url": "https://example.test/job/456",
+                    },
+                    {
+                        "name": "distro test (passing) / Validate Snap Installation",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "started_at": "2026-06-08T10:00:00Z",
+                        "completed_at": "2026-06-08T10:02:00Z",
+                        "html_url": "https://example.test/job/457",
                     },
                 ]
             }
@@ -118,6 +126,7 @@ original = dashboard.DISTRO_WORKFLOWS
 try:
     dashboard.DISTRO_WORKFLOWS = [
         {"id": "failing", "label": "Failing OS", "workflow": "test-failing.yml", "family": "Test"},
+        {"id": "passing", "label": "Passing OS", "workflow": "test-passing.yml", "family": "Test"},
         {"id": "missing", "label": "Missing OS", "workflow": "test-missing.yml", "family": "Test"},
     ]
     matrix = dashboard.collect_distro_matrix(FakeClient())
@@ -125,24 +134,39 @@ finally:
     dashboard.DISTRO_WORKFLOWS = original
 
 rows = {row["id"]: row for row in matrix["rows"]}
+
+# Failing distro: status, duration, badge and failed-link all sourced from the job
 assert rows["failing"]["status"] == "failure", rows["failing"]
 assert rows["failing"]["duration_seconds"] == 185, rows["failing"]
 assert rows["failing"]["duration_label"] == "3m 5s", rows["failing"]
 assert rows["failing"]["run_number"] == 42, rows["failing"]
+assert rows["failing"]["distro"] == "failing", rows["failing"]
 assert rows["failing"]["failed_job_url"] == "https://example.test/job/456", rows["failing"]
 assert rows["failing"]["status_badge_url"] == (
-    "https://img.shields.io/github/actions/workflow/status/"
-    "rajannpatel/snap-pi-hole/test-failing.yml?style=flat-square&label="
+    "https://img.shields.io/badge/status-failed-critical?style=flat-square"
 ), rows["failing"]
+
+# Passing distro: success badge, no failed link
+assert rows["passing"]["status"] == "success", rows["passing"]
+assert rows["passing"]["status_badge_url"] == (
+    "https://img.shields.io/badge/status-passed-success?style=flat-square"
+), rows["passing"]
+assert rows["passing"]["failed_job_url"] == "", rows["passing"]
+
+# Missing distro: no matching job -> no_data row
 assert rows["missing"]["status"] == "no_data", rows["missing"]
 assert rows["missing"]["conclusion"] == "no_data", rows["missing"]
 assert rows["missing"]["duration_label"] == "Unknown", rows["missing"]
+assert rows["missing"]["status_badge_url"] == (
+    "https://img.shields.io/badge/status-no--data-lightgrey?style=flat-square"
+), rows["missing"]
+
 assert matrix["failed_links"] == [
     {
         "distro": "Failing OS",
         "workflow": "test-failing.yml",
         "run_number": 42,
-        "job_name": "test / Validate Snap Installation",
+        "job_name": "distro test (failing) / Validate Snap Installation",
         "url": "https://example.test/job/456",
     }
 ], matrix["failed_links"]
