@@ -6,15 +6,72 @@
   <title>snap Pi-hole CI/CD Reports</title>
   <!-- VANILLA_FRAMEWORK_CSS -->
   <style>
+    /* ==========================================================================
+       1. Base Overrides & Resets
+       ========================================================================== */
+    main.p-strip {
+      background-color: #ffffff;
+      padding-top: 2rem !important;
+      padding-bottom: 2rem !important;
+    }
+
+    .mono {
+      font-family: "Ubuntu Mono", monospace;
+    }
+
+    /* ==========================================================================
+       2. Navigation & Breadcrumbs
+       ========================================================================== */
     .p-breadcrumbs {
       min-height: 1.5rem;
+      margin-bottom: 1rem;
     }
+
     .p-breadcrumbs__item,
     .p-breadcrumbs__item a {
       font-weight: 400;
       letter-spacing: normal;
       text-transform: none;
     }
+
+    .navigation-logo-link {
+      display: flex;
+      align-items: center;
+      text-decoration: none;
+    }
+
+    .navigation-logo-img {
+      height: 32px;
+      width: 32px;
+    }
+
+    /* ==========================================================================
+       3. Page Sections & Layout Grid
+       ========================================================================== */
+    .dashboard-section {
+      margin-top: 1rem;
+    }
+
+    .dashboard-section--spacing {
+      margin-top: 2rem;
+    }
+
+    .dashboard-row {
+      margin-bottom: 1.5rem;
+    }
+
+    section[aria-labelledby],
+    section[aria-label] {
+      margin-bottom: 2rem;
+    }
+
+    .table-container {
+      overflow-x: auto;
+    }
+
+    /* ==========================================================================
+       4. Headers, Titles & Spotlight Metrics
+       ========================================================================== */
     .p-muted-heading-container {
       align-items: center;
       background-color: #f1f1f1;
@@ -26,31 +83,119 @@
       padding: 8px !important;
       width: 100%;
     }
+
     .p-muted-heading-container .p-muted-heading {
       margin: 0 !important;
       padding: 0 !important;
       text-transform: none;
     }
+
     .p-card__title,
     .p-card h3,
     .p-card h4,
     .p-heading--4 {
       font-weight: 400;
     }
+
+    .dashboard-card-title {
+      margin-bottom: 0.75rem;
+    }
+
+    .security-spotlight {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+
+    .security-spotlight__metric {
+      flex: 1 1 8rem;
+    }
+
+    .security-spotlight__rule {
+      margin: 0 0 1rem 0;
+    }
+
+    .security-spotlight__label {
+      margin-top: 0.5rem;
+    }
+
+    .security-spotlight__policy {
+      margin-top: 1.5rem;
+    }
+
+    .dashboard-metric {
+      font-size: 1.25rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .dashboard-section-title {
+      margin-bottom: 1rem;
+    }
+
+    /* ==========================================================================
+       5. Cards & Details Tables Component
+       ========================================================================== */
     .dashboard-card {
       height: 100%;
       max-width: none;
       width: 100%;
+      display: flex;
+      flex-direction: column;
     }
+
     .dashboard-card__hint {
       color: var(--vf-color-text-muted);
       font-size: 0.875rem;
       line-height: 1.5rem;
-      margin: 0;
+      margin: 0.5rem 0 0 0;
     }
+
     .dashboard-card__intro {
       padding-bottom: 1rem;
     }
+
+    .dashboard-card-action {
+      margin-top: auto;
+    }
+
+    #failed-log-links {
+      margin-bottom: 0;
+    }
+
+    .dashboard-card .p-card__thumbnail {
+      display: block;
+      height: 64px;
+      object-fit: contain;
+      width: 64px;
+    }
+
+    .dashboard-details-table {
+      width: 100%;
+      border: none;
+      font-size: 0.9rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .dashboard-details-table tr {
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+    }
+
+    .dashboard-details-table tr:last-child {
+      border-bottom: none;
+    }
+
+    .dashboard-details-table td {
+      padding: 0.5rem 0;
+    }
+
+    .dashboard-details-table td.label {
+      font-weight: bold;
+      width: 35%;
+    }
+
+    /* ==========================================================================
+       6. Freshness & Status Chips
+       ========================================================================== */
     .freshness-chip {
       align-items: center;
       background: #fff;
@@ -64,6 +209,7 @@
       vertical-align: middle;
       white-space: nowrap;
     }
+
     .freshness-chip__dot {
       background: #757575;
       border-radius: 50%;
@@ -71,16 +217,19 @@
       height: 0.5rem;
       width: 0.5rem;
     }
+
     .freshness-chip__detail {
       color: var(--vf-color-text-muted);
       font-variant-numeric: tabular-nums;
     }
+
     .freshness-chip[data-status="fresh"] .freshness-chip__dot { background: #0e8420; }
     .freshness-chip[data-status="stale"] .freshness-chip__dot { background: #c7162b; }
     .freshness-chip[data-status="building"] .freshness-chip__dot {
       animation: dashboard-pulse 1.2s ease-in-out infinite;
       background: #0b6bc5;
     }
+
     .freshness-chip--inline {
       flex-wrap: wrap;
       font-variant: normal;
@@ -90,30 +239,7 @@
       vertical-align: middle;
       white-space: normal;
     }
-    .security-spotlight {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1.5rem;
-    }
-    .security-spotlight__metric {
-      flex: 1 1 8rem;
-    }
-    .security-spotlight__rule {
-      margin: 0 0 1rem 0;
-    }
-    .security-spotlight__label {
-      margin-top: 0.5rem;
-    }
-    .security-spotlight__policy {
-      margin-top: 1.5rem;
-    }
-    .dashboard-metric {
-      font-size: 1.25rem;
-      margin-bottom: 0.25rem;
-    }
-    .dashboard-section-title {
-      margin-bottom: 1rem;
-    }
+
     .status-chip {
       border-radius: 999px;
       color: #fff;
@@ -127,9 +253,11 @@
       text-transform: uppercase;
       white-space: nowrap;
     }
+
     .status-text-short {
       display: none;
     }
+
     @media (max-width: 767px) {
       .status-text-full {
         display: none;
@@ -138,12 +266,7 @@
         display: inline;
       }
     }
-    .dashboard-card .p-card__thumbnail {
-      display: block;
-      height: 64px;
-      object-fit: contain;
-      width: 64px;
-    }
+
     .status-success { background: #0e8420; }
     .status-failure,
     .status-cancelled,
@@ -157,18 +280,40 @@
     .status-skipped,
     .status-unknown { background: #757575; }
     .status-building { background: #0b6bc5; }
+
+    /* Custom built-on repository status tags */
+    .status-chip--github {
+      background: #24292e !important;
+      text-transform: none;
+    }
+
+    .status-chip--launchpad {
+      background: #e95420 !important;
+      text-transform: none;
+    }
+
+    #snap-package-freshness {
+      margin-bottom: 1rem;
+    }
+
+    /* ==========================================================================
+       7. Spinners & Animations
+       ========================================================================== */
     @keyframes dashboard-pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
+
     .is-building {
       animation: dashboard-pulse 1.2s ease-in-out infinite;
     }
+
     .matrix-building {
       align-items: center;
       display: inline-flex;
       gap: 0.4rem;
     }
+
     .matrix-building__spinner {
       animation: dashboard-spin 0.9s linear infinite;
       border: 2px solid rgba(11, 107, 197, 0.25);
@@ -177,9 +322,14 @@
       height: 0.85rem;
       width: 0.85rem;
     }
+
     @keyframes dashboard-spin {
       to { transform: rotate(360deg); }
     }
+
+    /* ==========================================================================
+       8. Trend Charts & Matrix Controls
+       ========================================================================== */
     .trend-chart-wrap {
       height: clamp(16.25rem, 21vh, 18rem);
       margin-top: 0.75rem;
@@ -187,16 +337,19 @@
       position: relative;
       width: 100%;
     }
+
     #duration-trend-chart {
       height: 100%;
       overflow: hidden;
       width: 100%;
     }
+
     .finance-chart-svg {
       display: block;
       height: 100%;
       width: 100%;
     }
+
     .finance-chart-tooltip {
       min-width: 18rem;
       width: 18rem;
@@ -207,23 +360,28 @@
       visibility: hidden;
       z-index: 2;
     }
+
     .finance-chart-tooltip.is-visible {
       opacity: 1;
       visibility: visible;
     }
+
     .finance-chart-tooltip [class*="p-notification--"] {
       margin: 0;
     }
+
     @media (max-width: 979px) {
       .trend-chart-wrap {
         height: 20rem;
       }
     }
+
     @media (min-width: 1036px) {
       .trend-chart-wrap {
         height: 16.25rem;
       }
     }
+
     .matrix-controls {
       align-items: center;
       display: flex;
@@ -231,6 +389,10 @@
       gap: 0.6rem;
       margin-bottom: 0.8rem;
     }
+
+    /* ==========================================================================
+       9. Tables & Element Alignments
+       ========================================================================== */
     .os-badge {
       border-radius: 50%;
       display: inline-block;
@@ -239,32 +401,55 @@
       vertical-align: middle;
       width: 20px;
     }
+
     .status-shield {
       display: inline-block;
       height: 20px;
       max-width: 100%;
       vertical-align: middle;
     }
+
+    td {
+      vertical-align: top;
+    }
+
+    td .p-button {
+      margin-top: -6px !important;
+      margin-bottom: -6px !important;
+      vertical-align: top;
+    }
+
+    td .status-chip {
+      margin-top: -2px !important;
+      margin-bottom: -2px !important;
+      vertical-align: top;
+    }
+
+    td .os-badge {
+      margin-top: 2px !important;
+      margin-bottom: 2px !important;
+      vertical-align: top;
+    }
+
     .matrix-table th.os-logo-col,
     .matrix-table td.os-logo-col {
       padding-right: 0.25rem;
       width: 2.75rem;
     }
+
     .matrix-table th.distribution-col,
     .matrix-table td.distribution-col {
       padding-left: 0.25rem;
     }
-    .mono {
-      font-family: "Ubuntu Mono", monospace;
-    }
-    /* Vanilla's .p-table forces fixed layout + ellipsis truncation; the snap, matrix,
-       and components tables must size columns to content instead of clipping when the viewport is narrow. */
+
+    /* Table columns sizing overrides (Prevents clipping/truncation) */
     .snap-package-table,
     .matrix-table,
     .components-table {
       table-layout: auto;
       width: 100%;
     }
+
     .snap-package-table th,
     .snap-package-table td,
     .matrix-table th,
@@ -275,17 +460,24 @@
       text-overflow: clip;
       white-space: nowrap;
     }
+
     .snap-package-table td.snap-version {
       overflow-wrap: anywhere;
       white-space: normal;
       min-width: 16ch;
     }
+
     .build-detail-grid {
       margin-top: 0.5rem;
     }
+
     .build-detail-grid .p-card__content {
       margin-bottom: 0.5rem;
     }
+
+    /* ==========================================================================
+       10. Footer Section
+       ========================================================================== */
     footer.p-strip--dark {
       background-color: #2d2d2d !important;
       color: #b6b6b6 !important;
@@ -293,14 +485,17 @@
       padding-bottom: 2rem !important;
       padding-top: 2rem !important;
     }
+
     footer.p-strip--dark h2 {
       color: #eaeaea !important;
     }
+
     footer.p-strip--dark a {
       color: rgb(102, 153, 204) !important;
       text-decoration: none;
       transition: color 0.2s ease, text-decoration 0.2s ease;
     }
+
     footer.p-strip--dark a:hover {
       color: #e95420 !important;
       text-decoration: underline !important;
@@ -312,17 +507,17 @@
     <header id="navigation" class="p-navigation is-dark">
       <div class="p-navigation__row">
         <div class="p-navigation__banner">
-          <a class="p-navigation__link" href="https://github.com/rajannpatel/snap-pi-hole" style="display: flex; align-items: center; text-decoration: none;">
-            <img src="pihole.png" alt="Pi-hole Logo" style="height: 32px; width: 32px;">
+          <a class="p-navigation__link navigation-logo-link" href="https://github.com/rajannpatel/snap-pi-hole">
+            <img src="pihole.png" alt="Pi-hole Logo" class="navigation-logo-img">
           </a>
         </div>
       </div>
     </header>
 
-    <main class="p-strip" style="background-color: #ffffff; padding-top: 2rem !important; padding-bottom: 2rem !important;">
+    <main class="p-strip">
       <header class="row">
         <div class="col-12">
-          <nav class="p-breadcrumbs" aria-label="Breadcrumbs" style="margin-bottom: 1rem;">
+          <nav class="p-breadcrumbs" aria-label="Breadcrumbs">
             <ol class="p-breadcrumbs__items">
               <li class="p-breadcrumbs__item" aria-current="page">Reports Dashboard</li>
             </ol>
@@ -332,7 +527,7 @@
         </div>
       </header>
 
-      <section class="p-section" style="margin-top: 1rem;" aria-label="Reports content">
+      <section class="p-section dashboard-section" aria-label="Reports content">
         <div class="row">
           <div class="col-12">
             <div class="p-muted-heading-container">
@@ -385,7 +580,7 @@
         </div>
       </section>
 
-      <section aria-labelledby="build-status-title" style="margin-bottom: 2rem;">
+      <section aria-labelledby="build-status-title">
         <div class="row">
           <div class="col-12">
             <div class="p-muted-heading-container">
@@ -394,35 +589,35 @@
             </div>
           </div>
         </div>
-        <div class="row u-equal-height" style="margin-bottom: 1.5rem;">
+        <div class="row u-equal-height dashboard-row">
           <div class="col-6">
-            <article class="p-card dashboard-card" style="display: flex; flex-direction: column;">
+            <article class="p-card dashboard-card">
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/run-command.png" alt="Run command icon">
               <hr class="u-sv1">
-              <h3 style="margin-bottom: 0.75rem;">Latest pipeline run</h3>
-              <table style="width: 100%; border: none; font-size: 0.9rem; margin-bottom: 1.25rem;">
+              <h3 class="dashboard-card-title">Latest pipeline run</h3>
+              <table class="dashboard-details-table">
                 <tbody>
-                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
-                    <td style="padding: 0.5rem 0; font-weight: bold; width: 35%;">Identifier</td>
-                    <td style="padding: 0.5rem 0;" class="mono" id="latest-run-title">Loading...</td>
+                  <tr>
+                    <td class="label">Identifier</td>
+                    <td class="mono" id="latest-run-title">Loading...</td>
                   </tr>
-                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
-                    <td style="padding: 0.5rem 0; font-weight: bold;">Status</td>
-                    <td style="padding: 0.5rem 0;">
+                  <tr>
+                    <td class="label">Status</td>
+                    <td>
                       <span id="latest-run-status-chip" class="status-chip status-neutral">unknown</span>
                     </td>
                   </tr>
-                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
-                    <td style="padding: 0.5rem 0; font-weight: bold;">Duration</td>
-                    <td style="padding: 0.5rem 0;" class="mono" id="latest-run-duration">Unknown</td>
+                  <tr>
+                    <td class="label">Duration</td>
+                    <td class="mono" id="latest-run-duration">Unknown</td>
                   </tr>
                   <tr>
-                    <td style="padding: 0.5rem 0; font-weight: bold;">Updated</td>
-                    <td style="padding: 0.5rem 0;" class="mono" id="latest-run-updated">Unknown</td>
+                    <td class="label">Updated</td>
+                    <td class="mono" id="latest-run-updated">Unknown</td>
                   </tr>
                 </tbody>
               </table>
-              <div style="margin-top: auto;">
+              <div class="dashboard-card-action">
                 <a id="latest-run-link" class="p-button u-no-margin--bottom" href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" target="_blank" rel="noopener noreferrer">View pipeline run</a>
               </div>
             </article>
@@ -432,7 +627,7 @@
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/bug.png" alt="Bug icon">
               <hr class="u-sv1">
               <h3>Failed test logs</h3>
-              <ul class="p-list" id="failed-log-links" style="margin-bottom: 0;">
+              <ul class="p-list" id="failed-log-links">
                 <li class="p-list__item">Loading failed test links...</li>
               </ul>
             </article>
@@ -450,7 +645,7 @@
           </div>
         </div>
 
-        <section class="p-section" style="margin-top: 2rem;" aria-label="Test status matrix">
+        <section class="p-section dashboard-section--spacing" aria-label="Test status matrix">
           <div class="row">
             <div class="col-12">
               <hr class="p-rule">
@@ -465,7 +660,7 @@
           </div>
           <div class="row">
             <div class="col-12">
-              <div style="overflow-x: auto;">
+              <div class="table-container">
                 <table class="p-table matrix-table">
                   <caption class="u-off-screen">Distribution test status matrix</caption>
                   <thead>
@@ -502,20 +697,20 @@
             <article class="p-card dashboard-card">
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/software-installer.png" alt="Installer icon">
               <hr class="u-sv1">
-              <h3 style="margin-bottom: 0.75rem;">snap update frequency</h3>
-              <table style="width: 100%; border: none; font-size: 0.9rem; margin-bottom: 1.25rem;">
+              <h3 class="dashboard-card-title">snap update frequency</h3>
+              <table class="dashboard-details-table">
                 <tbody>
-                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
-                    <td style="padding: 0.5rem 0; font-weight: bold; width: 35%;">Frequency</td>
-                    <td style="padding: 0.5rem 0;" class="mono" id="snap-update-frequency">--</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
-                    <td style="padding: 0.5rem 0; font-weight: bold;">Interval Type</td>
-                    <td style="padding: 0.5rem 0;">Average release interval</td>
+                  <tr>
+                    <td class="label">Frequency</td>
+                    <td class="mono" id="snap-update-frequency">--</td>
                   </tr>
                   <tr>
-                    <td style="padding: 0.5rem 0; font-weight: bold;">Basis</td>
-                    <td style="padding: 0.5rem 0;">Average days between recent successful main-branch CI/CD pushes.</td>
+                    <td class="label">Interval Type</td>
+                    <td>Average release interval</td>
+                  </tr>
+                  <tr>
+                    <td class="label">Basis</td>
+                    <td>Average days between recent successful main-branch CI/CD pushes.</td>
                   </tr>
                 </tbody>
               </table>
@@ -525,27 +720,27 @@
             <article class="p-card dashboard-card">
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/pull-request.png" alt="Pull request icon">
               <hr class="u-sv1">
-              <h3 style="margin-bottom: 0.75rem;">Last track-upstream update</h3>
-              <table style="width: 100%; border: none; font-size: 0.9rem; margin-bottom: 1.25rem;">
+              <h3 class="dashboard-card-title">Last track-upstream update</h3>
+              <table class="dashboard-details-table">
                 <tbody>
-                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
-                    <td style="padding: 0.5rem 0; font-weight: bold; width: 35%;">Status</td>
-                    <td style="padding: 0.5rem 0;" id="last-track-update-status">Loading...</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
-                    <td style="padding: 0.5rem 0; font-weight: bold;">Updated</td>
-                    <td style="padding: 0.5rem 0;" class="mono" id="last-track-update">--</td>
+                  <tr>
+                    <td class="label">Status</td>
+                    <td id="last-track-update-status">Loading...</td>
                   </tr>
                   <tr>
-                    <td style="padding: 0.5rem 0; font-weight: bold;">Cadence</td>
-                    <td style="padding: 0.5rem 0;" id="update-frequency">Loading…</td>
+                    <td class="label">Updated</td>
+                    <td class="mono" id="last-track-update">--</td>
+                  </tr>
+                  <tr>
+                    <td class="label">Cadence</td>
+                    <td id="update-frequency">Loading…</td>
                   </tr>
                 </tbody>
               </table>
             </article>
           </div>
         </div>
-        <section class="p-section" style="margin-top: 2rem;" aria-label="snap package metadata">
+        <section class="p-section dashboard-section--spacing" aria-label="snap package metadata">
           <div class="row">
             <div class="col-12">
               <hr class="p-rule">
@@ -561,8 +756,8 @@
           <div class="row">
             <div class="col-12">
               <p class="p-heading--4">Latest published revision per architecture, with its build source and serving status.</p>
-              <div id="snap-package-freshness" hidden style="margin-bottom: 1rem;"></div>
-              <div style="overflow-x: auto;">
+              <div id="snap-package-freshness" hidden></div>
+              <div class="table-container">
                 <table class="p-table snap-package-table">
                   <thead>
                     <tr>
@@ -580,7 +775,7 @@
                   </tbody>
                 </table>
               </div>
-              <p class="dashboard-card__hint" style="margin-top: 0.5rem;">
+              <p class="dashboard-card__hint">
                 <strong>amd64</strong> and <strong>arm64</strong> are built on GitHub-hosted runners with snapcraft
                 <code>9.x/candidate</code> and are the revisions served on snapcraft.io today. The remaining
                 architectures are built on Launchpad, which only offers snapcraft from the <code>stable</code> channel;
@@ -591,7 +786,7 @@
         </section>
       </section>
 
-      <section aria-label="snap ingredients" style="margin-bottom: 2rem;">
+      <section aria-label="snap ingredients">
         <section class="p-section" aria-label="Pi-hole components">
           <div class="row">
             <div class="col-12">
@@ -608,7 +803,7 @@
           <div class="row">
             <div class="col-12">
               <p class="p-heading--4">Version lag and update indicators for FTL, Core, and Web compared with upstream releases.</p>
-              <div style="overflow-x: auto;">
+              <div class="table-container">
                 <table class="p-table components-table">
                   <thead>
                     <tr>
@@ -629,7 +824,7 @@
         </section>
       </section>
 
-      <section aria-labelledby="security-title" style="margin-bottom: 2rem;">
+      <section aria-labelledby="security-title">
         <div class="row">
           <div class="col-12">
             <div class="p-muted-heading-container">
@@ -666,7 +861,7 @@
               <hr class="u-sv1">
               <h3>Architecture breakdown</h3>
               <p class="p-card__content dashboard-card__intro">Vulnerability summary by architecture.</p>
-              <div style="overflow-x: auto;">
+              <div class="table-container">
                 <table class="p-table">
                   <thead>
                     <tr>
@@ -774,6 +969,26 @@
     const checkIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="display: block; margin-right: 0.35rem;"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg>`;
     const warningIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="display: block; margin-right: 0.35rem;"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.5a.552.552 0 0 1-1.1 0l-.35-3.5z"/></svg>`;
     const errorIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="display: block; margin-right: 0.35rem;"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>`;
+    const clockIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="display: block; margin-right: 0.35rem;"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M8 3.5a.75.75 0 0 1 .75.75v3.25h3.25a.75.75 0 0 1 0 1.5h-4a.75.75 0 0 1-.75-.75v-4A.75.75 0 0 1 8 3.5z"/></svg>`;
+    const skippedIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="display: block; margin-right: 0.35rem;"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M4.25 7.25h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5z"/></svg>`;
+
+    // Resolves appropriate status logo SVG icon based on status string
+    function statusIconSvg(status) {
+      const normalized = (status || "unknown").toLowerCase();
+      if (normalized === "success") {
+        return checkIconSvg;
+      }
+      if (FAILURE_STATES.has(normalized)) {
+        return errorIconSvg;
+      }
+      if (BUILDING_STATES.has(normalized) || normalized === "building") {
+        return clockIconSvg;
+      }
+      if (normalized === "skipped") {
+        return skippedIconSvg;
+      }
+      return warningIconSvg;
+    }
 
     // 2. FORMATTING & UTILITY HELPERS
 
@@ -1120,7 +1335,9 @@
         chip.className = building
           ? "status-chip status-building is-building"
           : `status-chip ${statusClass(latest.status)}`;
-        chip.textContent = building ? "building" : (latest.status || "unknown").replace("_", " ");
+        const statusVal = building ? "building" : (latest.status || "unknown");
+        const statusText = statusVal.replace("_", " ");
+        chip.innerHTML = `${statusIconSvg(statusVal)}${statusText}`;
       }
       const latestLink = document.getElementById("latest-run-link");
       if (latestLink && latest.url) {
@@ -1196,15 +1413,15 @@
         }
 
         const statusCell = isBuildingStatus(row.status)
-          ? `<span class="matrix-building" role="status"><span class="matrix-building__spinner" aria-hidden="true"></span><span class="status-chip status-building is-building" aria-label="Status: building">${githubLogoSvg}<span class="status-text-full" aria-hidden="true">building</span><span class="status-text-short" aria-hidden="true">building</span></span></span>`
-          : `<span class="status-chip ${statusClass(row.status)}" aria-label="Status: ${statusText}">${githubLogoSvg}<span class="status-text-full" aria-hidden="true">${statusText}</span><span class="status-text-short" aria-hidden="true">${shortSymbol}</span></span>`;
+          ? `<span class="matrix-building" role="status"><span class="matrix-building__spinner" aria-hidden="true"></span><span class="status-chip status-building is-building" aria-label="Status: building">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">building</span><span class="status-text-short" aria-hidden="true">building</span></span></span>`
+          : `<span class="status-chip ${statusClass(row.status)}" aria-label="Status: ${statusText}">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">${statusText}</span><span class="status-text-short" aria-hidden="true">${shortSymbol}</span></span>`;
         tr.innerHTML = `
           <td class="os-logo-col">${badgeCell}</td>
           <td class="distribution-col">${row.label}</td>
           <td>${statusCell}</td>
           <td class="mono">${row.duration_label || "Unknown"}</td>
           <td class="mono">${formatDate(row.updated_at)}</td>
-          <td>${logUrl ? `<a href="${logUrl}" target="_blank" rel="noopener noreferrer">${row.failed_job_url ? "Open failed log" : "Open run"}</a>` : "N/A"}</td>
+          <td>${logUrl ? `<a class="p-button" href="${logUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; margin-bottom: 0;">${githubLogoSvg}<span>${row.failed_job_url ? "GitHub Job" : "GitHub Run"}</span></a>` : "N/A"}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -1256,7 +1473,7 @@
       }
       rows.forEach((item) => {
         const lag = item.lag_days === null || item.lag_days === undefined ? "Unknown" : `${item.lag_days}d`;
-        const indicator = item.update_available ? `<span class="status-chip status-failure">Update available</span>` : `<span class="status-chip status-success">Up to date</span>`;
+        const indicator = item.update_available ? `<span class="status-chip status-failure">${errorIconSvg}Update available</span>` : `<span class="status-chip status-success">${checkIconSvg}Up to date</span>`;
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${item.name}</td>
@@ -1325,8 +1542,8 @@
       rows.forEach((row) => {
         const isGitHub = row.build_source === "github";
         const builtOn = isGitHub
-          ? `<span class="status-chip status-neutral" style="background: #24292e !important; text-transform: none;">${githubLogoSvg}GitHub</span>`
-          : `<span class="status-chip status-neutral" style="background: #e95420 !important; text-transform: none;">${launchpadLogoSvg}Launchpad</span>`;
+          ? `<span class="status-chip status-neutral status-chip--github">${githubLogoSvg}GitHub</span>`
+          : `<span class="status-chip status-neutral status-chip--launchpad">${launchpadLogoSvg}Launchpad</span>`;
         const channel = row.channel || (row.on_stable ? "stable" : "edge");
         let status;
         if (row.build_status === "current") {

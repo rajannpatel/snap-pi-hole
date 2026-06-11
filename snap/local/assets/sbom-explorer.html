@@ -7,8 +7,21 @@
   <title>Software Bill of Materials (SBOM) - snap Pi-hole</title>
   <!-- VANILLA_FRAMEWORK_CSS -->
   <style>
+    /* ==========================================================================
+       1. Base Overrides & Resets
+       ========================================================================== */
+    main.p-strip {
+      background-color: #ffffff;
+      padding-top: 2rem !important;
+      padding-bottom: 2rem !important;
+    }
+
+    /* ==========================================================================
+       2. Navigation & Breadcrumbs
+       ========================================================================== */
     .p-breadcrumbs {
       min-height: 1.5rem;
+      margin-bottom: 1rem;
     }
 
     .p-breadcrumbs__item,
@@ -20,17 +33,15 @@
       text-transform: none;
     }
 
-    .sbom-subtitle {
-      font-size: 1.125rem;
-      line-height: 1.5;
-      font-weight: 400;
-      color: #525252;
+    .navigation-logo-link {
+      display: flex;
+      align-items: center;
+      text-decoration: none;
     }
 
-    .sbom-filter-label {
-      margin-bottom: 0;
-      white-space: nowrap;
-      font-weight: 400;
+    .navigation-logo-img {
+      height: 32px;
+      width: 32px;
     }
 
     .p-navigation__tagged-logo {
@@ -49,6 +60,34 @@
       text-transform: uppercase;
     }
 
+    /* ==========================================================================
+       3. Page Sections & Layout Grid
+       ========================================================================== */
+    .sbom-downloads-section {
+      margin-top: 1rem;
+    }
+
+    .sbom-explorer-heading-col {
+      padding-top: 6rem;
+    }
+
+    .table-container {
+      overflow-x: auto;
+    }
+
+    /* ==========================================================================
+       4. Headers, Titles & Subtitles
+       ========================================================================== */
+    .sbom-subtitle {
+      font-size: 1.125rem;
+      line-height: 1.5;
+      font-weight: 400;
+      color: #525252;
+    }
+
+    /* ==========================================================================
+       5. Cards Component
+       ========================================================================== */
     .p-card {
       transition: box-shadow 0.2s ease, border-color 0.2s ease;
       display: flex;
@@ -65,14 +104,12 @@
       flex-grow: 1;
     }
 
+    /* ==========================================================================
+       6. Spinners & Animations
+       ========================================================================== */
     @keyframes spin {
-      0% {
-        transform: rotate(0deg);
-      }
-
-      100% {
-        transform: rotate(360deg);
-      }
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
 
     .spinner {
@@ -87,38 +124,64 @@
       margin-right: 0.5rem;
     }
 
+    /* ==========================================================================
+       7. Interactive Controls & Buttons
+       ========================================================================== */
     .p-button-group .p-button.is-active {
       background-color: #e95420 !important;
       color: white !important;
       border-color: #e95420 !important;
     }
 
-    /* Footer Styling - Inspiration from ubuntu.com/desktop */
-    footer.p-strip--dark {
-      background-color: #2d2d2d !important;
-      color: #b6b6b6 !important;
-    }
-    
-    footer.p-strip--dark h2 {
-      color: #eaeaea !important;
-      font-weight: 500 !important;
-    }
-    
-    footer.p-strip--dark p, footer.p-strip--dark li, footer.p-strip--dark span {
-      color: #b6b6b6 !important;
-    }
-    
-    footer.p-strip--dark a, footer.p-strip--dark a.is-dark {
-      color: rgb(102, 153, 204) !important;
-      text-decoration: none !important;
-      transition: color 0.15s ease !important;
-    }
-    
-    footer.p-strip--dark a:hover, footer.p-strip--dark a.is-dark:hover {
-      color: #e95420 !important; /* Ubuntu Orange */
-      text-decoration: underline !important;
+    /* ==========================================================================
+       8. Search & Filter Bar
+       ========================================================================== */
+    .sbom-search-section {
+      margin-top: 2rem;
+      margin-bottom: 2rem;
     }
 
+    .sbom-filter-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .sbom-search-wrap {
+      flex: 1 1 400px;
+    }
+
+    .sbom-search-form {
+      margin-bottom: 0;
+    }
+
+    .sbom-filter-dropdown-wrap {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .sbom-filter-label {
+      margin-bottom: 0;
+      white-space: nowrap;
+      font-weight: 400;
+    }
+
+    .sbom-filter-select {
+      margin-bottom: 0;
+      min-width: 150px;
+    }
+
+    .sbom-filter-select--license {
+      min-width: 180px;
+    }
+
+    /* ==========================================================================
+       9. Tables & Data Display
+       ========================================================================== */
     .sbom-table {
       table-layout: auto !important;
       width: 100% !important;
@@ -130,6 +193,49 @@
       text-overflow: clip !important;
       white-space: nowrap !important;
     }
+
+    /* ==========================================================================
+       10. Dynamic Visibility (Initial State)
+       ========================================================================== */
+    #metadata-section,
+    #search-section,
+    #sbom-loading,
+    #sbom-error,
+    #sbom-table {
+      display: none;
+    }
+
+    /* ==========================================================================
+       11. Footer Section
+       ========================================================================== */
+    footer.p-strip--dark {
+      background-color: #2d2d2d !important;
+      color: #b6b6b6 !important;
+    }
+
+    footer.p-strip--dark h2 {
+      color: #eaeaea !important;
+      font-weight: 500 !important;
+    }
+
+    footer.p-strip--dark p,
+    footer.p-strip--dark li,
+    footer.p-strip--dark span {
+      color: #b6b6b6 !important;
+    }
+
+    footer.p-strip--dark a,
+    footer.p-strip--dark a.is-dark {
+      color: rgb(102, 153, 204) !important;
+      text-decoration: none !important;
+      transition: color 0.15s ease !important;
+    }
+
+    footer.p-strip--dark a:hover,
+    footer.p-strip--dark a.is-dark:hover {
+      color: #e95420 !important; /* Ubuntu Orange */
+      text-decoration: underline !important;
+    }
   </style>
 </head>
 
@@ -140,18 +246,18 @@
     <header id="navigation" class="p-navigation is-dark">
       <div class="p-navigation__row">
         <div class="p-navigation__banner">
-          <a class="p-navigation__link" href="../" style="display: flex; align-items: center; text-decoration: none;">
-            <img src="../pihole.png" alt="Pi-hole Logo" style="height: 32px; width: 32px;">
+          <a class="p-navigation__link navigation-logo-link" href="../">
+            <img src="../pihole.png" alt="Pi-hole Logo" class="navigation-logo-img">
           </a>
         </div>
       </div>
     </header>
 
-    <main class="p-strip" style="background-color: #ffffff; padding-top: 2rem !important; padding-bottom: 2rem !important;">
+    <main class="p-strip">
       <!-- Hero Section -->
       <header class="row">
         <div class="col-12">
-          <nav class="p-breadcrumbs" aria-label="Breadcrumbs" style="margin-bottom: 1rem;">
+          <nav class="p-breadcrumbs" aria-label="Breadcrumbs">
             <ol class="p-breadcrumbs__items">
               <li class="p-breadcrumbs__item">
                 <a href="../">Reports Dashboard</a>
@@ -167,7 +273,7 @@
       </header>
 
       <!-- Downloads & Instructions -->
-      <section class="p-section" style="margin-top: 1rem;" aria-label="SBOM downloads and explorer">
+      <section class="p-section sbom-downloads-section" aria-label="SBOM downloads and explorer">
         <div class="row--50-50">
         <div class="col">
           <article class="p-card">
@@ -200,7 +306,7 @@
 
       <!-- Dynamic Package Explorer -->
       <div class="row u-sv3">
-        <div class="col-12" style="padding-top: 6rem;">
+        <div class="col-12 sbom-explorer-heading-col">
           <h2 class="p-heading--3">Interactive Package Explorer</h2>
           <p>Explore, search, and filter components embedded in the built snap packages in real time.</p>
 
@@ -212,7 +318,7 @@
       </div>
 
       <!-- Metadata Section -->
-      <div class="row u-sv2" id="metadata-section" style="display:none;">
+      <div class="row u-sv2" id="metadata-section">
         <div class="col-4">
           <div class="p-card">
             <span class="p-text--small-muted">TOTAL COMPONENTS</span>
@@ -234,12 +340,12 @@
       </div>
 
       <!-- Search & Filter Section -->
-      <div class="row" id="search-section" style="margin-top: 2rem; margin-bottom: 2rem; display:none;">
+      <div class="row sbom-search-section" id="search-section">
         <div class="col-12">
-          <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between; width: 100%;">
+          <div class="sbom-filter-controls">
             <!-- Search Box -->
-            <div style="flex: 1 1 400px;">
-              <form class="p-search-box" onsubmit="event.preventDefault(); filterSBOM();" style="margin-bottom: 0;">
+            <div class="sbom-search-wrap">
+              <form class="p-search-box sbom-search-form" onsubmit="event.preventDefault(); filterSBOM();">
                 <label class="u-off-screen" for="sbom-search">Search by package name, version, or license</label>
                 <input type="search" id="sbom-search" class="p-search-box__input" placeholder="Search by package name, version, or license..." oninput="filterSBOM()" autocomplete="off">
                 <button type="reset" class="p-search-box__reset" onclick="document.getElementById('sbom-search').value=''; filterSBOM();"><i class="p-icon--close">Clear</i></button>
@@ -247,18 +353,18 @@
               </form>
             </div>
             <!-- Type Filter -->
-            <div style="display: flex; gap: 10px; align-items: center;">
+            <div class="sbom-filter-dropdown-wrap">
               <label for="filter-type" class="sbom-filter-label">Type:</label>
-              <select id="filter-type" onchange="filterSBOM()" style="margin-bottom: 0; min-width: 150px;">
+              <select id="filter-type" onchange="filterSBOM()" class="sbom-filter-select">
                 <option value="all">All Types</option>
                 <option value="library">Library</option>
                 <option value="application">Application</option>
               </select>
             </div>
             <!-- License Filter -->
-            <div style="display: flex; gap: 10px; align-items: center;">
+            <div class="sbom-filter-dropdown-wrap">
               <label for="filter-license" class="sbom-filter-label">License:</label>
-              <select id="filter-license" onchange="filterSBOM()" style="margin-bottom: 0; min-width: 180px;">
+              <select id="filter-license" onchange="filterSBOM()" class="sbom-filter-select sbom-filter-select--license">
                 <option value="all">All Licenses</option>
                 <option value="copyleft">Copyleft (GPL / LGPL)</option>
                 <option value="permissive">Permissive (MIT / Apache / BSD / ISC / public-domain)</option>
@@ -270,11 +376,11 @@
 
       <!-- Table Section -->
       <div class="row">
-        <div class="col-12" style="overflow-x: auto;">
-          <div id="sbom-loading" class="p-text--muted" style="display:none;">
+        <div class="col-12 table-container">
+          <div id="sbom-loading" class="p-text--muted">
             <p><span class="spinner"></span> Loading and parsing SBOM dataset...</p>
           </div>
-          <div id="sbom-error" class="p-notification--negative" style="display:none;">
+          <div id="sbom-error" class="p-notification--negative">
             <div class="p-notification__content">
               <h4 class="p-notification__title">Failed to load SBOM data</h4>
               <p class="p-notification__message" id="error-message">The JSON file for this architecture is not
@@ -282,7 +388,7 @@
             </div>
           </div>
 
-          <table class="p-table sbom-table" id="sbom-table" style="display:none; width: 100%;">
+          <table class="p-table sbom-table" id="sbom-table">
             <caption class="u-off-screen">SBOM package components for the selected architecture</caption>
             <thead>
               <tr>
