@@ -15,16 +15,21 @@
       letter-spacing: normal;
       text-transform: none;
     }
-    .p-muted-heading {
+    .p-muted-heading-container {
       align-items: center;
+      background-color: #f1f1f1;
       display: flex;
       flex-wrap: wrap;
-      font-weight: 400;
       gap: 0.5rem;
       justify-content: space-between;
-      letter-spacing: normal;
-      text-transform: none;
+      max-width: none;
+      padding: 8px !important;
       width: 100%;
+    }
+    .p-muted-heading-container .p-muted-heading {
+      margin: 0 !important;
+      padding: 0 !important;
+      text-transform: none;
     }
     .p-card__title,
     .p-card h3,
@@ -330,7 +335,10 @@
       <section class="p-section" style="margin-top: 1rem;" aria-label="Reports content">
         <div class="row">
           <div class="col-12">
-            <h3 class="p-muted-heading">Reports<span class="freshness-chip freshness-chip--inline" data-freshness="build" title="Page publishing snapshot from the generated dashboard data, refreshed when this page is deployed."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Page publishing</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
+            <div class="p-muted-heading-container">
+              <h3 class="p-muted-heading">Reports</h3>
+              <span class="freshness-chip freshness-chip--inline" data-freshness="build" title="Page publishing snapshot from the generated dashboard data, refreshed when this page is deployed."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Page publishing</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+            </div>
           </div>
         </div>
         <div class="p-section--shallow">
@@ -380,7 +388,10 @@
       <section aria-labelledby="build-status-title" style="margin-bottom: 2rem;">
         <div class="row">
           <div class="col-12">
-            <h3 class="p-muted-heading" id="build-status-title">Build Status<span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
+            <div class="p-muted-heading-container">
+              <h3 class="p-muted-heading" id="build-status-title">Build Status</h3>
+              <span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+            </div>
           </div>
         </div>
         <div class="row u-equal-height" style="margin-bottom: 1.5rem;">
@@ -445,7 +456,10 @@
               <hr class="p-rule">
             </div>
             <div class="col-12">
-              <h3 class="p-muted-heading u-no-padding--top u-no-margin--bottom">Compatibility<span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
+              <div class="p-muted-heading-container u-no-padding--top u-no-margin--bottom">
+                <h3 class="p-muted-heading">Compatibility</h3>
+                <span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+              </div>
               <h2>Test status matrix</h2>
             </div>
           </div>
@@ -477,7 +491,10 @@
       <section aria-labelledby="release-title">
         <div class="row">
           <div class="col-12">
-            <h3 class="p-muted-heading" id="release-title">Release Info<span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
+            <div class="p-muted-heading-container">
+              <h3 class="p-muted-heading" id="release-title">Release Info</h3>
+              <span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+            </div>
           </div>
         </div>
         <div class="row u-equal-height">
@@ -534,7 +551,10 @@
               <hr class="p-rule">
             </div>
             <div class="col-12">
-              <h3 class="p-muted-heading u-no-padding--top u-no-margin--bottom">Snapcraft channels<span class="freshness-chip freshness-chip--inline" data-freshness="snap" title="Snap Store package metadata, refreshed hourly via a published gist (api.snapcraft.io is not reachable from the browser)."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Snap Store</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
+              <div class="p-muted-heading-container u-no-padding--top u-no-margin--bottom">
+                <h3 class="p-muted-heading">Snapcraft channels</h3>
+                <span class="freshness-chip freshness-chip--inline" data-freshness="snap" title="Snap Store package metadata, refreshed hourly via a published gist (api.snapcraft.io is not reachable from the browser)."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Snap Store</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+              </div>
               <h2>Package availability</h2>
             </div>
           </div>
@@ -578,7 +598,10 @@
               <hr class="p-rule">
             </div>
             <div class="col-12">
-              <h3 class="p-muted-heading u-no-padding--top u-no-margin--bottom">Release tracking<span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
+              <div class="p-muted-heading-container u-no-padding--top u-no-margin--bottom">
+                <h3 class="p-muted-heading">Release tracking</h3>
+                <span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+              </div>
               <h2>Pi-hole components</h2>
             </div>
           </div>
@@ -609,7 +632,10 @@
       <section aria-labelledby="security-title" style="margin-bottom: 2rem;">
         <div class="row">
           <div class="col-12">
-            <h3 class="p-muted-heading" id="security-title">Security<span class="freshness-chip freshness-chip--inline" data-freshness="build" title="CI-baked dashboard data, refreshed when this page is deployed."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Build snapshot</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
+            <div class="p-muted-heading-container">
+              <h3 class="p-muted-heading" id="security-title">Security</h3>
+              <span class="freshness-chip freshness-chip--inline" data-freshness="build" title="CI-baked dashboard data, refreshed when this page is deployed."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Build snapshot</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+            </div>
           </div>
         </div>
         <div class="row u-equal-height">
@@ -685,7 +711,9 @@
           </ul>
         </div>
         <div class="col-4">
+          <div class="p-muted-heading-container">
             <h3 class="p-muted-heading">Security & Confinement</h3>
+          </div>
           <p class="p-text--small">
             Built securely on Ubuntu builders. Packaged as a strictly confined snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
           </p>
