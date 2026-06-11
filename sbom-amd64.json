@@ -1,0 +1,98 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:8b3a0f1d-72c6-4b82-936e-d31a5e12f6c4",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-06-11T12:00:00Z",
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "name": "syft",
+          "version": "0.100.0"
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "openssl",
+      "version": "3.0.13",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "name": "Apache License 2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "curl",
+      "version": "8.5.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "name": "MIT License"
+          }
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "name": "pihole-FTL",
+      "version": "v5.24",
+      "licenses": [
+        {
+          "license": {
+            "id": "GPL-3.0-or-later",
+            "name": "GNU General Public License v3.0 or later"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "sqlite3",
+      "version": "3.40.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "public-domain",
+            "name": "Public Domain"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "zlib",
+      "version": "1.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "Zlib",
+            "name": "zlib License"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "libadns",
+      "version": "1.6.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "GPL-3.0-or-later",
+            "name": "GNU General Public License v3.0 or later"
+          }
+        }
+      ]
+    }
+  ]
+}

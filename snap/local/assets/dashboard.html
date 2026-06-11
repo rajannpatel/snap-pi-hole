@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>snap Pi-hole CI/CD Reports</title>
   <!-- VANILLA_FRAMEWORK_CSS -->
+  <script>
+    if (!document.querySelector('link[rel="stylesheet"][href*="vanilla"]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css';
+      document.head.appendChild(link);
+    }
+  </script>
   <style>
     /* ==========================================================================
        1. Base Overrides & Resets
@@ -419,6 +427,12 @@
       vertical-align: top;
     }
 
+    td .workflow-btn {
+      display: inline-flex;
+      align-items: center;
+      margin-bottom: 0;
+    }
+
     td .status-chip {
       margin-top: -2px !important;
       margin-bottom: -2px !important;
@@ -668,13 +682,12 @@
                       <th class="os-logo-col"></th>
                       <th class="distribution-col">Distribution</th>
                       <th>Status</th>
-                      <th>Duration</th>
                       <th>Updated</th>
-                      <th>Logs</th>
+                      <th>Workflows</th>
                     </tr>
                   </thead>
                   <tbody id="compatibility-matrix-body">
-                    <tr><td colspan="6">Loading matrix...</td></tr>
+                    <tr><td colspan="5">Loading matrix...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1388,7 +1401,7 @@
       const rows = matrixState.rows || [];
       tbody.innerHTML = "";
       if (!rows.length) {
-        tbody.innerHTML = "<tr><td colspan=\"6\">No matrix rows available.</td></tr>";
+        tbody.innerHTML = "<tr><td colspan=\"5\">No matrix rows available.</td></tr>";
         return;
       }
       rows.forEach((row) => {
@@ -1417,9 +1430,8 @@
           <td class="os-logo-col">${badgeCell}</td>
           <td class="distribution-col">${row.label}</td>
           <td>${statusCell}</td>
-          <td class="mono">${row.duration_label || "Unknown"}</td>
           <td class="mono">${formatDate(row.updated_at)}</td>
-          <td>${logUrl ? `<a class="p-button" href="${logUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; margin-bottom: 0;">${githubLogoSvg}<span>${row.failed_job_url ? "GitHub Job" : "GitHub Run"}</span></a>` : "N/A"}</td>
+          <td>${logUrl ? `<a class="p-button workflow-btn" href="${logUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${row.duration_label ? row.duration_label + ' ' : ''}${row.failed_job_url ? "Job" : "Run"}</span></a>` : "N/A"}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -2105,7 +2117,7 @@
         renderFreshnessChips();
         const matrixBody = document.getElementById("compatibility-matrix-body");
         if (matrixBody) {
-          matrixBody.innerHTML = `<tr><td colspan="6">Unable to load dashboard data: ${error.message}</td></tr>`;
+          matrixBody.innerHTML = `<tr><td colspan="5">Unable to load dashboard data: ${error.message}</td></tr>`;
         }
       }
     }

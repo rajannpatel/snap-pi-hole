@@ -5,15 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Software Bill of Materials (SBOM) - snap Pi-hole</title>
-  <!-- VANILLA_FRAMEWORK_CSS -->
-  <script>
-    if (!document.querySelector('link[rel="stylesheet"][href*="vanilla"]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css';
-      document.head.appendChild(link);
-    }
-  </script>
+  <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />
   <style>
     /* ==========================================================================
        1. Base Overrides & Resets
@@ -279,8 +271,8 @@
     <header id="navigation" class="p-navigation is-dark">
       <div class="p-navigation__row">
         <div class="p-navigation__banner">
-          <a class="p-navigation__link navigation-logo-link" href="../">
-            <img src="../pihole.png" alt="Pi-hole Logo" class="navigation-logo-img">
+          <a class="p-navigation__link navigation-logo-link" href="docs/index.html">
+            <img src="docs/pihole.png" alt="Pi-hole Logo" class="navigation-logo-img">
           </a>
         </div>
       </div>
@@ -293,7 +285,7 @@
           <nav class="p-breadcrumbs" aria-label="Breadcrumbs">
             <ol class="p-breadcrumbs__items">
               <li class="p-breadcrumbs__item">
-                <a href="../">Reports Dashboard</a>
+                <a href="docs/index.html">Reports Dashboard</a>
               </li>
               <li class="p-breadcrumbs__item" aria-current="page">
                 SBOM Explorer
@@ -652,7 +644,9 @@ grype sbom-amd64.json</code></pre>
                                 licensesStr.includes('apache') || 
                                 licensesStr.includes('bsd') || 
                                 licensesStr.includes('isc') || 
+                                // matches public-domain, public domain, public_domain
                                 licensesStr.includes('public-domain') || 
+                                licensesStr.includes('public domain') || 
                                 licensesStr.includes('expat') ||
                                 licensesStr.includes('openldap');
 
