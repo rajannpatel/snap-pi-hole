@@ -4,7 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>snap Pi-hole CI/CD Reports</title>
-  <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />
+  <!-- VANILLA_FRAMEWORK_CSS -->
+  <script>
+    if (!document.querySelector('link[rel="stylesheet"][href*="vanilla"]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css';
+      document.head.appendChild(link);
+    }
+  </script>
   <style>
     /* ==========================================================================
        1. Base Overrides & Resets
@@ -296,6 +304,37 @@
       margin-bottom: 1rem;
     }
 
+    .channels-table,
+    .snap-package-table {
+      table-layout: auto;
+      width: 100%;
+    }
+
+    .channels-table th,
+    .channels-table td {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: nowrap;
+    }
+
+    .channels-table td {
+      vertical-align: middle;
+    }
+
+    .snap-channel-arch-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+
+    .snap-channel-arch-chip {
+      display: inline-block;
+    }
+
+    .p-chip {
+      font-size: 0.75rem;
+    }
+
     /* ==========================================================================
        7. Spinners & Animations
        ========================================================================== */
@@ -414,21 +453,39 @@
     }
 
     td .p-button {
-      margin-top: -6px !important;
-      margin-bottom: -6px !important;
-      vertical-align: top;
+      margin-right: 0.5rem;
+    }
+
+    td .p-button:last-child {
+      margin-right: 0;
+    }
+
+    /* Center-aligned table cells for tables with status indicators and single-line content */
+    .table--vertical-center tbody td {
+      vertical-align: middle;
+    }
+
+    /* Button group containers in table cells: flex layout with top-alignment */
+    td .report-button-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: flex-start;
     }
 
     td .workflow-btn {
       display: inline-flex;
       align-items: center;
       margin-bottom: 0;
+      justify-content: center;
+    }
+
+    td .workflow-buttons {
+      display: inline-block;
     }
 
     td .status-chip {
-      margin-top: -2px !important;
-      margin-bottom: -2px !important;
-      vertical-align: top;
+      vertical-align: middle;
     }
 
     td .os-badge {
@@ -468,9 +525,10 @@
     }
 
     .snap-package-table td.snap-version {
-      overflow-wrap: anywhere;
-      white-space: normal;
-      min-width: 16ch;
+      max-width: 20ch;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .build-detail-grid {
@@ -601,7 +659,7 @@
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/run-command.png" alt="Run command icon">
               <hr class="u-sv1">
               <h3 class="dashboard-card-title">Latest pipeline run</h3>
-              <table class="dashboard-details-table">
+              <table class="dashboard-details-table table--vertical-center">
                 <tbody>
                   <tr>
                     <td class="label">Identifier</td>
@@ -624,7 +682,7 @@
                 </tbody>
               </table>
               <div class="dashboard-card-action">
-                <a id="latest-run-link" class="p-button u-no-margin--bottom" href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" target="_blank" rel="noopener noreferrer">View pipeline run</a>
+                <a id="latest-run-link" class="p-button u-no-margin--bottom" href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" target="_blank" rel="noopener noreferrer"><svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="display: inline-block; margin-right: 0.35rem;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>View workflow summary</a>
               </div>
             </article>
           </div>
@@ -667,7 +725,7 @@
           <div class="row">
             <div class="col-12">
               <div class="table-container">
-                <table class="p-table matrix-table">
+                <table class="p-table matrix-table table--vertical-center">
                   <caption class="u-off-screen">Distribution test status matrix</caption>
                   <thead>
                     <tr>
@@ -693,7 +751,7 @@
           <div class="col-12">
             <div class="p-muted-heading-container">
               <h3 class="p-muted-heading" id="release-title">Release Info</h3>
-              <span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+              <span class="freshness-chip freshness-chip--inline" data-freshness="snap" title="Snap Store package metadata, refreshed hourly via a published gist (api.snapcraft.io is not reachable from the browser)."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Snap Store</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
             </div>
           </div>
         </div>
@@ -702,23 +760,21 @@
             <article class="p-card dashboard-card">
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/software-installer.png" alt="Installer icon">
               <hr class="u-sv1">
-              <h3 class="dashboard-card-title">snap update frequency</h3>
-              <table class="dashboard-details-table">
-                <tbody>
-                  <tr>
-                    <td class="label">Frequency</td>
-                    <td class="mono" id="snap-update-frequency">--</td>
-                  </tr>
-                  <tr>
-                    <td class="label">Interval Type</td>
-                    <td>Average release interval</td>
-                  </tr>
-                  <tr>
-                    <td class="label">Basis</td>
-                    <td>Average days between recent successful main-branch CI/CD pushes.</td>
-                  </tr>
-                </tbody>
-              </table>
+              <h3 class="dashboard-card-title">Published channels</h3>
+              <div class="table-container">
+                <table class="p-table channels-table table--vertical-center">
+                  <thead>
+                    <tr>
+                      <th>Channel</th>
+                      <th>Architectures</th>
+                      <th>Released</th>
+                    </tr>
+                  </thead>
+                  <tbody id="snap-channels-list">
+                    <tr><td colspan="3">Loading...</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </article>
           </div>
           <div class="col-6">
@@ -726,7 +782,7 @@
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/pull-request.png" alt="Pull request icon">
               <hr class="u-sv1">
               <h3 class="dashboard-card-title">Last track-upstream update</h3>
-              <table class="dashboard-details-table">
+              <table class="dashboard-details-table table--vertical-center">
                 <tbody>
                   <tr>
                     <td class="label">Status</td>
@@ -752,10 +808,10 @@
             </div>
             <div class="col-12">
               <div class="p-muted-heading-container u-no-padding--top u-no-margin--bottom">
-                <h3 class="p-muted-heading">Snapcraft channels</h3>
+                <h3 class="p-muted-heading">Stable channel</h3>
                 <span class="freshness-chip freshness-chip--inline" data-freshness="snap" title="Snap Store package metadata, refreshed hourly via a published gist (api.snapcraft.io is not reachable from the browser)."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Snap Store</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
               </div>
-              <h2>Package availability</h2>
+              <h2>Installation availability</h2>
             </div>
           </div>
           <div class="row">
@@ -763,7 +819,7 @@
               <p class="p-heading--4">Latest published revision per architecture, with its build source and serving status.</p>
               <div id="snap-package-freshness" hidden></div>
               <div class="table-container">
-                <table class="p-table snap-package-table">
+                <table class="p-table snap-package-table table--vertical-center">
                   <thead>
                     <tr>
                       <th>Architecture</th>
@@ -809,18 +865,17 @@
             <div class="col-12">
               <p class="p-heading--4">Version lag and update indicators for FTL, Core, and Web compared with upstream releases.</p>
               <div class="table-container">
-                <table class="p-table components-table">
+                <table class="p-table components-table table--vertical-center">
                   <thead>
                     <tr>
                       <th>Component</th>
                       <th>Bundled</th>
                       <th>Upstream</th>
-                      <th>Lag</th>
-                      <th>Indicator</th>
+                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody id="dependency-rows">
-                    <tr><td colspan="5">Loading dependency comparisons...</td></tr>
+                    <tr><td colspan="4">Loading dependency comparisons...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -974,6 +1029,7 @@
     const errorIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="display: block; margin-right: 0.35rem;"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>`;
     const clockIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="display: block; margin-right: 0.35rem;"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M8 3.5a.75.75 0 0 1 .75.75v3.25h3.25a.75.75 0 0 1 0 1.5h-4a.75.75 0 0 1-.75-.75v-4A.75.75 0 0 1 8 3.5z"/></svg>`;
     const skippedIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="display: block; margin-right: 0.35rem;"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M4.25 7.25h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5z"/></svg>`;
+    const cpuIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="display: block; margin-right: 0.35rem;"><rect x="4" y="5" width="8" height="6" rx="0.5"/><line x1="6" y1="3" x2="6" y2="5"/><line x1="10" y1="3" x2="10" y2="5"/><line x1="6" y1="11" x2="6" y2="13"/><line x1="10" y1="11" x2="10" y2="13"/></svg>`;
 
     // Resolves appropriate status logo SVG icon based on status string
     function statusIconSvg(status) {
@@ -1423,10 +1479,24 @@
           <td class="distribution-col">${row.label}</td>
           <td>${statusCell}</td>
           <td class="mono">${formatDate(row.updated_at)}</td>
-          <td>${logUrl ? `<a class="p-button workflow-btn" href="${logUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${row.duration_label ? row.duration_label + ' ' : ''}${row.failed_job_url ? "Job" : "Run"}</span></a>` : "N/A"}</td>
+          <td><div class="workflow-buttons">${logUrl ? `<a class="p-button workflow-btn" href="${logUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${row.duration_label ? row.duration_label + ' ' : ''}${row.failed_job_url ? "Job" : "Run"}</span></a>` : "N/A"}</div></td>
         `;
         tbody.appendChild(tr);
       });
+       
+      // Equalize workflow button widths based on the widest button
+      setTimeout(() => {
+        const buttons = tbody.querySelectorAll('.workflow-btn');
+        if (buttons.length === 0) return;
+        let maxWidth = 0;
+        buttons.forEach((btn) => {
+          btn.style.width = 'auto';  // Reset for measurement
+          maxWidth = Math.max(maxWidth, btn.offsetWidth);
+        });
+        buttons.forEach((btn) => {
+          btn.style.width = maxWidth + 'px';
+        });
+      }, 0);
     }
 
     // Draws target architectural security vulnerability metrics tables
@@ -1452,7 +1522,7 @@
           <td>${row.confined_mitigation_vulnerabilities ?? 0}</td>
           <td>
             ${row.report ? `
-              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+              <div class="report-button-group">
                 <a class="p-button" href="${osvUrl}" download title="Download the OSV JSON report">OSV</a>
                 <a class="p-button" href="${vexUrl}" download title="Download the CycloneDX VEX JSON report">VEX</a>
               </div>
@@ -1470,19 +1540,26 @@
       const rows = dependencyRows;
       body.innerHTML = "";
       if (!rows.length) {
-        body.innerHTML = "<tr><td colspan=\"5\">No dependency rows match current filter.</td></tr>";
+        body.innerHTML = "<tr><td colspan=\"4\">No dependency rows match current filter.</td></tr>";
         return;
       }
       rows.forEach((item) => {
-        const lag = item.lag_days === null || item.lag_days === undefined ? "Unknown" : `${item.lag_days}d`;
-        const indicator = item.update_available ? `<span class="status-chip status-failure">${errorIconSvg}Update available</span>` : `<span class="status-chip status-success">${checkIconSvg}Up to date</span>`;
+        let statusHtml;
+        if (item.update_available) {
+          statusHtml = `<span class="status-chip status-failure">${errorIconSvg}Update available</span>`;
+        } else if (item.lag_days === null || item.lag_days === undefined) {
+          statusHtml = `<span class="status-chip status-success">${checkIconSvg}Up to date</span>`;
+        } else if (item.lag_days === 0) {
+          statusHtml = `<span class="status-chip status-success">${checkIconSvg}Up to date</span>`;
+        } else {
+          statusHtml = `<span class="status-chip status-caution">${item.lag_days}d behind</span>`;
+        }
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${item.name}</td>
           <td class="mono">${item.local_tag || "Unknown"}</td>
           <td class="mono">${item.upstream_tag || "Unknown"}</td>
-          <td class="mono">${lag}</td>
-          <td>${indicator}</td>
+          <td>${statusHtml}</td>
         `;
         body.appendChild(tr);
       });
@@ -1515,8 +1592,6 @@
 
     // Aggregates and displays general snap store track updates and release indicators
     function renderReleaseInfo(data) {
-      const frequencyDays = data.build_status.update_frequency_days;
-      setText("snap-update-frequency", frequencyDays ? `${frequencyDays} days` : "Unknown");
       const trackRun = data.auto_update.latest_success_run || {};
       setText("last-track-update", formatDate(trackRun.updated_at));
       setText("last-track-update-status", trackRun.url ? "Latest successful track-upstream run available." : "No successful track-upstream runs found.");
@@ -1526,6 +1601,7 @@
       // by the build-time copy on subsequent snapshot re-pulls.
       if (!snapState.hasGistData) {
         renderSnapPackage(data.snap_package || {});
+        renderSnapChannels(data.snap_package || {});
         setSnapClock((data.snap_package || {}).last_updated || data.data_last_updated, false);
       }
     }
@@ -1569,6 +1645,54 @@
         `;
         packageBody.appendChild(tr);
       });
+    }
+
+    // Renders the published snap channels as a table with architectures per channel
+    function renderSnapChannels(snapPackage) {
+      const el = document.getElementById("snap-channels-list");
+      if (!el) return;
+      
+      // Use published_channels (formatted for UI with architectures list)
+      const rows = snapPackage.published_channels || [];
+      if (!rows.length) {
+        el.innerHTML = '<tr><td colspan="3" style="color: #666;">No channel data available.</td></tr>';
+        return;
+      }
+
+      // Build a map for quick lookup
+      const channelMap = {};
+      rows.forEach((row) => {
+        channelMap[row.channel] = row;
+      });
+
+      // Always show all 4 standard channels
+      const allChannels = ["stable", "candidate", "beta", "edge"];
+
+      el.innerHTML = allChannels
+        .map((channel) => {
+          const data = channelMap[channel];
+          
+          if (!data) {
+            return `<tr>
+              <td><strong>${channel}</strong></td>
+              <td style="color: #999;">unpublished</td>
+              <td>—</td>
+            </tr>`;
+          }
+
+          const arches = (data.architectures || [])
+            .sort()
+            .map((arch) => `<span class="p-chip is-dense is-inline">${arch}</span>`)
+            .join("");
+          const relDate = relativeTime(data.released_at);
+          
+          return `<tr>
+            <td><strong>${channel}</strong></td>
+            <td><div class="snap-channel-arch-chips">${arches}</div></td>
+            <td class="mono">${relDate}</td>
+          </tr>`;
+        })
+        .join("");
     }
 
     // Renders the summary textual copy descriptive tags for report cards
@@ -2032,6 +2156,7 @@
     // Resolves and displays gist snap-store data
     function applySnapData(payload) {
       renderSnapPackage(payload.snap_package || {});
+      renderSnapChannels(payload.snap_package || {});
       snapState.hasGistData = true;
       snapState.generatedAt = payload.generated_at || snapState.generatedAt;
       setSnapClock(payload.data_last_updated || (payload.snap_package || {}).last_updated, true);

@@ -569,7 +569,19 @@ def collect_snap_package_data(client, repo_root):
         headers={"Snap-Device-Series": "16", "Accept": "application/json"},
     )
     channel_map = snap_data.get("channel-map", [])
-
+ 
+    # First pass: collect all channel+arch combinations from the channel map
+    all_channels_raw = {}  # channel -> {arch -> entry}
+    for entry in channel_map:
+        channel = entry.get("channel", {})
+        if channel.get("track") != "latest":
+            continue
+        risk = channel.get("risk", "")
+        arch_upper = channel.get("architecture", "unknown").upper()
+        if risk not in all_channels_raw:
+            all_channels_raw[risk] = {}
+        all_channels_raw[risk][arch_upper] = entry
+ 
     # Pick the best (highest-risk, then newest) published revision per architecture
     # in the latest track. amd64/arm64 are promoted all the way to stable (the
     # GitHub builds served on snapcraft.io); the Launchpad architectures only reach
@@ -630,7 +642,7 @@ def collect_snap_package_data(client, repo_root):
 
     # GitHub-built architectures first, then Launchpad; alphabetical within groups.
     channels.sort(key=lambda c: (0 if c["build_source"] == "github" else 1, c["architecture"]))
-
+ 
     revisions_list = parse_revisions_file(repo_root / "snapcraft-revisions.txt")
     freshness = compute_snap_freshness(
         channels,
@@ -638,8 +650,33 @@ def collect_snap_package_data(client, repo_root):
         resolve_expected_commit(repo_root),
         os.environ.get("PUBLISH_RESULT", ""),
     )
+     
+    # Build published_channels: all architectures grouped per channel
+    # (for UI display of which architectures are available in each channel)
+    # Use the raw all_channels_raw which has ALL channel+arch combinations
+    published_channels = []
+    for channel_name in ["stable", "candidate", "beta", "edge"]:
+        if channel_name not in all_channels_raw or not all_channels_raw[channel_name]:
+            continue
+         
+        arches_dict = all_channels_raw[channel_name]
+        architectures = list(arches_dict.keys())
+         
+        # Get newest release date for this channel
+        newest_date = max(
+            (e.get("released-at", "") for e in arches_dict.values()),
+            default=""
+        )
+         
+        published_channels.append({
+            "channel": channel_name,
+            "released_at": newest_date,
+            "architectures": sorted(architectures),
+        })
+      
     return {
         "channels": channels,
+        "published_channels": published_channels,
         "last_updated": dt_to_iso(newest_timestamp),
         **freshness,
     }

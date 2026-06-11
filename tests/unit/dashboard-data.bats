@@ -228,6 +228,7 @@ class FakeClient:
                 ch("latest", "stable", "amd64", "v6.4.2+git.0ffee9d.1781062076", 382, "2026-06-10T17:00:00Z", 100),
                 ch("latest", "edge",   "amd64", "v6.4.2+git.0ffee9d.1781062076", 382, "2026-06-10T17:00:00Z", 100),
                 ch("latest", "stable", "arm64", "v6.4.2+git.0ffee9d.1781062076", 383, "2026-06-10T17:00:00Z", 110),
+                ch("latest", "edge",   "arm64", "v6.4.2+git.0ffee9d.1781062076", 383, "2026-06-10T17:00:00Z", 110),
                 # Launchpad arch stuck on edge with an older revision (build failing).
                 ch("latest", "edge",   "s390x", "v6.4.2", 137, "2025-05-22T00:00:00Z", 120),
             ]
@@ -259,6 +260,13 @@ assert s390x["full_version"] == "v6.4.2", s390x
 
 # GitHub arches sort ahead of Launchpad arches.
 assert [c["architecture"] for c in result["channels"]] == ["AMD64", "ARM64", "S390X"], result["channels"]
+
+# published_channels groups all arches per channel (includes stable, edge, and all architectures present)
+published = {ch["channel"]: ch["architectures"] for ch in result.get("published_channels", [])}
+assert "stable" in published, f"stable missing from {published}"
+assert "edge" in published, f"edge missing from {published}"
+assert set(published["stable"]) == {"AMD64", "ARM64"}, f"stable arches: {published['stable']}"
+assert set(published["edge"]) == {"AMD64", "ARM64", "S390X"}, f"edge arches: {published['edge']}"
 PYEOF
 }
 
