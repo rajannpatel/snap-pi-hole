@@ -482,25 +482,52 @@
             <article class="p-card dashboard-card">
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/software-installer.png" alt="Installer icon">
               <hr class="u-sv1">
-              <h3>snap update frequency</h3>
-              <p class="p-card__content">Average days between recent successful main-branch CI/CD pushes.</p>
-              <p class="p-card__content dashboard-metric mono" id="snap-update-frequency">--</p>
+              <h3 style="margin-bottom: 0.75rem;">snap update frequency</h3>
+              <table style="width: 100%; border: none; font-size: 0.9rem; margin-bottom: 1.25rem;">
+                <tbody>
+                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
+                    <td style="padding: 0.5rem 0; font-weight: bold; width: 35%;">Frequency</td>
+                    <td style="padding: 0.5rem 0;" class="mono" id="snap-update-frequency">--</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
+                    <td style="padding: 0.5rem 0; font-weight: bold;">Interval Type</td>
+                    <td style="padding: 0.5rem 0;">Average release interval</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 0.5rem 0; font-weight: bold;">Basis</td>
+                    <td style="padding: 0.5rem 0;">Average days between recent successful main-branch CI/CD pushes.</td>
+                  </tr>
+                </tbody>
+              </table>
             </article>
           </div>
           <div class="col-6">
             <article class="p-card dashboard-card">
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/pull-request.png" alt="Pull request icon">
               <hr class="u-sv1">
-              <h3>Last track-upstream update</h3>
-              <p class="p-card__content" id="last-track-update-status">Loading...</p>
-              <p class="p-card__content mono u-no-margin--bottom" id="last-track-update">--</p>
-              <p class="p-card__content u-no-margin--bottom" style="margin-top: 0.5rem;">
-                <span class="freshness-chip freshness-chip--inline" data-freshness="cadence" title="How often the track-upstream workflow checks for new Pi-hole releases.">
-                  <span class="freshness-chip__dot"></span>
-                  <span class="freshness-chip__label">Upstream check</span>
-                  <span class="freshness-chip__detail"><span id="update-frequency">Loading…</span></span>
-                </span>
-              </p>
+              <h3 style="margin-bottom: 0.75rem;">Last track-upstream update</h3>
+              <table style="width: 100%; border: none; font-size: 0.9rem; margin-bottom: 1.25rem;">
+                <tbody>
+                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
+                    <td style="padding: 0.5rem 0; font-weight: bold; width: 35%;">Status</td>
+                    <td style="padding: 0.5rem 0;" id="last-track-update-status">Loading...</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
+                    <td style="padding: 0.5rem 0; font-weight: bold;">Updated</td>
+                    <td style="padding: 0.5rem 0;" class="mono" id="last-track-update">--</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 0.5rem 0; font-weight: bold;">Cadence</td>
+                    <td style="padding: 0.5rem 0;">
+                      <span class="freshness-chip freshness-chip--inline" data-freshness="cadence" title="How often the track-upstream workflow checks for new Pi-hole releases.">
+                        <span class="freshness-chip__dot"></span>
+                        <span class="freshness-chip__label">Upstream check</span>
+                        <span class="freshness-chip__detail"><span id="update-frequency">Loading…</span></span>
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </article>
           </div>
         </div>
@@ -549,13 +576,17 @@
 
       <section aria-label="snap ingredients" style="margin-bottom: 2rem;">
         <section class="p-section" aria-label="Pi-hole components">
-          <div class="grid-row--50-50-on-large">
-            <hr class="p-rule">
-            <div class="grid-col">
+          <div class="row">
+            <div class="col-12">
+              <hr class="p-rule">
+            </div>
+            <div class="col-12">
               <h3 class="p-muted-heading u-no-padding--top u-no-margin--bottom">Release tracking<span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
               <h2>Pi-hole components</h2>
             </div>
-            <div class="grid-col">
+          </div>
+          <div class="row">
+            <div class="col-12">
               <p class="p-heading--4">Version lag and update indicators for FTL, Core, and Web compared with upstream releases.</p>
               <div style="overflow-x: auto;">
                 <table class="p-table components-table">
