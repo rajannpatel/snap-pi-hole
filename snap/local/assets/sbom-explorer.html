@@ -118,6 +118,18 @@
       color: #e95420 !important; /* Ubuntu Orange */
       text-decoration: underline !important;
     }
+
+    .sbom-table {
+      table-layout: auto !important;
+      width: 100% !important;
+    }
+
+    .sbom-table th,
+    .sbom-table td {
+      overflow: visible !important;
+      text-overflow: clip !important;
+      white-space: nowrap !important;
+    }
   </style>
 </head>
 
@@ -270,7 +282,7 @@
             </div>
           </div>
 
-          <table class="p-table" id="sbom-table" style="display:none; width: 100%;">
+          <table class="p-table sbom-table" id="sbom-table" style="display:none; width: 100%;">
             <caption class="u-off-screen">SBOM package components for the selected architecture</caption>
             <thead>
               <tr>

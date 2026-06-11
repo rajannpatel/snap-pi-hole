@@ -160,7 +160,7 @@
       to { transform: rotate(360deg); }
     }
     .trend-chart-wrap {
-      height: clamp(9rem, 21vh, 14rem);
+      height: clamp(16.25rem, 21vh, 18rem);
       margin-top: 0.75rem;
       overflow: hidden;
       position: relative;
@@ -193,9 +193,14 @@
     .finance-chart-tooltip [class*="p-notification--"] {
       margin: 0;
     }
+    @media (max-width: 979px) {
+      .trend-chart-wrap {
+        height: 20rem;
+      }
+    }
     @media (min-width: 1036px) {
       .trend-chart-wrap {
-        height: 16rem;
+        height: 16.25rem;
       }
     }
     .matrix-controls {
@@ -228,15 +233,20 @@
     .mono {
       font-family: "Ubuntu Mono", monospace;
     }
-    /* Vanilla's .p-table forces fixed layout + ellipsis truncation; the snap table
-       must show the full version string, so size columns to content and let the
-       long version wrap (instead of clipping) when the viewport is narrow. */
-    .snap-package-table {
+    /* Vanilla's .p-table forces fixed layout + ellipsis truncation; the snap, matrix,
+       and components tables must size columns to content instead of clipping when the viewport is narrow. */
+    .snap-package-table,
+    .matrix-table,
+    .components-table {
       table-layout: auto;
       width: 100%;
     }
     .snap-package-table th,
-    .snap-package-table td {
+    .snap-package-table td,
+    .matrix-table th,
+    .matrix-table td,
+    .components-table th,
+    .components-table td {
       overflow: visible;
       text-overflow: clip;
       white-space: nowrap;
@@ -354,10 +364,12 @@
             <h3 class="p-muted-heading" id="build-status-title">Build Status<span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span></h3>
           </div>
         </div>
-        <div class="row" style="margin-bottom: 1rem;">
-          <div class="col-12">
+        <div class="row u-equal-height" style="margin-bottom: 1.5rem;">
+          <div class="col-6">
             <article class="p-card dashboard-card">
-              <h3 style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+              <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/run-command.png" alt="Run command icon">
+              <hr class="u-sv1">
+              <h3>
                 Latest pipeline run
                 <span id="latest-run-title" class="mono p-text--small u-no-margin"></span>
                 <span id="latest-run-status-chip" class="status-chip status-neutral">unknown</span>
@@ -365,9 +377,19 @@
               <p class="p-card__content mono u-no-margin">
                 <span id="latest-run-duration">Unknown</span> · <span id="latest-run-updated">Updated: Unknown</span>
               </p>
-              <p class="p-card__content u-no-margin--bottom">
+              <p class="p-card__content u-no-margin--bottom" style="margin-top: 1rem;">
                 <a id="latest-run-link" href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" target="_blank" rel="noopener noreferrer">View pipeline run</a>
               </p>
+            </article>
+          </div>
+          <div class="col-6">
+            <article class="p-card dashboard-article">
+              <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/bug.png" alt="Bug icon">
+              <hr class="u-sv1">
+              <h3>Failed test logs</h3>
+              <ul class="p-list" id="failed-log-links" style="margin-bottom: 0;">
+                <li class="p-list__item">Loading failed test links...</li>
+              </ul>
             </article>
           </div>
         </div>
@@ -380,19 +402,6 @@
                 <div id="duration-trend-chart" role="img" aria-label="Build duration trend chart"></div>
               </div>
             </div>
-          </div>
-        </div>
-
-        <div class="row" style="margin-top: 1rem;">
-          <div class="col-12">
-            <article class="p-card dashboard-card">
-              <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/bug.png" alt="Bug icon">
-              <hr class="u-sv1">
-              <h3>Failed test logs</h3>
-              <ul class="p-list" id="failed-log-links">
-                <li class="p-list__item">Loading failed test links...</li>
-              </ul>
-            </article>
           </div>
         </div>
 
@@ -518,7 +527,7 @@
             <div class="grid-col">
               <p class="p-heading--4">Version lag and update indicators for FTL, Core, and Web compared with upstream releases.</p>
               <div style="overflow-x: auto;">
-                <table class="p-table">
+                <table class="p-table components-table">
                   <thead>
                     <tr>
                       <th>Component</th>

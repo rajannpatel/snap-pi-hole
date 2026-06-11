@@ -122,11 +122,18 @@ td.ruler {
 
 /* Clean, modern tables matching Vanilla's table component */
 table {
+  table-layout: auto !important;
   width: 100% !important;
   border-collapse: collapse !important;
   margin: 2rem 0 !important;
   background: transparent !important;
   border: none !important; /* Remove outer border box */
+}
+
+table th, table td {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
 }
 
 td.tableHead, th, td.tableHead a {

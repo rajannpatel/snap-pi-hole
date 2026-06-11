@@ -1900,9 +1900,19 @@ def write_html(summary, output_path):
     .vulnerability-sort-button[aria-sort="descending"]::after {{
       content: "↓";
     }}
+    #vulnerability-summary-table,
     .vulnerability-details {{
-      table-layout: fixed;
-      width: 100%;
+      table-layout: auto !important;
+      width: 100% !important;
+    }}
+    #vulnerability-summary-table th,
+    #vulnerability-summary-table td,
+    .vulnerability-details th,
+    .vulnerability-row td {{
+      width: auto !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      white-space: nowrap !important;
     }}
     .vulnerability-details th,
     .vulnerability-details td {{

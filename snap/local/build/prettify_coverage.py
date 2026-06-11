@@ -229,7 +229,9 @@ def prettify_file(filepath, is_root):
 
           <!-- Main Coverage Data -->
           {template_html}
-          {placeholder_html}
+          <div style="overflow-x: auto;">
+            {placeholder_html}
+          </div>
 
         </div>
       </div>
