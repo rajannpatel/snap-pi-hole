@@ -109,13 +109,26 @@
     .status-chip {
       border-radius: 999px;
       color: #fff;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
       font-size: 0.75rem;
       font-weight: 400;
       letter-spacing: 0.02em;
       padding: 0.15rem 0.55rem;
       text-transform: uppercase;
       white-space: nowrap;
+    }
+    .status-text-short {
+      display: none;
+    }
+    @media (max-width: 767px) {
+      .status-text-full {
+        display: none;
+      }
+      .status-text-short {
+        display: inline;
+      }
     }
     .dashboard-card .p-card__thumbnail {
       display: block;
@@ -366,20 +379,35 @@
         </div>
         <div class="row u-equal-height" style="margin-bottom: 1.5rem;">
           <div class="col-6">
-            <article class="p-card dashboard-card">
+            <article class="p-card dashboard-card" style="display: flex; flex-direction: column;">
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/run-command.png" alt="Run command icon">
               <hr class="u-sv1">
-              <h3>
-                Latest pipeline run
-                <span id="latest-run-title" class="mono p-text--small u-no-margin"></span>
-                <span id="latest-run-status-chip" class="status-chip status-neutral">unknown</span>
-              </h3>
-              <p class="p-card__content mono u-no-margin">
-                <span id="latest-run-duration">Unknown</span> · <span id="latest-run-updated">Updated: Unknown</span>
-              </p>
-              <p class="p-card__content u-no-margin--bottom" style="margin-top: 1rem;">
-                <a id="latest-run-link" href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" target="_blank" rel="noopener noreferrer">View pipeline run</a>
-              </p>
+              <h3 style="margin-bottom: 0.75rem;">Latest pipeline run</h3>
+              <table style="width: 100%; border: none; font-size: 0.9rem; margin-bottom: 1.25rem;">
+                <tbody>
+                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
+                    <td style="padding: 0.5rem 0; font-weight: bold; width: 35%;">Identifier</td>
+                    <td style="padding: 0.5rem 0;" class="mono" id="latest-run-title">Loading...</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
+                    <td style="padding: 0.5rem 0; font-weight: bold;">Status</td>
+                    <td style="padding: 0.5rem 0;">
+                      <span id="latest-run-status-chip" class="status-chip status-neutral">unknown</span>
+                    </td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid rgba(0,0,0,0.08);">
+                    <td style="padding: 0.5rem 0; font-weight: bold;">Duration</td>
+                    <td style="padding: 0.5rem 0;" class="mono" id="latest-run-duration">Unknown</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 0.5rem 0; font-weight: bold;">Updated</td>
+                    <td style="padding: 0.5rem 0;" class="mono" id="latest-run-updated">Unknown</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style="margin-top: auto;">
+                <a id="latest-run-link" class="p-button u-no-margin--bottom" href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" target="_blank" rel="noopener noreferrer">View pipeline run</a>
+              </div>
             </article>
           </div>
           <div class="col-6">
@@ -681,6 +709,9 @@
       "openSUSE": "https://img.shields.io/badge/-%20-73BA25?style=flat-square&logo=opensuse&logoColor=white",
       Arch: "https://img.shields.io/badge/-%20-1793D1?style=flat-square&logo=archlinux&logoColor=white",
     };
+
+    const githubLogoSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="display: block; margin-right: 0.35rem;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>`;
+    const launchpadLogoSvg = `<svg class="status-chip-logo" viewBox="0 0 24 24" width="12" height="12" fill="currentColor" style="display: block; margin-right: 0.35rem;"><path d="M1.518 7.088 2.68 5.351c.107-.158.175-.162.293-.106 2.556 1.476 4.848 1.685 7.212.662 2.35-1.019 3.763-2.82 4.445-5.659.072-.256.166-.254.231-.245l2.03.44c.343.086.33.18.322.25-.45 3.328-2.755 6.251-6.019 7.632-3.317 1.426-6.92 1.112-9.64-.84-.056-.048-.182-.177-.032-.397h-.003Zm10.115 16.798 2.081.114c.35.006.36-.087.369-.156.45-3.328-.999-6.758-3.779-8.953-2.82-2.256-6.378-2.91-9.519-1.749-.065.033-.222.123-.136.373l.659 1.984c.063.18.125.202.254.179 2.855-.744 5.12-.339 7.128 1.275 1.996 1.606 2.88 3.716 2.784 6.644.003.258.093.281.158.29l.001-.001Zm1.335-13.868a2.04 2.04 0 0 0-.28-.02c-.422 0-.82.132-1.146.38a1.907 1.907 0 0 0-.725 1.28c-.07.508.06 1.01.362 1.411.305.407.759.67 1.277.74a1.915 1.915 0 0 0 2.15-1.64 1.892 1.892 0 0 0-1.64-2.152l.002.001ZM23.36 6.525l-.966-1.85c-.137-.304-.247-.274-.36-.236-3.089 1.332-5.22 4.26-5.703 7.838-.483 3.58.797 6.973 3.426 9.075.059.052.117.07.182.065a.3.3 0 0 0 .2-.109l1.358-1.628c.125-.157.071-.238.006-.306-2.13-2.096-2.926-4.18-2.58-6.748.349-2.583 1.71-4.433 4.286-5.827.204-.123.17-.228.151-.276v.002Z"/></svg>`;
 
     // 2. FORMATTING & UTILITY HELPERS
 
@@ -1021,7 +1052,7 @@
       setText("latest-run-title", latest.number ? `Run #${latest.number}` : "No run data");
       const building = isBuildingStatus(latest.status);
       setText("latest-run-duration", building ? `Running for ${latest.duration_label || "0s"}` : (latest.duration_label || "Unknown"));
-      setText("latest-run-updated", `Updated: ${formatDate(latest.updated_at)}`);
+      setText("latest-run-updated", formatDate(latest.updated_at));
       const chip = document.getElementById("latest-run-status-chip");
       if (chip) {
         chip.className = building
@@ -1093,9 +1124,18 @@
         const badgeCell = badgeSrc
           ? `<img class="os-badge" src="${badgeSrc}" alt="${logoAlt}">`
           : `<span class="mono">${row.family || ""}</span>`;
+        const isSuccess = row.status === "success";
+        const isFailure = FAILURE_STATES.has(row.status);
+        let shortSymbol = statusText;
+        if (isSuccess) {
+          shortSymbol = "✓";
+        } else if (isFailure) {
+          shortSymbol = "✗";
+        }
+
         const statusCell = isBuildingStatus(row.status)
-          ? `<span class="matrix-building" role="status"><span class="matrix-building__spinner" aria-hidden="true"></span><span class="status-chip status-building is-building">building</span></span>`
-          : `<img class="status-shield" src="${row.status_badge_url}" alt="${statusBadgeAlt}">`;
+          ? `<span class="matrix-building" role="status"><span class="matrix-building__spinner" aria-hidden="true"></span><span class="status-chip status-building is-building" aria-label="Status: building">${githubLogoSvg}<span class="status-text-full" aria-hidden="true">building</span><span class="status-text-short" aria-hidden="true">building</span></span></span>`
+          : `<span class="status-chip ${statusClass(row.status)}" aria-label="Status: ${statusText}">${githubLogoSvg}<span class="status-text-full" aria-hidden="true">${statusText}</span><span class="status-text-short" aria-hidden="true">${shortSymbol}</span></span>`;
         tr.innerHTML = `
           <td class="os-logo-col">${badgeCell}</td>
           <td class="distribution-col">${row.label}</td>
@@ -1223,8 +1263,8 @@
       rows.forEach((row) => {
         const isGitHub = row.build_source === "github";
         const builtOn = isGitHub
-          ? `<span class="p-status-label p-status-label--information">GitHub runners</span>`
-          : `<span class="p-status-label">Launchpad</span>`;
+          ? `<span class="status-chip status-neutral" style="background: #24292e !important; text-transform: none;">${githubLogoSvg}GitHub</span>`
+          : `<span class="status-chip status-neutral" style="background: #e95420 !important; text-transform: none;">${launchpadLogoSvg}Launchpad</span>`;
         const channel = row.channel || (row.on_stable ? "stable" : "edge");
         let status;
         if (row.build_status === "current") {
