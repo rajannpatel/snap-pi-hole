@@ -132,6 +132,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Restore/Save LLM Cache
+        uses: actions/cache@v4
+        with:
+          path: local-vulnerabilities/llm-cache.json
+          key: llm-cache-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            llm-cache-
+
       - name: Download SBOMs
         uses: actions/download-artifact@v7
         with:
