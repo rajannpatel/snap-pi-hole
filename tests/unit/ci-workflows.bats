@@ -231,25 +231,58 @@ assert "needs.publish.result == 'success'" not in condition, condition
 PYEOF
 }
 
-@test "cicd remote-build job runs one Launchpad builder per non-GitHub arch" {
+@test "cicd workflow does not wait for Launchpad builders" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
     doc = yaml.safe_load(f)
 jobs = doc["jobs"]
-assert "remote-build" in jobs, list(jobs)
-rb = jobs["remote-build"]
-assert rb["name"] == "build launchpad (\${{ matrix.arch }})", rb["name"]
-assert rb["needs"] == ["lint"], rb.get("needs")
-matrix = rb["strategy"]["matrix"]["arch"]
+assert "remote-build" not in jobs, list(jobs)
+assert "publish-remote" not in jobs, list(jobs)
+for job_name in ("vulnerability-scan", "deploy-pages"):
+    needs = jobs[job_name]["needs"]
+    assert "remote-build" not in needs, (job_name, needs)
+    assert "publish-remote" not in needs, (job_name, needs)
+PYEOF
+}
+
+@test "launchpad workflow is decoupled from the main CI workflow" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/launchpad-builds.yml") as f:
+    doc = yaml.safe_load(f)
+assert doc["name"] == "Launchpad Builds", doc["name"]
+on = doc.get("on", doc.get(True, {}))
+assert "workflow_run" in on, on
+assert "workflow_dispatch" in on, on
+wr = on["workflow_run"]
+assert wr["workflows"] == ["CI/CD Pipeline"], wr
+assert wr["types"] == ["completed"], wr
+job = doc["jobs"]["build-and-publish-launchpad"]
+cond = job["if"]
+assert "github.event.workflow_run.conclusion == 'success'" in cond, cond
+assert "github.event.workflow_run.head_branch == 'main'" in cond, cond
+assert "workflow_dispatch" in cond, cond
+PYEOF
+}
+
+@test "launchpad workflow runs one independent builder per non-GitHub arch" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/launchpad-builds.yml") as f:
+    doc = yaml.safe_load(f)
+jobs = doc["jobs"]
+assert list(jobs) == ["build-and-publish-launchpad"], list(jobs)
+job = jobs["build-and-publish-launchpad"]
+assert job["name"] == "build and publish launchpad (\${{ matrix.arch }})", job["name"]
+matrix = job["strategy"]["matrix"]["arch"]
 assert sorted(matrix) == ["armhf", "ppc64el", "riscv64", "s390x"], matrix
-assert rb["strategy"].get("fail-fast") is False, rb["strategy"]
-cond = rb["if"]
-assert "github.ref == 'refs/heads/main'" in cond and "push" in cond, cond
-steps = rb["steps"]
+assert job["strategy"].get("fail-fast") is False, job["strategy"]
+steps = job["steps"]
 # remote-build rejects shallow clones, so a full-history checkout is required.
 checkout = next(s for s in steps if str(s.get("uses", "")).startswith("actions/checkout"))
 assert checkout.get("with", {}).get("fetch-depth") == 0, checkout
+assert "github.event.workflow_run.head_sha" in checkout.get("with", {}).get("ref"), checkout
 runs = "\n".join(s.get("run", "") for s in steps)
 assert "launchpad-credentials" in runs, "credentials must be restored to the snapcraft path"
 assert "base64 -d" in runs, runs
@@ -261,12 +294,12 @@ assert "--launchpad-timeout" in runs, runs
 PYEOF
 }
 
-@test "cicd remote-build job uploads per-arch Launchpad snaps and SBOMs" {
+@test "launchpad workflow uploads per-arch snaps and SBOMs" {
     python3 - <<PYEOF
 import yaml
-with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+with open("${REPO_ROOT}/.github/workflows/launchpad-builds.yml") as f:
     doc = yaml.safe_load(f)
-steps = doc["jobs"]["remote-build"]["steps"]
+steps = doc["jobs"]["build-and-publish-launchpad"]["steps"]
 runs = "\n".join(s.get("run", "") for s in steps)
 assert "syft scan" in runs, runs
 assert "enrich_sbom.py" in runs, runs
@@ -275,32 +308,26 @@ uploads = [s for s in steps if str(s.get("uses", "")).startswith("actions/upload
 names = [s.get("with", {}).get("name") for s in uploads]
 assert "pihole-snap-launchpad-\${{ matrix.arch }}" in names, names
 assert "sbom-launchpad-\${{ matrix.arch }}" in names, names
-# A sbom-* artifact name so the existing vulnerability-scan/deploy globs collect it.
+# A sbom-* artifact name keeps Launchpad outputs consistent with GitHub builder
+# artifacts for manual download and later report-refresh workflows.
 assert any(str(n).startswith("sbom-") for n in names), names
 PYEOF
 }
 
-@test "cicd publish-remote publishes the four Launchpad arches to the same channels" {
+@test "launchpad workflow publishes the four Launchpad arches to the same channels" {
     python3 - <<PYEOF
 import yaml
-with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+with open("${REPO_ROOT}/.github/workflows/launchpad-builds.yml") as f:
     doc = yaml.safe_load(f)
 jobs = doc["jobs"]
-assert "publish-remote" in jobs, list(jobs)
-pr = jobs["publish-remote"]
-assert pr["name"] == "publish launchpad (\${{ matrix.arch }})", pr["name"]
-assert pr["needs"] == ["remote-build"], pr.get("needs")
-arches = pr["strategy"]["matrix"]["arch"]
+assert list(jobs) == ["build-and-publish-launchpad"], list(jobs)
+job = jobs["build-and-publish-launchpad"]
+arches = job["strategy"]["matrix"]["arch"]
 assert sorted(arches) == ["armhf", "ppc64el", "riscv64", "s390x"], arches
-cond = pr["if"]
-assert "github.ref == 'refs/heads/main'" in cond and "push" in cond, cond
-runs = "\n".join(s.get("run", "") for s in pr["steps"])
+runs = "\n".join(s.get("run", "") for s in job["steps"])
 # Same tag->channel mapping as the amd64/arm64 publish job (clean tag -> stable).
 assert "latest/stable,latest/candidate,latest/beta,latest/edge" in runs, runs
 assert "snapcraft upload" in runs, runs
-downloads = [s for s in pr["steps"] if str(s.get("uses", "")).startswith("actions/download-artifact")]
-download_names = [s.get("with", {}).get("name") for s in downloads]
-assert "pihole-snap-launchpad-\${{ matrix.arch }}" in download_names, download_names
 PYEOF
 }
 
@@ -324,34 +351,33 @@ assert "pihole-snap-github-\${{ matrix.arch }}" in publish_names, publish_names
 PYEOF
 }
 
-@test "cicd vulnerability-scan waits for remote-build but tolerates its absence" {
+@test "cicd vulnerability-scan is not blocked by Launchpad builders" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
     doc = yaml.safe_load(f)
 vs = doc["jobs"]["vulnerability-scan"]
-assert "remote-build" in vs["needs"], vs["needs"]
+assert vs["needs"] == ["build"], vs["needs"]
 cond = vs["if"]
 assert "always()" in cond, cond
 assert "needs.build.result == 'success'" in cond, cond
-# Must NOT hard-require remote-build success, or PRs (which skip it) skip the scan.
+assert "remote-build" not in cond, cond
 assert "needs.remote-build.result == 'success'" not in cond, cond
 PYEOF
 }
 
-@test "cicd deploy-pages waits for remote-build and publish-remote without requiring their success" {
+@test "cicd deploy-pages is not blocked by Launchpad builders" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
     doc = yaml.safe_load(f)
 deploy = doc["jobs"]["deploy-pages"]
 needs = deploy["needs"]
-assert "remote-build" in needs, needs
-assert "publish-remote" in needs, needs
+assert "remote-build" not in needs, needs
+assert "publish-remote" not in needs, needs
 condition = deploy["if"]
-# Tolerant: still deploy the dashboard if the Launchpad path flakes.
-assert "needs.remote-build.result == 'success'" not in condition, condition
-assert "needs.publish-remote.result == 'success'" not in condition, condition
+assert "remote-build" not in condition, condition
+assert "publish-remote" not in condition, condition
 PYEOF
 }
 

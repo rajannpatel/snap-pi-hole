@@ -70,8 +70,8 @@ jobs:
       matrix:
         arch: [amd64, arm64]
         # armhf, ppc64el, riscv64, and s390x are built on Launchpad's build farm
-        # by the separate `remote-build` matrix job below, because GitHub-hosted
-        # runners only support amd64 and arm64.
+        # by the separate Launchpad Builds workflow, because GitHub-hosted runners
+        # only support amd64 and arm64.
     steps:
       - uses: actions/checkout@v6
 
@@ -113,77 +113,12 @@ jobs:
           path: ${{ steps.snapcraft.outputs.snap }}
           if-no-files-found: error
 
-  remote-build:
-    name: build launchpad (${{ matrix.arch }})
-    needs: [lint]
-    runs-on: ubuntu-latest
-    environment: snap-publishing
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [armhf, ppc64el, riscv64, s390x]
-    steps:
-      # remote-build pushes the git tree to Launchpad and rejects shallow
-      # clones, so a full-history checkout is mandatory here.
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Install snapcraft
-        run: sudo snap install snapcraft --classic --channel=9.x/stable
-
-      - name: Restore Launchpad credentials
-        env:
-          LAUNCHPAD_CREDENTIALS: ${{ secrets.LAUNCHPAD_CREDENTIALS }}
-        run: |
-          if [ -z "${LAUNCHPAD_CREDENTIALS:-}" ]; then
-            echo "::error title=Launchpad::LAUNCHPAD_CREDENTIALS secret is not set." >&2
-            exit 1
-          fi
-          # snapcraft reads Launchpad OAuth credentials from this hardcoded path;
-          # the secret holds the base64 of that file.
-          install -d -m 700 ~/.local/share/snapcraft
-          printf '%s' "${LAUNCHPAD_CREDENTIALS}" | base64 -d \
-            > ~/.local/share/snapcraft/launchpad-credentials
-          chmod 600 ~/.local/share/snapcraft/launchpad-credentials
-
-      - name: Build ${{ matrix.arch }} on Launchpad
-        run: |
-          snapcraft remote-build \
-            --build-for ${{ matrix.arch }} \
-            --launchpad-accept-public-upload \
-            --launchpad-timeout 7200
-
-      - name: Generate SBOM (CycloneDX)
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-          SNAP_FILE=$(ls ${{ env.SNAP_NAME }}_*_${{ matrix.arch }}.snap | head -n1)
-          rm -rf "extracted-${{ matrix.arch }}"
-          unsquashfs -d "extracted-${{ matrix.arch }}" "$SNAP_FILE"
-          syft scan "extracted-${{ matrix.arch }}" -o cyclonedx-json="sbom-${{ matrix.arch }}.json"
-          python3 snap/local/build/enrich_sbom.py "sbom-${{ matrix.arch }}.json" "extracted-${{ matrix.arch }}"
-
-      - name: Upload snap artefacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: pihole-snap-launchpad-${{ matrix.arch }}
-          path: ${{ env.SNAP_NAME }}_*_${{ matrix.arch }}.snap
-          if-no-files-found: error
-
-      - name: Upload SBOM artefacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: sbom-launchpad-${{ matrix.arch }}
-          path: sbom-${{ matrix.arch }}.json
-          if-no-files-found: error
-
   vulnerability-scan:
     name: vulnerability scan
-    needs: [build, remote-build]
-    # Scan whatever SBOMs exist (2 on PRs, 6 on main). always() keeps the scan
-    # running even when remote-build is skipped (PRs) or fails, so a Launchpad
-    # hiccup never blocks the amd64/arm64 security gate.
+    needs: [build]
+    # Scan the SBOMs produced by the GitHub builders. Launchpad architectures
+    # are built and published by a separate workflow so slow remote-build queues
+    # cannot block the amd64/arm64 security gate or dashboard deploy.
     if: always() && needs.build.result == 'success'
     runs-on: ubuntu-latest
     environment: snap-publishing
@@ -623,109 +558,9 @@ jobs:
             exit $RC
           fi
 
-  publish-remote:
-    name: publish launchpad (${{ matrix.arch }})
-    needs: [remote-build]
-    runs-on: ubuntu-latest
-    environment: snap-publishing
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    strategy:
-      matrix:
-        arch: [armhf, ppc64el, riscv64, s390x]
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Download snaps
-        uses: actions/download-artifact@v7
-        with:
-          name: pihole-snap-launchpad-${{ matrix.arch }}
-          path: .
-
-      - name: Get snap filename and parse track
-        id: snap
-        run: |
-          SNAP_FILE=$(ls ${{ env.SNAP_NAME }}_*_${{ matrix.arch }}.snap | head -n1)
-          echo "file=${SNAP_FILE}" >> $GITHUB_OUTPUT
-
-          # Extract the version from the snap filename (e.g., pihole-by-rajannpatel_v6.6.2_armhf.snap -> v6.6.2)
-          SNAP_VERSION=$(echo "$SNAP_FILE" | cut -d'_' -f2)
-
-          # Strip leading 'v' if present and get the major version number (e.g., v6.6.2 -> 6)
-          MAJOR_VERSION=$(echo "${SNAP_VERSION#v}" | cut -d'.' -f1)
-          echo "track=${MAJOR_VERSION}" >> $GITHUB_OUTPUT
-
-          # Map Pi-hole versioning to Snap Store channels. Kept identical to the
-          # amd64/arm64 publish job so all six architectures land on the same
-          # channels from the same commit.
-          ENABLE_TRACKS=false
-
-          # If the version has commits past a tag (contains -g followed by hex) or is alpha, it's a dev build
-          if [[ "$SNAP_VERSION" == *"-alpha"* ]] || [[ "$SNAP_VERSION" =~ -g[0-9a-f]+ ]]; then
-            CHANNELS="latest/edge"
-            [[ "$ENABLE_TRACKS" == "true" ]] && CHANNELS="${CHANNELS},${MAJOR_VERSION}/edge"
-          elif [[ "$SNAP_VERSION" == *"-beta"* ]]; then
-            CHANNELS="latest/beta,latest/edge"
-            [[ "$ENABLE_TRACKS" == "true" ]] && CHANNELS="${CHANNELS},${MAJOR_VERSION}/beta,${MAJOR_VERSION}/edge"
-          elif [[ "$SNAP_VERSION" == *"-rc"* ]]; then
-            CHANNELS="latest/candidate,latest/beta,latest/edge"
-            [[ "$ENABLE_TRACKS" == "true" ]] && CHANNELS="${CHANNELS},${MAJOR_VERSION}/candidate,${MAJOR_VERSION}/beta,${MAJOR_VERSION}/edge"
-          else
-            # A clean tag (even if it has -dirty from local sed patches) goes to stable
-            CHANNELS="latest/stable,latest/candidate,latest/beta,latest/edge"
-            [[ "$ENABLE_TRACKS" == "true" ]] && CHANNELS="${CHANNELS},${MAJOR_VERSION}/stable,${MAJOR_VERSION}/candidate,${MAJOR_VERSION}/beta,${MAJOR_VERSION}/edge"
-          fi
-          echo "channels=${CHANNELS}" >> $GITHUB_OUTPUT
-
-      - name: Publish to Snap Store
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        run: |
-          if [ -n "${SNAPCRAFT_STORE_CREDENTIALS:-}" ]; then
-            while IFS= read -r line; do
-              if [ -n "$line" ]; then
-                echo "::add-mask::$line"
-              fi
-            done <<< "${SNAPCRAFT_STORE_CREDENTIALS}"
-          fi
-
-          sudo snap install --classic snapcraft
-
-          MAX_ATTEMPTS=3
-          attempt=1
-          success=0
-
-          while [ $attempt -le $MAX_ATTEMPTS ]; do
-            echo "Uploading snap (attempt $attempt of $MAX_ATTEMPTS)..."
-            set +e
-            UPLOAD_OUT=$(/snap/bin/snapcraft upload "${{ steps.snap.outputs.file }}" --release "${{ steps.snap.outputs.channels }}" 2>&1)
-            RC=$?
-            set -e
-
-            if [ $RC -eq 0 ]; then
-              echo "Upload succeeded."
-              success=1
-              break
-            fi
-
-            if echo "$UPLOAD_OUT" | grep -q "A file with this exact same content has already been uploaded"; then
-              echo "::notice::Snap with the same content is already uploaded. Skipping duplicate upload."
-              success=1
-              break
-            fi
-
-            echo "::warning::Snapcraft upload attempt $attempt failed with exit code $RC. Retrying in 15 seconds..."
-            attempt=$((attempt + 1))
-            sleep 15
-          done
-
-          if [ $success -ne 1 ]; then
-            echo "::error::Snapcraft upload failed after $MAX_ATTEMPTS attempts."
-            exit $RC
-          fi
-
   deploy-pages:
     name: Deploy reports to GitHub Pages
-    needs: [lint, build, remote-build, smoke, vulnerability-scan, publish, publish-remote]
+    needs: [lint, build, smoke, vulnerability-scan, publish]
     runs-on: ubuntu-latest
     environment: snap-publishing
     if: |
