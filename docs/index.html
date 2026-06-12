@@ -1097,10 +1097,32 @@
 
     // Maps build conclusions to graph node fill colors
     function trendPointColor(conclusion) {
-      if (conclusion === "success") return "#0e8420";
-      if (conclusion === "failure") return "#c7162b";
-      if (conclusion === "cancelled" || conclusion === "skipped") return "#757575";
+      const normalized = String(conclusion || "").toLowerCase();
+      if (normalized === "success") return "#0e8420";
+      if (FAILURE_STATES.has(normalized)) return "#c7162b";
+      if (normalized === "cancelled" || normalized === "skipped") return "#757575";
       return "#0b6bc5";
+    }
+
+    // Maps a build conclusion to its trend tooltip styling, title prefix and
+    // message suffix. A cancelled or skipped run produced no new build, so it
+    // must read as a neutral caution, never the green "positive" success style.
+    function trendTooltipDescriptor(conclusion, isSuspiciouslyFast) {
+      const normalized = String(conclusion || "unknown").toLowerCase();
+      if (FAILURE_STATES.has(normalized)) {
+        return { notificationClass: "p-notification--negative is-inline", titlePrefix: "Failed ", messageSuffix: "" };
+      }
+      if (normalized === "cancelled" || normalized === "skipped") {
+        const titlePrefix = normalized === "cancelled" ? "Cancelled " : "Skipped ";
+        return { notificationClass: "p-notification--caution is-inline", titlePrefix, messageSuffix: "" };
+      }
+      if (normalized === "success") {
+        if (isSuspiciouslyFast) {
+          return { notificationClass: "p-notification--caution is-inline", titlePrefix: "Suspiciously Fast ", messageSuffix: " (potential bypass)" };
+        }
+        return { notificationClass: "p-notification--positive is-inline", titlePrefix: "", messageSuffix: "" };
+      }
+      return { notificationClass: "p-notification--caution is-inline", titlePrefix: `${normalized.replace(/_/g, " ")} `, messageSuffix: "" };
     }
 
     // Calculates run duration in seconds
@@ -1284,6 +1306,17 @@
       line.setAttribute("stroke-linejoin", "round");
       svg.appendChild(line);
 
+      points.forEach((point) => {
+        const dot = document.createElementNS(ns, "circle");
+        dot.setAttribute("cx", String(point.x));
+        dot.setAttribute("cy", String(point.y));
+        dot.setAttribute("r", "3.5");
+        dot.setAttribute("fill", trendPointColor(point.row.conclusion));
+        dot.setAttribute("stroke", "#fff");
+        dot.setAttribute("stroke-width", "1.5");
+        svg.appendChild(dot);
+      });
+
       const crosshair = document.createElementNS(ns, "line");
       crosshair.setAttribute("y1", String(margin.top));
       crosshair.setAttribute("y2", String(height - margin.bottom));
@@ -1335,19 +1368,13 @@
 
         const conclusion = String(point.row.conclusion || "unknown").toLowerCase();
         const isSuspiciouslyFast = conclusion === "success" && point.row.duration_seconds < (medianDuration * 0.5);
-        let notificationClass = "p-notification--positive is-inline";
-        let titlePrefix = "";
-        let messageText = `: ${point.row.duration_label}`;
-        if (conclusion === "failure") {
-          notificationClass = "p-notification--negative is-inline";
-          titlePrefix = "Failed ";
-          messageText = `: ${point.row.duration_label}`;
-        } else if (isSuspiciouslyFast) {
-          notificationClass = "p-notification--caution is-inline";
-          titlePrefix = "Suspiciously Fast ";
-          messageText = `: ${point.row.duration_label} (potential bypass)`;
-        }
-        tooltip.innerHTML = `<div class="${notificationClass}"><div class="p-notification__content"><h5 class="p-notification__title">${titlePrefix}Run #${escapeHtml(point.row.run_number)}</h5><p class="p-notification__message">${escapeHtml(messageText)}</p></div></div>`;
+        const dotColor = trendPointColor(conclusion);
+        focusDot.setAttribute("stroke", dotColor);
+        focusHalo.setAttribute("fill", dotColor);
+        focusHalo.setAttribute("fill-opacity", "0.18");
+        const descriptor = trendTooltipDescriptor(conclusion, isSuspiciouslyFast);
+        const messageText = `: ${point.row.duration_label}${descriptor.messageSuffix}`;
+        tooltip.innerHTML = `<div class="${descriptor.notificationClass}"><div class="p-notification__content"><h5 class="p-notification__title">${descriptor.titlePrefix}Run #${escapeHtml(point.row.run_number)}</h5><p class="p-notification__message">${escapeHtml(messageText)}</p></div></div>`;
         const tooltipWidth = 288;
         const xAnchor = pointerX === null ? point.x : pointerX;
         const tooltipX = Math.min(width - margin.right - tooltipWidth, Math.max(margin.left, xAnchor - (tooltipWidth / 2)));

@@ -148,3 +148,77 @@ assert.strictEqual(gh.label, "Behind · stable");
 JS
     done
 }
+
+@test "frontend: trendPointColor renders cancelled/skipped as neutral grey, not success green" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadModule } = require(process.argv[2]);
+const { trendPointColor } = loadModule(process.argv[3], {
+  consts: ["FAILURE_STATES"],
+  functions: ["trendPointColor"],
+});
+const assert = require("assert");
+
+const GREEN = "#0e8420";
+const RED = "#c7162b";
+const GREY = "#757575";
+
+// Successful builds stay green; genuine failures stay red.
+assert.strictEqual(trendPointColor("success"), GREEN);
+assert.strictEqual(trendPointColor("failure"), RED);
+// All failure-class conclusions share the red treatment.
+assert.strictEqual(trendPointColor("timed_out"), RED);
+assert.strictEqual(trendPointColor("startup_failure"), RED);
+
+// Regression guard: a cancelled run produced no new build. It must never be
+// painted green like a success (the bug that made run #94 "show successful").
+assert.strictEqual(trendPointColor("cancelled"), GREY);
+assert.strictEqual(trendPointColor("skipped"), GREY);
+assert.notStrictEqual(trendPointColor("cancelled"), GREEN);
+
+// Case-insensitive and resilient to empty input.
+assert.strictEqual(trendPointColor("CANCELLED"), GREY);
+assert.strictEqual(trendPointColor(""), "#0b6bc5");
+JS
+    done
+}
+
+@test "frontend: trendTooltipDescriptor styles cancelled runs as caution, never positive success" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadModule } = require(process.argv[2]);
+const { trendTooltipDescriptor } = loadModule(process.argv[3], {
+  consts: ["FAILURE_STATES"],
+  functions: ["trendTooltipDescriptor"],
+});
+const assert = require("assert");
+
+// A normal success keeps the green positive tooltip with no qualifier.
+const ok = trendTooltipDescriptor("success", false);
+assert.strictEqual(ok.notificationClass, "p-notification--positive is-inline");
+assert.strictEqual(ok.titlePrefix, "");
+
+// A failure reads as the red negative tooltip.
+const failed = trendTooltipDescriptor("failure", false);
+assert.strictEqual(failed.notificationClass, "p-notification--negative is-inline");
+assert.strictEqual(failed.titlePrefix, "Failed ");
+
+// Regression guard: a cancelled run must NOT use the positive/success style.
+// It produced no new build, so it reads as a neutral caution labelled clearly.
+const cancelled = trendTooltipDescriptor("cancelled", false);
+assert.ok(!/positive/.test(cancelled.notificationClass), cancelled.notificationClass);
+assert.strictEqual(cancelled.notificationClass, "p-notification--caution is-inline");
+assert.strictEqual(cancelled.titlePrefix, "Cancelled ");
+
+const skipped = trendTooltipDescriptor("skipped", false);
+assert.strictEqual(skipped.titlePrefix, "Skipped ");
+assert.ok(!/positive/.test(skipped.notificationClass), skipped.notificationClass);
+
+// A suspiciously fast success is flagged as caution, not plain positive.
+const fast = trendTooltipDescriptor("success", true);
+assert.strictEqual(fast.notificationClass, "p-notification--caution is-inline");
+assert.strictEqual(fast.titlePrefix, "Suspiciously Fast ");
+assert.strictEqual(fast.messageSuffix, " (potential bypass)");
+JS
+    done
+}
