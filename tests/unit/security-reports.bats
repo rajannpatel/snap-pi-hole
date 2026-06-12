@@ -1361,6 +1361,36 @@ assert summary.vex_filename("armhf") == "vex-armhf.cdx.json"
 PYEOF
 }
 
+@test "confinement prompt calibrates reachability, declared interfaces, and official impact" {
+    python3 - <<PYEOF
+import pathlib
+import sys
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+template = pathlib.Path("${REPO_ROOT}/snap/local/build/prompts/cve_confinement_analysis.md").read_text()
+fallback = summary.FALLBACK_PROMPT_TEMPLATE
+
+for text, label in ((template, "markdown"), (fallback, "fallback")):
+    assert "confirmed reachable" in text, label
+    assert "plausibly reachable" in text, label
+    assert "not evident" in text, label
+    assert "declared capability" in text or "declares" in text, label
+    assert "proven active connection" in text or "when connected" in text, label
+    assert "C:N/I:N/A:H" in text, label
+    assert "availability-only" in text, label
+    assert "arbitrary code execution" in text, label
+    assert "Do not claim host-control" in text or "Host-reaching interfaces" in text, label
+
+prompt = summary.load_prompt_template()
+assert "official impact" in prompt, prompt
+assert "availability-only" in prompt, prompt
+assert "confirmed reachable" in prompt and "plausibly reachable" in prompt, prompt
+assert "proven active connection" in prompt or "when connected" in prompt, prompt
+PYEOF
+}
+
 @test "build_vex_document maps confinement analysis to CycloneDX VEX states" {
     python3 - <<PYEOF
 import sys
