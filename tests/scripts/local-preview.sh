@@ -97,10 +97,14 @@ run_vuln() {
     echo "=== Generating local vulnerability report preview ==="
     local use_mock=true
 
+    reset_vuln_dir() {
+        mkdir -p local-vulnerabilities
+        find local-vulnerabilities -mindepth 1 -maxdepth 1 ! -name 'llm-cache.json' -exec rm -rf {} +
+    }
+
     if command -v osv-scanner &>/dev/null && [ -f "local-sbom.json" ]; then
         echo "Found local-sbom.json and osv-scanner. Running real scan..."
-        rm -rf local-vulnerabilities
-        mkdir -p local-vulnerabilities
+        reset_vuln_dir
         
         cp local-sbom.json local-vulnerabilities/sbom-amd64.cdx.json
         set +e
@@ -116,8 +120,7 @@ run_vuln() {
 
     if [ "${use_mock}" = "true" ]; then
         echo "Generating realistic mock vulnerability report data..."
-        rm -rf local-vulnerabilities
-        mkdir -p local-vulnerabilities
+        reset_vuln_dir
         
         cat << 'EOF' > local-vulnerabilities/osv-amd64.json
 {
