@@ -204,6 +204,21 @@ assert matrix["last_updated"].isoformat() == "2026-06-08T10:03:05+00:00", matrix
 PYEOF
 }
 
+@test "dashboard data: default distro matrix metadata points at cicd.yml" {
+    python3 - <<PYEOF
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+rows = dashboard.DISTRO_WORKFLOWS
+assert rows, "DISTRO_WORKFLOWS should not be empty"
+for row in rows:
+    assert row["workflow"] == "cicd.yml", row
+    assert row.get("distro"), row
+    assert not row["workflow"].startswith("test-"), row
+PYEOF
+}
+
 @test "dashboard data: snap package classifies GitHub vs Launchpad builds and keeps full version" {
     python3 - <<PYEOF
 import pathlib

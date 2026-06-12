@@ -26,17 +26,17 @@ GITHUB_BUILD_ARCHES = {"AMD64", "ARM64"}
 RISK_RANK = {"stable": 4, "candidate": 3, "beta": 2, "edge": 1}
 
 DISTRO_WORKFLOWS = [
-    {"id": "ubuntu", "label": "Ubuntu 26.04", "workflow": "test-ubuntu.yml", "family": "Ubuntu"},
-    {"id": "ubuntu-daily", "label": "Ubuntu Daily 26.04", "workflow": "test-ubuntu-daily.yml", "family": "Ubuntu"},
-    {"id": "ubuntu-core", "label": "Ubuntu Core 26", "workflow": "test-ubuntu-core.yml", "family": "Ubuntu"},
-    {"id": "debian-stable", "label": "Debian Stable 13", "workflow": "test-debian-stable.yml", "family": "Debian"},
-    {"id": "debian", "label": "Debian Rolling", "workflow": "test-debian.yml", "family": "Debian"},
-    {"id": "fedora", "label": "Fedora 44", "workflow": "test-fedora.yml", "family": "Fedora"},
-    {"id": "rocky", "label": "Rocky Linux 9.8", "workflow": "test-rockylinux.yml", "family": "Rocky"},
-    {"id": "alma", "label": "AlmaLinux 9.8", "workflow": "test-almalinux.yml", "family": "AlmaLinux"},
-    {"id": "opensuse-leap", "label": "openSUSE Leap 16.0", "workflow": "test-opensuse-leap.yml", "family": "openSUSE"},
-    {"id": "opensuse-tumbleweed", "label": "openSUSE Tumbleweed", "workflow": "test-opensuse-tumbleweed.yml", "family": "openSUSE"},
-    {"id": "arch", "label": "Arch Linux Rolling", "workflow": "test-archlinux.yml", "family": "Arch"},
+    {"id": "ubuntu", "label": "Ubuntu 26.04", "workflow": "cicd.yml", "distro": "ubuntu", "family": "Ubuntu"},
+    {"id": "ubuntu-daily", "label": "Ubuntu Daily 26.04", "workflow": "cicd.yml", "distro": "ubuntu-daily", "family": "Ubuntu"},
+    {"id": "ubuntu-core", "label": "Ubuntu Core 26", "workflow": "cicd.yml", "distro": "ubuntu-core", "family": "Ubuntu"},
+    {"id": "debian-stable", "label": "Debian Stable 13", "workflow": "cicd.yml", "distro": "debian-stable", "family": "Debian"},
+    {"id": "debian", "label": "Debian Rolling", "workflow": "cicd.yml", "distro": "debian", "family": "Debian"},
+    {"id": "fedora", "label": "Fedora 44", "workflow": "cicd.yml", "distro": "fedora", "family": "Fedora"},
+    {"id": "rocky", "label": "Rocky Linux 9.8", "workflow": "cicd.yml", "distro": "rockylinux", "family": "Rocky"},
+    {"id": "alma", "label": "AlmaLinux 9.8", "workflow": "cicd.yml", "distro": "almalinux", "family": "AlmaLinux"},
+    {"id": "opensuse-leap", "label": "openSUSE Leap 16.0", "workflow": "cicd.yml", "distro": "opensuse-leap", "family": "openSUSE"},
+    {"id": "opensuse-tumbleweed", "label": "openSUSE Tumbleweed", "workflow": "cicd.yml", "distro": "opensuse-tumbleweed", "family": "openSUSE"},
+    {"id": "arch", "label": "Arch Linux Rolling", "workflow": "cicd.yml", "distro": "archlinux", "family": "Arch"},
 ]
 
 
@@ -239,11 +239,11 @@ def job_duration_seconds(job):
 
 
 def distro_job_key(workflow_file):
-    """Map a test-<distro>.yml workflow to its cicd.yml matrix job key.
+    """Map a legacy test-<distro>.yml workflow name to its matrix job key.
 
-    The cicd.yml pipeline runs each distribution as a matrix job named
-    ``distro test (<key>)`` where <key> matches the workflow file stem, e.g.
-    test-rockylinux.yml -> rockylinux -> "distro test (rockylinux)".
+    The active cicd.yml pipeline now stores explicit distro keys in
+    DISTRO_WORKFLOWS. This helper remains for older fixtures and generated data
+    that still carry the retired standalone workflow filenames.
     """
     base = workflow_file
     if base.startswith("test-"):
@@ -283,7 +283,8 @@ def collect_distro_matrix(client):
     run_number = target_run.get("run_number") if target_run else None
 
     for item in DISTRO_WORKFLOWS:
-        prefix = f"distro test ({distro_job_key(item['workflow'])})"
+        distro = item.get("distro") or distro_job_key(item["workflow"])
+        prefix = f"distro test ({distro})"
         job = next((j for j in jobs if j.get("name", "").startswith(prefix)), None)
 
         status = summarize_state(job)
@@ -316,7 +317,7 @@ def collect_distro_matrix(client):
                 "label": item["label"],
                 "family": item["family"],
                 "workflow": item["workflow"],
-                "distro": distro_job_key(item["workflow"]),
+                "distro": distro,
                 "status_badge_url": get_status_badge_url(status),
                 "status": status,
                 "conclusion": conclusion,

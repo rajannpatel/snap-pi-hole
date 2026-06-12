@@ -5,7 +5,7 @@
 #
 #   - track-upstream-releases.yml: snapcraft.yaml-only upstream tag bumps
 #   - cicd.yml: port-53 timeout guard logic (both success and failure paths)
-#   - cicd.yml: Snap Store channel mapping logic based on Pi-hole tags
+#   - cicd.yml / launchpad-builds.yml: stable-only Snap Store publishing policy
 #
 # Run locally:  bats tests/unit/ci-workflows.bats
 # In CI:        see .github/workflows/cicd.yml (lint+unit job)
@@ -95,73 +95,30 @@ BASH
     [[ "$output" == *"::error::"* ]]
 }
 
-# Channel mapping logic (from cicd.yml)
-
-_run_channel_mapping() {
-    local SNAP_VERSION="$1"
-    local ENABLE_TRACKS="$2"
-    bash <<BASH
-    SNAP_VERSION="${SNAP_VERSION}"
-    ENABLE_TRACKS="${ENABLE_TRACKS}"
-    MAJOR_VERSION=\$(echo "\${SNAP_VERSION#v}" | cut -d'.' -f1)
-    
-    if [[ "\$SNAP_VERSION" == *"-alpha"* ]] || [[ "\$SNAP_VERSION" =~ -g[0-9a-f]+ ]]; then
-      CHANNELS="latest/edge"
-      [[ "\$ENABLE_TRACKS" == "true" ]] && CHANNELS="\${CHANNELS},\${MAJOR_VERSION}/edge"
-    elif [[ "\$SNAP_VERSION" == *"-beta"* ]]; then
-      CHANNELS="latest/beta,latest/edge"
-      [[ "\$ENABLE_TRACKS" == "true" ]] && CHANNELS="\${CHANNELS},\${MAJOR_VERSION}/beta,\${MAJOR_VERSION}/edge"
-    elif [[ "\$SNAP_VERSION" == *"-rc"* ]]; then
-      CHANNELS="latest/candidate,latest/beta,latest/edge"
-      [[ "\$ENABLE_TRACKS" == "true" ]] && CHANNELS="\${CHANNELS},\${MAJOR_VERSION}/candidate,\${MAJOR_VERSION}/beta,\${MAJOR_VERSION}/edge"
-    else
-      CHANNELS="latest/stable,latest/candidate,latest/beta,latest/edge"
-      [[ "\$ENABLE_TRACKS" == "true" ]] && CHANNELS="\${CHANNELS},\${MAJOR_VERSION}/stable,\${MAJOR_VERSION}/candidate,\${MAJOR_VERSION}/beta,\${MAJOR_VERSION}/edge"
-    fi
-    echo "\$CHANNELS"
-BASH
+@test "cicd publish releases GitHub builds only to stable" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+runs = "\n".join(s.get("run", "") for s in doc["jobs"]["publish"]["steps"])
+assert "channels=latest/stable" in runs, runs
+for channel in ("latest/edge", "latest/beta", "latest/candidate"):
+    assert channel not in runs, (channel, runs)
+assert "ENABLE_TRACKS" not in runs, runs
+PYEOF
 }
 
-@test "publish mapping clean tag goes to all channels" {
-    run _run_channel_mapping "v6.4.2" "false"
-    [ "$status" -eq 0 ]
-    [ "$output" = "latest/stable,latest/candidate,latest/beta,latest/edge" ]
-}
-
-@test "publish mapping clean tag with -dirty goes to all channels" {
-    run _run_channel_mapping "v6.4.2-dirty" "false"
-    [ "$status" -eq 0 ]
-    [ "$output" = "latest/stable,latest/candidate,latest/beta,latest/edge" ]
-}
-
-@test "publish mapping -beta goes to beta and edge" {
-    run _run_channel_mapping "v6.4.2-beta.1" "false"
-    [ "$status" -eq 0 ]
-    [ "$output" = "latest/beta,latest/edge" ]
-}
-
-@test "publish mapping -rc goes to candidate, beta, and edge" {
-    run _run_channel_mapping "v6.4.2-rc.1" "false"
-    [ "$status" -eq 0 ]
-    [ "$output" = "latest/candidate,latest/beta,latest/edge" ]
-}
-
-@test "publish mapping -alpha goes to edge" {
-    run _run_channel_mapping "v7.0.0-alpha.1" "false"
-    [ "$status" -eq 0 ]
-    [ "$output" = "latest/edge" ]
-}
-
-@test "publish mapping post-tag commit (-gXXX) goes to edge" {
-    run _run_channel_mapping "v6.4.2-12-g12345" "false"
-    [ "$status" -eq 0 ]
-    [ "$output" = "latest/edge" ]
-}
-
-@test "publish mapping tracks enabled mirrors channels to major version" {
-    run _run_channel_mapping "v6.4.2" "true"
-    [ "$status" -eq 0 ]
-    [ "$output" = "latest/stable,latest/candidate,latest/beta,latest/edge,6/stable,6/candidate,6/beta,6/edge" ]
+@test "launchpad publish releases Launchpad builds only to stable" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/launchpad-builds.yml") as f:
+    doc = yaml.safe_load(f)
+runs = "\n".join(s.get("run", "") for s in doc["jobs"]["build-and-publish-launchpad"]["steps"])
+assert "channels=latest/stable" in runs, runs
+for channel in ("latest/edge", "latest/beta", "latest/candidate"):
+    assert channel not in runs, (channel, runs)
+assert "ENABLE_TRACKS" not in runs, runs
+PYEOF
 }
 
 @test "cicd workflow scans SBOM artifacts with OSV-Scanner" {
@@ -314,7 +271,7 @@ assert any(str(n).startswith("sbom-") for n in names), names
 PYEOF
 }
 
-@test "launchpad workflow publishes the four Launchpad arches to the same channels" {
+@test "launchpad workflow publishes the four Launchpad arches to stable" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/.github/workflows/launchpad-builds.yml") as f:
@@ -325,8 +282,7 @@ job = jobs["build-and-publish-launchpad"]
 arches = job["strategy"]["matrix"]["arch"]
 assert sorted(arches) == ["armhf", "ppc64el", "riscv64", "s390x"], arches
 runs = "\n".join(s.get("run", "") for s in job["steps"])
-# Same tag->channel mapping as the amd64/arm64 publish job (clean tag -> stable).
-assert "latest/stable,latest/candidate,latest/beta,latest/edge" in runs, runs
+assert "channels=latest/stable" in runs, runs
 assert "snapcraft upload" in runs, runs
 PYEOF
 }
@@ -422,71 +378,46 @@ PYEOF
     ! grep -q "wait_for_snapd_stability()" "$workflow"
 }
 
-@test "reusable distro build workflow builds and uploads a snap artifact" {
+@test "cicd distro matrix covers every supported distro" {
     python3 - <<PYEOF
 import yaml
-with open("${REPO_ROOT}/.github/workflows/reusable-distro-build.yml") as f:
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
     doc = yaml.safe_load(f)
-on = doc.get("on", doc.get(True, {}))
-assert "workflow_call" in on, on
-steps = doc["jobs"]["build"]["steps"]
-uses = [s.get("uses", "") for s in steps]
-assert any(u.startswith("snapcore/action-build") for u in uses), uses
-assert any(u.startswith("actions/upload-artifact") for u in uses), uses
+include = doc["jobs"]["distro-test"]["strategy"]["matrix"]["include"]
+distros = sorted(row["distro"] for row in include)
+expected = sorted([
+    "almalinux",
+    "archlinux",
+    "debian",
+    "debian-stable",
+    "fedora",
+    "opensuse-leap",
+    "opensuse-tumbleweed",
+    "rockylinux",
+    "ubuntu",
+    "ubuntu-core",
+    "ubuntu-daily",
+])
+assert distros == expected, distros
 PYEOF
 }
 
-@test "standalone distro workflows build then test with the built artifact" {
+@test "standalone distro workflows have been retired" {
     python3 - <<PYEOF
 import glob, yaml
 paths = sorted(glob.glob("${REPO_ROOT}/.github/workflows/test-*.yml"))
-assert paths, "no standalone distro workflows found"
-for path in paths:
-    with open(path) as f:
-        doc = yaml.safe_load(f)
-    jobs = doc["jobs"]
-    assert jobs["build"]["uses"] == "./.github/workflows/reusable-distro-build.yml", (path, jobs.get("build"))
-    test = jobs["test"]
-    assert test["uses"] == "./.github/workflows/reusable-distro-test.yml", (path, test)
-    assert test["needs"] == "build", (path, test.get("needs"))
-    assert test["with"]["snap_artifact_name"] == "built-snap", (path, test.get("with"))
+assert paths == [], f"unused standalone distro workflows should be removed: {paths}"
 PYEOF
 }
 
-@test "standalone distro workflows are manual only" {
-    local workflow
-    for workflow in "${REPO_ROOT}"/.github/workflows/test-*.yml; do
-        grep -q "workflow_dispatch:" "$workflow"
-        ! grep -q "pull_request:" "$workflow"
-        ! grep -q "push:" "$workflow"
-    done
-}
-
-@test "standalone distro reusable-workflow callers grant required token permissions" {
+@test "retired reusable distro build workflow is absent" {
     python3 - <<PYEOF
-import glob, pathlib, yaml
-for path in sorted(glob.glob("${REPO_ROOT}/.github/workflows/test-*.yml")):
-    with open(path) as f:
-        doc = yaml.safe_load(f)
-    permissions = doc.get("permissions", {})
-    assert permissions.get("actions") == "read", f"{path}: {permissions}"
-    assert permissions.get("contents") == "read", f"{path}: {permissions}"
+import os
+path = "${REPO_ROOT}/.github/workflows/reusable-distro-build.yml"
+assert not os.path.exists(path), path
 PYEOF
 }
 
-@test "promote workflow validates request before releasing a revision" {
-    local workflow="${REPO_ROOT}/.github/workflows/promote.yml"
-    grep -q "validation_run_id:" "$workflow"
-    grep -q "confirmation:" "$workflow"
-    grep -q "Verify validation workflow succeeded" "$workflow"
-    grep -q "gh run view" "$workflow"
-    grep -q "snapcraft list-revisions" "$workflow"
-    grep -q "snap install.*--channel" "$workflow"
-    grep -q "snapcraft release" "$workflow"
-}
-
-@test "promote workflow keeps snap-publishing environment approval gate" {
-    local workflow="${REPO_ROOT}/.github/workflows/promote.yml"
-    grep -q "environment: snap-publishing" "$workflow"
-    grep -q "actions: read" "$workflow"
+@test "manual promotion workflow is retired because publishing is stable-only" {
+    [ ! -e "${REPO_ROOT}/.github/workflows/promote.yml" ]
 }

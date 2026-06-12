@@ -85,7 +85,7 @@ jobs:
           path: sbom-${{ matrix.arch }}.json
           if-no-files-found: error
 
-      - name: Get snap filename and parse track
+      - name: Get snap filename and release channel
         id: snap
         run: |
           SNAP_FILE=$(ls ${{ env.SNAP_NAME }}_*_${{ matrix.arch }}.snap | head -n1)
@@ -98,27 +98,10 @@ jobs:
           MAJOR_VERSION=$(echo "${SNAP_VERSION#v}" | cut -d'.' -f1)
           echo "track=${MAJOR_VERSION}" >> $GITHUB_OUTPUT
 
-          # Map Pi-hole versioning to Snap Store channels. Kept identical to the
-          # amd64/arm64 publish job so all six architectures land on the same
-          # channels from the same commit.
-          ENABLE_TRACKS=false
-
-          # If the version has commits past a tag (contains -g followed by hex) or is alpha, it's a dev build
-          if [[ "$SNAP_VERSION" == *"-alpha"* ]] || [[ "$SNAP_VERSION" =~ -g[0-9a-f]+ ]]; then
-            CHANNELS="latest/edge"
-            [[ "$ENABLE_TRACKS" == "true" ]] && CHANNELS="${CHANNELS},${MAJOR_VERSION}/edge"
-          elif [[ "$SNAP_VERSION" == *"-beta"* ]]; then
-            CHANNELS="latest/beta,latest/edge"
-            [[ "$ENABLE_TRACKS" == "true" ]] && CHANNELS="${CHANNELS},${MAJOR_VERSION}/beta,${MAJOR_VERSION}/edge"
-          elif [[ "$SNAP_VERSION" == *"-rc"* ]]; then
-            CHANNELS="latest/candidate,latest/beta,latest/edge"
-            [[ "$ENABLE_TRACKS" == "true" ]] && CHANNELS="${CHANNELS},${MAJOR_VERSION}/candidate,${MAJOR_VERSION}/beta,${MAJOR_VERSION}/edge"
-          else
-            # A clean tag (even if it has -dirty from local sed patches) goes to stable
-            CHANNELS="latest/stable,latest/candidate,latest/beta,latest/edge"
-            [[ "$ENABLE_TRACKS" == "true" ]] && CHANNELS="${CHANNELS},${MAJOR_VERSION}/stable,${MAJOR_VERSION}/candidate,${MAJOR_VERSION}/beta,${MAJOR_VERSION}/edge"
-          fi
-          echo "channels=${CHANNELS}" >> $GITHUB_OUTPUT
+          # This project publishes every successful Launchpad-built architecture
+          # directly to stable. GitHub-built architectures use the same policy in
+          # cicd.yml.
+          echo "channels=latest/stable" >> $GITHUB_OUTPUT
 
       - name: Publish to Snap Store
         env:
