@@ -262,11 +262,14 @@ assert s390x["full_version"] == "v6.4.2", s390x
 assert [c["architecture"] for c in result["channels"]] == ["AMD64", "ARM64", "S390X"], result["channels"]
 
 # published_channels groups all arches per channel (includes stable, edge, and all architectures present)
-published = {ch["channel"]: ch["architectures"] for ch in result.get("published_channels", [])}
+published = {ch["channel"]: ch for ch in result.get("published_channels", [])}
 assert "stable" in published, f"stable missing from {published}"
 assert "edge" in published, f"edge missing from {published}"
-assert set(published["stable"]) == {"AMD64", "ARM64"}, f"stable arches: {published['stable']}"
-assert set(published["edge"]) == {"AMD64", "ARM64", "S390X"}, f"edge arches: {published['edge']}"
+assert set(published["stable"]["architectures"]) == {"AMD64", "ARM64"}, f"stable arches: {published['stable']}"
+assert set(published["edge"]["architectures"]) == {"AMD64", "ARM64", "S390X"}, f"edge arches: {published['edge']}"
+# released_at must be populated from the nested channel["released-at"] field, not empty/unknown
+assert published["stable"]["released_at"] == "2026-06-10T17:00:00Z", f"stable released_at: {published['stable']['released_at']}"
+assert published["edge"]["released_at"] == "2026-06-10T17:00:00Z", f"edge released_at: {published['edge']['released_at']}"
 PYEOF
 }
 

@@ -662,10 +662,12 @@ def collect_snap_package_data(client, repo_root):
         arches_dict = all_channels_raw[channel_name]
         architectures = list(arches_dict.keys())
          
-        # Get newest release date for this channel
+        # Get newest release date for this channel.
+        # arches_dict values are raw channel-map entries; the date is nested
+        # under the "channel" sub-key as "released-at".
         newest_date = max(
             (
-                e.get("released_at", "") or e.get("released-at", "")
+                e.get("channel", {}).get("released-at", "")
                 for e in arches_dict.values()
             ),
             default=""
