@@ -377,14 +377,14 @@
     "channels": [
       {
         "architecture": "AMD64",
-        "full_version": "v6.4.2+git.74d0100.1781149117",
+        "full_version": "v6.4.2+git.b3747e2.1781243024",
         "version": "v6.4.2",
-        "git_commit": "74d0100",
-        "git_commit_time": "2026-06-11T03:38:37Z",
-        "revision": 391,
+        "git_commit": "b3747e2",
+        "git_commit_time": "2026-06-12T05:43:44Z",
+        "revision": 398,
         "size_bytes": 16793600,
-        "released_at": "2026-06-11T12:23:15.131350+00:00",
-        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_391.snap",
+        "released_at": "2026-06-12T05:55:19.464917+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_398.snap",
         "channel": "stable",
         "build_source": "github",
         "on_stable": true,
@@ -392,14 +392,14 @@
       },
       {
         "architecture": "ARM64",
-        "full_version": "v6.4.2+git.74d0100.1781149117",
+        "full_version": "v6.4.2+git.b3747e2.1781243024",
         "version": "v6.4.2",
-        "git_commit": "74d0100",
-        "git_commit_time": "2026-06-11T03:38:37Z",
-        "revision": 390,
+        "git_commit": "b3747e2",
+        "git_commit_time": "2026-06-12T05:43:44Z",
+        "revision": 397,
         "size_bytes": 15921152,
-        "released_at": "2026-06-11T12:21:56.720757+00:00",
-        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_390.snap",
+        "released_at": "2026-06-12T05:54:40.047855+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_397.snap",
         "channel": "stable",
         "build_source": "github",
         "on_stable": true,
@@ -407,69 +407,85 @@
       },
       {
         "architecture": "ARMHF",
-        "full_version": "v6.4.2",
+        "full_version": "v6.4.2+git.b3747e2.1781243024",
         "version": "v6.4.2",
-        "git_commit": "N/A",
-        "git_commit_time": "",
-        "revision": 135,
-        "size_bytes": 31666176,
-        "released_at": "2026-05-22T00:34:38.073663+00:00",
-        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_135.snap",
+        "git_commit": "b3747e2",
+        "git_commit_time": "2026-06-12T05:43:44Z",
+        "revision": 406,
+        "size_bytes": 15257600,
+        "released_at": "2026-06-12T06:08:17.174147+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_406.snap",
         "channel": "edge",
         "build_source": "launchpad",
         "on_stable": false,
-        "build_status": "stale"
+        "build_status": "current"
       },
       {
         "architecture": "PPC64EL",
-        "full_version": "v6.4.2",
+        "full_version": "v6.4.2+git.b3747e2.1781243024",
         "version": "v6.4.2",
-        "git_commit": "N/A",
-        "git_commit_time": "",
-        "revision": 128,
-        "size_bytes": 38027264,
-        "released_at": "2026-05-21T23:35:09.256527+00:00",
-        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_128.snap",
+        "git_commit": "b3747e2",
+        "git_commit_time": "2026-06-12T05:43:44Z",
+        "revision": 405,
+        "size_bytes": 18296832,
+        "released_at": "2026-06-12T06:07:41.460480+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_405.snap",
         "channel": "edge",
         "build_source": "launchpad",
         "on_stable": false,
-        "build_status": "stale"
+        "build_status": "current"
       },
       {
         "architecture": "RISCV64",
-        "full_version": "v6.4.2",
+        "full_version": "v6.4.2+git.b3747e2.1781243024",
         "version": "v6.4.2",
-        "git_commit": "N/A",
-        "git_commit_time": "",
-        "revision": 138,
-        "size_bytes": 36081664,
-        "released_at": "2026-05-22T08:09:06.994542+00:00",
-        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_138.snap",
+        "git_commit": "b3747e2",
+        "git_commit_time": "2026-06-12T05:43:44Z",
+        "revision": 408,
+        "size_bytes": 17817600,
+        "released_at": "2026-06-12T10:21:26.501834+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_408.snap",
         "channel": "edge",
         "build_source": "launchpad",
         "on_stable": false,
-        "build_status": "stale"
+        "build_status": "current"
       },
       {
         "architecture": "S390X",
-        "full_version": "v6.4.2",
+        "full_version": "v6.4.2+git.b3747e2.1781243024",
         "version": "v6.4.2",
-        "git_commit": "N/A",
-        "git_commit_time": "",
-        "revision": 137,
-        "size_bytes": 33792000,
-        "released_at": "2026-05-22T01:39:52.352027+00:00",
-        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_137.snap",
+        "git_commit": "b3747e2",
+        "git_commit_time": "2026-06-12T05:43:44Z",
+        "revision": 407,
+        "size_bytes": 16343040,
+        "released_at": "2026-06-12T07:31:18.179588+00:00",
+        "download_url": "https://api.snapcraft.io/api/v1/snaps/download/2jrR40wTkMgV4rH1ixNcpRNYCINMDe6t_407.snap",
         "channel": "edge",
         "build_source": "launchpad",
         "on_stable": false,
-        "build_status": "stale"
+        "build_status": "current"
       }
     ],
     "published_channels": [
       {
         "channel": "stable",
-        "released_at": "2026-06-11T12:23:15.131350+00:00",
+        "released_at": "2026-06-12T05:55:19.464917+00:00",
+        "architectures": [
+          "AMD64",
+          "ARM64"
+        ]
+      },
+      {
+        "channel": "candidate",
+        "released_at": "2026-06-12T05:55:19.464917+00:00",
+        "architectures": [
+          "AMD64",
+          "ARM64"
+        ]
+      },
+      {
+        "channel": "beta",
+        "released_at": "2026-06-12T05:55:19.464917+00:00",
         "architectures": [
           "AMD64",
           "ARM64"
@@ -477,8 +493,10 @@
       },
       {
         "channel": "edge",
-        "released_at": "2026-05-22T08:09:06.994542+00:00",
+        "released_at": "2026-06-12T10:21:26.501834+00:00",
         "architectures": [
+          "AMD64",
+          "ARM64",
           "ARMHF",
           "PPC64EL",
           "RISCV64",
@@ -486,7 +504,7 @@
         ]
       }
     ],
-    "last_updated": "2026-06-11T12:23:15Z",
+    "last_updated": "2026-06-12T10:21:26Z",
     "expected_commit": "06bd67b",
     "publish_result": "",
     "expected_commit_published": false,

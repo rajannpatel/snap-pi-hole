@@ -229,7 +229,7 @@ class FakeClient:
                 ch("latest", "edge",   "amd64", "v6.4.2+git.0ffee9d.1781062076", 382, "2026-06-10T17:00:00Z", 100),
                 ch("latest", "stable", "arm64", "v6.4.2+git.0ffee9d.1781062076", 383, "2026-06-10T17:00:00Z", 110),
                 ch("latest", "edge",   "arm64", "v6.4.2+git.0ffee9d.1781062076", 383, "2026-06-10T17:00:00Z", 110),
-                # Launchpad arch stuck on edge with an older revision (build failing).
+                # Launchpad arch lagging on edge with an older revision (behind, not failing).
                 ch("latest", "edge",   "s390x", "v6.4.2", 137, "2025-05-22T00:00:00Z", 120),
             ]
         }
