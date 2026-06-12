@@ -1621,12 +1621,13 @@
       setText("last-track-update", formatDate(trackRun.updated_at));
       setText("last-track-update-status", trackRun.url ? "Latest successful track-upstream run available." : "No successful track-upstream runs found.");
 
-      // The committed snapshot only seeds the snap table until the hourly gist
-      // loads; once it has, the gist is authoritative and must not be overwritten
-      // by the build-time copy on subsequent snapshot re-pulls.
+      // The deployed snapshot seeds the snap table and can be fresher than the
+      // hourly gist immediately after publishing. Record its generation time so
+      // older gist data cannot replace newer deploy-time store data.
       if (!snapState.hasGistData) {
         renderSnapPackage(data.snap_package || {});
         renderSnapChannels(data.snap_package || {});
+        snapState.generatedAt = data.generated_at || snapState.generatedAt;
         setSnapClock((data.snap_package || {}).last_updated || data.data_last_updated, false);
       }
     }
@@ -1769,7 +1770,7 @@
     // Builds a countdown MM:SS string from milliseconds
     function countdownLabel(toMs) {
       if (!toMs) return null;
-      const secs = Math.max(0, Math.round((toMs - Date.now()) / 1000));
+      const secs = Math.max(0, Math.ceil((toMs - Date.now()) / 1000));
       const mins = Math.floor(secs / 60);
       return `${mins}:${String(secs % 60).padStart(2, "0")}`;
     }
@@ -1787,7 +1788,7 @@
       freshnessState.snap.updatedAt = updatedAt || null;
       freshnessState.snap.fromGist = fromGist;
       freshnessState.snap.source = fromGist ? "Snap Store · hourly gist" : "build-time snapshot";
-      freshnessState.snap.nextAt = fromGist ? snapState.nextAt : null;
+      freshnessState.snap.nextAt = fromGist ? nextHourBoundary(Date.now()) : null;
     }
 
     // Evaluates status details text labels of target freshness kinds
@@ -2183,14 +2184,32 @@
       }
     }
 
+    // Compares dashboard snap payload freshness. The gist is usually the best
+    // live source, but directly after a Pages deploy it can lag behind the
+    // deploy-time snapshot. In that case, keep the newer snapshot until the gist
+    // catches up.
+    function shouldApplySnapPayload(currentGeneratedAt, incomingPayload) {
+      const incomingGeneratedAt = incomingPayload && incomingPayload.generated_at;
+      if (!currentGeneratedAt || !incomingGeneratedAt) return true;
+      const currentMs = new Date(currentGeneratedAt).getTime();
+      const incomingMs = new Date(incomingGeneratedAt).getTime();
+      if (Number.isNaN(currentMs) || Number.isNaN(incomingMs)) return true;
+      return incomingMs >= currentMs;
+    }
+
     // Resolves and displays gist snap-store data
     function applySnapData(payload) {
+      if (!shouldApplySnapPayload(snapState.generatedAt, payload)) {
+        renderFreshnessChips();
+        return false;
+      }
       renderSnapPackage(payload.snap_package || {});
       renderSnapChannels(payload.snap_package || {});
       snapState.hasGistData = true;
       snapState.generatedAt = payload.generated_at || snapState.generatedAt;
       setSnapClock(payload.data_last_updated || (payload.snap_package || {}).last_updated, true);
       renderFreshnessChips();
+      return true;
     }
 
     // Triggers hourly snap-data refresh
@@ -2211,11 +2230,15 @@
 
       const boundary = nextHourBoundary(Date.now());
       if (payload) {
-        const advanced = payload.generated_at !== snapState.generatedAt;
-        snapState.nextAt = advanced ? boundary : Math.min(Date.now() + SNAP_MIN_REFETCH_MS, boundary);
-        applySnapData(payload);
+        snapState.nextAt = boundary;
+        const applied = applySnapData(payload);
+        if (!applied) {
+          snapState.nextAt = Math.min(Date.now() + SNAP_MIN_REFETCH_MS, boundary);
+          freshnessState.snap.nextAt = boundary;
+        }
       } else {
         snapState.nextAt = boundary;
+        freshnessState.snap.nextAt = boundary;
         renderFreshnessChips();
       }
     }

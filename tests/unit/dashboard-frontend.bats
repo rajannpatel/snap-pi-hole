@@ -100,6 +100,55 @@ JS
     done
 }
 
+@test "frontend: countdownLabel rounds up while waiting for the next refresh" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadFunctions } = require(process.argv[2]);
+const { countdownLabel } = loadFunctions(process.argv[3], ["countdownLabel"]);
+const assert = require("assert");
+
+const realNow = Date.now;
+try {
+  Date.now = () => 1_000_000;
+
+  assert.strictEqual(countdownLabel(null), null);
+  assert.strictEqual(countdownLabel(1_000_000), "0:00");
+
+  // Do not show 0:00 while there is still a fractional second left; otherwise
+  // the chip appears stuck at zero before the scheduler advances its target.
+  assert.strictEqual(countdownLabel(1_000_001), "0:01");
+  assert.strictEqual(countdownLabel(1_000_999), "0:01");
+  assert.strictEqual(countdownLabel(1_001_001), "0:02");
+} finally {
+  Date.now = realNow;
+}
+JS
+    done
+}
+
+@test "frontend: nextHourBoundary targets the expected hourly gist refresh time" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadFunctions } = require(process.argv[2]);
+const { nextHourBoundary } = loadFunctions(process.argv[3], ["nextHourBoundary"]);
+const assert = require("assert");
+
+assert.strictEqual(
+  new Date(nextHourBoundary(Date.parse("2026-06-12T22:00:00Z"))).toISOString(),
+  "2026-06-12T23:00:00.000Z"
+);
+assert.strictEqual(
+  new Date(nextHourBoundary(Date.parse("2026-06-12T22:59:59Z"))).toISOString(),
+  "2026-06-12T23:00:00.000Z"
+);
+assert.strictEqual(
+  new Date(nextHourBoundary(Date.parse("2026-06-12T23:30:00Z"))).toISOString(),
+  "2026-06-13T00:00:00.000Z"
+);
+JS
+    done
+}
+
 @test "frontend: statusBadgeUrl treats cancelled as neutral, not a failure" {
     for html in "${HTML_FILES[@]}"; do
         run_node - "$HELPER" "$html" <<'JS'
@@ -219,6 +268,36 @@ const fast = trendTooltipDescriptor("success", true);
 assert.strictEqual(fast.notificationClass, "p-notification--caution is-inline");
 assert.strictEqual(fast.titlePrefix, "Suspiciously Fast ");
 assert.strictEqual(fast.messageSuffix, " (potential bypass)");
+JS
+    done
+}
+
+@test "frontend: older snap gist data cannot override a newer deployed snapshot" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadFunctions } = require(process.argv[2]);
+const { shouldApplySnapPayload } = loadFunctions(process.argv[3], ["shouldApplySnapPayload"]);
+const assert = require("assert");
+
+const deployed = "2026-06-12T22:57:25Z";
+const olderGist = { generated_at: "2026-06-12T22:25:04Z" };
+const sameGist = { generated_at: deployed };
+const newerGist = { generated_at: "2026-06-12T23:05:00Z" };
+
+// Regression guard: Pages can have newer Snap Store data than the hourly gist
+// immediately after deployment. That older gist must not overwrite it.
+assert.strictEqual(shouldApplySnapPayload(deployed, olderGist), false);
+
+// Equal or newer gist data may apply.
+assert.strictEqual(shouldApplySnapPayload(deployed, sameGist), true);
+assert.strictEqual(shouldApplySnapPayload(deployed, newerGist), true);
+
+// Missing or malformed timestamps remain permissive so partial data does not
+// permanently block updates.
+assert.strictEqual(shouldApplySnapPayload("", olderGist), true);
+assert.strictEqual(shouldApplySnapPayload(deployed, {}), true);
+assert.strictEqual(shouldApplySnapPayload("not-a-date", olderGist), true);
+assert.strictEqual(shouldApplySnapPayload(deployed, { generated_at: "bad" }), true);
 JS
     done
 }
