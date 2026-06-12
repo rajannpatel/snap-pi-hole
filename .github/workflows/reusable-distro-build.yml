@@ -33,7 +33,7 @@ jobs:
         env:
           SNAPCRAFT_UA_TOKEN: ${{ secrets.PRO_TOKEN }}
         with:
-          snapcraft-channel: 9.x/candidate
+          snapcraft-channel: 9.x/stable
 
       - name: Upload Snap Artifact
         uses: actions/upload-artifact@v6
