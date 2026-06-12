@@ -62,7 +62,7 @@ jobs:
         run: bats tests/integration/
 
   build:
-    name: build (${{ matrix.arch }})
+    name: build github (${{ matrix.arch }})
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     environment: snap-publishing
     strategy:
@@ -70,8 +70,8 @@ jobs:
       matrix:
         arch: [amd64, arm64]
         # armhf, ppc64el, riscv64, and s390x are built on Launchpad's build farm
-        # by the separate `remote-build` job below, because GitHub-hosted runners
-        # only support amd64 and arm64.
+        # by the separate `remote-build` matrix job below, because GitHub-hosted
+        # runners only support amd64 and arm64.
     steps:
       - uses: actions/checkout@v6
 
@@ -102,23 +102,27 @@ jobs:
       - name: Upload SBOM artefact
         uses: actions/upload-artifact@v6
         with:
-          name: sbom-${{ matrix.arch }}
+          name: sbom-github-${{ matrix.arch }}
           path: sbom-${{ matrix.arch }}.json
           if-no-files-found: error
 
       - name: Upload snap artefact
         uses: actions/upload-artifact@v6
         with:
-          name: pihole-snap-${{ matrix.arch }}
+          name: pihole-snap-github-${{ matrix.arch }}
           path: ${{ steps.snapcraft.outputs.snap }}
           if-no-files-found: error
 
   remote-build:
-    name: remote build (armhf ppc64el riscv64 s390x via Launchpad)
+    name: build launchpad (${{ matrix.arch }})
     needs: [lint]
     runs-on: ubuntu-latest
     environment: snap-publishing
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [armhf, ppc64el, riscv64, s390x]
     steps:
       # remote-build pushes the git tree to Launchpad and rejects shallow
       # clones, so a full-history checkout is mandatory here.
@@ -144,37 +148,34 @@ jobs:
             > ~/.local/share/snapcraft/launchpad-credentials
           chmod 600 ~/.local/share/snapcraft/launchpad-credentials
 
-      - name: Build the remaining architectures on Launchpad
+      - name: Build ${{ matrix.arch }} on Launchpad
         run: |
           snapcraft remote-build \
-            --build-for armhf,ppc64el,riscv64,s390x \
+            --build-for ${{ matrix.arch }} \
             --launchpad-accept-public-upload \
             --launchpad-timeout 7200
 
-      - name: Generate SBOMs (CycloneDX)
+      - name: Generate SBOM (CycloneDX)
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-          for snap_file in ${{ env.SNAP_NAME }}_*.snap; do
-            arch="${snap_file##*_}"
-            arch="${arch%.snap}"
-            rm -rf "extracted-${arch}"
-            unsquashfs -d "extracted-${arch}" "$snap_file"
-            syft scan "extracted-${arch}" -o cyclonedx-json="sbom-${arch}.json"
-            python3 snap/local/build/enrich_sbom.py "sbom-${arch}.json" "extracted-${arch}"
-          done
+          SNAP_FILE=$(ls ${{ env.SNAP_NAME }}_*_${{ matrix.arch }}.snap | head -n1)
+          rm -rf "extracted-${{ matrix.arch }}"
+          unsquashfs -d "extracted-${{ matrix.arch }}" "$SNAP_FILE"
+          syft scan "extracted-${{ matrix.arch }}" -o cyclonedx-json="sbom-${{ matrix.arch }}.json"
+          python3 snap/local/build/enrich_sbom.py "sbom-${{ matrix.arch }}.json" "extracted-${{ matrix.arch }}"
 
       - name: Upload snap artefacts
         uses: actions/upload-artifact@v6
         with:
-          name: pihole-snaps-remote
-          path: ${{ env.SNAP_NAME }}_*.snap
+          name: pihole-snap-launchpad-${{ matrix.arch }}
+          path: ${{ env.SNAP_NAME }}_*_${{ matrix.arch }}.snap
           if-no-files-found: error
 
       - name: Upload SBOM artefacts
         uses: actions/upload-artifact@v6
         with:
-          name: sbom-remote
-          path: sbom-*.json
+          name: sbom-launchpad-${{ matrix.arch }}
+          path: sbom-${{ matrix.arch }}.json
           if-no-files-found: error
 
   vulnerability-scan:
@@ -285,7 +286,7 @@ jobs:
       - name: Download snap
         uses: actions/download-artifact@v7
         with:
-          name: pihole-snap-${{ matrix.arch }}
+          name: pihole-snap-github-${{ matrix.arch }}
 
       - name: Free port 53
         run: |
@@ -520,11 +521,11 @@ jobs:
     with:
       distro: ${{ matrix.distro }}
       lxd_image: ${{ matrix.lxd_image }}
-      snap_artifact_name: pihole-snap-amd64
+      snap_artifact_name: pihole-snap-github-amd64
     secrets: inherit
 
   publish:
-    name: publish (${{ matrix.arch }})
+    name: publish github (${{ matrix.arch }})
     needs: [smoke]
     runs-on: ubuntu-latest
     environment: snap-publishing
@@ -538,7 +539,7 @@ jobs:
       - name: Download snap
         uses: actions/download-artifact@v7
         with:
-          name: pihole-snap-${{ matrix.arch }}
+          name: pihole-snap-github-${{ matrix.arch }}
           path: .
 
       - name: Get snap filename and parse track
@@ -623,7 +624,7 @@ jobs:
           fi
 
   publish-remote:
-    name: publish (${{ matrix.arch }})
+    name: publish launchpad (${{ matrix.arch }})
     needs: [remote-build]
     runs-on: ubuntu-latest
     environment: snap-publishing
@@ -637,7 +638,7 @@ jobs:
       - name: Download snaps
         uses: actions/download-artifact@v7
         with:
-          name: pihole-snaps-remote
+          name: pihole-snap-launchpad-${{ matrix.arch }}
           path: .
 
       - name: Get snap filename and parse track

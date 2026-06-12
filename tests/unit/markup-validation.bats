@@ -75,6 +75,20 @@ for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
 PYEOF
 }
 
+@test "dashboard uses explicit GitHub and Launchpad builder labels" {
+    python3 - <<PYEOF
+import pathlib
+
+repo = pathlib.Path("${REPO_ROOT}")
+for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
+    text = (repo / rel).read_text(encoding="utf-8")
+    assert "status-chip--github-builder" in text, f"{rel} missing GitHub builder chip class"
+    assert "status-chip--launchpad-builder" in text, f"{rel} missing Launchpad builder chip class"
+    assert "GitHub builder" in text, f"{rel} missing GitHub builder label"
+    assert "Launchpad builder" in text, f"{rel} missing Launchpad builder label"
+PYEOF
+}
+
 @test "sbom-explorer.html has balanced block markup" {
     run check_balance "${REPO_ROOT}/snap/local/assets/sbom-explorer.html"
     [ "$status" -eq 0 ] || { echo "$output"; return 1; }

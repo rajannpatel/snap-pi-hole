@@ -19,8 +19,8 @@ SNAPCRAFT_INFO_URL = f"https://api.snapcraft.io/v2/snaps/info/{SNAP_NAME}"
 
 # GitHub-hosted runners only build amd64 and arm64 (see the build matrix in
 # .github/workflows/cicd.yml). The other four architectures (armhf, ppc64el,
-# riscv64, s390x) are built on Launchpad's build farm via `snapcraft
-# remote-build`, driven by the same CI run, and published to stable alongside
+# riscv64, s390x) are built by the `remote-build` matrix, one Launchpad
+# remote-builder runner per architecture, and published to stable alongside
 # the GitHub-built ones. build_source records where each arch is built.
 GITHUB_BUILD_ARCHES = {"AMD64", "ARM64"}
 RISK_RANK = {"stable": 4, "candidate": 3, "beta": 2, "edge": 1}

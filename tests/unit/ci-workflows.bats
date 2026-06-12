@@ -231,7 +231,7 @@ assert "needs.publish.result == 'success'" not in condition, condition
 PYEOF
 }
 
-@test "cicd remote-build job builds the four non-GitHub arches on Launchpad" {
+@test "cicd remote-build job runs one Launchpad builder per non-GitHub arch" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
@@ -239,7 +239,11 @@ with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
 jobs = doc["jobs"]
 assert "remote-build" in jobs, list(jobs)
 rb = jobs["remote-build"]
+assert rb["name"] == "build launchpad (\${{ matrix.arch }})", rb["name"]
 assert rb["needs"] == ["lint"], rb.get("needs")
+matrix = rb["strategy"]["matrix"]["arch"]
+assert sorted(matrix) == ["armhf", "ppc64el", "riscv64", "s390x"], matrix
+assert rb["strategy"].get("fail-fast") is False, rb["strategy"]
 cond = rb["if"]
 assert "github.ref == 'refs/heads/main'" in cond and "push" in cond, cond
 steps = rb["steps"]
@@ -250,13 +254,14 @@ runs = "\n".join(s.get("run", "") for s in steps)
 assert "launchpad-credentials" in runs, "credentials must be restored to the snapcraft path"
 assert "base64 -d" in runs, runs
 assert "snapcraft remote-build" in runs, runs
-assert "--build-for armhf,ppc64el,riscv64,s390x" in runs, runs
+assert "--build-for \${{ matrix.arch }}" in runs, runs
+assert "--build-for armhf,ppc64el,riscv64,s390x" not in runs, runs
 assert "--launchpad-accept-public-upload" in runs, runs
 assert "--launchpad-timeout" in runs, runs
 PYEOF
 }
 
-@test "cicd remote-build job generates SBOMs and uploads snaps for the four arches" {
+@test "cicd remote-build job uploads per-arch Launchpad snaps and SBOMs" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
@@ -265,9 +270,11 @@ steps = doc["jobs"]["remote-build"]["steps"]
 runs = "\n".join(s.get("run", "") for s in steps)
 assert "syft scan" in runs, runs
 assert "enrich_sbom.py" in runs, runs
+assert "sbom-\${{ matrix.arch }}.json" in runs, runs
 uploads = [s for s in steps if str(s.get("uses", "")).startswith("actions/upload-artifact")]
 names = [s.get("with", {}).get("name") for s in uploads]
-assert "pihole-snaps-remote" in names, names
+assert "pihole-snap-launchpad-\${{ matrix.arch }}" in names, names
+assert "sbom-launchpad-\${{ matrix.arch }}" in names, names
 # A sbom-* artifact name so the existing vulnerability-scan/deploy globs collect it.
 assert any(str(n).startswith("sbom-") for n in names), names
 PYEOF
@@ -281,6 +288,7 @@ with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
 jobs = doc["jobs"]
 assert "publish-remote" in jobs, list(jobs)
 pr = jobs["publish-remote"]
+assert pr["name"] == "publish launchpad (\${{ matrix.arch }})", pr["name"]
 assert pr["needs"] == ["remote-build"], pr.get("needs")
 arches = pr["strategy"]["matrix"]["arch"]
 assert sorted(arches) == ["armhf", "ppc64el", "riscv64", "s390x"], arches
@@ -290,6 +298,29 @@ runs = "\n".join(s.get("run", "") for s in pr["steps"])
 # Same tag->channel mapping as the amd64/arm64 publish job (clean tag -> stable).
 assert "latest/stable,latest/candidate,latest/beta,latest/edge" in runs, runs
 assert "snapcraft upload" in runs, runs
+downloads = [s for s in pr["steps"] if str(s.get("uses", "")).startswith("actions/download-artifact")]
+download_names = [s.get("with", {}).get("name") for s in downloads]
+assert "pihole-snap-launchpad-\${{ matrix.arch }}" in download_names, download_names
+PYEOF
+}
+
+@test "cicd github build and publish jobs use explicit GitHub builder naming" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+jobs = doc["jobs"]
+build = jobs["build"]
+publish = jobs["publish"]
+assert build["name"] == "build github (\${{ matrix.arch }})", build["name"]
+assert publish["name"] == "publish github (\${{ matrix.arch }})", publish["name"]
+build_uploads = [s for s in build["steps"] if str(s.get("uses", "")).startswith("actions/upload-artifact")]
+build_names = [s.get("with", {}).get("name") for s in build_uploads]
+assert "pihole-snap-github-\${{ matrix.arch }}" in build_names, build_names
+assert "sbom-github-\${{ matrix.arch }}" in build_names, build_names
+publish_downloads = [s for s in publish["steps"] if str(s.get("uses", "")).startswith("actions/download-artifact")]
+publish_names = [s.get("with", {}).get("name") for s in publish_downloads]
+assert "pihole-snap-github-\${{ matrix.arch }}" in publish_names, publish_names
 PYEOF
 }
 
@@ -328,7 +359,7 @@ PYEOF
     local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
     grep -q "^  distro-test:" "$workflow"
     grep -q "uses: ./.github/workflows/reusable-distro-test.yml" "$workflow"
-    grep -q "snap_artifact_name: pihole-snap-amd64" "$workflow"
+    grep -q "snap_artifact_name: pihole-snap-github-amd64" "$workflow"
 }
 
 @test "cicd distro reusable-workflow caller grants required token permissions" {

@@ -302,12 +302,12 @@
     .status-building { background: #0b6bc5; }
 
     /* Custom built-on repository status tags */
-    .status-chip--github {
+    .status-chip--github-builder {
       background: #24292e !important;
       text-transform: none;
     }
 
-    .status-chip--launchpad {
+    .status-chip--launchpad-builder {
       background: #e95420 !important;
       text-transform: none;
     }
@@ -1656,8 +1656,8 @@
       rows.forEach((row) => {
         const isGitHub = row.build_source === "github";
         const builtOn = isGitHub
-          ? `<span class="status-chip status-neutral status-chip--github">${githubLogoSvg}GitHub</span>`
-          : `<span class="status-chip status-neutral status-chip--launchpad">${launchpadLogoSvg}Launchpad</span>`;
+          ? `<span class="status-chip status-neutral status-chip--github-builder">${githubLogoSvg}GitHub builder</span>`
+          : `<span class="status-chip status-neutral status-chip--launchpad-builder">${launchpadLogoSvg}Launchpad builder</span>`;
         const desc = snapStatusDescriptor(row);
         const statusIcon = desc.cls === "status-success" ? checkIconSvg : warningIconSvg;
         const status = `<span class="status-chip ${desc.cls}" aria-label="Status: ${desc.label}">${statusIcon}<span class="status-text-full" aria-hidden="true">${desc.label}</span><span class="status-text-short" aria-hidden="true">${desc.short}</span></span>`;
