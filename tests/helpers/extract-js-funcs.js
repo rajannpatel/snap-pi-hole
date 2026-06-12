@@ -33,6 +33,19 @@ function extractFunction(src, name) {
   throw new Error(`unterminated function ${name}`);
 }
 
+// Returns the source text of a single-line `const <name> = ...;` declaration so
+// constants the tested functions depend on (e.g. FAILURE_STATES) can be loaded
+// straight from the shipped source alongside them.
+function extractConst(src, name) {
+  const sig = `const ${name}`;
+  const start = src.indexOf(sig);
+  if (start === -1) {
+    throw new Error(`const ${name} not found`);
+  }
+  const eol = src.indexOf("\n", start);
+  return src.slice(start, eol === -1 ? src.length : eol);
+}
+
 // Loads the given function names from an HTML file and returns them as an
 // object keyed by name.
 function loadFunctions(htmlPath, names) {
@@ -42,4 +55,17 @@ function loadFunctions(htmlPath, names) {
   return factory();
 }
 
-module.exports = { extractFunction, loadFunctions };
+// Loads a mix of consts and functions together so functions can be exercised
+// with the real constants they close over.
+function loadModule(htmlPath, { consts = [], functions = [] }) {
+  const src = fs.readFileSync(htmlPath, "utf8");
+  const parts = [
+    ...consts.map((name) => extractConst(src, name)),
+    ...functions.map((name) => extractFunction(src, name)),
+  ];
+  const names = [...consts, ...functions];
+  const factory = new Function(`${parts.join("\n")}\nreturn { ${names.join(", ")} };`);
+  return factory();
+}
+
+module.exports = { extractFunction, extractConst, loadFunctions, loadModule };

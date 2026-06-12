@@ -285,7 +285,6 @@
 
     .status-success { background: #0e8420; }
     .status-failure,
-    .status-cancelled,
     .status-timed_out,
     .status-action_required,
     .status-startup_failure { background: #c7162b; }
@@ -294,6 +293,7 @@
     .status-no_data,
     .status-neutral,
     .status-skipped,
+    .status-cancelled,
     .status-unknown { background: #757575; }
     .status-building { background: #0b6bc5; }
 
@@ -984,7 +984,7 @@
 
     // Build/job pipeline status categories
     const BUILDING_STATES = new Set(["queued", "in_progress", "requested", "waiting", "pending", "running"]);
-    const FAILURE_STATES = new Set(["failure", "timed_out", "cancelled", "action_required", "startup_failure"]);
+    const FAILURE_STATES = new Set(["failure", "timed_out", "action_required", "startup_failure"]);
     const isBuildingStatus = (status) => BUILDING_STATES.has(status);
 
     // Live API polling parameters
@@ -1045,7 +1045,7 @@
       if (BUILDING_STATES.has(normalized) || normalized === "building") {
         return clockIconSvg;
       }
-      if (normalized === "skipped") {
+      if (normalized === "skipped" || normalized === "cancelled") {
         return skippedIconSvg;
       }
       return warningIconSvg;
@@ -1099,6 +1099,7 @@
     function trendPointColor(conclusion) {
       if (conclusion === "success") return "#0e8420";
       if (conclusion === "failure") return "#c7162b";
+      if (conclusion === "cancelled" || conclusion === "skipped") return "#757575";
       return "#0b6bc5";
     }
 
@@ -1599,6 +1600,17 @@
       }
     }
 
+    // Maps a snap architecture row to its serving-status chip. A non-current
+    // build is "behind" (an older revision is still published), never "failing":
+    // a lagging or not-yet-propagated revision is not a broken build.
+    function snapStatusDescriptor(row) {
+      const channel = row.channel || (row.on_stable ? "stable" : "edge");
+      if (row.build_status === "current") {
+        return { cls: "status-success", label: `Serving · ${channel}`, short: "serving" };
+      }
+      return { cls: "status-caution", label: `Behind · ${channel}`, short: "behind" };
+    }
+
     // Draws target architectural snap release version tables
     function renderSnapPackage(snapPackage) {
       const packageBody = document.getElementById("snap-package-rows");
@@ -1615,15 +1627,9 @@
         const builtOn = isGitHub
           ? `<span class="status-chip status-neutral status-chip--github">${githubLogoSvg}GitHub</span>`
           : `<span class="status-chip status-neutral status-chip--launchpad">${launchpadLogoSvg}Launchpad</span>`;
-        const channel = row.channel || (row.on_stable ? "stable" : "edge");
-        let status;
-        if (row.build_status === "current") {
-          status = `<span class="status-chip status-success" aria-label="Status: Serving · ${channel}">${checkIconSvg}<span class="status-text-full" aria-hidden="true">Serving · ${channel}</span><span class="status-text-short" aria-hidden="true">serving</span></span>`;
-        } else if (isGitHub) {
-          status = `<span class="status-chip status-caution" aria-label="Status: Behind · ${channel}">${warningIconSvg}<span class="status-text-full" aria-hidden="true">Behind · ${channel}</span><span class="status-text-short" aria-hidden="true">behind</span></span>`;
-        } else {
-          status = `<span class="status-chip status-failure" aria-label="Status: Build failing · stable">${errorIconSvg}<span class="status-text-full" aria-hidden="true">Build failing · stable</span><span class="status-text-short" aria-hidden="true">failed</span></span>`;
-        }
+        const desc = snapStatusDescriptor(row);
+        const statusIcon = desc.cls === "status-success" ? checkIconSvg : warningIconSvg;
+        const status = `<span class="status-chip ${desc.cls}" aria-label="Status: ${desc.label}">${statusIcon}<span class="status-text-full" aria-hidden="true">${desc.label}</span><span class="status-text-short" aria-hidden="true">${desc.short}</span></span>`;
         const version = row.full_version || row.version || "Unknown";
 
         const tr = document.createElement("tr");

@@ -58,13 +58,12 @@ from generate_dashboard_data import compute_snap_freshness
 
 channels = [{"git_commit": "47cb700"}]
 revisions = [{"version": "v6.4.2+git.47cb700.1600000000"}]
-for outcome in ("failure", "cancelled"):
-    result = compute_snap_freshness(channels, revisions, "5e4037d", outcome)
-    assert result["freshness"] == "publish_failed", result
+result = compute_snap_freshness(channels, revisions, "5e4037d", "failure")
+assert result["freshness"] == "publish_failed", result
 PYEOF
 }
 
-@test "snap freshness reports unknown when skipped or no expected commit" {
+@test "snap freshness reports unknown when skipped, cancelled, or no expected commit" {
     python3 - <<PYEOF
 import sys
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
@@ -73,6 +72,8 @@ from generate_dashboard_data import compute_snap_freshness
 channels = [{"git_commit": "47cb700"}]
 revisions = [{"version": "v6.4.2+git.47cb700.1600000000"}]
 assert compute_snap_freshness(channels, revisions, "5e4037d", "skipped")["freshness"] == "unknown"
+# A cancelled publish did not fail; it simply never produced a new build.
+assert compute_snap_freshness(channels, revisions, "5e4037d", "cancelled")["freshness"] == "unknown"
 assert compute_snap_freshness(channels, revisions, "5e4037d", "")["freshness"] == "unknown"
 assert compute_snap_freshness(channels, revisions, "", "success")["freshness"] == "unknown"
 PYEOF

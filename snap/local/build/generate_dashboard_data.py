@@ -215,7 +215,7 @@ def get_status_badge_url(status):
     if status == "success":
         color = "success"
         label = "passed"
-    elif status in {"failure", "timed_out", "cancelled", "startup_failure", "action_required"}:
+    elif status in {"failure", "timed_out", "startup_failure", "action_required"}:
         color = "critical"
         label = "failed"
     elif status in {"in_progress", "running"}:
@@ -274,7 +274,7 @@ def collect_distro_matrix(client):
     failed_links = []
     latest_timestamps = []
 
-    failure_states = {"failure", "timed_out", "cancelled", "action_required", "startup_failure"}
+    failure_states = {"failure", "timed_out", "action_required", "startup_failure"}
 
     # Each distribution is exercised as a `distro test (<key>)` matrix job inside
     # the main cicd.yml pipeline, which runs on every push to main, so the newest
@@ -553,7 +553,7 @@ def compute_snap_freshness(channels, revisions_list, expected_commit, publish_re
         freshness["freshness"] = "current"
     elif freshness["expected_commit_in_store"]:
         freshness["freshness"] = "uploaded_not_selected"
-    elif publish_result in ("failure", "cancelled"):
+    elif publish_result == "failure":
         freshness["freshness"] = "publish_failed"
     elif publish_result == "success":
         freshness["freshness"] = "pending"
@@ -585,7 +585,8 @@ def collect_snap_package_data(client, repo_root):
     # Pick the best (highest-risk, then newest) published revision per architecture
     # in the latest track. amd64/arm64 are promoted all the way to stable (the
     # GitHub builds served on snapcraft.io); the Launchpad architectures only reach
-    # edge with older revisions because their builds are failing.
+    # edge and can lag behind the newest revision (slower or less frequent rebuilds,
+    # or store propagation delay), so they may appear stale without having failed.
     best_by_arch = {}
     stable_arches = set()
     for entry in channel_map:

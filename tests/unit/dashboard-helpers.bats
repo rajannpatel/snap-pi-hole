@@ -115,8 +115,10 @@ def parts(status):
     return url
 
 assert "status-passed-success" in parts("success")
-for failing in ("failure", "timed_out", "cancelled", "startup_failure", "action_required"):
+for failing in ("failure", "timed_out", "startup_failure", "action_required"):
     assert "status-failed-critical" in parts(failing), failing
+# A cancelled run means no new build was produced, not a broken one: neutral, not failed.
+assert "status-cancelled-lightgrey" in parts("cancelled"), "cancelled"
 for running in ("in_progress", "running"):
     assert "status-running-blue" in parts(running), running
 assert "status-no--data-lightgrey" in parts("no_data")

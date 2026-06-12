@@ -99,3 +99,52 @@ assert.strictEqual(humanDuration(3661), "1h 1m");
 JS
     done
 }
+
+@test "frontend: statusBadgeUrl treats cancelled as neutral, not a failure" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadModule } = require(process.argv[2]);
+const { statusBadgeUrl } = loadModule(process.argv[3], {
+  consts: ["FAILURE_STATES"],
+  functions: ["statusBadgeUrl"],
+});
+const assert = require("assert");
+
+// Genuine failures still render as a failed badge.
+assert.ok(statusBadgeUrl("failure").includes("status-failed-critical"));
+assert.ok(statusBadgeUrl("timed_out").includes("status-failed-critical"));
+
+// A cancelled run means no new build was produced, not a broken build:
+// it must render as neutral grey, never as a failure.
+const cancelled = statusBadgeUrl("cancelled");
+assert.ok(!cancelled.includes("failed-critical"), cancelled);
+assert.ok(cancelled.includes("status-cancelled-lightgrey"), cancelled);
+JS
+    done
+}
+
+@test "frontend: snapStatusDescriptor marks lagging builds 'behind', never 'failing'" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadFunctions } = require(process.argv[2]);
+const { snapStatusDescriptor } = loadFunctions(process.argv[3], ["snapStatusDescriptor"]);
+const assert = require("assert");
+
+// A current revision is serving on its channel.
+const current = snapStatusDescriptor({ build_status: "current", channel: "stable" });
+assert.strictEqual(current.cls, "status-success");
+assert.strictEqual(current.label, "Serving · stable");
+
+// A stale Launchpad arch (e.g. riscv64 on edge whose store revision lags the
+// newest build) is "behind" on its real channel, not "Build failing · stable".
+const lp = snapStatusDescriptor({ build_status: "stale", channel: "edge", build_source: "launchpad" });
+assert.strictEqual(lp.cls, "status-caution");
+assert.strictEqual(lp.label, "Behind · edge");
+assert.ok(!/fail/i.test(lp.label), lp.label);
+
+// Stale GitHub arches are described the same way (no failing language).
+const gh = snapStatusDescriptor({ build_status: "stale", channel: "stable", build_source: "github" });
+assert.strictEqual(gh.label, "Behind · stable");
+JS
+    done
+}
