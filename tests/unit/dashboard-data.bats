@@ -273,6 +273,66 @@ assert published["edge"]["released_at"] == "2026-06-10T17:00:00Z", f"edge releas
 PYEOF
 }
 
+@test "dashboard data: published channels cover candidate/beta, pick newest date, and flag stale arches" {
+    python3 - <<PYEOF
+import pathlib
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+def ch(track, risk, arch, version, revision, released, size):
+    return {
+        "channel": {"track": track, "risk": risk, "architecture": arch, "released-at": released},
+        "version": version,
+        "revision": revision,
+        "download": {"size": size, "url": f"https://example.test/{arch}.snap"},
+    }
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        return {
+            "channel-map": [
+                # amd64 reaches stable; it carries the newest release date and so
+                # defines the reference version used for staleness.
+                ch("latest", "stable",    "amd64", "v6.5+git.newest.2", 400, "2026-06-11T00:00:00Z", 100),
+                ch("latest", "candidate", "amd64", "v6.5+git.newest.2", 400, "2026-06-11T00:00:00Z", 100),
+                ch("latest", "beta",      "amd64", "v6.5+git.newest.2", 400, "2026-06-11T00:00:00Z", 100),
+                ch("latest", "edge",      "amd64", "v6.5+git.newest.2", 400, "2026-06-11T00:00:00Z", 100),
+                # arm64 only reaches candidate, with an OLDER date and version, so
+                # it must be flagged stale even though it is a GitHub arch.
+                ch("latest", "candidate", "arm64", "v6.4+git.older.1", 390, "2026-06-01T00:00:00Z", 110),
+                ch("latest", "beta",      "arm64", "v6.4+git.older.1", 390, "2026-06-01T00:00:00Z", 110),
+                # A non-"latest" track entry must be ignored entirely.
+                ch("8.x", "stable", "amd64", "v8.0", 999, "2026-06-12T00:00:00Z", 100),
+            ]
+        }
+
+result = dashboard.collect_snap_package_data(FakeClient(), pathlib.Path("${TEST_TMPDIR}"))
+
+# Channels are emitted in fixed risk order, skipping the empty "edge"-only arches.
+published = {c["channel"]: c for c in result["published_channels"]}
+order = [c["channel"] for c in result["published_channels"]]
+assert order == ["stable", "candidate", "beta", "edge"], order
+
+assert set(published["stable"]["architectures"]) == {"AMD64"}, published["stable"]
+assert set(published["candidate"]["architectures"]) == {"AMD64", "ARM64"}, published["candidate"]
+assert set(published["beta"]["architectures"]) == {"AMD64", "ARM64"}, published["beta"]
+assert set(published["edge"]["architectures"]) == {"AMD64"}, published["edge"]
+
+# Per-channel released_at is the NEWEST arch date in that channel, and the 8.x
+# track entry is excluded (no future 2026-06-12 date leaks in).
+assert published["candidate"]["released_at"] == "2026-06-11T00:00:00Z", published["candidate"]
+
+# build_status: amd64 owns the newest date -> "current"; arm64 lags -> "stale".
+by_arch = {c["architecture"]: c for c in result["channels"]}
+assert by_arch["AMD64"]["build_status"] == "current", by_arch["AMD64"]
+assert by_arch["ARM64"]["build_status"] == "stale", by_arch["ARM64"]
+# Highest reachable risk per arch is recorded.
+assert by_arch["AMD64"]["channel"] == "stable", by_arch["AMD64"]
+assert by_arch["ARM64"]["channel"] == "candidate", by_arch["ARM64"]
+PYEOF
+}
+
 @test "dashboard data: snapcraft-only mode generates payload and writes to output file" {
     python3 - <<PYEOF
 import json
