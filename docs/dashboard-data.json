@@ -469,23 +469,7 @@
     "published_channels": [
       {
         "channel": "stable",
-        "released_at": "",
-        "architectures": [
-          "AMD64",
-          "ARM64"
-        ]
-      },
-      {
-        "channel": "candidate",
-        "released_at": "",
-        "architectures": [
-          "AMD64",
-          "ARM64"
-        ]
-      },
-      {
-        "channel": "beta",
-        "released_at": "",
+        "released_at": "2026-06-11T12:23:15.131350+00:00",
         "architectures": [
           "AMD64",
           "ARM64"
@@ -493,10 +477,8 @@
       },
       {
         "channel": "edge",
-        "released_at": "",
+        "released_at": "2026-05-22T08:09:06.994542+00:00",
         "architectures": [
-          "AMD64",
-          "ARM64",
           "ARMHF",
           "PPC64EL",
           "RISCV64",

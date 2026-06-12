@@ -9,7 +9,7 @@
     if (!document.querySelector('link[rel="stylesheet"][href*="vanilla"]')) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
-      link.href = 'https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css';
+      link.href = 'https://assets.ubuntu.com/v1/vanilla_framework_version_' + '4.51.0' + '.min.css';
       document.head.appendChild(link);
     }
   </script>
@@ -151,6 +151,10 @@
       flex-direction: column;
     }
 
+    .dashboard-card--padded {
+      padding: 15px;
+    }
+
     .dashboard-card__hint {
       color: var(--vf-color-text-muted);
       font-size: 0.875rem;
@@ -175,6 +179,10 @@
       height: 64px;
       object-fit: contain;
       width: 64px;
+    }
+
+    .dashboard-card .p-card__content > .p-card__thumbnail {
+      margin-bottom: 1rem;
     }
 
     .dashboard-details-table {
@@ -655,7 +663,7 @@
         </div>
         <div class="row u-equal-height dashboard-row">
           <div class="col-6">
-            <article class="p-card dashboard-card">
+            <div class="dashboard-card dashboard-card--padded">
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/run-command.png" alt="Run command icon">
               <hr class="u-sv1">
               <h3 class="dashboard-card-title">Latest pipeline run</h3>
@@ -684,7 +692,7 @@
               <div class="dashboard-card-action">
                 <a id="latest-run-link" class="p-button u-no-margin--bottom" href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" target="_blank" rel="noopener noreferrer"><svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="display: inline-block; margin-right: 0.35rem;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>View workflow summary</a>
               </div>
-            </article>
+            </div>
           </div>
           <div class="col-6">
             <article class="p-card dashboard-article">
@@ -757,7 +765,7 @@
         </div>
         <div class="row u-equal-height">
           <div class="col-6">
-            <article class="p-card dashboard-card">
+            <div class="dashboard-card dashboard-card--padded">
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/software-installer.png" alt="Installer icon">
               <hr class="u-sv1">
               <h3 class="dashboard-card-title">Published channels</h3>
@@ -775,10 +783,10 @@
                   </tbody>
                 </table>
               </div>
-            </article>
+            </div>
           </div>
           <div class="col-6">
-            <article class="p-card dashboard-card">
+            <div class="dashboard-card dashboard-card--padded">
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/pull-request.png" alt="Pull request icon">
               <hr class="u-sv1">
               <h3 class="dashboard-card-title">Last track-upstream update</h3>
@@ -798,7 +806,7 @@
                   </tr>
                 </tbody>
               </table>
-            </article>
+            </div>
           </div>
         </div>
         <section class="p-section dashboard-section--spacing" aria-label="snap package metadata">
@@ -895,9 +903,9 @@
         </div>
         <div class="row u-equal-height">
           <div class="col-6">
-            <article class="p-card dashboard-card">
+            <div class="dashboard-card dashboard-card--padded">
               <h3>Vulnerability status</h3>
-            <p class="p-card__content dashboard-card__intro">Outstanding OSV-Scanner findings from the generated SBOMs.</p>
+              <p class="dashboard-card__intro">Outstanding OSV-Scanner findings from the generated SBOMs.</p>
               <div class="security-spotlight" aria-label="Security summary spotlight">
                 <div class="security-spotlight__metric">
                   <hr class="p-rule--highlight security-spotlight__rule">
@@ -913,14 +921,14 @@
               <p class="p-text--small security-spotlight__policy">
                 <strong>Security Policy:</strong> All available upstream security updates are automatically applied during compilation at build time. These dashboard totals count only outstanding vulnerability matches with a corresponding Ubuntu Security Notice (USN). Non-USN OSV matches remain visible in the detailed report as confined-mitigation findings and are report-only unless a dedicated workflow gate is added.
               </p>
-            </article>
+            </div>
           </div>
           <div class="col-6">
-            <article class="p-card dashboard-card">
+            <div class="dashboard-card dashboard-card--padded">
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/layers.png" alt="Layers icon">
               <hr class="u-sv1">
               <h3>Architecture breakdown</h3>
-              <p class="p-card__content dashboard-card__intro">Vulnerability summary by architecture.</p>
+              <p class="dashboard-card__intro">Vulnerability summary by architecture.</p>
               <div class="table-container">
                 <table class="p-table">
                   <thead>
@@ -936,10 +944,10 @@
                   </tbody>
                 </table>
               </div>
-              <div class="p-card__footer">
+              <div class="dashboard-card-action">
                 <a class="p-button" href="vulnerabilities/">Vulnerability reports</a>
               </div>
-            </article>
+            </div>
           </div>
         </div>
       </section>
@@ -1462,18 +1470,9 @@
         const badgeCell = badgeSrc
           ? `<img class="os-badge" src="${badgeSrc}" alt="${logoAlt}">`
           : `<span class="mono">${row.family || ""}</span>`;
-        const isSuccess = row.status === "success";
-        const isFailure = FAILURE_STATES.has(row.status);
-        let shortSymbol = statusText;
-        if (isSuccess) {
-          shortSymbol = "✓";
-        } else if (isFailure) {
-          shortSymbol = "✗";
-        }
-
         const statusCell = isBuildingStatus(row.status)
           ? `<span class="matrix-building" role="status"><span class="matrix-building__spinner" aria-hidden="true"></span><span class="status-chip status-building is-building" aria-label="Status: building">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">building</span><span class="status-text-short" aria-hidden="true">building</span></span></span>`
-          : `<span class="status-chip ${statusClass(row.status)}" aria-label="Status: ${statusText}">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">${statusText}</span><span class="status-text-short" aria-hidden="true">${shortSymbol}</span></span>`;
+          : `<span class="status-chip ${statusClass(row.status)}" aria-label="Status: ${statusText}">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">${statusText}</span><span class="status-text-short" aria-hidden="true">${statusText}</span></span>`;
         tr.innerHTML = `
           <td class="os-logo-col">${badgeCell}</td>
           <td class="distribution-col">${row.label}</td>
@@ -1625,11 +1624,11 @@
         const channel = row.channel || (row.on_stable ? "stable" : "edge");
         let status;
         if (row.build_status === "current") {
-          status = `<span class="status-chip status-success" aria-label="Status: Serving · ${channel}">${checkIconSvg}<span class="status-text-full" aria-hidden="true">Serving · ${channel}</span><span class="status-text-short" aria-hidden="true">✓</span></span>`;
+          status = `<span class="status-chip status-success" aria-label="Status: Serving · ${channel}">${checkIconSvg}<span class="status-text-full" aria-hidden="true">Serving · ${channel}</span><span class="status-text-short" aria-hidden="true">serving</span></span>`;
         } else if (isGitHub) {
-          status = `<span class="status-chip status-caution" aria-label="Status: Behind · ${channel}">${warningIconSvg}<span class="status-text-full" aria-hidden="true">Behind · ${channel}</span><span class="status-text-short" aria-hidden="true">!</span></span>`;
+          status = `<span class="status-chip status-caution" aria-label="Status: Behind · ${channel}">${warningIconSvg}<span class="status-text-full" aria-hidden="true">Behind · ${channel}</span><span class="status-text-short" aria-hidden="true">behind</span></span>`;
         } else {
-          status = `<span class="status-chip status-failure" aria-label="Status: Build failing · stable">${errorIconSvg}<span class="status-text-full" aria-hidden="true">Build failing · stable</span><span class="status-text-short" aria-hidden="true">✗</span></span>`;
+          status = `<span class="status-chip status-failure" aria-label="Status: Build failing · stable">${errorIconSvg}<span class="status-text-full" aria-hidden="true">Build failing · stable</span><span class="status-text-short" aria-hidden="true">failed</span></span>`;
         }
         const version = row.full_version || row.version || "Unknown";
 

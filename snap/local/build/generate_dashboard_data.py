@@ -664,7 +664,10 @@ def collect_snap_package_data(client, repo_root):
          
         # Get newest release date for this channel
         newest_date = max(
-            (e.get("released-at", "") for e in arches_dict.values()),
+            (
+                e.get("released_at", "") or e.get("released-at", "")
+                for e in arches_dict.values()
+            ),
             default=""
         )
          
