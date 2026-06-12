@@ -59,6 +59,22 @@ PYEOF
     [ "$status" -eq 0 ] || { echo "$output"; return 1; }
 }
 
+@test "dashboard status-caution chips have explicit contrast styles" {
+    python3 - <<PYEOF
+import pathlib
+import re
+
+repo = pathlib.Path("${REPO_ROOT}")
+for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
+    text = (repo / rel).read_text(encoding="utf-8")
+    match = re.search(r"\\.status-caution\\s*\\{([^}]+)\\}", text, re.S)
+    assert match, f"{rel} does not define .status-caution"
+    body = match.group(1)
+    assert "background:" in body, f"{rel} .status-caution has no background"
+    assert "color:" in body, f"{rel} .status-caution has no text color"
+PYEOF
+}
+
 @test "sbom-explorer.html has balanced block markup" {
     run check_balance "${REPO_ROOT}/snap/local/assets/sbom-explorer.html"
     [ "$status" -eq 0 ] || { echo "$output"; return 1; }
