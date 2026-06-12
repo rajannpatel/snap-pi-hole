@@ -344,8 +344,16 @@ teardown() {
 @test "snap-setup prints web browser administration advice on successful completion" {
     export MOCK_FTL_ACTIVE="true"
     export MOCK_DNS_CHOICE="1"
+    cat > "${MOCK_BIN}/ip" <<'EOF'
+#!/bin/bash
+if [ "$1" = "-o" ] && [ "$2" = "addr" ]; then
+    echo "2: eth0 inet 192.0.2.10/24 brd 192.0.2.255 scope global eth0"
+fi
+EOF
+    chmod +x "${MOCK_BIN}/ip"
     run "${SETUP_SCRIPT}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"In a web browser, go to http://<Pi-hole-IP>/admin"* ]]
     [[ "$output" == *"Detected local IP(s):"* ]]
+    [[ "$output" == *"192.0.2.10"* ]]
 }

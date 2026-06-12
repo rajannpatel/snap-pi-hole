@@ -231,6 +231,99 @@ assert "needs.publish.result == 'success'" not in condition, condition
 PYEOF
 }
 
+@test "cicd remote-build job builds the four non-GitHub arches on Launchpad" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+jobs = doc["jobs"]
+assert "remote-build" in jobs, list(jobs)
+rb = jobs["remote-build"]
+assert rb["needs"] == ["lint"], rb.get("needs")
+cond = rb["if"]
+assert "github.ref == 'refs/heads/main'" in cond and "push" in cond, cond
+steps = rb["steps"]
+# remote-build rejects shallow clones, so a full-history checkout is required.
+checkout = next(s for s in steps if str(s.get("uses", "")).startswith("actions/checkout"))
+assert checkout.get("with", {}).get("fetch-depth") == 0, checkout
+runs = "\n".join(s.get("run", "") for s in steps)
+assert "launchpad-credentials" in runs, "credentials must be restored to the snapcraft path"
+assert "base64 -d" in runs, runs
+assert "snapcraft remote-build" in runs, runs
+assert "--build-for armhf,ppc64el,riscv64,s390x" in runs, runs
+assert "--launchpad-accept-public-upload" in runs, runs
+assert "--launchpad-timeout" in runs, runs
+PYEOF
+}
+
+@test "cicd remote-build job generates SBOMs and uploads snaps for the four arches" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+steps = doc["jobs"]["remote-build"]["steps"]
+runs = "\n".join(s.get("run", "") for s in steps)
+assert "syft scan" in runs, runs
+assert "enrich_sbom.py" in runs, runs
+uploads = [s for s in steps if str(s.get("uses", "")).startswith("actions/upload-artifact")]
+names = [s.get("with", {}).get("name") for s in uploads]
+assert "pihole-snaps-remote" in names, names
+# A sbom-* artifact name so the existing vulnerability-scan/deploy globs collect it.
+assert any(str(n).startswith("sbom-") for n in names), names
+PYEOF
+}
+
+@test "cicd publish-remote publishes the four Launchpad arches to the same channels" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+jobs = doc["jobs"]
+assert "publish-remote" in jobs, list(jobs)
+pr = jobs["publish-remote"]
+assert pr["needs"] == ["remote-build"], pr.get("needs")
+arches = pr["strategy"]["matrix"]["arch"]
+assert sorted(arches) == ["armhf", "ppc64el", "riscv64", "s390x"], arches
+cond = pr["if"]
+assert "github.ref == 'refs/heads/main'" in cond and "push" in cond, cond
+runs = "\n".join(s.get("run", "") for s in pr["steps"])
+# Same tag->channel mapping as the amd64/arm64 publish job (clean tag -> stable).
+assert "latest/stable,latest/candidate,latest/beta,latest/edge" in runs, runs
+assert "snapcraft upload" in runs, runs
+PYEOF
+}
+
+@test "cicd vulnerability-scan waits for remote-build but tolerates its absence" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+vs = doc["jobs"]["vulnerability-scan"]
+assert "remote-build" in vs["needs"], vs["needs"]
+cond = vs["if"]
+assert "always()" in cond, cond
+assert "needs.build.result == 'success'" in cond, cond
+# Must NOT hard-require remote-build success, or PRs (which skip it) skip the scan.
+assert "needs.remote-build.result == 'success'" not in cond, cond
+PYEOF
+}
+
+@test "cicd deploy-pages waits for remote-build and publish-remote without requiring their success" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+deploy = doc["jobs"]["deploy-pages"]
+needs = deploy["needs"]
+assert "remote-build" in needs, needs
+assert "publish-remote" in needs, needs
+condition = deploy["if"]
+# Tolerant: still deploy the dashboard if the Launchpad path flakes.
+assert "needs.remote-build.result == 'success'" not in condition, condition
+assert "needs.publish-remote.result == 'success'" not in condition, condition
+PYEOF
+}
+
 @test "cicd workflow distro tests reuse the main amd64 snap artifact" {
     local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
     grep -q "^  distro-test:" "$workflow"

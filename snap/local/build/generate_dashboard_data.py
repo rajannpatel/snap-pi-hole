@@ -18,10 +18,10 @@ SNAP_NAME = "pihole-by-rajannpatel"
 SNAPCRAFT_INFO_URL = f"https://api.snapcraft.io/v2/snaps/info/{SNAP_NAME}"
 
 # GitHub-hosted runners only build amd64 and arm64 (see the build matrix in
-# .github/workflows/cicd.yml). Every other architecture is built on Launchpad,
-# which only offers snapcraft from the stable channel. snapcraft 9/stable is not
-# yet released, so those Launchpad builds currently fail and their published
-# revisions lag behind the GitHub-built ones.
+# .github/workflows/cicd.yml). The other four architectures (armhf, ppc64el,
+# riscv64, s390x) are built on Launchpad's build farm via `snapcraft
+# remote-build`, driven by the same CI run, and published to stable alongside
+# the GitHub-built ones. build_source records where each arch is built.
 GITHUB_BUILD_ARCHES = {"AMD64", "ARM64"}
 RISK_RANK = {"stable": 4, "candidate": 3, "beta": 2, "edge": 1}
 
