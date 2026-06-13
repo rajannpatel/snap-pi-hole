@@ -70,10 +70,10 @@ def fetch_catalog(api_key=None, timeout=20):
     return data if isinstance(data, list) else []
 
 
-def select_best_model(api_key=None):
-    """Return the best available free-tier model id, or DEFAULT_MODEL on failure."""
+def select_candidate_models(api_key=None):
+    """Return a list of available free-tier model IDs ordered by preference, or [DEFAULT_MODEL] on failure."""
     if not api_key:
-        return DEFAULT_MODEL
+        return [DEFAULT_MODEL]
 
     base_url = os.environ.get("LLM_API_BASE_URL") or "https://models.github.ai/inference"
     is_gemini = "googleapis.com" in base_url
@@ -120,12 +120,11 @@ def select_best_model(api_key=None):
                     return (model_class, -version, name)
                 
                 gemini_candidates.sort(key=gemini_rank)
-                best_model = gemini_candidates[0]
-                print(f"Discovered Gemini models: {gemini_candidates}. Selected: {best_model}", file=sys.stderr)
-                return best_model
+                print(f"Discovered Gemini models in preference order: {gemini_candidates}", file=sys.stderr)
+                return gemini_candidates
         except Exception as exc:
             print(f"Gemini model discovery failed ({exc}); falling back to default model {DEFAULT_MODEL}.", file=sys.stderr)
-            return DEFAULT_MODEL
+            return [DEFAULT_MODEL]
 
     try:
         catalog = fetch_catalog(api_key=api_key)
@@ -134,7 +133,7 @@ def select_best_model(api_key=None):
             f"Model catalog lookup failed ({exc}); using default model {DEFAULT_MODEL}.",
             file=sys.stderr,
         )
-        return DEFAULT_MODEL
+        return [DEFAULT_MODEL]
 
     candidates = [m for m in catalog if _is_candidate(m)]
     if not candidates:
@@ -142,10 +141,17 @@ def select_best_model(api_key=None):
             f"No catalog model matched selection criteria; using default model {DEFAULT_MODEL}.",
             file=sys.stderr,
         )
-        return DEFAULT_MODEL
+        return [DEFAULT_MODEL]
 
     # Stable sorts applied least-significant first: id asc, version desc, tier asc.
     candidates.sort(key=lambda m: m.get("id", ""))
     candidates.sort(key=lambda m: _version_key(m.get("version")), reverse=True)
     candidates.sort(key=lambda m: FREE_TIER_RANK.get(m.get("rate_limit_tier"), 9))
-    return candidates[0].get("id") or DEFAULT_MODEL
+    return [m.get("id") or DEFAULT_MODEL for m in candidates]
+
+
+def select_best_model(api_key=None):
+    """Return the best available free-tier model id, or DEFAULT_MODEL on failure."""
+    candidates = select_candidate_models(api_key)
+    return candidates[0] if candidates else DEFAULT_MODEL
+

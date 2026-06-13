@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime, timezone
 
 from report_assets import vanilla_framework_css_link
-from llm_model import select_best_model, DEFAULT_MODEL
+from llm_model import select_best_model, select_candidate_models, DEFAULT_MODEL
 
 
 def load_cache():
@@ -753,7 +753,7 @@ def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
     return results
 
 
-def _query_vuln_batch_once(vulns_to_query, model, api_key):
+def _query_vuln_batch_once(vulns_to_query, models, api_key):
     base_url = (os.environ.get("LLM_API_BASE_URL") or "https://models.github.ai/inference").rstrip("/")
     max_attempts = max(1, int(os.environ.get("LLM_MAX_ATTEMPTS") or "3"))
     retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or "1.0"))
@@ -765,8 +765,11 @@ def _query_vuln_batch_once(vulns_to_query, model, api_key):
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
     }
+
+    if isinstance(models, str):
+        models = [models]
+
     body = {
-        "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "response_format": {"type": "json_object"},
         "max_tokens": max(256, int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or "4000")),
@@ -826,86 +829,103 @@ def _query_vuln_batch_once(vulns_to_query, model, api_key):
             return parse_text_payload(text)
         raise ValueError("No parseable LLM response content")
 
-    # Retry loop
-    for attempt in range(1, max_attempts + 1):
-        try:
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(body).encode("utf-8"),
-                headers=headers,
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=45) as response:
-                resp_data = json.loads(response.read().decode("utf-8"))
-                return parse_llm_response(resp_data)
-        except urllib.error.HTTPError as exc:
-            response_body = ""
+    # Try each candidate model in turn
+    for model_index, model in enumerate(models):
+        body["model"] = model
+        
+        # Retry loop for the current model
+        for attempt in range(1, max_attempts + 1):
             try:
-                response_body = exc.read().decode("utf-8", errors="replace").strip()
-            except Exception:
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(body).encode("utf-8"),
+                    headers=headers,
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=90) as response:
+                    resp_data = json.loads(response.read().decode("utf-8"))
+                    return parse_llm_response(resp_data)
+            except urllib.error.HTTPError as exc:
                 response_body = ""
-            print(
-                f"LLM API HTTP error for batch query (attempt {attempt}/{max_attempts}): status {exc.code}. "
-                f"Response body: {response_body or '<empty>'}",
-                file=sys.stderr,
-            )
-            if exc.code in {429, 500, 502, 503, 504} and attempt < max_attempts:
-                sleep_delay = None
-                if exc.code == 429:
-                    resp_headers = exc.headers or {}
-                    retry_after = resp_headers.get("Retry-After")
-                    if retry_after:
-                        try:
-                            sleep_delay = max(2.0, float(retry_after) + 0.5)
+                try:
+                    response_body = exc.read().decode("utf-8", errors="replace").strip()
+                except Exception:
+                    response_body = ""
+                print(
+                    f"LLM API HTTP error for batch query (model: {model}, attempt {attempt}/{max_attempts}): status {exc.code}. "
+                    f"Response body: {response_body or '<empty>'}",
+                    file=sys.stderr,
+                )
+                if exc.code in {429, 500, 502, 503, 504}:
+                    if attempt < max_attempts:
+                        sleep_delay = None
+                        if exc.code == 429:
+                            resp_headers = exc.headers or {}
+                            retry_after = resp_headers.get("Retry-After")
+                            if retry_after:
+                                try:
+                                    sleep_delay = max(2.0, float(retry_after) + 0.5)
+                                    print(
+                                        f"Rate limit detected for batch query. Sleeping for {sleep_delay:.2f}s via Retry-After header.",
+                                        file=sys.stderr,
+                                    )
+                                except ValueError:
+                                    pass
+                            if sleep_delay is None:
+                                reset_time = resp_headers.get("x-ratelimit-reset") or resp_headers.get("X-RateLimit-Reset")
+                                if reset_time:
+                                    try:
+                                        sleep_delay = max(2.0, float(reset_time) - time.time() + 1.0)
+                                        print(
+                                            f"Rate limit detected for batch query. Sleeping for {sleep_delay:.2f}s via x-ratelimit-reset header.",
+                                            file=sys.stderr,
+                                        )
+                                    except ValueError:
+                                        pass
+                            if sleep_delay is None and response_body:
+                                match = re.search(r"(?:retry in|try again in|retry after) (\d+\.?\d*)(?:\s*s|\s*second)", response_body, re.IGNORECASE)
+                                if match:
+                                    try:
+                                        sleep_delay = max(2.0, float(match.group(1)) + 0.5)
+                                        print(
+                                            f"Rate limit detected for batch query. Sleeping for {sleep_delay:.2f}s via response body.",
+                                            file=sys.stderr,
+                                        )
+                                    except ValueError:
+                                        pass
+                        if sleep_delay is None:
+                            cap = 30.0 if exc.code == 429 else 8.0
+                            sleep_delay = max(2.0, min(retry_base_delay * (2 ** (attempt - 1)), cap)) if exc.code == 429 else min(retry_base_delay * (2 ** (attempt - 1)), cap)
+                        time.sleep(sleep_delay)
+                        continue
+                    else:
+                        if model_index < len(models) - 1:
                             print(
-                                f"Rate limit detected for batch query. Sleeping for {sleep_delay:.2f}s via Retry-After header.",
+                                f"Model {model} exhausted or temporarily unavailable (HTTP {exc.code}). "
+                                f"Falling back to next candidate: {models[model_index + 1]}...",
                                 file=sys.stderr,
                             )
-                        except ValueError:
-                            pass
-                    if sleep_delay is None:
-                        reset_time = resp_headers.get("x-ratelimit-reset") or resp_headers.get("X-RateLimit-Reset")
-                        if reset_time:
-                            try:
-                                sleep_delay = max(2.0, float(reset_time) - time.time() + 1.0)
-                                print(
-                                    f"Rate limit detected for batch query. Sleeping for {sleep_delay:.2f}s via x-ratelimit-reset header.",
-                                    file=sys.stderr,
-                                )
-                            except ValueError:
-                                pass
-                    if sleep_delay is None and response_body:
-                        match = re.search(r"(?:retry in|try again in|retry after) (\d+\.?\d*)(?:\s*s|\s*second)", response_body, re.IGNORECASE)
-                        if match:
-                            try:
-                                sleep_delay = max(2.0, float(match.group(1)) + 0.5)
-                                print(
-                                    f"Rate limit detected for batch query. Sleeping for {sleep_delay:.2f}s via response body.",
-                                    file=sys.stderr,
-                                )
-                            except ValueError:
-                                pass
-                if sleep_delay is None:
-                    cap = 30.0 if exc.code == 429 else 8.0
-                    sleep_delay = max(2.0, min(retry_base_delay * (2 ** (attempt - 1)), cap)) if exc.code == 429 else min(retry_base_delay * (2 ** (attempt - 1)), cap)
-                time.sleep(sleep_delay)
-                continue
-            break
-        except urllib.error.URLError as exc:
-            print(f"LLM API connection error for batch query: {exc}.", file=sys.stderr)
-            if attempt < max_attempts:
-                time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
-                continue
-            break
-        except (json.JSONDecodeError, KeyError, IndexError, ValueError) as exc:
-            print(f"LLM API response parsing error for batch query: {exc}.", file=sys.stderr)
-            if attempt < max_attempts:
-                time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
-                continue
-            break
-        except Exception as exc:
-            print(f"Unexpected LLM lookup error for batch query: {type(exc).__name__}: {exc}.", file=sys.stderr)
-            break
+                        break
+                break
+            except (urllib.error.URLError, TimeoutError) as exc:
+                print(f"LLM API connection or timeout error for batch query (model: {model}): {exc}.", file=sys.stderr)
+                if attempt < max_attempts:
+                    time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
+                    continue
+                if model_index < len(models) - 1:
+                    print(f"Falling back to next candidate due to connection or timeout error...", file=sys.stderr)
+                break
+            except (json.JSONDecodeError, KeyError, IndexError, ValueError) as exc:
+                print(f"LLM API response parsing error for batch query (model: {model}): {exc}.", file=sys.stderr)
+                if attempt < max_attempts:
+                    time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
+                    continue
+                if model_index < len(models) - 1:
+                    print(f"Falling back to next candidate due to parsing error...", file=sys.stderr)
+                break
+            except Exception as exc:
+                print(f"Unexpected LLM lookup error for batch query (model: {model}): {type(exc).__name__}: {exc}.", file=sys.stderr)
+                break
     return fallback_map
 
 
@@ -1211,13 +1231,14 @@ def collect_reports(reports_dir):
                         seen_uncached.add(vuln_id)
 
     api_key = os.environ.get("LLM_API_KEY")
+    selected_models = [DEFAULT_MODEL]
     if uncached_vulns_to_query and api_key:
-        selected_model = select_best_model(api_key)
-        print(f"Selected LLM model for analysis: {selected_model}", file=sys.stderr)
+        selected_models = select_candidate_models(api_key)
+        print(f"Selected LLM models for analysis: {selected_models}", file=sys.stderr)
 
     if uncached_vulns_to_query:
         print(f"Querying LLM in batch for {len(uncached_vulns_to_query)} uncached vulnerabilities...", file=sys.stderr)
-        batch_results = query_llm_vulnerabilities_batch(uncached_vulns_to_query, model=selected_model)
+        batch_results = query_llm_vulnerabilities_batch(uncached_vulns_to_query, model=selected_models)
         for vuln_id, explanations in batch_results.items():
             runtime_explanations[vuln_id] = explanations
             if api_key and not is_failed_explanation(explanations):
