@@ -12,7 +12,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from llm_model import DEFAULT_MODEL
+from llm_model import select_best_model, DEFAULT_MODEL
 
 
 def main():
@@ -26,7 +26,7 @@ def main():
 
     # The live key check uses a stable, known-good model; the best analysis
     # model is discovered separately at scan time (see summarize_osv_reports).
-    model = DEFAULT_MODEL
+    model = select_best_model(api_key)
     base_url = (
         os.environ.get("LLM_API_BASE_URL")
         or "https://models.github.ai/inference"

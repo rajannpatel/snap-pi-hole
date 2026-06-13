@@ -434,8 +434,9 @@ def fake_urlopen(req, timeout=0):
     return DummyResponse()
 
 with mock.patch.dict(os.environ, {"LLM_API_KEY": "test-key"}, clear=False):
-    with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
-        rc = validate_llm_key.main()
+    with mock.patch("validate_llm_key.select_best_model", return_value="openai/gpt-4.1"):
+        with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
+            rc = validate_llm_key.main()
 assert rc == 0, f"expected 0, got {rc}"
 assert captured["url"] == "https://models.github.ai/inference/chat/completions", captured
 assert captured["api_key"] == "Bearer test-key", captured
@@ -462,9 +463,10 @@ auth_error = urllib.error.HTTPError(
 )
 err_buf = io.StringIO()
 with mock.patch.dict(os.environ, {"LLM_API_KEY": "bad-key"}, clear=False):
-    with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=auth_error):
-        with mock.patch("sys.stderr", err_buf):
-            rc = validate_llm_key.main()
+    with mock.patch("validate_llm_key.select_best_model", return_value="openai/gpt-4.1"):
+        with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=auth_error):
+            with mock.patch("sys.stderr", err_buf):
+                rc = validate_llm_key.main()
 assert rc == 1, f"expected 1, got {rc}"
 assert "::error title=LLM key validation::" in err_buf.getvalue(), err_buf.getvalue()
 assert "401" in err_buf.getvalue(), err_buf.getvalue()
@@ -504,10 +506,11 @@ with mock.patch.dict(
     },
     clear=False,
 ):
-    with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
-        with mock.patch("validate_llm_key.time.sleep", return_value=None):
-            with mock.patch("sys.stderr", err_buf):
-                rc = validate_llm_key.main()
+    with mock.patch("validate_llm_key.select_best_model", return_value="openai/gpt-4.1"):
+        with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
+            with mock.patch("validate_llm_key.time.sleep", return_value=None):
+                with mock.patch("sys.stderr", err_buf):
+                    rc = validate_llm_key.main()
 assert rc == 0, f"expected 0, got {rc}"
 assert len(calls) == 2, f"expected 2 attempts, got {len(calls)}"
 assert "::warning title=LLM key validation::" in err_buf.getvalue(), err_buf.getvalue()
@@ -552,10 +555,11 @@ with mock.patch.dict(
     },
     clear=False,
 ):
-    with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
-        with mock.patch("validate_llm_key.time.sleep", side_effect=fake_sleep):
-            with mock.patch("sys.stderr", err_buf):
-                rc = validate_llm_key.main()
+    with mock.patch("validate_llm_key.select_best_model", return_value="openai/gpt-4.1"):
+        with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
+            with mock.patch("validate_llm_key.time.sleep", side_effect=fake_sleep):
+                with mock.patch("sys.stderr", err_buf):
+                    rc = validate_llm_key.main()
 assert rc == 0, f"expected 0, got {rc}"
 assert len(calls) == 2, f"expected 2 attempts, got {len(calls)}"
 assert len(slept_durations) == 1, slept_durations
