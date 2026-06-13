@@ -925,42 +925,41 @@ def _query_vuln_batch_once(vulns_to_query, providers, model_override=None):
                             print(f"Rate limit detected. Response body: sleep {sleep_delay:.2f}s.", file=sys.stderr)
                         except ValueError:
                             pass
+
+                # Check for daily/permanent quota exhaustion
+                if response_body and ("quota exceeded" in response_body.lower() or "exceeded your current quota" in response_body.lower()):
+                    sleep_delay = 86400.0  # 1 day
+                    print(f"{provider.name} daily/monthly quota exhausted. Setting 24h cooldown.", file=sys.stderr)
+
                 if sleep_delay is None:
                     sleep_delay = max(2.0, min(retry_base_delay * (2 ** (attempt - 1)), 30.0))
-                
-                if provider.name == "GitHub" and sleep_delay > 600:
-                    print(f"GitHub LLM rate limit cooldown is absurd ({sleep_delay:.2f}s > 600s).", file=sys.stderr)
-                    provider.cooldown_until = time.time() + sleep_delay
-                    
-                    gemini_provider = next((p for p in providers if p.name == "Gemini"), None)
-                    if gemini_provider:
-                        print("Switching back to Gemini LLM immediately.", file=sys.stderr)
-                        _active_provider_idx = providers.index(gemini_provider)
-                        continue
-                    else:
-                        print("Gemini is not configured. Cannot alternate.", file=sys.stderr)
+
+                provider.cooldown_until = time.time() + sleep_delay
+
+                # Find if any provider is ready (not in cooldown)
+                current_time = time.time()
+                ready_provider = None
+                for p in providers:
+                    if p.cooldown_until <= current_time:
+                        ready_provider = p
                         break
-                
-                if provider.name == "Gemini" and len(providers) > 1:
-                    github_provider = next((p for p in providers if p.name == "GitHub"), None)
-                    if github_provider:
-                        time_left_github = github_provider.cooldown_until - time.time()
-                        if time_left_github <= 0:
-                            print("Gemini rate limited. Alternating with GitHub LLM immediately.", file=sys.stderr)
-                            provider.cooldown_until = time.time() + sleep_delay
-                            _active_provider_idx = providers.index(github_provider)
-                            continue
-                        elif time_left_github <= 600:
-                            print(f"Gemini rate limited. GitHub LLM is in normal cooldown ({time_left_github:.2f}s). Switching to GitHub and waiting.", file=sys.stderr)
-                            provider.cooldown_until = time.time() + sleep_delay
-                            _active_provider_idx = providers.index(github_provider)
-                            time.sleep(max(1.0, time_left_github))
-                            continue
-                        else:
-                            print("Gemini rate limited but GitHub is in absurd cooldown. Keeping with Gemini.", file=sys.stderr)
-                
-                print(f"Sleeping for {sleep_delay:.2f}s before retry...", file=sys.stderr)
-                time.sleep(sleep_delay)
+
+                if ready_provider:
+                    print(f"Rate limit hit on {provider.name}. Alternating to ready provider {ready_provider.name} immediately.", file=sys.stderr)
+                    _active_provider_idx = providers.index(ready_provider)
+                    continue
+
+                # If no provider is ready, calculate wait time
+                sleep_time = min(p.cooldown_until for p in providers) - current_time
+                if sleep_time > 600:
+                    print(f"All providers in cooldown with minimum wait {sleep_time:.2f}s > 600s (absurd). Aborting LLM query and returning cache/fallbacks.", file=sys.stderr)
+                    break
+
+                # Sleep for the minimum wait time, then run again with the provider that becomes ready
+                next_ready_provider = min(providers, key=lambda p: p.cooldown_until)
+                print(f"All providers in cooldown. Sleeping for {sleep_time:.2f}s to wait for {next_ready_provider.name}...", file=sys.stderr)
+                time.sleep(max(0.1, sleep_time))
+                _active_provider_idx = providers.index(next_ready_provider)
                 continue
             
             elif exc.code in {500, 502, 503, 504}:
