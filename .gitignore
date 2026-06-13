@@ -31,3 +31,5 @@ local-sbom/
 local-sbom.json
 local-extracted-snap/
 .deckwork/
+local-vulnerabilities/*
+!local-vulnerabilities/llm-cache.json
