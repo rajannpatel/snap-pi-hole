@@ -520,7 +520,8 @@
     /* Table columns sizing overrides (Prevents clipping/truncation) */
     .snap-package-table,
     .matrix-table,
-    .components-table {
+    .components-table,
+    .security-arch-table {
       table-layout: auto;
       width: 100%;
     }
@@ -530,7 +531,9 @@
     .matrix-table th,
     .matrix-table td,
     .components-table th,
-    .components-table td {
+    .components-table td,
+    .security-arch-table th,
+    .security-arch-table td {
       overflow: visible;
       text-overflow: clip;
       white-space: nowrap;
@@ -928,7 +931,7 @@
               <h3>Architecture breakdown</h3>
               <p class="dashboard-card__intro">Vulnerability summary by architecture.</p>
               <div class="table-container">
-                <table class="p-table">
+                <table class="p-table security-arch-table">
                   <thead>
                     <tr>
                       <th>Architecture</th>
