@@ -1740,4 +1740,44 @@ print("Start-of-loop absurd cooldown bypass unit test passed successfully.")
 PYEOF
 }
 
+@test "summarize_osv_reports skips all remaining batch and individual queries when absurd cooldown is active" {
+    python3 - <<PYEOF
+import json
+import os
+import sys
+import time
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+from llm_model import LLMProvider
+
+gemini = LLMProvider("Gemini", "gemini-key", "https://gemini.googleapis.com", "gemini-model")
+github = LLMProvider("GitHub", "github-key", "https://github.ai", "github-model")
+
+# Set both providers to an absurd cooldown
+gemini.cooldown_until = time.time() + 86400.0
+github.cooldown_until = time.time() + 68400.0
+
+summary.init_providers = lambda: [gemini, github]
+summary.select_candidate_models = lambda api, base: ["model-x"]
+
+with mock.patch("summarize_osv_reports.time.sleep") as mock_sleep:
+    # 2 batches worth of vulnerabilities
+    vulns = [
+        {"cve_id": "CVE-2026-4001", "package_name": "curl", "version": "1.0"},
+        {"cve_id": "CVE-2026-4002", "package_name": "curl", "version": "1.0"}
+    ]
+    with mock.patch("summarize_osv_reports.iter_vuln_batches", return_value=[[vulns[0]], [vulns[1]]]):
+        res = summary.query_llm_vulnerabilities_batch(vulns)
+        
+        # Verify it skipped calling _query_vuln_batch_once for subsequent batches and individual queries
+        assert res["CVE-2026-4001"]["appropriate"] == summary.LLM_LOOKUP_ERROR_TEXT
+        assert res["CVE-2026-4002"]["appropriate"] == summary.LLM_LOOKUP_ERROR_TEXT
+        assert mock_sleep.call_count == 0
+print("Batch and individual skip on absurd cooldown unit test passed successfully.")
+PYEOF
+}
+
+
 

@@ -725,6 +725,26 @@ def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
     batches = list(iter_vuln_batches(vulns_to_query))
     results = {}
     for index, batch in enumerate(batches):
+        current_time = time.time()
+        all_cooldown = True
+        min_cooldown = None
+        for p in providers:
+            if p.cooldown_until <= current_time:
+                all_cooldown = False
+                break
+            if min_cooldown is None or p.cooldown_until < min_cooldown:
+                min_cooldown = p.cooldown_until
+                
+        if all_cooldown and min_cooldown is not None and (min_cooldown - current_time) > 600:
+            print("All LLM providers are in absurd cooldown. Skipping all remaining query batches and using fallbacks.", file=sys.stderr)
+            for remaining_batch in batches[index:]:
+                for v in remaining_batch:
+                    results[v["cve_id"]] = {
+                        "appropriate": LLM_LOOKUP_ERROR_TEXT,
+                        "not_appropriate": LLM_LOOKUP_ERROR_TEXT
+                    }
+            break
+
         if index > 0 and BATCH_PACING_SECONDS > 0:
             time.sleep(BATCH_PACING_SECONDS)
         if len(batches) > 1:
@@ -739,18 +759,45 @@ def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
         failed_ids = [
             cid for cid in by_id if is_failed_explanation(results.get(cid))
         ]
-        for cid in failed_ids:
-            if BATCH_PACING_SECONDS > 0:
-                time.sleep(BATCH_PACING_SECONDS)
-            print(
-                f"Re-querying {cid} individually after a batch miss...",
-                file=sys.stderr,
-            )
-            providers = init_providers()
-            _active_provider_idx = _active_provider_idx % len(providers)
-            salvaged = _query_vuln_batch_once([by_id[cid]], providers, model_override=model)
-            if not is_failed_explanation(salvaged.get(cid)):
-                results[cid] = salvaged[cid]
+        
+        current_time = time.time()
+        all_cooldown = True
+        min_cooldown = None
+        for p in providers:
+            if p.cooldown_until <= current_time:
+                all_cooldown = False
+                break
+            if min_cooldown is None or p.cooldown_until < min_cooldown:
+                min_cooldown = p.cooldown_until
+                
+        if not (all_cooldown and min_cooldown is not None and (min_cooldown - current_time) > 600):
+            for cid in failed_ids:
+                if BATCH_PACING_SECONDS > 0:
+                    time.sleep(BATCH_PACING_SECONDS)
+                
+                # Check again before each individual query in case it just hit absurd cooldown
+                current_time = time.time()
+                all_cooldown = True
+                min_cooldown = None
+                for p in providers:
+                    if p.cooldown_until <= current_time:
+                        all_cooldown = False
+                        break
+                    if min_cooldown is None or p.cooldown_until < min_cooldown:
+                        min_cooldown = p.cooldown_until
+                if all_cooldown and min_cooldown is not None and (min_cooldown - current_time) > 600:
+                    print("All LLM providers entered absurd cooldown. Skipping individual re-queries.", file=sys.stderr)
+                    break
+
+                print(
+                    f"Re-querying {cid} individually after a batch miss...",
+                    file=sys.stderr,
+                )
+                providers = init_providers()
+                _active_provider_idx = _active_provider_idx % len(providers)
+                salvaged = _query_vuln_batch_once([by_id[cid]], providers, model_override=model)
+                if not is_failed_explanation(salvaged.get(cid)):
+                    results[cid] = salvaged[cid]
     return results
 
 
