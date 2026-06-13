@@ -154,7 +154,9 @@ jobs:
 
       - name: Validate LLM API key
         env:
-          LLM_API_KEY: ${{ secrets.GITHUB_TOKEN }}
+          LLM_API_KEY: ${{ secrets.GEMINI_API_KEY || secrets.GITHUB_TOKEN }}
+          LLM_API_BASE_URL: ${{ secrets.GEMINI_API_KEY && 'https://generativelanguage.googleapis.com/v1beta/openai' || vars.LLM_API_BASE_URL || 'https://models.github.ai/inference' }}
+          LLM_DEFAULT_MODEL: ${{ secrets.GEMINI_API_KEY && 'gemini-1.5-flash' || '' }}
         run: |
           if [ -n "${LLM_API_KEY:-}" ]; then
             echo "::add-mask::${LLM_API_KEY}"
@@ -163,7 +165,9 @@ jobs:
 
       - name: Scan SBOMs with OSV-Scanner
         env:
-          LLM_API_KEY: ${{ secrets.GITHUB_TOKEN }}
+          LLM_API_KEY: ${{ secrets.GEMINI_API_KEY || secrets.GITHUB_TOKEN }}
+          LLM_API_BASE_URL: ${{ secrets.GEMINI_API_KEY && 'https://generativelanguage.googleapis.com/v1beta/openai' || vars.LLM_API_BASE_URL || 'https://models.github.ai/inference' }}
+          LLM_DEFAULT_MODEL: ${{ secrets.GEMINI_API_KEY && 'gemini-1.5-flash' || '' }}
         run: |
           if [ -n "${LLM_API_KEY:-}" ]; then
             echo "::add-mask::${LLM_API_KEY}"

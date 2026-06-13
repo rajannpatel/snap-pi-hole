@@ -29,7 +29,7 @@ import urllib.request
 
 # Fallback when catalog discovery is unavailable. gpt-4.1 is the most capable
 # OpenAI model in the free GITHUB_TOKEN ("High") tier at the time of writing.
-DEFAULT_MODEL = "openai/gpt-4.1"
+DEFAULT_MODEL = os.environ.get("LLM_DEFAULT_MODEL") or "openai/gpt-4.1"
 
 CATALOG_URL = os.environ.get("LLM_CATALOG_URL") or "https://models.github.ai/catalog/models"
 
