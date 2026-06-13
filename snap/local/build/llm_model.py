@@ -72,6 +72,50 @@ def fetch_catalog(api_key=None, timeout=20):
 
 def select_best_model(api_key=None):
     """Return the best available free-tier model id, or DEFAULT_MODEL on failure."""
+    if not api_key:
+        return DEFAULT_MODEL
+
+    base_url = os.environ.get("LLM_API_BASE_URL") or "https://models.github.ai/inference"
+    is_gemini = "googleapis.com" in base_url
+
+    if is_gemini:
+        try:
+            url = f"{base_url.rstrip('/')}/models"
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {api_key}"
+                },
+                method="GET"
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            
+            models = data.get("data", []) if isinstance(data, dict) else []
+            model_ids = [m.get("id") for m in models if isinstance(m, dict) and m.get("id")]
+            gemini_candidates = [mid for mid in model_ids if "gemini" in mid.lower()]
+            
+            if gemini_candidates:
+                def gemini_rank(model_id):
+                    name = model_id.lower()
+                    version = 1.5
+                    if "2.5" in name:
+                        version = 2.5
+                    elif "2.0" in name:
+                        version = 2.0
+                    is_pro = "pro" in name
+                    is_flash = "flash" in name
+                    return (-version, -int(is_pro), -int(is_flash), name)
+                
+                gemini_candidates.sort(key=gemini_rank)
+                best_model = gemini_candidates[0]
+                print(f"Discovered Gemini models: {gemini_candidates}. Selected: {best_model}", file=sys.stderr)
+                return best_model
+        except Exception as exc:
+            print(f"Gemini model discovery failed ({exc}); falling back to default model {DEFAULT_MODEL}.", file=sys.stderr)
+            return DEFAULT_MODEL
+
     try:
         catalog = fetch_catalog(api_key=api_key)
     except (urllib.error.URLError, ValueError, OSError) as exc:
