@@ -1488,3 +1488,222 @@ assert 'href="vex-amd64.cdx.json"' in html, "VEX download link missing"
 assert ">Download VEX<" in html, "Download VEX button missing"
 PYEOF
 }
+
+@test "summarize_osv_reports date-based caching handles updates and preserves compatibility" {
+    python3 - <<PYEOF
+import json
+import os
+import sys
+from unittest import mock
+import pathlib
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+
+# Mock cache load/save
+cached_data = {
+    "CVE-2023-38545": {
+        "appropriate": "Cached appropriate rationale.",
+        "modified": "2023-10-11T12:00:00Z"
+    },
+    "CVE-2023-99999": {
+        "appropriate": "Cached mock rationale."
+    }
+}
+summary.load_cache = lambda: dict(cached_data)
+
+saved_cache = {}
+summary.save_cache = lambda c: saved_cache.update(c)
+
+# Mock providers to ensure has_llm is True
+dummy_provider = mock.Mock()
+dummy_provider.name = "Dummy"
+summary.init_providers = lambda: [dummy_provider]
+
+queries_made = []
+def fake_query_batch(vulns, model=None):
+    queries_made.append(vulns)
+    return {v["cve_id"]: {"appropriate": "new"} for v in vulns}
+summary.query_llm_vulnerabilities_batch = fake_query_batch
+
+reports_dir = pathlib.Path("${REPORT_DIR}")
+for p in reports_dir.glob("osv-*.json"):
+    p.unlink()
+
+# Case 1: Matching date & Case 3: Cached has no modified date (graceful upgrade)
+with open(reports_dir / "osv-amd64.json", "w") as f:
+    json.dump({
+        "results": [{
+            "packages": [{
+                "package": {"name": "curl", "version": "7.88.1"},
+                "vulnerabilities": [
+                    {"id": "CVE-2023-38545", "modified": "2023-10-11T12:00:00Z"},
+                    {"id": "CVE-2023-99999", "modified": "2023-12-01T12:00:00Z"}
+                ]
+            }]
+        }]
+    }, f)
+
+summary.collect_reports(reports_dir)
+# Should make 0 LLM queries because CVE-2023-38545 date matched,
+# and CVE-2023-99999 lacked cached date (upgraded without query).
+assert len(queries_made) == 0, queries_made
+assert saved_cache["CVE-2023-99999"]["modified"] == "2023-12-01T12:00:00Z"
+
+# Case 2: Mismatched date (triggers query)
+with open(reports_dir / "osv-amd64.json", "w") as f:
+    json.dump({
+        "results": [{
+            "packages": [{
+                "package": {"name": "curl", "version": "7.88.1"},
+                "vulnerabilities": [
+                    {"id": "CVE-2023-38545", "modified": "2024-01-01T12:00:00Z"}
+                ]
+            }]
+        }]
+    }, f)
+
+summary.collect_reports(reports_dir)
+assert len(queries_made) == 1, queries_made
+assert queries_made[0][0]["cve_id"] == "CVE-2023-38545"
+assert saved_cache["CVE-2023-38545"]["modified"] == "2024-01-01T12:00:00Z"
+print("Date-based caching unit test passed successfully.")
+PYEOF
+}
+
+@test "summarize_osv_reports alternates providers on rate limiting and temporary errors" {
+    python3 - <<PYEOF
+import json
+import os
+import sys
+import urllib.error
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+from llm_model import LLMProvider
+
+calls = []
+def fake_urlopen(req, timeout=0):
+    auth = req.get_header("Authorization")
+    url = req.full_url
+    calls.append((url, auth))
+    if "gemini-key" in auth:
+        raise urllib.error.HTTPError(
+            url, 429, "Rate limited", None, mock.Mock(read=lambda: b"rate limit details")
+        )
+    payload = {
+        "choices": [{"message": {"content": json.dumps({"appropriate": "github-confinement"})}}]
+    }
+    return mock.Mock(read=lambda: json.dumps(payload).encode("utf-8"), __enter__=lambda s: s, __exit__=lambda *a: False)
+
+gemini = LLMProvider("Gemini", "gemini-key", "https://gemini.googleapis.com", "gemini-model")
+github = LLMProvider("GitHub", "github-key", "https://github.ai", "github-model")
+summary.init_providers = lambda: [gemini, github]
+summary.select_candidate_models = lambda api, base: ["model-x"]
+
+with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
+    with mock.patch("summarize_osv_reports.time.sleep") as mock_sleep:
+        vulns = [{"cve_id": "CVE-2026-1000", "package_name": "curl", "version": "1.0"}]
+        res = summary.query_llm_vulnerabilities_batch(vulns)
+        
+        assert len(calls) == 2, calls
+        assert "gemini-key" in calls[0][1]
+        assert "github-key" in calls[1][1]
+        assert res["CVE-2026-1000"]["appropriate"] == "github-confinement"
+        
+        sleep_args = [arg[0][0] for arg in mock_sleep.call_args_list]
+        assert len(sleep_args) == 0 or max(sleep_args) < 2.0, sleep_args
+print("Provider alternation unit test passed successfully.")
+PYEOF
+}
+
+@test "summarize_osv_reports handles GitHub Models cooldowns exceeding 10 minutes without sleeping" {
+    python3 - <<PYEOF
+import json
+import os
+import sys
+import urllib.error
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+from llm_model import LLMProvider
+
+calls = []
+def fake_urlopen(req, timeout=0):
+    auth = req.get_header("Authorization")
+    url = req.full_url
+    calls.append((url, auth))
+    if "github-key" in auth:
+        headers = {"Retry-After": "900"}
+        raise urllib.error.HTTPError(
+            url, 429, "Rate limited", headers, mock.Mock(read=lambda: b"rate limit details")
+        )
+    payload = {
+        "choices": [{"message": {"content": json.dumps({"appropriate": "gemini-confinement"})}}]
+    }
+    return mock.Mock(read=lambda: json.dumps(payload).encode("utf-8"), __enter__=lambda s: s, __exit__=lambda *a: False)
+
+gemini = LLMProvider("Gemini", "gemini-key", "https://gemini.googleapis.com", "gemini-model")
+github = LLMProvider("GitHub", "github-key", "https://github.ai", "github-model")
+summary.init_providers = lambda: [github, gemini]
+summary.select_candidate_models = lambda api, base: ["model-x"]
+
+with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
+    with mock.patch("summarize_osv_reports.time.sleep") as mock_sleep:
+        vulns = [{"cve_id": "CVE-2026-2000", "package_name": "curl", "version": "1.0"}]
+        res = summary.query_llm_vulnerabilities_batch(vulns)
+        
+        assert len(calls) == 2, calls
+        assert "github-key" in calls[0][1]
+        assert "gemini-key" in calls[1][1]
+        assert res["CVE-2026-2000"]["appropriate"] == "gemini-confinement"
+        
+        sleep_args = [arg[0][0] for arg in mock_sleep.call_args_list]
+        assert all(s < 600 for s in sleep_args), sleep_args
+print("Absurd cooldown bypass unit test passed successfully.")
+PYEOF
+}
+
+@test "validate_llm_key validates multiple providers and switches on 429 if alternatives exist" {
+    python3 - <<PYEOF
+import json
+import os
+import sys
+import urllib.error
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import validate_llm_key
+from llm_model import LLMProvider
+
+calls = []
+def fake_urlopen(req, timeout=0):
+    auth = req.get_header("Authorization")
+    url = req.full_url
+    calls.append((url, auth))
+    if "gemini-key" in auth:
+        raise urllib.error.HTTPError(
+            url, 429, "Rate limited", None, mock.Mock(read=lambda: b"rate limit details")
+        )
+    payload = {"choices": [{"message": {"content": "ok"}}]}
+    return mock.Mock(read=lambda: json.dumps(payload).encode("utf-8"), __enter__=lambda s: s, __exit__=lambda *a: False)
+
+gemini = LLMProvider("Gemini", "gemini-key", "https://gemini.googleapis.com", "gemini-model")
+github = LLMProvider("GitHub", "github-key", "https://github.ai", "github-model")
+validate_llm_key.init_providers = lambda: [gemini, github]
+validate_llm_key.select_best_model = lambda api, base: "model-x"
+
+with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
+    with mock.patch("validate_llm_key.time.sleep") as mock_sleep:
+        rc = validate_llm_key.main()
+        assert rc == 0
+        assert len(calls) == 2, calls
+        assert "gemini-key" in calls[0][1]
+        assert "github-key" in calls[1][1]
+        assert mock_sleep.call_count == 0
+print("validate_llm_key multi-provider validation unit test passed successfully.")
+PYEOF
+}
+

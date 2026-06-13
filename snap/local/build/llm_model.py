@@ -70,14 +70,69 @@ def fetch_catalog(api_key=None, timeout=20):
     return data if isinstance(data, list) else []
 
 
-def select_candidate_models(api_key=None):
+class LLMProvider:
+    def __init__(self, name, api_key, base_url, default_model):
+        self.name = name
+        self.api_key = api_key
+        self.base_url = base_url
+        self.default_model = default_model
+        self.models = [default_model]
+        self.discovered = False
+        self.cooldown_until = 0.0
+
+
+def init_providers():
+    providers = []
+    
+    # 1. Gemini
+    gemini_key = os.environ.get("LLM_GEMINI_KEY") or os.environ.get("GEMINI_API_KEY")
+    # 2. GitHub
+    github_key = os.environ.get("LLM_GITHUB_KEY") or os.environ.get("GITHUB_TOKEN")
+    
+    # Check fallback/compatibility with LLM_API_KEY / LLM_API_BASE_URL
+    llm_api_key = os.environ.get("LLM_API_KEY")
+    llm_api_base_url = os.environ.get("LLM_API_BASE_URL")
+    
+    if llm_api_key:
+        is_gemini_url = llm_api_base_url and "googleapis.com" in llm_api_base_url
+        is_gemini_key = llm_api_key.startswith("AIza")
+        if is_gemini_url or is_gemini_key:
+            if not gemini_key:
+                gemini_key = llm_api_key
+        else:
+            if not github_key:
+                github_key = llm_api_key
+
+    # Initialize Gemini provider if key is available
+    if gemini_key:
+        default_gemini_base = "https://generativelanguage.googleapis.com/v1beta/openai"
+        if gemini_key == llm_api_key and llm_api_base_url:
+            default_gemini_base = llm_api_base_url
+        gemini_base = os.environ.get("LLM_GEMINI_BASE_URL") or default_gemini_base
+        gemini_default_model = os.environ.get("LLM_GEMINI_DEFAULT_MODEL") or "gemini-1.5-flash"
+        providers.append(LLMProvider("Gemini", gemini_key, gemini_base, gemini_default_model))
+        
+    # Initialize GitHub provider if key is available
+    if github_key:
+        default_github_base = "https://models.github.ai/inference"
+        if github_key == llm_api_key and llm_api_base_url:
+            default_github_base = llm_api_base_url
+        github_base = os.environ.get("LLM_GITHUB_BASE_URL") or default_github_base
+        github_default_model = os.environ.get("LLM_GITHUB_DEFAULT_MODEL") or "openai/gpt-4.1"
+        providers.append(LLMProvider("GitHub", github_key, github_base, github_default_model))
+        
+    return providers
+
+
+def select_candidate_models(api_key=None, base_url=None):
     """Return a list of available free-tier model IDs ordered by preference, or [DEFAULT_MODEL] on failure."""
     if not api_key:
         return [DEFAULT_MODEL]
 
-    base_url = os.environ.get("LLM_API_BASE_URL") or "https://models.github.ai/inference"
+    if base_url is None:
+        base_url = os.environ.get("LLM_API_BASE_URL") or "https://models.github.ai/inference"
     is_gemini = "googleapis.com" in base_url
-
+    
     if is_gemini:
         try:
             url = f"{base_url.rstrip('/')}/models"
@@ -150,8 +205,9 @@ def select_candidate_models(api_key=None):
     return [m.get("id") or DEFAULT_MODEL for m in candidates]
 
 
-def select_best_model(api_key=None):
+def select_best_model(api_key=None, base_url=None):
     """Return the best available free-tier model id, or DEFAULT_MODEL on failure."""
-    candidates = select_candidate_models(api_key)
+    candidates = select_candidate_models(api_key, base_url)
     return candidates[0] if candidates else DEFAULT_MODEL
+
 

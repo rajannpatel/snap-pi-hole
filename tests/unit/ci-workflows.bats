@@ -141,7 +141,7 @@ assert validate_idx is not None, f"'Validate LLM API key' step not found: {names
 assert scan_idx is not None, f"'Scan SBOMs with OSV-Scanner' step not found: {names}"
 assert validate_idx < scan_idx, f"Validate step ({validate_idx}) must come before Scan step ({scan_idx})"
 validate_step = steps[validate_idx]
-assert validate_step.get("env", {}).get("LLM_API_KEY") is not None, validate_step
+assert validate_step.get("env", {}).get("LLM_GEMINI_KEY") is not None or validate_step.get("env", {}).get("LLM_GITHUB_KEY") is not None, validate_step
 assert "validate_llm_key.py" in validate_step.get("run", ""), validate_step
 PYEOF
 }

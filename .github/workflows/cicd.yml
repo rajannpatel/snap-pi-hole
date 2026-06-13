@@ -154,25 +154,30 @@ jobs:
 
       - name: Validate LLM API key
         env:
-          LLM_API_KEY: ${{ secrets.GEMINI_API_KEY || secrets.GITHUB_TOKEN }}
-          LLM_API_BASE_URL: ${{ secrets.GEMINI_API_KEY && 'https://generativelanguage.googleapis.com/v1beta/openai' || vars.LLM_API_BASE_URL || 'https://models.github.ai/inference' }}
-          LLM_DEFAULT_MODEL: ${{ secrets.GEMINI_API_KEY && 'gemini-1.5-flash' || '' }}
+          LLM_GEMINI_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LLM_GITHUB_KEY: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -n "${LLM_API_KEY:-}" ]; then
-            echo "::add-mask::${LLM_API_KEY}"
+          if [ -n "${LLM_GEMINI_KEY:-}" ]; then
+            echo "::add-mask::${LLM_GEMINI_KEY}"
+          fi
+          if [ -n "${LLM_GITHUB_KEY:-}" ]; then
+            echo "::add-mask::${LLM_GITHUB_KEY}"
           fi
           python3 snap/local/build/validate_llm_key.py
 
       - name: Scan SBOMs with OSV-Scanner
         env:
-          LLM_API_KEY: ${{ secrets.GEMINI_API_KEY || secrets.GITHUB_TOKEN }}
-          LLM_API_BASE_URL: ${{ secrets.GEMINI_API_KEY && 'https://generativelanguage.googleapis.com/v1beta/openai' || vars.LLM_API_BASE_URL || 'https://models.github.ai/inference' }}
-          LLM_DEFAULT_MODEL: ${{ secrets.GEMINI_API_KEY && 'gemini-1.5-flash' || '' }}
+          LLM_GEMINI_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LLM_GITHUB_KEY: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -n "${LLM_API_KEY:-}" ]; then
-            echo "::add-mask::${LLM_API_KEY}"
-          else
-            echo "::notice title=LLM analysis::LLM_API_KEY is unavailable. Using cached or fallback confinement explanations."
+          if [ -n "${LLM_GEMINI_KEY:-}" ]; then
+            echo "::add-mask::${LLM_GEMINI_KEY}"
+          fi
+          if [ -n "${LLM_GITHUB_KEY:-}" ]; then
+            echo "::add-mask::${LLM_GITHUB_KEY}"
+          fi
+          if [ -z "${LLM_GEMINI_KEY:-}" ] && [ -z "${LLM_GITHUB_KEY:-}" ]; then
+            echo "::notice title=LLM analysis::No LLM API keys are available. Using cached or fallback confinement explanations."
           fi
 
           mkdir -p osv-sbom-input vulnerability-reports

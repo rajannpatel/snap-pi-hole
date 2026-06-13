@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime, timezone
 
 from report_assets import vanilla_framework_css_link
-from llm_model import select_best_model, select_candidate_models, DEFAULT_MODEL
+from llm_model import select_best_model, select_candidate_models, DEFAULT_MODEL, init_providers
 
 
 def load_cache():
@@ -702,9 +702,9 @@ def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
     if not vulns_to_query:
         return {}
 
-    api_key = os.environ.get("LLM_API_KEY")
-    if not api_key:
-        print("LLM_API_KEY not set. Using fallback placeholders for batch vulnerabilities.", file=sys.stderr)
+    providers = init_providers()
+    if not providers:
+        print("No LLM providers configured. Using fallback placeholders for batch vulnerabilities.", file=sys.stderr)
         return {
             v["cve_id"]: {
                 "appropriate": (
@@ -716,7 +716,12 @@ def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
             for v in vulns_to_query
         }
 
-    model = model or DEFAULT_MODEL
+    global _active_provider_idx
+    if '_active_provider_idx' not in globals():
+        globals()['_active_provider_idx'] = 0
+    
+    _active_provider_idx = _active_provider_idx % len(providers)
+
     batches = list(iter_vuln_batches(vulns_to_query))
     results = {}
     for index, batch in enumerate(batches):
@@ -727,14 +732,8 @@ def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
                 f"Querying LLM batch {index + 1}/{len(batches)} ({len(batch)} vulnerabilities)...",
                 file=sys.stderr,
             )
-        results.update(_query_vuln_batch_once(batch, model, api_key))
+        results.update(_query_vuln_batch_once(batch, providers, model_override=model))
 
-    # Salvage pass: a finding can come back failed or omitted when its batch's
-    # combined JSON is truncated or the model drops an id it considers a
-    # non-issue. Re-query each straggler on its own, where it gets the full
-    # output-token budget and a neighbour's parse error cannot take it down. This
-    # only splits genuine multi-finding batches; a lone finding already exhausted
-    # its retries in _query_vuln_batch_once.
     if len(vulns_to_query) > 1:
         by_id = {v["cve_id"]: v for v in vulns_to_query}
         failed_ids = [
@@ -747,33 +746,20 @@ def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
                 f"Re-querying {cid} individually after a batch miss...",
                 file=sys.stderr,
             )
-            salvaged = _query_vuln_batch_once([by_id[cid]], model, api_key)
+            providers = init_providers()
+            _active_provider_idx = _active_provider_idx % len(providers)
+            salvaged = _query_vuln_batch_once([by_id[cid]], providers, model_override=model)
             if not is_failed_explanation(salvaged.get(cid)):
                 results[cid] = salvaged[cid]
     return results
 
 
-def _query_vuln_batch_once(vulns_to_query, models, api_key):
-    base_url = (os.environ.get("LLM_API_BASE_URL") or "https://models.github.ai/inference").rstrip("/")
+def _query_vuln_batch_once(vulns_to_query, providers, model_override=None):
+    global _active_provider_idx
     max_attempts = max(1, int(os.environ.get("LLM_MAX_ATTEMPTS") or "3"))
-    retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or "1.0"))
+    retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or "2.0"))
 
     prompt = build_analysis_prompt(vulns_to_query)
-
-    url = f"{base_url}/chat/completions"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-    }
-
-    if isinstance(models, str):
-        models = [models]
-
-    body = {
-        "messages": [{"role": "user", "content": prompt}],
-        "response_format": {"type": "json_object"},
-        "max_tokens": max(256, int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or "4000")),
-    }
 
     fallback_map = {
         v["cve_id"]: {
@@ -829,107 +815,213 @@ def _query_vuln_batch_once(vulns_to_query, models, api_key):
             return parse_text_payload(text)
         raise ValueError("No parseable LLM response content")
 
-    # Try each candidate model in turn
-    for model_index, model in enumerate(models):
-        body["model"] = model
+    max_total_tries = max_attempts * len(providers)
+    attempt = 0
+    provider_models = {p.name: list(p.models) for p in providers}
+
+    while attempt < max_total_tries:
+        attempt += 1
+        _active_provider_idx = _active_provider_idx % len(providers)
+        provider = providers[_active_provider_idx]
         
-        # Retry loop for the current model
-        for attempt in range(1, max_attempts + 1):
-            try:
-                req = urllib.request.Request(
-                    url,
-                    data=json.dumps(body).encode("utf-8"),
-                    headers=headers,
-                    method="POST",
-                )
-                with urllib.request.urlopen(req, timeout=90) as response:
-                    resp_data = json.loads(response.read().decode("utf-8"))
-                    return parse_llm_response(resp_data)
-            except urllib.error.HTTPError as exc:
-                response_body = ""
+        current_time = time.time()
+        if provider.cooldown_until > current_time:
+            if len(providers) > 1:
+                other_idx = (_active_provider_idx + 1) % len(providers)
+                other_provider = providers[other_idx]
+                if other_provider.cooldown_until <= current_time:
+                    _active_provider_idx = other_idx
+                    provider = other_provider
+                else:
+                    sleep_time = min(provider.cooldown_until, other_provider.cooldown_until) - current_time
+                    print(f"All providers in cooldown. Waiting for {sleep_time:.2f}s...", file=sys.stderr)
+                    time.sleep(max(0.1, sleep_time))
+                    current_time = time.time()
+            else:
+                sleep_time = provider.cooldown_until - current_time
+                print(f"Provider {provider.name} in cooldown. Waiting for {sleep_time:.2f}s...", file=sys.stderr)
+                time.sleep(max(0.1, sleep_time))
+                current_time = time.time()
+
+        if not provider.discovered:
+            if model_override:
+                if isinstance(model_override, str):
+                    provider.models = [model_override]
+                else:
+                    provider.models = list(model_override)
+            else:
                 try:
-                    response_body = exc.read().decode("utf-8", errors="replace").strip()
-                except Exception:
-                    response_body = ""
-                print(
-                    f"LLM API HTTP error for batch query (model: {model}, attempt {attempt}/{max_attempts}): status {exc.code}. "
-                    f"Response body: {response_body or '<empty>'}",
-                    file=sys.stderr,
-                )
-                if exc.code in {429, 500, 502, 503, 504}:
-                    if attempt < max_attempts:
-                        sleep_delay = None
-                        if exc.code == 429:
-                            resp_headers = exc.headers or {}
-                            retry_after = resp_headers.get("Retry-After")
-                            if retry_after:
-                                try:
-                                    sleep_delay = max(2.0, float(retry_after) + 0.5)
-                                    print(
-                                        f"Rate limit detected for batch query. Sleeping for {sleep_delay:.2f}s via Retry-After header.",
-                                        file=sys.stderr,
-                                    )
-                                except ValueError:
-                                    pass
-                            if sleep_delay is None:
-                                reset_time = resp_headers.get("x-ratelimit-reset") or resp_headers.get("X-RateLimit-Reset")
-                                if reset_time:
-                                    try:
-                                        sleep_delay = max(2.0, float(reset_time) - time.time() + 1.0)
-                                        print(
-                                            f"Rate limit detected for batch query. Sleeping for {sleep_delay:.2f}s via x-ratelimit-reset header.",
-                                            file=sys.stderr,
-                                        )
-                                    except ValueError:
-                                        pass
-                            if sleep_delay is None and response_body:
-                                match = re.search(r"(?:retry in|try again in|retry after) (\d+\.?\d*)(?:\s*s|\s*second)", response_body, re.IGNORECASE)
-                                if match:
-                                    try:
-                                        sleep_delay = max(2.0, float(match.group(1)) + 0.5)
-                                        print(
-                                            f"Rate limit detected for batch query. Sleeping for {sleep_delay:.2f}s via response body.",
-                                            file=sys.stderr,
-                                        )
-                                    except ValueError:
-                                        pass
-                        if sleep_delay is None:
-                            cap = 30.0 if exc.code == 429 else 8.0
-                            sleep_delay = max(2.0, min(retry_base_delay * (2 ** (attempt - 1)), cap)) if exc.code == 429 else min(retry_base_delay * (2 ** (attempt - 1)), cap)
-                        time.sleep(sleep_delay)
+                    provider.models = select_candidate_models(provider.api_key, provider.base_url)
+                except Exception as exc:
+                    print(f"Model discovery failed for {provider.name} ({exc}); using default model {provider.default_model}.", file=sys.stderr)
+                    provider.models = [provider.default_model]
+            provider.discovered = True
+            provider_models[provider.name] = list(provider.models)
+
+        models_list = provider_models.get(provider.name) or [provider.default_model]
+        if not models_list:
+            models_list = list(provider.models)
+            provider_models[provider.name] = models_list
+        model = models_list[0]
+
+        body = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "response_format": {"type": "json_object"},
+            "max_tokens": max(256, int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or "4000")),
+        }
+        
+        url = f"{provider.base_url.rstrip('/')}/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {provider.api_key}",
+        }
+
+        try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(body).encode("utf-8"),
+                headers=headers,
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=90) as response:
+                resp_data = json.loads(response.read().decode("utf-8"))
+                return parse_llm_response(resp_data)
+        except urllib.error.HTTPError as exc:
+            response_body = ""
+            try:
+                response_body = exc.read().decode("utf-8", errors="replace").strip()
+            except Exception:
+                pass
+            print(
+                f"{provider.name} LLM API HTTP error for batch query (model: {model}, attempt {attempt}/{max_total_tries}): status {exc.code}. "
+                f"Response body: {response_body or '<empty>'}",
+                file=sys.stderr,
+            )
+            
+            if exc.code == 429:
+                sleep_delay = None
+                resp_headers = exc.headers or {}
+                retry_after = resp_headers.get("Retry-After")
+                if retry_after:
+                    try:
+                        sleep_delay = max(2.0, float(retry_after) + 0.5)
+                        print(f"Rate limit detected. Retry-After header: sleep {sleep_delay:.2f}s.", file=sys.stderr)
+                    except ValueError:
+                        pass
+                if sleep_delay is None:
+                    reset_time = resp_headers.get("x-ratelimit-reset") or resp_headers.get("X-RateLimit-Reset")
+                    if reset_time:
+                        try:
+                            sleep_delay = max(2.0, float(reset_time) - time.time() + 1.0)
+                            print(f"Rate limit detected. x-ratelimit-reset header: sleep {sleep_delay:.2f}s.", file=sys.stderr)
+                        except ValueError:
+                            pass
+                if sleep_delay is None and response_body:
+                    match = re.search(r"(?:retry in|try again in|retry after) (\d+\.?\d*)(?:\s*s|\s*second)", response_body, re.IGNORECASE)
+                    if match:
+                        try:
+                            sleep_delay = max(2.0, float(match.group(1)) + 0.5)
+                            print(f"Rate limit detected. Response body: sleep {sleep_delay:.2f}s.", file=sys.stderr)
+                        except ValueError:
+                            pass
+                if sleep_delay is None:
+                    sleep_delay = max(2.0, min(retry_base_delay * (2 ** (attempt - 1)), 30.0))
+                
+                if provider.name == "GitHub" and sleep_delay > 600:
+                    print(f"GitHub LLM rate limit cooldown is absurd ({sleep_delay:.2f}s > 600s).", file=sys.stderr)
+                    provider.cooldown_until = time.time() + sleep_delay
+                    
+                    gemini_provider = next((p for p in providers if p.name == "Gemini"), None)
+                    if gemini_provider:
+                        print("Switching back to Gemini LLM immediately.", file=sys.stderr)
+                        _active_provider_idx = providers.index(gemini_provider)
                         continue
                     else:
-                        if model_index < len(models) - 1:
-                            print(
-                                f"Model {model} exhausted or temporarily unavailable (HTTP {exc.code}). "
-                                f"Falling back to next candidate: {models[model_index + 1]}...",
-                                file=sys.stderr,
-                            )
+                        print("Gemini is not configured. Cannot alternate.", file=sys.stderr)
                         break
-                break
-            except (urllib.error.URLError, TimeoutError) as exc:
-                print(f"LLM API connection or timeout error for batch query (model: {model}): {exc}.", file=sys.stderr)
-                if attempt < max_attempts:
+                
+                if provider.name == "Gemini" and len(providers) > 1:
+                    github_provider = next((p for p in providers if p.name == "GitHub"), None)
+                    if github_provider:
+                        time_left_github = github_provider.cooldown_until - time.time()
+                        if time_left_github <= 0:
+                            print("Gemini rate limited. Alternating with GitHub LLM immediately.", file=sys.stderr)
+                            provider.cooldown_until = time.time() + sleep_delay
+                            _active_provider_idx = providers.index(github_provider)
+                            continue
+                        elif time_left_github <= 600:
+                            print(f"Gemini rate limited. GitHub LLM is in normal cooldown ({time_left_github:.2f}s). Switching to GitHub and waiting.", file=sys.stderr)
+                            provider.cooldown_until = time.time() + sleep_delay
+                            _active_provider_idx = providers.index(github_provider)
+                            time.sleep(max(1.0, time_left_github))
+                            continue
+                        else:
+                            print("Gemini rate limited but GitHub is in absurd cooldown. Keeping with Gemini.", file=sys.stderr)
+                
+                print(f"Sleeping for {sleep_delay:.2f}s before retry...", file=sys.stderr)
+                time.sleep(sleep_delay)
+                continue
+            
+            elif exc.code in {500, 502, 503, 504}:
+                if len(providers) > 1:
+                    print(f"{provider.name} server error (HTTP {exc.code}). Alternating provider...", file=sys.stderr)
+                    _active_provider_idx = (_active_provider_idx + 1) % len(providers)
+                    continue
+                else:
                     time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
                     continue
-                if model_index < len(models) - 1:
-                    print(f"Falling back to next candidate due to connection or timeout error...", file=sys.stderr)
-                break
-            except (json.JSONDecodeError, KeyError, IndexError, ValueError) as exc:
-                print(f"LLM API response parsing error for batch query (model: {model}): {exc}.", file=sys.stderr)
-                if attempt < max_attempts:
-                    time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
+            else:
+                if len(models_list) > 1:
+                    print(f"Model {model} failed with HTTP {exc.code}. Rotating model...", file=sys.stderr)
+                    models_list.pop(0)
                     continue
-                if model_index < len(models) - 1:
-                    print(f"Falling back to next candidate due to parsing error...", file=sys.stderr)
+                if len(providers) > 1:
+                    print(f"{provider.name} failed with HTTP {exc.code}. Alternating provider...", file=sys.stderr)
+                    _active_provider_idx = (_active_provider_idx + 1) % len(providers)
+                    continue
                 break
-            except Exception as exc:
-                print(f"Unexpected LLM lookup error for batch query (model: {model}): {type(exc).__name__}: {exc}.", file=sys.stderr)
-                break
+                
+        except (urllib.error.URLError, TimeoutError) as exc:
+            print(f"{provider.name} API connection or timeout error for batch query (model: {model}): {exc}.", file=sys.stderr)
+            if len(providers) > 1:
+                print("Alternating provider due to connection error...", file=sys.stderr)
+                _active_provider_idx = (_active_provider_idx + 1) % len(providers)
+                continue
+            else:
+                time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
+                continue
+                
+        except (json.JSONDecodeError, KeyError, IndexError, ValueError) as exc:
+            print(f"{provider.name} API response parsing error for batch query (model: {model}): {exc}.", file=sys.stderr)
+            if len(models_list) > 1:
+                print("Rotating model due to parsing error...", file=sys.stderr)
+                models_list.pop(0)
+                continue
+            if len(providers) > 1:
+                print("Alternating provider due to parsing error...", file=sys.stderr)
+                _active_provider_idx = (_active_provider_idx + 1) % len(providers)
+                continue
+            break
+            
+        except Exception as exc:
+            print(f"Unexpected LLM lookup error for batch query (model: {model}): {type(exc).__name__}: {exc}.", file=sys.stderr)
+            break
+            
     return fallback_map
 
 
 def query_vulnerability_info(cve_id, package_name, version, details="", model=None):
+    res = query_llm_vulnerabilities_batch([{
+        "cve_id": cve_id,
+        "package_name": package_name,
+        "version": version,
+        "details": details,
+    }], model=model)
+    return res.get(cve_id, {
+        "appropriate": LLM_LOOKUP_ERROR_TEXT,
+        "not_appropriate": LLM_LOOKUP_ERROR_TEXT
+    })
     res = query_llm_vulnerabilities_batch([{
         "cve_id": cve_id,
         "package_name": package_name,
@@ -1188,16 +1280,12 @@ def collect_reports(reports_dir):
 
     cache = load_cache()
     cache_updated = False
-    # Explanations fetched during this run (including failures), so a stale or
-    # failed cache entry is not re-queried per CVE after the batch pre-scan.
     runtime_explanations = {}
-    # Resolved once (if any live lookups are needed) to the best model the CI
-    # token can call; see select_best_model.
-    selected_model = None
+    has_llm = len(init_providers()) > 0
 
-    # Discovery pre-scan: find all uncached vulnerabilities to fetch in a single batch request
     uncached_vulns_to_query = []
     seen_uncached = set()
+    vuln_id_to_modified = {}
     for report_path in sorted(reports_dir.glob("osv-*.json")):
         if report_path.name == "osv-summary.json":
             continue
@@ -1215,9 +1303,24 @@ def collect_reports(reports_dir):
                 package_version = pkg.get("version", "")
                 for v in vulns:
                     vuln_id = v.get("id", "")
+                    if not vuln_id:
+                        continue
+                    report_modified = v.get("modified", "")
                     cached = cache.get(vuln_id)
-                    needs_query = cached is None or is_failed_explanation(cached)
-                    if vuln_id and needs_query and vuln_id not in seen_uncached:
+                    
+                    needs_query = False
+                    if cached is None or is_failed_explanation(cached):
+                        needs_query = True
+                    elif report_modified:
+                        cached_modified = cached.get("modified", "")
+                        if cached_modified and cached_modified != report_modified:
+                            needs_query = True
+                        elif not cached_modified:
+                            cached["modified"] = report_modified
+                            cache_updated = True
+
+                    if needs_query and vuln_id not in seen_uncached:
+                        vuln_id_to_modified[vuln_id] = report_modified
                         uncached_vulns_to_query.append({
                             "cve_id": vuln_id,
                             "package_name": package_name,
@@ -1230,19 +1333,16 @@ def collect_reports(reports_dir):
                         })
                         seen_uncached.add(vuln_id)
 
-    api_key = os.environ.get("LLM_API_KEY")
-    selected_models = [DEFAULT_MODEL]
-    if uncached_vulns_to_query and api_key:
-        selected_models = select_candidate_models(api_key)
-        print(f"Selected LLM models for analysis: {selected_models}", file=sys.stderr)
-
     if uncached_vulns_to_query:
         print(f"Querying LLM in batch for {len(uncached_vulns_to_query)} uncached vulnerabilities...", file=sys.stderr)
-        batch_results = query_llm_vulnerabilities_batch(uncached_vulns_to_query, model=selected_models)
+        batch_results = query_llm_vulnerabilities_batch(uncached_vulns_to_query)
         for vuln_id, explanations in batch_results.items():
             runtime_explanations[vuln_id] = explanations
-            if api_key and not is_failed_explanation(explanations):
-                cache[vuln_id] = explanations
+            if has_llm and not is_failed_explanation(explanations):
+                cache_entry = dict(explanations)
+                if vuln_id in vuln_id_to_modified and vuln_id_to_modified[vuln_id]:
+                    cache_entry["modified"] = vuln_id_to_modified[vuln_id]
+                cache[vuln_id] = cache_entry
                 cache_updated = True
 
     for report_path in sorted(reports_dir.glob("osv-*.json")):
@@ -1288,13 +1388,15 @@ def collect_reports(reports_dir):
                             package_name,
                             package_version,
                             (v.get("summary") or v.get("details") or "").strip(),
-                            model=selected_model,
                         )
                         runtime_explanations[vuln_id] = explanations
-                        if not is_failed_explanation(explanations):
-                            cache[vuln_id] = explanations
+                        if has_llm and not is_failed_explanation(explanations):
+                            cache_entry = dict(explanations)
+                            report_modified = v.get("modified", "")
+                            if report_modified:
+                                cache_entry["modified"] = report_modified
+                            cache[vuln_id] = cache_entry
                             cache_updated = True
-                        # Pacing delay to avoid hitting rate limits when processing multiple uncached CVEs
                         time.sleep(1.0)
 
                     v_entry = vulnerability_entry(v, has_usn)
