@@ -99,14 +99,25 @@ def select_best_model(api_key=None):
             if gemini_candidates:
                 def gemini_rank(model_id):
                     name = model_id.lower()
+                    import re
                     version = 1.5
-                    if "2.5" in name:
-                        version = 2.5
-                    elif "2.0" in name:
-                        version = 2.0
+                    match = re.search(r"gemini-(\d+(?:\.\d+)?)", name)
+                    if match:
+                        try:
+                            version = float(match.group(1))
+                        except ValueError:
+                            pass
+                    # Prefer Flash/Lite/nano over Pro models to avoid extremely restrictive
+                    # Pro rate limits (often 2 RPM or 0 quota on free accounts).
+                    is_flash = "flash" in name or "lite" in name or "nano" in name
                     is_pro = "pro" in name
-                    is_flash = "flash" in name
-                    return (-version, -int(is_pro), -int(is_flash), name)
+                    if is_flash:
+                        model_class = 0
+                    elif is_pro:
+                        model_class = 2
+                    else:
+                        model_class = 1
+                    return (model_class, -version, name)
                 
                 gemini_candidates.sort(key=gemini_rank)
                 best_model = gemini_candidates[0]
