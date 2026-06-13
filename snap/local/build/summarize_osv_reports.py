@@ -834,11 +834,17 @@ def _query_vuln_batch_once(vulns_to_query, providers, model_override=None):
                     provider = other_provider
                 else:
                     sleep_time = min(provider.cooldown_until, other_provider.cooldown_until) - current_time
+                    if sleep_time > 600:
+                        print(f"All providers in cooldown with minimum wait {sleep_time:.2f}s > 600s (absurd). Aborting LLM query and returning cache/fallbacks.", file=sys.stderr)
+                        break
                     print(f"All providers in cooldown. Waiting for {sleep_time:.2f}s...", file=sys.stderr)
                     time.sleep(max(0.1, sleep_time))
                     current_time = time.time()
             else:
                 sleep_time = provider.cooldown_until - current_time
+                if sleep_time > 600:
+                    print(f"Provider {provider.name} in cooldown with wait {sleep_time:.2f}s > 600s (absurd). Aborting LLM query and returning cache/fallbacks.", file=sys.stderr)
+                    break
                 print(f"Provider {provider.name} in cooldown. Waiting for {sleep_time:.2f}s...", file=sys.stderr)
                 time.sleep(max(0.1, sleep_time))
                 current_time = time.time()

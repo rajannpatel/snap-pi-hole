@@ -1707,3 +1707,37 @@ print("validate_llm_key multi-provider validation unit test passed successfully.
 PYEOF
 }
 
+@test "summarize_osv_reports handles start-of-loop absurd cooldowns on subsequent queries without sleeping" {
+    python3 - <<PYEOF
+import json
+import os
+import sys
+import time
+from unittest import mock
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import summarize_osv_reports as summary
+from llm_model import LLMProvider
+
+gemini = LLMProvider("Gemini", "gemini-key", "https://gemini.googleapis.com", "gemini-model")
+github = LLMProvider("GitHub", "github-key", "https://github.ai", "github-model")
+
+# Set both providers to an absurd cooldown
+gemini.cooldown_until = time.time() + 86400.0
+github.cooldown_until = time.time() + 68400.0
+
+summary.init_providers = lambda: [gemini, github]
+summary.select_candidate_models = lambda api, base: ["model-x"]
+
+with mock.patch("summarize_osv_reports.time.sleep") as mock_sleep:
+    vulns = [{"cve_id": "CVE-2026-3000", "package_name": "curl", "version": "1.0"}]
+    res = summary.query_llm_vulnerabilities_batch(vulns)
+    
+    # Assert it returned the fallback immediately without attempting API calls or sleeping
+    assert res["CVE-2026-3000"]["appropriate"] == summary.LLM_LOOKUP_ERROR_TEXT
+    assert mock_sleep.call_count == 0
+print("Start-of-loop absurd cooldown bypass unit test passed successfully.")
+PYEOF
+}
+
+
