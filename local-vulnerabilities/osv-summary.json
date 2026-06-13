@@ -4,8 +4,8 @@
       "architecture": "amd64",
       "report": "osv-amd64.json",
       "generatedAt": {
-        "datetime": "2026-06-09T03:44:23Z",
-        "label": "2026-06-09 03:44 UTC"
+        "datetime": "2026-06-12T23:58:16Z",
+        "label": "2026-06-12 23:58 UTC"
       },
       "affectedPackages": 1,
       "vulnerabilities": 2,
