@@ -2128,6 +2128,11 @@ def write_html(summary, output_path):
     .vulnerability-details td:nth-child(8) {{
       width: 12%;
     }}
+    .vulnerability-details th:nth-child(8),
+    .vulnerability-row td:nth-child(8) {{
+      white-space: normal !important;
+      word-break: break-word;
+    }}
     .vulnerability-details td:nth-child(2),
     .vulnerability-details td:nth-child(3) {{
       font-family: "Ubuntu Mono", monospace;
