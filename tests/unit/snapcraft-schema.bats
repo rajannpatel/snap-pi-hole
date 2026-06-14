@@ -438,6 +438,7 @@ PYEOF
         snap/local/build/pi-hole-override-pull.sh
         snap/local/build/web-override-build.sh
         tests/scripts/multipass-wait-snapd-stable.sh
+        tests/scripts/validate-upstream-patches.sh
         snap/hooks/install
         snap/hooks/configure
         snap/hooks/pre-refresh
@@ -464,6 +465,7 @@ PYEOF
         snap/local/build/pi-hole-override-pull.sh
         snap/local/build/web-override-build.sh
         tests/scripts/multipass-wait-snapd-stable.sh
+        tests/scripts/validate-upstream-patches.sh
         snap/hooks/install
         snap/hooks/configure
         snap/hooks/pre-refresh

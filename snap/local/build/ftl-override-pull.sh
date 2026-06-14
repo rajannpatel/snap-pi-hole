@@ -5,9 +5,54 @@ craftctl default
 cd "${CRAFT_PART_SRC}"
 
 PATCHES_DIR="${CRAFT_PROJECT_DIR}/snap/local/patches/ftl"
-for patch_file in "${PATCHES_DIR}"/*.patch; do
-    echo "Applying FTL patch: ${patch_file}"
+
+ftl_patch_already_satisfied() {
+  local patch_name="$1"
+
+  case "${patch_name}" in
+    FTL-h-strstr.patch)
+      grep -qF '#undef strstr' src/FTL.h
+      ;;
+    dnsmasq-no-setgroups.patch)
+      ! grep -qF 'setgroups(0, &dummy) == -1' src/dnsmasq/dnsmasq.c &&
+        ! grep -qF 'setgid(gp->gr_gid) == -1' src/dnsmasq/dnsmasq.c
+      ;;
+    files-chown-pihole-root-snap.patch)
+      ! grep -qF 'log_warn("chown_pihole(): Failed to get pihole user' src/files.c
+      ;;
+    x509-mbedtls-rng.patch)
+      grep -qF '# include <mbedtls/psa_util.h>' src/webserver/x509.c &&
+        grep -qF 'mbedtls_psa_get_random' src/webserver/x509.c
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+apply_ftl_patch() {
+  local patch_file="$1"
+  local patch_name
+  patch_name="$(basename "${patch_file}")"
+
+  echo "Applying FTL patch: ${patch_file}"
+  if patch --forward --strip=1 --dry-run --input="${patch_file}" >/dev/null; then
     patch --forward --strip=1 --input="${patch_file}"
+    return
+  fi
+
+  if ftl_patch_already_satisfied "${patch_name}"; then
+    echo "Skipping FTL patch already satisfied by upstream: ${patch_file}"
+    return
+  fi
+
+  echo "ERROR: FTL patch does not apply and is not already satisfied: ${patch_file}" >&2
+  patch --forward --strip=1 --dry-run --input="${patch_file}" >&2 || true
+  exit 1
+}
+
+for patch_file in "${PATCHES_DIR}"/*.patch; do
+    apply_ftl_patch "${patch_file}"
 done
 
 # Redirect PID files to /etc/pihole/ which is layout-mounted to
