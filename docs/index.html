@@ -1929,6 +1929,26 @@
       });
     }
 
+    function isLivePublishSuccess() {
+      if (selectedBranch === "stable") {
+        if (liveState.cicdJobs && liveState.cicdJobs.length) {
+          return liveState.cicdJobs.some(j => {
+            const name = String(j.name || "").toLowerCase();
+            return name.startsWith("publish github (stable, amd64)") && normalizedLiveStatus(j) === "success";
+          });
+        }
+        return liveState.cicdRun && liveState.cicdRun.status === "completed" && liveState.cicdRun.conclusion === "success";
+      } else {
+        if (liveState.cicdJobs && liveState.cicdJobs.length) {
+          return liveState.cicdJobs.some(j => {
+            const name = String(j.name || "").toLowerCase();
+            return name.startsWith("publish github (edge, amd64)") && normalizedLiveStatus(j) === "success";
+          });
+        }
+        return liveState.cicdRun && liveState.cicdRun.status === "completed" && liveState.cicdRun.conclusion === "success";
+      }
+    }
+
     // Draws rows for component dependency local/upstream version grids
     function componentStatusHtml(item, currentLabel) {
       const liveStatus = liveState.trackUpstreamJobStatus;
@@ -1937,6 +1957,9 @@
       }
       if (liveStatus && (FAILURE_STATES.has(liveStatus) || liveStatus === "cancelled" || liveStatus === "skipped")) {
         return liveStatusChip(liveStatus);
+      }
+      if (isLivePublishSuccess()) {
+        return `<span class="status-chip status-success">${checkIconSvg}${currentLabel || "Up to date"}</span>`;
       }
       if (item.update_available) {
         return `<span class="status-chip status-failure">${errorIconSvg}Update available</span>`;
@@ -2159,6 +2182,24 @@
       const rows = snapPackage.channels || [];
       updateStoreActivity(snapPackage || {});
       renderSnapFreshness(snapPackage || {}, rows);
+
+      let targetVersion = "";
+      const currentChannel = rows.find(c => c.build_status === "current");
+      if (currentChannel) {
+        targetVersion = currentChannel.full_version || currentChannel.version || "";
+      } else {
+        let newest = null;
+        rows.forEach(c => {
+          if (!newest || new Date(c.released_at) > new Date(newest.released_at)) {
+            newest = c;
+          }
+        });
+        if (newest) {
+          targetVersion = newest.full_version || newest.version || "";
+        }
+      }
+      snapState.targetVersion = targetVersion;
+
       packageBody.innerHTML = "";
       if (!rows.length) {
         packageBody.innerHTML = "<tr><td colspan=\"8\">snap package metadata unavailable.</td></tr>";
@@ -2246,10 +2287,40 @@
             statusHtml = liveStatusChip(status, isGitHub ? "building" : "publishing", true);
           } else if (FAILURE_STATES.has(status) || status === "cancelled" || status === "skipped") {
             statusHtml = liveStatusChip(status);
+          } else if (status === "success") {
+            statusHtml = `<span class="status-chip status-success" aria-label="Status: Serving · ${selectedBranch}">${checkIconSvg}<span class="status-text-full" aria-hidden="true">Serving · ${selectedBranch}</span><span class="status-text-short" aria-hidden="true">serving</span></span>`;
+            if (snapState.targetVersion) {
+              const versionCell = tr.cells[2];
+              if (versionCell) versionCell.textContent = snapState.targetVersion;
+              const revisionCell = tr.cells[3];
+              if (revisionCell) revisionCell.textContent = "—";
+              const sizeCell = tr.cells[5];
+              if (sizeCell) sizeCell.textContent = "—";
+              const dateCell = tr.cells[6];
+              if (dateCell) {
+                const completionTime = (job && job.completed_at) || (run && run.updated_at) || new Date().toISOString();
+                dateCell.textContent = formatDate(completionTime);
+              }
+            }
           }
         } else if (run && isBuildingStatus(run.status)) {
           isBuilding = true;
           statusHtml = liveStatusChip(run.status, isGitHub ? "building" : "publishing", true);
+        } else if (run && run.status === "completed" && run.conclusion === "success") {
+          statusHtml = `<span class="status-chip status-success" aria-label="Status: Serving · ${selectedBranch}">${checkIconSvg}<span class="status-text-full" aria-hidden="true">Serving · ${selectedBranch}</span><span class="status-text-short" aria-hidden="true">serving</span></span>`;
+          if (snapState.targetVersion) {
+            const versionCell = tr.cells[2];
+            if (versionCell) versionCell.textContent = snapState.targetVersion;
+            const revisionCell = tr.cells[3];
+            if (revisionCell) revisionCell.textContent = "—";
+            const sizeCell = tr.cells[5];
+            if (sizeCell) sizeCell.textContent = "—";
+            const dateCell = tr.cells[6];
+            if (dateCell) {
+              const completionTime = (job && job.completed_at) || (run && run.updated_at) || new Date().toISOString();
+              dateCell.textContent = formatDate(completionTime);
+            }
+          }
         }
 
         if (statusHtml) {
@@ -2283,6 +2354,50 @@
           btn.style.width = maxWidth + 'px';
         });
       }, 0);
+
+      // Check if we can override stable/edge track status to "Up to date"
+      let isStableSuccessful = false;
+      let isEdgeSuccessful = false;
+
+      if (cicdJobs && cicdJobs.length) {
+        const stableAmd64Publish = cicdJobs.find(j => {
+          const name = String(j.name || "").toLowerCase();
+          return name.startsWith("publish github (stable, amd64)") && normalizedLiveStatus(j) === "success";
+        });
+        const edgeAmd64Publish = cicdJobs.find(j => {
+          const name = String(j.name || "").toLowerCase();
+          return name.startsWith("publish github (edge, amd64)") && normalizedLiveStatus(j) === "success";
+        });
+        if (stableAmd64Publish) isStableSuccessful = true;
+        if (edgeAmd64Publish) isEdgeSuccessful = true;
+      } else if (cicdRun && cicdRun.status === "completed" && cicdRun.conclusion === "success") {
+        isStableSuccessful = true;
+        isEdgeSuccessful = true;
+      }
+
+      const isChecking = liveState.trackUpstreamJobStatus && isBuildingStatus(liveState.trackUpstreamJobStatus);
+
+      if (isStableSuccessful && !isChecking) {
+        const stableStatusEl = document.getElementById("stable-track-status");
+        if (stableStatusEl) {
+          const stableClass = "status-chip status-success";
+          const stableIcon = checkIconSvg;
+          const stableText = "Up to date";
+          const stableShort = "current";
+          stableStatusEl.parentElement.innerHTML = `<span id="stable-track-status" class="${stableClass}" aria-label="Status: ${stableText}">${stableIcon}<span class="status-text-full" aria-hidden="true">${stableText}</span><span class="status-text-short" aria-hidden="true">${stableShort}</span></span>`;
+        }
+      }
+
+      if (isEdgeSuccessful && !isChecking) {
+        const edgeStatusEl = document.getElementById("edge-track-status");
+        if (edgeStatusEl) {
+          const edgeClass = "status-chip status-success";
+          const edgeIcon = checkIconSvg;
+          const edgeText = "Up to date";
+          const edgeShort = "current";
+          edgeStatusEl.parentElement.innerHTML = `<span id="edge-track-status" class="${edgeClass}" aria-label="Status: ${edgeText}">${edgeIcon}<span class="status-text-full" aria-hidden="true">${edgeText}</span><span class="status-text-short" aria-hidden="true">${edgeShort}</span></span>`;
+        }
+      }
     }
 
     async function refreshLiveSnapPackageStatus() {
