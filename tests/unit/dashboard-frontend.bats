@@ -490,7 +490,7 @@ assert.match(
 );
 assert.match(
   source,
-  /workflowButtonHtml\(jobUrl, syncDurationSeconds, liveState\.trackUpstreamJobUrl \? "Upstream sync job" : "Upstream sync run"\)/,
+  /workflowButtonHtml\(jobUrl, syncDurationSeconds, liveState\.trackUpstreamJobUrl \? "Upstream sync job" : "Upstream sync run", isUpstreamBuilding\)/,
   "Component table should render live or baked track-upstream links as duration-only buttons"
 );
 assert.match(source, /<th>Test duration<\/th>/, "Test matrix workflow type should move into the duration column heading");
@@ -622,3 +622,28 @@ JS
     done
 }
 
+@test "frontend: release tracking upstream mismatches are pending cautions, not update failures" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$html" <<'JS'
+const fs = require("fs");
+const source = fs.readFileSync(process.argv[2], "utf8");
+const assert = require("assert");
+
+assert.match(
+  source,
+  /const pendingLabel = selectedBranch === "edge" \? "Dev commit pending" : "Release tag pending";/,
+  "Release tracking should label upstream mismatches by selected channel scope"
+);
+assert.match(
+  source,
+  /status-chip status-caution">\$\{warningIconSvg\}\$\{pendingLabel\}/,
+  "Release tracking upstream mismatches should use caution styling and warning icon"
+);
+assert.doesNotMatch(
+  source,
+  /status-chip status-failure">\$\{errorIconSvg\}Update available/,
+  "Release tracking must not present upstream tag lag as an installable update failure"
+);
+JS
+    done
+}
