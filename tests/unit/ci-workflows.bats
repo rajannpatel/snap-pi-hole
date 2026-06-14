@@ -37,6 +37,18 @@ teardown() {
     ! grep -q "re.sub" "$workflow"
 }
 
+@test "track-upstream checkout does not persist credentials before create-pull-request" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/track-upstream-releases.yml") as f:
+    doc = yaml.safe_load(f)
+steps = doc["jobs"]["update-tags"]["steps"]
+checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout@"))
+assert checkout.get("with", {}).get("persist-credentials") is False, checkout
+assert any(step.get("uses", "").startswith("peter-evans/create-pull-request@") for step in steps), steps
+PYEOF
+}
+
 @test "track-upstream yq source-tag updates mutate the expected snapcraft parts" {
     if ! command -v yq >/dev/null 2>&1; then
         skip "yq is not installed"
