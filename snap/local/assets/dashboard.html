@@ -1331,13 +1331,31 @@
       return humanDuration(durationSeconds);
     }
 
-    function workflowButtonHtml(url, durationSeconds, contextLabel) {
-      const durationLabel = workflowButtonLabel(durationSeconds);
-      const accessibleLabel = `${contextLabel || "Workflow"} duration: ${durationLabel}`;
-      if (!url) {
-        return `<div class="workflow-buttons"><span class="p-button workflow-btn is-disabled" aria-disabled="true" aria-label="${escapeHtml(accessibleLabel)}" title="${escapeHtml(accessibleLabel)}">${githubLogoSvg}<span>${escapeHtml(durationLabel)}</span></span></div>`;
+    function workflowButtonHtml(url, durationSeconds, contextLabel, isBuilding = false) {
+      const showSpinner = isBuilding || durationSeconds === null || durationSeconds === undefined;
+      const spinnerHtml = `<span class="matrix-building__spinner" aria-hidden="true" style="display: inline-block; margin-right: 0.35rem; border-color: currentColor; border-top-color: transparent; border-width: 1.5px; height: 0.75rem; width: 0.75rem; vertical-align: middle;"></span>`;
+      
+      let contentHtml;
+      let accessibleLabel;
+      if (showSpinner) {
+        if (durationSeconds !== null && durationSeconds !== undefined) {
+          const durationLabel = humanDuration(durationSeconds);
+          contentHtml = `${spinnerHtml}<span>${escapeHtml(durationLabel)}</span>`;
+          accessibleLabel = `${contextLabel || "Workflow"} active, duration: ${durationLabel}`;
+        } else {
+          contentHtml = spinnerHtml;
+          accessibleLabel = `${contextLabel || "Workflow"} loading`;
+        }
+      } else {
+        const durationLabel = humanDuration(durationSeconds);
+        contentHtml = `${githubLogoSvg}<span>${escapeHtml(durationLabel)}</span>`;
+        accessibleLabel = `${contextLabel || "Workflow"} duration: ${durationLabel}`;
       }
-      return `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(accessibleLabel)}" title="${escapeHtml(accessibleLabel)}">${githubLogoSvg}<span>${escapeHtml(durationLabel)}</span></a></div>`;
+
+      if (!url) {
+        return `<div class="workflow-buttons"><span class="p-button workflow-btn is-disabled" aria-disabled="true" aria-label="${escapeHtml(accessibleLabel)}" title="${escapeHtml(accessibleLabel)}">${contentHtml}</span></div>`;
+      }
+      return `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(accessibleLabel)}" title="${escapeHtml(accessibleLabel)}">${contentHtml}</a></div>`;
     }
 
     function normalizedLiveStatus(jobOrRun) {
@@ -1347,12 +1365,16 @@
         : (jobOrRun.status || "queued");
     }
 
-    function liveStatusChip(status, buildingLabel) {
+    function liveStatusChip(status, buildingLabel, hideSpinner = false) {
       const normalized = String(status || "unknown").toLowerCase();
       const text = normalized.replace(/_/g, " ");
       if (isBuildingStatus(normalized)) {
         const label = buildingLabel || "building";
-        return `<span class="matrix-building" role="status"><span class="matrix-building__spinner" aria-hidden="true"></span><span class="status-chip status-building is-building" aria-label="Status: ${label}">${statusIconSvg("building")}<span class="status-text-full" aria-hidden="true">${label}</span><span class="status-text-short" aria-hidden="true">${label}</span></span></span>`;
+        const chipHtml = `<span class="status-chip status-building is-building" aria-label="Status: ${label}">${statusIconSvg("building")}<span class="status-text-full" aria-hidden="true">${label}</span><span class="status-text-short" aria-hidden="true">${label}</span></span>`;
+        if (hideSpinner) {
+          return chipHtml;
+        }
+        return `<span class="matrix-building" role="status"><span class="matrix-building__spinner" aria-hidden="true"></span>${chipHtml}</span>`;
       }
       return `<span class="status-chip ${statusClass(normalized)}" aria-label="Status: ${text}">${statusIconSvg(normalized)}<span class="status-text-full" aria-hidden="true">${text}</span><span class="status-text-short" aria-hidden="true">${text}</span></span>`;
     }
@@ -2219,13 +2241,13 @@
           const status = normalizedLiveStatus(job);
           if (isBuildingStatus(status)) {
             isBuilding = true;
-            statusHtml = liveStatusChip(status, isGitHub ? "building" : "publishing");
+            statusHtml = liveStatusChip(status, isGitHub ? "building" : "publishing", true);
           } else if (FAILURE_STATES.has(status) || status === "cancelled" || status === "skipped") {
             statusHtml = liveStatusChip(status);
           }
         } else if (run && isBuildingStatus(run.status)) {
           isBuilding = true;
-          statusHtml = liveStatusChip(run.status, isGitHub ? "building" : "publishing");
+          statusHtml = liveStatusChip(run.status, isGitHub ? "building" : "publishing", true);
         }
 
         if (statusHtml) {
@@ -2236,7 +2258,7 @@
         const workflowContext = job
           ? (isGitHub ? "Build job" : "Publish job")
           : (isGitHub ? "Build run" : "Publish run");
-        const workflowHtml = workflowButtonHtml(runUrl, duration, workflowContext);
+        const workflowHtml = workflowButtonHtml(runUrl, duration, workflowContext, isBuilding);
 
         if (tr.cells.length <= 7) {
           const td = tr.insertCell(7);

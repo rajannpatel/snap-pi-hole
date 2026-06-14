@@ -160,7 +160,7 @@ assert.match(buttonHtml, /href="https:\/\/example\.test\/run\?x=1&amp;y=2"/);
 
 const pendingHtml = workflowButtonHtml("", null, "Publish job");
 assert.match(pendingHtml, /aria-disabled="true"/);
-assert.match(pendingHtml, /<span>Loading\.\.\.<\/span>/);
+assert.match(pendingHtml, /class="matrix-building__spinner"/);
 assert.doesNotMatch(pendingHtml, /href=/);
 
 assert.strictEqual(liveJobDurationSeconds({
@@ -515,7 +515,7 @@ assert.match(
 );
 assert.match(
   source,
-  /statusHtml = liveStatusChip\(status, isGitHub \? "building" : "publishing"\);/,
+  /statusHtml = liveStatusChip\(status, isGitHub \? "building" : "publishing", true\);/,
   "Installation availability should use live build/publish indicators for active jobs"
 );
 assert.match(
