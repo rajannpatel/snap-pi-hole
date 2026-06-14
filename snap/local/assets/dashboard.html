@@ -1288,8 +1288,9 @@
 
     // Calculates run duration in seconds
     function liveRunDurationSeconds(run) {
+      if (!run) return null;
       const started = new Date(run.run_started_at || run.created_at);
-      const ended = new Date(run.updated_at);
+      const ended = run.status === "completed" ? new Date(run.updated_at) : new Date(Date.now());
       if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) return null;
       return Math.max(0, Math.round((ended - started) / 1000));
     }
@@ -1338,11 +1339,15 @@
       
       let contentHtml;
       let accessibleLabel;
+      let dataAttrs = "";
+
       if (showSpinner) {
         if (durationSeconds !== null && durationSeconds !== undefined) {
           const durationLabel = humanDuration(durationSeconds);
           contentHtml = `${githubLogoSvg}${spinnerHtml}<span>${escapeHtml(durationLabel)}</span>`;
           accessibleLabel = `${contextLabel || "Workflow"} active, duration: ${durationLabel}`;
+          const startTime = Date.now() - (durationSeconds * 1000);
+          dataAttrs = ` data-start-time="${startTime}" data-context-label="${escapeHtml(contextLabel || "Workflow")}"`;
         } else {
           contentHtml = `${githubLogoSvg}${spinnerHtml}<span>&#8203;</span>`;
           accessibleLabel = `${contextLabel || "Workflow"} loading`;
@@ -1354,9 +1359,9 @@
       }
 
       if (!url) {
-        return `<div class="workflow-buttons"><span class="p-button workflow-btn is-disabled" aria-disabled="true" aria-label="${escapeHtml(accessibleLabel)}" title="${escapeHtml(accessibleLabel)}">${contentHtml}</span></div>`;
+        return `<div class="workflow-buttons"><span class="p-button workflow-btn is-disabled"${dataAttrs} aria-disabled="true" aria-label="${escapeHtml(accessibleLabel)}" title="${escapeHtml(accessibleLabel)}">${contentHtml}</span></div>`;
       }
-      return `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(accessibleLabel)}" title="${escapeHtml(accessibleLabel)}">${contentHtml}</a></div>`;
+      return `<div class="workflow-buttons"><a class="p-button workflow-btn"${dataAttrs} href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(accessibleLabel)}" title="${escapeHtml(accessibleLabel)}">${contentHtml}</a></div>`;
     }
 
     function normalizedLiveStatus(jobOrRun) {
@@ -2569,11 +2574,32 @@
       });
     }
 
+    // Live ticks active workflow buttons to increment duration in real-time
+    function tickWorkflowButtons() {
+      document.querySelectorAll(".workflow-btn[data-start-time]").forEach((btn) => {
+        const startTime = Number(btn.getAttribute("data-start-time"));
+        if (Number.isNaN(startTime)) return;
+        const elapsed = Math.max(0, Math.round((Date.now() - startTime) / 1000));
+        const durationLabel = humanDuration(elapsed);
+        
+        const textSpan = btn.querySelector("span:not(.matrix-building__spinner)");
+        if (textSpan) {
+          textSpan.textContent = durationLabel;
+        }
+        
+        const contextLabel = btn.getAttribute("data-context-label") || "Workflow";
+        const newAccessibleLabel = `${contextLabel} active, duration: ${durationLabel}`;
+        btn.setAttribute("aria-label", newAccessibleLabel);
+        btn.setAttribute("title", newAccessibleLabel);
+      });
+    }
+
     // Spawns the central 1-second ticks loop for ticking relative times and countdown timers
     function startFreshnessTicker() {
       if (freshnessTimer) clearInterval(freshnessTimer);
       freshnessTimer = setInterval(() => {
         renderFreshnessChips();
+        tickWorkflowButtons();
         if (snapState.nextAt && Date.now() >= snapState.nextAt) {
           maybeRefreshSnap();
         }
