@@ -226,6 +226,9 @@ class FakeClient:
         if "/releases/tags/" in url:
             repo, tag = url.split("/repos/", 1)[1].split("/releases/tags/")
             return TAGS.get((repo, tag), {})
+        if "/commits/" in url:
+            ref = url.split("/commits/", 1)[1]
+            return {"sha": f"mocksha_{ref}"}
         raise AssertionError(f"unexpected url {url}")
 
 versions = {"ftl": "v6.4", "pi_hole": "v6.4", "web": ""}
@@ -249,6 +252,10 @@ web = by_key["web"]
 assert web["update_available"] is False, web
 assert web["lag_days"] is None, web
 assert web["compare_url"] == "https://github.com/pi-hole/web/releases/v6.1", web
+
+# Verify commit SHAs are populated
+assert ftl["local_commit"] == "mocksha_v6.4", ftl["local_commit"]
+assert ftl["upstream_commit"] == "mocksha_v6.5", ftl["upstream_commit"]
 
 # Aggregate last_updated tracks the newest upstream release.
 assert result["last_updated"] == "2026-06-10T00:00:00Z", result["last_updated"]

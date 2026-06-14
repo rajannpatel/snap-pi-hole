@@ -5,12 +5,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Software Bill of Materials (SBOM) - snap Pi-hole</title>
-  <!-- VANILLA_FRAMEWORK_CSS -->
+  <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css" />
   <script>
     if (!document.querySelector('link[rel="stylesheet"][href*="vanilla"]')) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
-      link.href = 'https://assets.ubuntu.com/v1/vanilla_framework_version_4.51.0.min.css';
+      link.href = 'https://assets.ubuntu.com/v1/vanilla_framework_version_' + '4.51.0' + '.min.css';
       document.head.appendChild(link);
     }
   </script>
@@ -200,6 +200,18 @@
       overflow: visible !important;
       text-overflow: clip !important;
       white-space: nowrap !important;
+    }
+
+    .sbom-table th:nth-child(4),
+    .sbom-table td:nth-child(4) {
+      white-space: normal !important;
+      word-break: break-word;
+    }
+
+    .sbom-table td:nth-child(4) .p-chip {
+      margin-top: 2px;
+      margin-bottom: 2px;
+      display: inline-flex;
     }
 
 
@@ -555,7 +567,7 @@ grype sbom-amd64.json</code></pre>
           licensesHtml = c.licenses.map(l => {
             const name = l.license ? (l.license.id || l.license.name || '') : '';
             return name ? `<span class="p-chip is-dense is-inline">${escapeHtml(name)}</span>` : '';
-          }).filter(Boolean).join('');
+          }).filter(Boolean).join(' ');
         }
         if (!licensesHtml) {
           licensesHtml = '<span class="p-chip is-dense is-inline">None</span>';

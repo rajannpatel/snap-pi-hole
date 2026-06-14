@@ -1,7 +1,7 @@
 name: Track Upstream Releases
 on:
   schedule:
-    - cron: '0 0 * * *' # Run daily at midnight
+    - cron: '0 */3 * * *' # Run every 3 hours
   workflow_dispatch: # Allow manual triggering
 
 jobs:
@@ -19,35 +19,103 @@ jobs:
 
       - name: Check for updates
         id: check_updates
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
 
-          # Fetch latest tags from GitHub API
+          # Fetch latest tags and commits from GitHub API using authentication to avoid rate limits
           get_latest_tag() {
-            curl -s "https://api.github.com/repos/pi-hole/$1/releases/latest" | jq -r .tag_name
+            curl -s -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/repos/pi-hole/$1/releases/latest" | jq -r .tag_name
+          }
+
+          get_latest_dev_commit() {
+            curl -s -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/repos/pi-hole/$1/commits/dev" | jq -r .sha
           }
 
           LATEST_FTL=$(get_latest_tag "FTL")
           LATEST_PIHOLE=$(get_latest_tag "pi-hole")
           LATEST_WEB=$(get_latest_tag "web")
 
-          echo "Latest FTL: $LATEST_FTL"
-          echo "Latest Pi-hole: $LATEST_PIHOLE"
-          echo "Latest Web: $LATEST_WEB"
+          LATEST_DEV_FTL=$(get_latest_dev_commit "FTL")
+          LATEST_DEV_PIHOLE=$(get_latest_dev_commit "pi-hole")
+          LATEST_DEV_WEB=$(get_latest_dev_commit "web")
 
-          # Current tags in snapcraft.yaml
+          echo "Latest Stable FTL: $LATEST_FTL"
+          echo "Latest Stable Pi-hole: $LATEST_PIHOLE"
+          echo "Latest Stable Web: $LATEST_WEB"
+
+          echo "Latest Dev FTL Commit: $LATEST_DEV_FTL"
+          echo "Latest Dev Pi-hole Commit: $LATEST_DEV_PIHOLE"
+          echo "Latest Dev Web Commit: $LATEST_DEV_WEB"
+
+          # ----------------------------------------------------
+          # 1. Update dev branch (Edge channel)
+          # ----------------------------------------------------
+          git fetch origin || true
+          
+          # Setup dev branch tracking
+          if git show-ref --verify --quiet refs/remotes/origin/dev; then
+            git checkout dev || (git checkout -b dev origin/dev)
+            git pull origin dev || true
+          else
+            git checkout -b dev
+          fi
+
+          CURRENT_DEV_FTL=$(yq '.parts.ftl.source-tag' snap/snapcraft.yaml)
+          CURRENT_DEV_PIHOLE=$(yq '.parts.pi_hole.source-tag' snap/snapcraft.yaml)
+          CURRENT_DEV_WEB=$(yq '.parts.web.source-tag' snap/snapcraft.yaml)
+
+          echo "Current Dev FTL in yaml: $CURRENT_DEV_FTL"
+          echo "Current Dev Pi-hole in yaml: $CURRENT_DEV_PIHOLE"
+          echo "Current Dev Web in yaml: $CURRENT_DEV_WEB"
+
+          DEV_UPDATED=false
+
+          if [ "$LATEST_DEV_FTL" != "null" ] && [ "$LATEST_DEV_FTL" != "$CURRENT_DEV_FTL" ]; then
+            yq -i ".parts.ftl.source-tag = \"$LATEST_DEV_FTL\"" snap/snapcraft.yaml
+            DEV_UPDATED=true
+          fi
+
+          if [ "$LATEST_DEV_PIHOLE" != "null" ] && [ "$LATEST_DEV_PIHOLE" != "$CURRENT_DEV_PIHOLE" ]; then
+            yq -i ".parts.pi_hole.source-tag = \"$LATEST_DEV_PIHOLE\"" snap/snapcraft.yaml
+            DEV_UPDATED=true
+          fi
+
+          if [ "$LATEST_DEV_WEB" != "null" ] && [ "$LATEST_DEV_WEB" != "$CURRENT_DEV_WEB" ]; then
+            yq -i ".parts.web.source-tag = \"$LATEST_DEV_WEB\"" snap/snapcraft.yaml
+            DEV_UPDATED=true
+          fi
+
+          if [ "$DEV_UPDATED" = "true" ]; then
+            echo "Edge updates detected. Committing and pushing to dev branch."
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add snap/snapcraft.yaml
+            git commit -m "chore: track upstream dev commits"
+            git push origin dev
+          else
+            echo "No edge updates detected."
+          fi
+
+          # Switch back to main branch to check and update stable
+          git checkout main
+
+          # ----------------------------------------------------
+          # 2. Update main branch (Stable channel)
+          # ----------------------------------------------------
           CURRENT_FTL=$(yq '.parts.ftl.source-tag' snap/snapcraft.yaml)
           CURRENT_PIHOLE=$(yq '.parts.pi_hole.source-tag' snap/snapcraft.yaml)
           CURRENT_WEB=$(yq '.parts.web.source-tag' snap/snapcraft.yaml)
 
-          echo "Current FTL: $CURRENT_FTL"
-          echo "Current Pi-hole: $CURRENT_PIHOLE"
-          echo "Current Web: $CURRENT_WEB"
+          echo "Current Stable FTL: $CURRENT_FTL"
+          echo "Current Stable Pi-hole: $CURRENT_PIHOLE"
+          echo "Current Stable Web: $CURRENT_WEB"
 
           UPDATED=false
           BODY_FILE=$(mktemp)
           echo "Automated PR to update upstream Pi-hole components." > "$BODY_FILE"
-          echo "This action was triggered by the daily cron job detecting new releases." >> "$BODY_FILE"
+          echo "This action was triggered by the 3-hourly cron job detecting new releases." >> "$BODY_FILE"
           echo "" >> "$BODY_FILE"
           echo "### Component Updates" >> "$BODY_FILE"
           echo "| Component | Previous Tag | New Tag | Release Details |" >> "$BODY_FILE"

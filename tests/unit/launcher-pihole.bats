@@ -93,10 +93,47 @@ teardown() {
     [[ "$output" == *"snap refresh pihole"* ]]
 }
 
-@test "block checkout and point at snap refresh" {
+@test "block checkout dev and suggest edge channel" {
+    run "${LAUNCHER}" checkout dev
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"snap refresh pihole --channel=edge"* ]]
+}
+
+@test "block checkout core dev and suggest edge channel" {
+    run "${LAUNCHER}" checkout core dev
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"snap refresh pihole --channel=edge"* ]]
+}
+
+@test "block checkout master and suggest stable channel" {
     run "${LAUNCHER}" checkout master
     [ "$status" -eq 1 ]
-    [[ "$output" == *"snap refresh pihole"* ]]
+    [[ "$output" == *"snap refresh pihole --channel=stable"* ]]
+}
+
+@test "block checkout main and suggest stable channel" {
+    run "${LAUNCHER}" checkout main
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"snap refresh pihole --channel=stable"* ]]
+}
+
+@test "block checkout core master and suggest stable channel" {
+    run "${LAUNCHER}" checkout core master
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"snap refresh pihole --channel=stable"* ]]
+}
+
+@test "block checkout core main and suggest stable channel" {
+    run "${LAUNCHER}" checkout core main
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"snap refresh pihole --channel=stable"* ]]
+}
+
+@test "block checkout without branch and suggest stable or edge channel options" {
+    run "${LAUNCHER}" checkout
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"snap refresh pihole --channel=stable"* ]]
+    [[ "$output" == *"snap refresh pihole --channel=edge"* ]]
 }
 
 @test "route -r to snap-setup" {

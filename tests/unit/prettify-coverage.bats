@@ -166,6 +166,10 @@ assert_warn() {
     
     # 4. Assert sbom-explorer.html contains hover transition to Ubuntu Orange (#e95420)
     assert_warn "grep -q 'color: #e95420' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing hover color transition to Ubuntu Orange (#e95420)"
+    
+    # 5. Assert sbom-explorer.html contains License column wrapping rule and space joiner
+    assert_warn "grep -q 'td:nth-child(4)' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing License column CSS wrapping rule"
+    assert_warn "grep -q \"join(' ')\" '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing license chip space joiner"
 }
 
 @test "dashboard.html layout and styling requirements (non-blocking warning)" {

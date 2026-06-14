@@ -127,6 +127,37 @@ def extract_snapcraft_versions(snapcraft_path):
     return versions
 
 
+def extract_snapcraft_versions_from_git(repo_root, ref):
+    try:
+        content = subprocess.check_output(
+            ["git", "-C", str(repo_root), "show", f"{ref}:snap/snapcraft.yaml"],
+            stderr=subprocess.DEVNULL
+        ).decode("utf-8")
+        versions = {"ftl": "", "pi_hole": "", "web": ""}
+        in_parts = False
+        current_part = None
+        for raw in content.splitlines():
+            if raw.startswith("parts:"):
+                in_parts = True
+                current_part = None
+                continue
+            if in_parts and re.match(r"^[^\s]", raw):
+                break
+            if not in_parts:
+                continue
+            part_match = re.match(r"^\s{2}([a-zA-Z0-9_]+):\s*$", raw)
+            if part_match:
+                candidate = part_match.group(1)
+                current_part = candidate if candidate in versions else None
+                continue
+            tag_match = re.match(r"^\s{4}source-tag:\s*(\S+)\s*$", raw)
+            if current_part and tag_match:
+                versions[current_part] = tag_match.group(1).strip("'\"")
+        return versions
+    except Exception:
+        return {"ftl": "", "pi_hole": "", "web": ""}
+
+
 def extract_track_upstream_cron(track_workflow_path):
     content = track_workflow_path.read_text(encoding="utf-8")
     match = re.search(r"cron:\s*'([^']+)'", content)
@@ -136,6 +167,8 @@ def extract_track_upstream_cron(track_workflow_path):
     label = "Scheduled"
     if cron == "0 0 * * *":
         label = "Daily at 00:00 UTC"
+    elif cron == "0 */3 * * *":
+        label = "Every 3 hours"
     return {"cron": cron, "label": label}
 
 
@@ -159,11 +192,11 @@ def calculate_update_frequency_days(timestamps):
     return round(sum(gaps) / len(gaps), 2)
 
 
-def collect_build_status(client):
+def collect_build_status(client, branch="main"):
     runs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/workflows/cicd.yml/runs"
     runs_data = client.get_json_or_empty(
         runs_url,
-        params={"per_page": 20, "branch": "main", "event": "push", "status": "completed"},
+        params={"per_page": 20, "branch": branch, "event": "push", "status": "completed"},
     )
     runs = runs_data.get("workflow_runs", [])
     latest = runs[0] if runs else None
@@ -253,13 +286,13 @@ def distro_job_key(workflow_file):
     return base
 
 
-def latest_cicd_run_with_distro_jobs(client):
+def latest_cicd_run_with_distro_jobs(client, branch="main"):
     """Return (run, jobs) for the newest cicd.yml run that contains the
     per-distribution ``distro test (...)`` matrix jobs."""
     runs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/workflows/cicd.yml/runs"
     runs_data = client.get_json_or_empty(
         runs_url,
-        params={"per_page": 10, "branch": "main", "event": "push"},
+        params={"per_page": 10, "branch": branch, "event": "push"},
     )
     for run in runs_data.get("workflow_runs", []):
         jobs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run.get('id')}/jobs"
@@ -269,7 +302,7 @@ def latest_cicd_run_with_distro_jobs(client):
     return None, []
 
 
-def collect_distro_matrix(client):
+def collect_distro_matrix(client, branch="main"):
     matrix = []
     failed_links = []
     latest_timestamps = []
@@ -279,7 +312,7 @@ def collect_distro_matrix(client):
     # Each distribution is exercised as a `distro test (<key>)` matrix job inside
     # the main cicd.yml pipeline, which runs on every push to main, so the newest
     # pipeline run that carries those jobs is the source of truth for the matrix.
-    target_run, jobs = latest_cicd_run_with_distro_jobs(client)
+    target_run, jobs = latest_cicd_run_with_distro_jobs(client, branch=branch)
     run_number = target_run.get("run_number") if target_run else None
 
     for item in DISTRO_WORKFLOWS:
@@ -407,14 +440,31 @@ def collect_release_data(client, versions):
         elif latest_release.get("html_url"):
             compare_url = latest_release["html_url"]
 
+        # Retrieve commit SHAs
+        local_commit = ""
+        if component["local"]:
+            local_commit_resp = client.get_json_or_empty(
+                f"{GITHUB_API}/repos/{component['repo']}/commits/{component['local']}"
+            )
+            local_commit = local_commit_resp.get("sha", "")
+
+        upstream_commit = ""
+        if latest_tag:
+            upstream_commit_resp = client.get_json_or_empty(
+                f"{GITHUB_API}/repos/{component['repo']}/commits/{latest_tag}"
+            )
+            upstream_commit = upstream_commit_resp.get("sha", "")
+
         results.append(
             {
                 "key": component["key"],
                 "name": component["name"],
                 "repository": component["repo"],
                 "local_tag": component["local"],
+                "local_commit": local_commit,
                 "local_release_date": local_date,
                 "upstream_tag": latest_tag,
+                "upstream_commit": upstream_commit,
                 "upstream_release_date": latest_date,
                 "update_available": bool(component["local"] and latest_tag and component["local"] != latest_tag),
                 "lag_days": lag_days,
@@ -424,6 +474,40 @@ def collect_release_data(client, versions):
         )
         latest_dates.append(parse_iso(latest_date))
     return {"components": results, "last_updated": dt_to_iso(max([d for d in latest_dates if d], default=None))}
+
+
+def collect_edge_release_data(client, versions):
+    components = [
+        {"key": "ftl", "name": "FTL", "repo": "pi-hole/FTL", "local": versions.get("ftl", "")},
+        {"key": "pi_hole", "name": "Pi-hole Core", "repo": "pi-hole/pi-hole", "local": versions.get("pi_hole", "")},
+        {"key": "web", "name": "Web UI", "repo": "pi-hole/web", "local": versions.get("web", "")},
+    ]
+
+    results = []
+    for component in components:
+        latest_commit = client.get_json_or_empty(f"{GITHUB_API}/repos/{component['repo']}/commits/dev")
+        latest_sha = latest_commit.get("sha", "")
+        local_sha = component["local"]
+        update_available = bool(local_sha and latest_sha and local_sha != latest_sha)
+        
+        compare_url = ""
+        if local_sha and latest_sha and local_sha != latest_sha:
+            compare_url = f"https://github.com/{component['repo']}/compare/{local_sha}...dev"
+        else:
+            compare_url = f"https://github.com/{component['repo']}/commits/dev"
+
+        results.append(
+            {
+                "key": component["key"],
+                "name": component["name"],
+                "repository": component["repo"],
+                "local_commit": local_sha,
+                "upstream_commit": latest_sha,
+                "update_available": update_available,
+                "compare_url": compare_url,
+            }
+        )
+    return results
 
 
 def parse_revisions_file(revisions_file_path):
@@ -743,17 +827,23 @@ def main():
     )
 
     versions = extract_snapcraft_versions(repo_root / "snap" / "snapcraft.yaml")
-    build_status = collect_build_status(client)
-    distro_matrix = collect_distro_matrix(client)
+    edge_versions = extract_snapcraft_versions_from_git(repo_root, "dev")
+    build_status_stable = collect_build_status(client, "main")
+    build_status_edge = collect_build_status(client, "dev")
+    distro_matrix_stable = collect_distro_matrix(client, "main")
+    distro_matrix_edge = collect_distro_matrix(client, "dev")
     security = collect_security_summary(vuln_summary_path)
     releases = collect_release_data(client, versions)
+    edge_releases = collect_edge_release_data(client, edge_versions)
     snap_package = collect_snap_package_data(client, repo_root)
     auto_update = collect_track_upstream_status(client)
     schedule = extract_track_upstream_cron(repo_root / ".github" / "workflows" / "track-upstream-releases.yml")
 
     timestamps = [
-        parse_iso(build_status["latest_run"].get("updated_at")),
-        distro_matrix.get("last_updated"),
+        parse_iso(build_status_stable["latest_run"].get("updated_at")),
+        parse_iso(build_status_edge["latest_run"].get("updated_at")),
+        distro_matrix_stable.get("last_updated"),
+        distro_matrix_edge.get("last_updated"),
         parse_iso(releases.get("last_updated")),
         parse_iso(snap_package.get("last_updated")),
         parse_iso(auto_update["latest_success_run"].get("updated_at")),
@@ -768,18 +858,28 @@ def main():
             "name": REPO,
             "url": f"https://github.com/{OWNER}/{REPO}",
         },
-        "build_status": build_status,
+        "build_status": {
+            "stable": build_status_stable,
+            "edge": build_status_edge,
+        },
         "security": security,
         "dependencies": {"bundled_versions": versions},
         "release_info": releases,
         "test_matrix": {
-            "rows": distro_matrix["rows"],
-            "failed_links": distro_matrix["failed_links"],
+            "stable": {
+                "rows": distro_matrix_stable["rows"],
+                "failed_links": distro_matrix_stable["failed_links"],
+            },
+            "edge": {
+                "rows": distro_matrix_edge["rows"],
+                "failed_links": distro_matrix_edge["failed_links"],
+            }
         },
         "snap_package": snap_package,
         "auto_update": {
             "frequency": schedule,
             "latest_success_run": auto_update["latest_success_run"],
+            "edge_releases": edge_releases,
         },
     }
 

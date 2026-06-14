@@ -16,6 +16,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Local test output
+*.log
+
 # OS
 .DS_Store
 

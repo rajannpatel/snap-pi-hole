@@ -95,27 +95,29 @@ BASH
     [[ "$output" == *"::error::"* ]]
 }
 
-@test "cicd publish releases GitHub builds only to stable" {
+@test "cicd publish releases GitHub builds to stable or edge" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
     doc = yaml.safe_load(f)
 runs = "\n".join(s.get("run", "") for s in doc["jobs"]["publish"]["steps"])
 assert "channels=latest/stable" in runs, runs
-for channel in ("latest/edge", "latest/beta", "latest/candidate"):
+assert "channels=latest/edge" in runs, runs
+for channel in ("latest/beta", "latest/candidate"):
     assert channel not in runs, (channel, runs)
 assert "ENABLE_TRACKS" not in runs, runs
 PYEOF
 }
 
-@test "launchpad publish releases Launchpad builds only to stable" {
+@test "launchpad publish releases Launchpad builds to stable or edge" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/.github/workflows/launchpad-builds.yml") as f:
     doc = yaml.safe_load(f)
 runs = "\n".join(s.get("run", "") for s in doc["jobs"]["build-and-publish-launchpad"]["steps"])
 assert "channels=latest/stable" in runs, runs
-for channel in ("latest/edge", "latest/beta", "latest/candidate"):
+assert "channels=latest/edge" in runs, runs
+for channel in ("latest/beta", "latest/candidate"):
     assert channel not in runs, (channel, runs)
 assert "ENABLE_TRACKS" not in runs, runs
 PYEOF
@@ -421,3 +423,15 @@ PYEOF
 @test "manual promotion workflow is retired because publishing is stable-only" {
     [ ! -e "${REPO_ROOT}/.github/workflows/promote.yml" ]
 }
+
+@test "track-upstream cron schedule is set to run every 3 hours" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/track-upstream-releases.yml") as f:
+    doc = yaml.safe_load(f)
+on = doc.get("on", doc.get(True, {}))
+cron = on["schedule"][0]["cron"]
+assert cron == "0 */3 * * *", f"Expected cron '0 */3 * * *', got '{cron}'"
+PYEOF
+}
+

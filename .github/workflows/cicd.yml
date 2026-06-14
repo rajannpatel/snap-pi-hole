@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 
 env:
@@ -481,7 +481,7 @@ jobs:
     needs: [smoke]
     runs-on: ubuntu-latest
     environment: snap-publishing
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -507,10 +507,12 @@ jobs:
           MAJOR_VERSION=$(echo "${SNAP_VERSION#v}" | cut -d'.' -f1)
           echo "track=${MAJOR_VERSION}" >> $GITHUB_OUTPUT
 
-          # This project publishes every successful GitHub-built architecture
-          # directly to stable. Launchpad-built architectures use the same policy
-          # in launchpad-builds.yml.
-          echo "channels=latest/stable" >> $GITHUB_OUTPUT
+          # Publish to edge if building from dev branch; otherwise stable.
+          if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+            echo "channels=latest/edge" >> $GITHUB_OUTPUT
+          else
+            echo "channels=latest/stable" >> $GITHUB_OUTPUT
+          fi
 
       - name: Publish to Snap Store
         env:

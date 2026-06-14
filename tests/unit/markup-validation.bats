@@ -93,3 +93,15 @@ PYEOF
     run check_balance "${REPO_ROOT}/snap/local/assets/sbom-explorer.html"
     [ "$status" -eq 0 ] || { echo "$output"; return 1; }
 }
+
+@test "dashboard components table has Workflows column and colspan 5" {
+    python3 - <<PYEOF
+import pathlib
+repo = pathlib.Path("${REPO_ROOT}")
+for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
+    text = (repo / rel).read_text(encoding="utf-8")
+    assert "<th>Workflows</th>" in text, f"{rel} missing Workflows column"
+    assert 'colspan="5">Loading dependency comparisons...' in text, f"{rel} missing colspan 5 loading row"
+PYEOF
+}
+

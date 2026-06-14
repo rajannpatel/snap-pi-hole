@@ -23,7 +23,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (
         github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_branch == 'main'
+        (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev')
       )
     strategy:
       fail-fast: false
@@ -98,10 +98,12 @@ jobs:
           MAJOR_VERSION=$(echo "${SNAP_VERSION#v}" | cut -d'.' -f1)
           echo "track=${MAJOR_VERSION}" >> $GITHUB_OUTPUT
 
-          # This project publishes every successful Launchpad-built architecture
-          # directly to stable. GitHub-built architectures use the same policy in
-          # cicd.yml.
-          echo "channels=latest/stable" >> $GITHUB_OUTPUT
+          # Publish to edge if building from dev branch; otherwise stable.
+          if [ "${{ github.event.workflow_run.head_branch }}" = "dev" ] || [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+            echo "channels=latest/edge" >> $GITHUB_OUTPUT
+          else
+            echo "channels=latest/stable" >> $GITHUB_OUTPUT
+          fi
 
       - name: Publish to Snap Store
         env:

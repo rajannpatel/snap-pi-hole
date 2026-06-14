@@ -13,8 +13,28 @@ export PATH="${SNAP}/usr/sbin:${SNAP}/usr/bin:${SNAP}/sbin:${SNAP}/bin:${PATH:-}
 
 usage_snap_equivalent() {
     case "$1" in
-        -up|updatePihole|updatechecker|checkout)
+        -up|updatePihole|updatechecker)
             echo "  Use: sudo snap refresh pihole" >&2
+            ;;
+        checkout)
+            local has_dev=false
+            local has_master=false
+            local arg
+            for arg in "${@:2}"; do
+                if [ "$arg" = "dev" ]; then
+                    has_dev=true
+                elif [ "$arg" = "master" ] || [ "$arg" = "main" ]; then
+                    has_master=true
+                fi
+            done
+            if [ "$has_dev" = true ]; then
+                echo "  Use: sudo snap refresh pihole --channel=edge" >&2
+            elif [ "$has_master" = true ]; then
+                echo "  Use: sudo snap refresh pihole --channel=stable" >&2
+            else
+                echo "  Use: sudo snap refresh pihole --channel=stable" >&2
+                echo "   or: sudo snap refresh pihole --channel=edge" >&2
+            fi
             ;;
         uninstall)
             cat >&2 <<'EOF'
@@ -36,7 +56,7 @@ case "${1:-}" in
         ;;
     -up|updatePihole|uninstall|checkout|updatechecker)
         echo "Error: 'pihole $1' is not supported in the snap." >&2
-        usage_snap_equivalent "$1"
+        usage_snap_equivalent "$@"
         exit 1
         ;;
 esac
