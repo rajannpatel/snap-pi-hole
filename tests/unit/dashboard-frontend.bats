@@ -457,6 +457,7 @@ const assert = require("assert");
 assert.match(source, /trackUpstreamJobUrl:\s*null/, "Track-upstream job URL must be cached");
 assert.match(source, /trackUpstreamJobDurationSeconds:\s*null/, "Track-upstream job duration must be cached");
 assert.match(source, /trackUpstreamJobStatus:\s*null/, "Track-upstream job status must be cached");
+assert.match(source, /snapOverlayInFlight:\s*false/, "Snap package live overlay must have an in-flight guard");
 assert.match(
   source,
   /const jobUrl = liveState\.trackUpstreamJobUrl \|\| fallbackUrl;/,
@@ -486,6 +487,26 @@ assert.match(
   source,
   /statusHtml = liveStatusChip\(status, isGitHub \? "building" : "publishing"\);/,
   "Installation availability should use live build/publish indicators for active jobs"
+);
+assert.match(
+  source,
+  /applyLiveSnapStatus\(cicdJobs, cicdRun, lpJobs, lpRun\);\s*let buildBuilding = false;/,
+  "Installation availability live overlay must run before other live dashboard sections can fail"
+);
+assert.match(
+  source,
+  /try \{\s*await applyLiveTrackUpstream\(latestByWorkflow\);[\s\S]*Keep the package table live even if upstream tracking rendering fails/,
+  "Upstream tracking failures must not block Installation availability live overlays"
+);
+assert.match(
+  source,
+  /refreshLiveSnapPackageStatus\(\);/,
+  "Installation availability should request its own live job overlay whenever the table renders"
+);
+assert.match(
+  source,
+  /async function refreshLiveSnapPackageStatus\(\)[\s\S]*fetchRecentRuns\(\)[\s\S]*fetchRunJobs\(latestLp\.id\)[\s\S]*applyLiveSnapStatus\(cicdJobs, cicdRun, lpJobs, lpRun\);/,
+  "Independent Installation availability overlay must fetch live runs/jobs and apply status"
 );
 JS
     done

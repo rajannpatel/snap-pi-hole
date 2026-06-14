@@ -1141,13 +1141,14 @@
     const LIVE_RATE_FLOOR = 8;
 
     // Core live application state variables
-    const liveState = { rateRemaining: null, pollTimer: null, releaseLagDone: false, releaseLagDue: false, lastCicdRunId: null, lastLpRunId: null, trackUpstreamRunId: null, trackUpstreamJobUrl: null, trackUpstreamJobDurationSeconds: null, trackUpstreamJobStatus: null, cicdJobs: null, cicdRun: null, lpJobs: null, lpRun: null };
+    const liveState = { rateRemaining: null, pollTimer: null, releaseLagDone: false, releaseLagDue: false, lastCicdRunId: null, lastLpRunId: null, trackUpstreamRunId: null, trackUpstreamJobUrl: null, trackUpstreamJobDurationSeconds: null, trackUpstreamJobStatus: null, cicdJobs: null, cicdRun: null, lpJobs: null, lpRun: null, snapOverlayInFlight: false, snapOverlayLastFetch: 0 };
     const matrixState = { rows: [], failedLinks: [] };
 
     // Snap Store Gist integration (workaround for lack of CORS support on api.snapcraft.io)
     const SNAP_GIST_FILENAME = "snapcraft-dashboard-data.json";
     const SNAP_GIST_DESCRIPTION = "snap-pi-hole dashboard data (auto-updated hourly; do not edit)";
     const SNAP_MIN_REFETCH_MS = 300000;
+    const SNAP_OVERLAY_MIN_REFETCH_MS = 30000;
     const snapState = { gistId: null, rawUrl: null, discovered: false, hasGistData: false, generatedAt: null, lastFetch: 0, nextAt: null, inFlight: false };
 
     // Freshness clocks state tracking
@@ -2170,6 +2171,8 @@
           btn.style.width = maxWidth + 'px';
         });
       }, 0);
+
+      refreshLiveSnapPackageStatus();
     }
 
     // Applies live architecture build runner status and specific workflow urls
@@ -2246,6 +2249,54 @@
           btn.style.width = maxWidth + 'px';
         });
       }, 0);
+    }
+
+    async function refreshLiveSnapPackageStatus() {
+      if (liveState.snapOverlayInFlight) return;
+      if (liveState.rateRemaining !== null && liveState.rateRemaining <= LIVE_RATE_FLOOR) return;
+      const now = Date.now();
+      if (liveState.snapOverlayLastFetch && now - liveState.snapOverlayLastFetch < SNAP_OVERLAY_MIN_REFETCH_MS) {
+        applyLiveSnapStatus(liveState.cicdJobs, liveState.cicdRun, liveState.lpJobs, liveState.lpRun);
+        return;
+      }
+
+      liveState.snapOverlayInFlight = true;
+      try {
+        const runs = await fetchRecentRuns();
+        if (!runs) return;
+
+        const branchName = "main";
+        const cicdRuns = runs.filter((run) => (run.path || "").endsWith("/cicd.yml") && run.head_branch === branchName);
+        const lpRuns = runs.filter((run) => (run.path || "").endsWith("/launchpad-builds.yml") && run.head_branch === branchName);
+        const latestCicd = cicdRuns[0] || null;
+        const latestLp = lpRuns[0] || null;
+
+        let cicdJobs = liveState.cicdJobs;
+        let cicdRun = liveState.cicdRun || latestCicd;
+        if (latestCicd && (latestCicd.id !== liveState.lastCicdRunId || !cicdJobs)) {
+          const result = await liveMatrixJobsAndRun(cicdRuns);
+          cicdJobs = result.jobs;
+          cicdRun = result.run || latestCicd;
+          liveState.lastCicdRunId = latestCicd.id;
+          liveState.cicdJobs = cicdJobs;
+          liveState.cicdRun = cicdRun;
+        }
+
+        let lpJobs = liveState.lpJobs;
+        let lpRun = liveState.lpRun || latestLp;
+        if (latestLp && (latestLp.id !== liveState.lastLpRunId || !lpJobs)) {
+          lpJobs = await fetchRunJobs(latestLp.id);
+          lpRun = latestLp;
+          liveState.lastLpRunId = latestLp.id;
+          liveState.lpJobs = lpJobs;
+          liveState.lpRun = lpRun;
+        }
+
+        applyLiveSnapStatus(cicdJobs, cicdRun, lpJobs, lpRun);
+        liveState.snapOverlayLastFetch = Date.now();
+      } finally {
+        liveState.snapOverlayInFlight = false;
+      }
     }
 
     // Renders the published snap channels as a table with architectures per channel
@@ -2756,8 +2807,20 @@
         }
       }
 
-      const buildBuilding = applyLiveBuildStatus(runs);
-      await applyLiveTrackUpstream(latestByWorkflow);
+      applyLiveSnapStatus(cicdJobs, cicdRun, lpJobs, lpRun);
+
+      let buildBuilding = false;
+      try {
+        buildBuilding = applyLiveBuildStatus(runs);
+      } catch (error) {
+        buildBuilding = false;
+      }
+
+      try {
+        await applyLiveTrackUpstream(latestByWorkflow);
+      } catch (error) {
+        // Keep the package table live even if upstream tracking rendering fails.
+      }
       applyLiveSnapStatus(cicdJobs, cicdRun, lpJobs, lpRun);
 
       const lpBuildingStatus = latestLp && BUILDING_STATES.has((latestLp.status || "").toLowerCase());
