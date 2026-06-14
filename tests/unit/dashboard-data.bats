@@ -219,6 +219,36 @@ for row in rows:
 PYEOF
 }
 
+@test "dashboard data: track-upstream status includes latest run duration" {
+    python3 - <<PYEOF
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        assert url.endswith("/actions/workflows/track-upstream-releases.yml/runs"), url
+        return {
+            "workflow_runs": [
+                {
+                    "status": "completed",
+                    "conclusion": "success",
+                    "run_number": 12,
+                    "run_started_at": "2026-06-14T02:14:33Z",
+                    "updated_at": "2026-06-14T02:14:48Z",
+                    "html_url": "https://example.test/run/12",
+                }
+            ]
+        }
+
+result = dashboard.collect_track_upstream_status(FakeClient())
+latest = result["latest_success_run"]
+assert latest["run_number"] == 12, latest
+assert latest["duration_seconds"] == 15, latest
+assert latest["duration_label"] == "15s", latest
+PYEOF
+}
+
 @test "dashboard data: snap package classifies GitHub vs Launchpad builds and keeps full version" {
     python3 - <<PYEOF
 import pathlib
@@ -285,6 +315,87 @@ assert set(published["edge"]["architectures"]) == {"AMD64", "ARM64", "S390X"}, f
 # released_at must be populated from the nested channel["released-at"] field, not empty/unknown
 assert published["stable"]["released_at"] == "2026-06-10T17:00:00Z", f"stable released_at: {published['stable']['released_at']}"
 assert published["edge"]["released_at"] == "2026-06-10T17:00:00Z", f"edge released_at: {published['edge']['released_at']}"
+PYEOF
+}
+
+@test "dashboard data: snap package includes baked build and publish job links" {
+    python3 - <<PYEOF
+import pathlib
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+def ch(track, risk, arch, version, revision, released, size):
+    return {
+        "channel": {"track": track, "risk": risk, "architecture": arch, "released-at": released},
+        "version": version,
+        "revision": revision,
+        "download": {"size": size, "url": f"https://example.test/{arch}.snap"},
+    }
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        if url == dashboard.SNAPCRAFT_INFO_URL:
+            return {
+                "channel-map": [
+                    ch("latest", "stable", "amd64", "v6.4.2", 1, "2026-06-10T17:00:00Z", 100),
+                    ch("latest", "stable", "s390x", "v6.4.2", 2, "2026-06-10T17:00:00Z", 100),
+                ]
+            }
+        if url.endswith("/actions/workflows/cicd.yml/runs"):
+            return {"workflow_runs": [{
+                "id": 101,
+                "run_number": 55,
+                "status": "completed",
+                "conclusion": "success",
+                "run_started_at": "2026-06-10T17:00:00Z",
+                "updated_at": "2026-06-10T17:05:00Z",
+                "html_url": "https://example.test/run/cicd",
+            }]}
+        if url.endswith("/actions/runs/101/jobs"):
+            return {"jobs": [{
+                "name": "publish github (stable, amd64)",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-06-10T17:01:00Z",
+                "completed_at": "2026-06-10T17:02:05Z",
+                "html_url": "https://example.test/job/amd64",
+            }]}
+        if url.endswith("/actions/workflows/launchpad-builds.yml/runs"):
+            return {"workflow_runs": [{
+                "id": 202,
+                "run_number": 9,
+                "status": "completed",
+                "conclusion": "success",
+                "run_started_at": "2026-06-10T17:00:00Z",
+                "updated_at": "2026-06-10T17:10:00Z",
+                "html_url": "https://example.test/run/launchpad",
+            }]}
+        if url.endswith("/actions/runs/202/jobs"):
+            return {"jobs": [{
+                "name": "build and publish launchpad (stable, s390x)",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-06-10T17:03:00Z",
+                "completed_at": "2026-06-10T17:05:30Z",
+                "html_url": "https://example.test/job/s390x",
+            }]}
+        return {}
+
+result = dashboard.collect_snap_package_data(FakeClient(), pathlib.Path("${TEST_TMPDIR}"))
+by_arch = {c["architecture"]: c for c in result["channels"]}
+
+amd = by_arch["AMD64"]["workflow_runs"]["stable"]
+assert amd["url"] == "https://example.test/job/amd64", amd
+assert amd["duration_seconds"] == 65, amd
+assert amd["duration_label"] == "1m 5s", amd
+assert amd["job_name"] == "publish github (stable, amd64)", amd
+
+s390x = by_arch["S390X"]["workflow_runs"]["stable"]
+assert s390x["url"] == "https://example.test/job/s390x", s390x
+assert s390x["duration_seconds"] == 150, s390x
+assert s390x["duration_label"] == "2m 30s", s390x
+assert s390x["job_name"] == "build and publish launchpad (stable, s390x)", s390x
 PYEOF
 }
 

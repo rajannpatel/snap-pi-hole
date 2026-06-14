@@ -948,7 +948,7 @@
                       <th class="distribution-col">Distribution</th>
                       <th>Status</th>
                       <th>Updated</th>
-                      <th>Workflows</th>
+                      <th>Test duration</th>
                     </tr>
                   </thead>
                   <tbody id="compatibility-matrix-body">
@@ -986,7 +986,7 @@
                       <th>Last Check</th>
                       <th>Next Check</th>
                       <th>Cadence</th>
-                      <th>Workflows</th>
+                      <th>Sync duration</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1040,7 +1040,7 @@
                       <th>Status</th>
                       <th>Size</th>
                       <th>Released</th>
-                      <th>Workflows</th>
+                      <th>Build/publish duration</th>
                     </tr>
                   </thead>
                   <tbody id="snap-package-rows">
@@ -1078,7 +1078,7 @@
                       <th>Bundled</th>
                       <th>Upstream</th>
                       <th>Status</th>
-                      <th>Workflows</th>
+                      <th>Sync duration</th>
                     </tr>
                   </thead>
                   <tbody id="dependency-rows">
@@ -1128,6 +1128,7 @@
     // 1. CONFIGURATION & STATE
     const REPO_SLUG = "rajannpatel/snap-pi-hole";
     const GITHUB_API_BASE = "https://api.github.com";
+    const GITHUB_BUILD_ARCHES = new Set(["AMD64", "ARM64"]);
 
     // Build/job pipeline status categories
     const BUILDING_STATES = new Set(["queued", "in_progress", "requested", "waiting", "pending", "running"]);
@@ -1201,6 +1202,16 @@
     }
 
     // 2. FORMATTING & UTILITY HELPERS
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;",
+      }[ch]));
+    }
 
     // Maps API status values to CSS class targets
     const statusClass = (status) => `status-${(status || "neutral").replace(/[^a-z_]/gi, "_").toLowerCase()}`;
@@ -1315,10 +1326,18 @@
       return Math.max(0, Math.round((ended - started) / 1000));
     }
 
-    function workflowButtonLabel(durationSeconds, noun) {
-      const label = noun || "Run";
-      if (durationSeconds === null || durationSeconds === undefined) return label;
-      return `${humanDuration(durationSeconds)} ${label}`;
+    function workflowButtonLabel(durationSeconds) {
+      if (durationSeconds === null || durationSeconds === undefined) return "Loading...";
+      return humanDuration(durationSeconds);
+    }
+
+    function workflowButtonHtml(url, durationSeconds, contextLabel) {
+      const durationLabel = workflowButtonLabel(durationSeconds);
+      const accessibleLabel = `${contextLabel || "Workflow"} duration: ${durationLabel}`;
+      if (!url) {
+        return `<div class="workflow-buttons"><span class="p-button workflow-btn is-disabled" aria-disabled="true" aria-label="${escapeHtml(accessibleLabel)}" title="${escapeHtml(accessibleLabel)}">${githubLogoSvg}<span>${escapeHtml(durationLabel)}</span></span></div>`;
+      }
+      return `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(accessibleLabel)}" title="${escapeHtml(accessibleLabel)}">${githubLogoSvg}<span>${escapeHtml(durationLabel)}</span></a></div>`;
     }
 
     function normalizedLiveStatus(jobOrRun) {
@@ -1546,13 +1565,6 @@
       const xAt = (index) => margin.left + (index + 1) * step;
       const yRange = Math.max(10, yMax - yMin);
       const yAt = (value) => margin.top + ((yMax - value) / yRange) * plotHeight;
-      const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (ch) => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        "\"": "&quot;",
-        "'": "&#39;",
-      }[ch]));
 
       const ns = "http://www.w3.org/2000/svg";
       const svg = document.createElementNS(ns, "svg");
@@ -1840,7 +1852,7 @@
           <td class="distribution-col">${row.label}</td>
           <td>${statusCell}</td>
           <td class="mono">${formatDate(row.updated_at)}</td>
-          <td><div class="workflow-buttons">${logUrl ? `<a class="p-button workflow-btn" href="${logUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${row.duration_label ? row.duration_label + ' ' : ''}${row.failed_job_url ? "Test job" : "Test run"}</span></a>` : "N/A"}</div></td>
+          <td>${workflowButtonHtml(logUrl, row.duration_seconds, row.failed_job_url ? "Test job" : "Test run")}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -1931,9 +1943,11 @@
       if (!body) return;
       body.innerHTML = "";
 
-      const fallbackUrl = `https://github.com/${REPO_SLUG}/actions/workflows/track-upstream-releases.yml`;
+      const trackRun = globalDashboardData?.auto_update?.latest_success_run || {};
+      const fallbackUrl = trackRun.url || `https://github.com/${REPO_SLUG}/actions/workflows/track-upstream-releases.yml`;
       const jobUrl = liveState.trackUpstreamJobUrl || fallbackUrl;
-      const workflowHtml = `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${jobUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${workflowButtonLabel(liveState.trackUpstreamJobDurationSeconds, "Sync job")}</span></a></div>`;
+      const syncDurationSeconds = liveState.trackUpstreamJobDurationSeconds ?? trackRun.duration_seconds;
+      const workflowHtml = workflowButtonHtml(jobUrl, syncDurationSeconds, liveState.trackUpstreamJobUrl ? "Upstream sync job" : "Upstream sync run");
       updateUpstreamActivity();
 
       if (selectedBranch === "stable") {
@@ -2070,9 +2084,7 @@
       // Set up the static/fallback workflow links
       const stableWorkflowEl = document.getElementById("stable-track-workflow");
       const edgeWorkflowEl = document.getElementById("edge-track-workflow");
-      const workflowHtml = trackRun.url
-        ? `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${trackRun.url}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${trackRun.run_number ? '#' + trackRun.run_number + ' ' : ''}Sync run</span></a></div>`
-        : "N/A";
+      const workflowHtml = workflowButtonHtml(trackRun.url, trackRun.duration_seconds, "Upstream sync run");
       if (stableWorkflowEl) stableWorkflowEl.innerHTML = workflowHtml;
       if (edgeWorkflowEl) edgeWorkflowEl.innerHTML = workflowHtml;
 
@@ -2138,11 +2150,12 @@
         const status = `<span class="status-chip ${desc.cls}" aria-label="Status: ${desc.label}">${statusIcon}<span class="status-text-full" aria-hidden="true">${desc.label}</span><span class="status-text-short" aria-hidden="true">${desc.short}</span></span>`;
         const version = row.full_version || row.version || "Unknown";
 
-        const fallbackUrl = isGitHub
-          ? `https://github.com/${REPO_SLUG}/actions/workflows/cicd.yml`
-          : `https://github.com/${REPO_SLUG}/actions/workflows/launchpad-builds.yml`;
-        const fallbackLabel = isGitHub ? "Build workflow" : "Publish workflow";
-        const workflow = `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${fallbackUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${fallbackLabel}</span></a></div>`;
+        const workflowSnapshot = (row.workflow_runs || {})[selectedBranch] || {};
+        const workflow = workflowButtonHtml(
+          workflowSnapshot.url || "",
+          workflowSnapshot.duration_seconds,
+          isGitHub ? "Build job" : "Publish job"
+        );
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
@@ -2200,12 +2213,7 @@
 
         let statusHtml = null;
         let isBuilding = false;
-        let runUrl = (job && job.html_url) || (run && run.html_url) || "";
-        if (!runUrl) {
-          runUrl = isGitHub
-            ? `https://github.com/${REPO_SLUG}/actions/workflows/cicd.yml`
-            : `https://github.com/${REPO_SLUG}/actions/workflows/launchpad-builds.yml`;
-        }
+        const runUrl = (job && job.html_url) || (run && run.html_url) || "";
 
         if (job) {
           const status = normalizedLiveStatus(job);
@@ -2225,8 +2233,10 @@
         }
 
         const duration = job ? liveJobDurationSeconds(job) : (run ? liveRunDurationSeconds(run) : null);
-        const workflowNoun = job ? (isGitHub ? "Build job" : "Publish job") : "Run";
-        const workflowHtml = `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${runUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${workflowButtonLabel(duration, workflowNoun)}</span></a></div>`;
+        const workflowContext = job
+          ? (isGitHub ? "Build job" : "Publish job")
+          : (isGitHub ? "Build run" : "Publish run");
+        const workflowHtml = workflowButtonHtml(runUrl, duration, workflowContext);
 
         if (tr.cells.length <= 7) {
           const td = tr.insertCell(7);
@@ -2520,7 +2530,7 @@
         matched += 1;
         const status = job.status === "completed" ? (job.conclusion || "unknown") : (job.status || "queued");
         if (isBuildingStatus(status)) building = true;
-        const durationSeconds = jobDurationSeconds(job);
+        const durationSeconds = liveJobDurationSeconds(job);
         const failed = FAILURE_STATES.has(status);
         const failedUrl = failed ? (job.html_url || (run && run.html_url) || "") : "";
         if (failed) {
@@ -2643,7 +2653,6 @@
 
       let isBuilding = false;
       let jobUrl = "";
-      let durationLabel = "";
       let durationSeconds = null;
 
       if (run) {
@@ -2654,9 +2663,6 @@
         durationSeconds = jobDetails.durationSeconds;
         if (jobDetails.status) {
           isBuilding = isBuildingStatus(jobDetails.status);
-        }
-        if (durationSeconds !== null) {
-          durationLabel = humanDuration(durationSeconds) + " ";
         }
       }
 
@@ -2698,7 +2704,7 @@
       // Update workflows column
       let workflowHtml = "N/A";
       if (jobUrl) {
-        workflowHtml = `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${jobUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${durationLabel}Sync job</span></a></div>`;
+        workflowHtml = workflowButtonHtml(jobUrl, durationSeconds, "Upstream sync job");
 
         // Also update the components/dependencies status and workflow cells with live job data.
         renderDependencies();

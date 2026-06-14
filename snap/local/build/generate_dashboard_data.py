@@ -272,6 +272,14 @@ def job_duration_seconds(job):
     return max(0, int((ended - started).total_seconds()))
 
 
+def job_elapsed_seconds(job, now=None):
+    started = parse_iso(job.get("started_at"))
+    ended = parse_iso(job.get("completed_at")) or now or datetime.now(timezone.utc)
+    if not started or not ended:
+        return None
+    return max(0, int((ended - started).total_seconds()))
+
+
 def distro_job_key(workflow_file):
     """Map a legacy test-<distro>.yml workflow name to its matrix job key.
 
@@ -301,6 +309,112 @@ def latest_cicd_run_with_distro_jobs(client, branch="main"):
         if any(job.get("name", "").startswith("distro test (") for job in jobs):
             return run, jobs
     return None, []
+
+
+def safe_get_json_or_empty(client, url, headers=None, params=None):
+    try:
+        return client.get_json_or_empty(url, headers=headers, params=params)
+    except Exception:
+        return {}
+
+
+def workflow_runs(client, workflow_file, branch="main", per_page=5):
+    runs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/workflows/{workflow_file}/runs"
+    return safe_get_json_or_empty(
+        client,
+        runs_url,
+        params={"per_page": per_page, "branch": branch},
+    ).get("workflow_runs", [])
+
+
+def latest_run_with_jobs(client, workflow_file, branch="main"):
+    fallback_run = None
+    for run in workflow_runs(client, workflow_file, branch=branch):
+        if fallback_run is None:
+            fallback_run = run
+        if run.get("conclusion") == "skipped":
+            continue
+        jobs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run.get('id')}/jobs"
+        jobs = safe_get_json_or_empty(client, jobs_url, params={"per_page": 100}).get("jobs", [])
+        if jobs:
+            return run, jobs
+    return fallback_run, []
+
+
+def build_job_stages(arch, channel, is_github):
+    arch = str(arch or "").lower()
+    channel = str(channel or "stable").lower()
+    if is_github:
+        return [
+            f"publish github ({channel}, {arch})",
+            f"publish github ({arch})",
+            f"smoke test ({channel}, {arch})",
+            f"smoke test ({arch})",
+            f"build github ({channel}, {arch})",
+            f"build github ({arch})",
+        ]
+    return [
+        f"build and publish launchpad ({channel}, {arch})",
+        f"build and publish launchpad ({arch})",
+    ]
+
+
+def find_snap_build_job(jobs, arch, channel, is_github):
+    stages = build_job_stages(arch, channel, is_github)
+    if is_github:
+        active_states = {"queued", "in_progress", "requested", "waiting", "pending", "running"}
+        for stage in stages:
+            found = next(
+                (
+                    job
+                    for job in jobs
+                    if job.get("name", "").lower().startswith(stage)
+                    and str(job.get("status", "")).lower() in active_states
+                ),
+                None,
+            )
+            if found:
+                return found
+    for stage in stages:
+        found = next((job for job in jobs if job.get("name", "").lower().startswith(stage)), None)
+        if found:
+            return found
+    return None
+
+
+def workflow_job_details(run, job):
+    if not run and not job:
+        return {
+            "url": "",
+            "duration_seconds": None,
+            "duration_label": "Unknown",
+            "status": "no_data",
+            "run_number": None,
+            "job_name": "",
+        }
+    duration = job_elapsed_seconds(job) if job else run_duration_seconds(run)
+    return {
+        "url": (job or {}).get("html_url") or (run or {}).get("html_url", ""),
+        "duration_seconds": duration,
+        "duration_label": human_duration(duration),
+        "status": summarize_state(job or run),
+        "run_number": (run or {}).get("run_number"),
+        "job_name": (job or {}).get("name", ""),
+    }
+
+
+def collect_snap_workflow_jobs(client, branch="main"):
+    cicd_run, cicd_jobs = latest_run_with_jobs(client, "cicd.yml", branch=branch)
+    launchpad_run, launchpad_jobs = latest_run_with_jobs(client, "launchpad-builds.yml", branch=branch)
+    workflows = {}
+    for channel in ("stable", "edge"):
+        for arch in GITHUB_BUILD_ARCHES:
+            job = find_snap_build_job(cicd_jobs, arch, channel, True)
+            workflows[(arch, channel)] = workflow_job_details(cicd_run, job)
+        for arch in ("ARMHF", "PPC64EL", "RISCV64", "S390X"):
+            job = find_snap_build_job(launchpad_jobs, arch, channel, False)
+            workflows[(arch, channel)] = workflow_job_details(launchpad_run, job)
+    return workflows
 
 
 def collect_distro_matrix(client, branch="main", channel="stable"):
@@ -687,6 +801,7 @@ def collect_snap_package_data(client, repo_root):
         headers={"Snap-Device-Series": "16", "Accept": "application/json"},
     )
     channel_map = snap_data.get("channel-map", [])
+    workflow_jobs = collect_snap_workflow_jobs(client)
  
     # First pass: collect all channel+arch combinations from the channel map
     all_channels_raw = {}  # channel -> {arch -> entry}
@@ -757,6 +872,10 @@ def collect_snap_package_data(client, repo_root):
             if reference_version and info.get("full_version", "") == reference_version
             else "stale"
         )
+        info["workflow_runs"] = {
+            channel: workflow_jobs.get((arch_upper, channel), workflow_job_details(None, None))
+            for channel in ("stable", "edge")
+        }
         channels.append(info)
 
     # GitHub-built architectures first, then Launchpad; alphabetical within groups.
@@ -810,11 +929,14 @@ def collect_track_upstream_status(client):
     runs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/workflows/track-upstream-releases.yml/runs"
     runs = client.get_json_or_empty(runs_url, params={"per_page": 10, "status": "completed"}).get("workflow_runs", [])
     latest_success = next((run for run in runs if run.get("conclusion") == "success"), None)
+    duration = run_duration_seconds(latest_success) if latest_success else None
     return {
         "latest_success_run": {
             "run_number": latest_success.get("run_number") if latest_success else None,
             "updated_at": latest_success.get("updated_at") if latest_success else "",
             "url": latest_success.get("html_url") if latest_success else "",
+            "duration_seconds": duration,
+            "duration_label": human_duration(duration),
         }
     }
 

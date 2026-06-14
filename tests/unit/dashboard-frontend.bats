@@ -136,17 +136,32 @@ JS
 @test "frontend: workflow buttons include job/run duration when available" {
     for html in "${HTML_FILES[@]}"; do
         run_node - "$HELPER" "$html" <<'JS'
-const { loadFunctions } = require(process.argv[2]);
+const { loadFunctions, loadModule } = require(process.argv[2]);
 const { humanDuration, workflowButtonLabel, liveJobDurationSeconds } = loadFunctions(process.argv[3], [
   "humanDuration",
   "workflowButtonLabel",
   "liveJobDurationSeconds",
 ]);
+const { workflowButtonHtml } = loadModule(process.argv[3], {
+  consts: ["githubLogoSvg"],
+  functions: ["escapeHtml", "humanDuration", "workflowButtonLabel", "workflowButtonHtml"],
+});
 const assert = require("assert");
 
-assert.strictEqual(workflowButtonLabel(null, "Job"), "Job");
-assert.strictEqual(workflowButtonLabel(185, "Job"), "3m 5s Job");
-assert.strictEqual(workflowButtonLabel(3661, "Run"), "1h 1m Run");
+assert.strictEqual(workflowButtonLabel(null), "Loading...");
+assert.strictEqual(workflowButtonLabel(185), "3m 5s");
+assert.strictEqual(workflowButtonLabel(3661), "1h 1m");
+
+const buttonHtml = workflowButtonHtml("https://example.test/run?x=1&y=2", 185, "Build job");
+assert.match(buttonHtml, /<span>3m 5s<\/span>/);
+assert.doesNotMatch(buttonHtml, />Build job</);
+assert.match(buttonHtml, /aria-label="Build job duration: 3m 5s"/);
+assert.match(buttonHtml, /href="https:\/\/example\.test\/run\?x=1&amp;y=2"/);
+
+const pendingHtml = workflowButtonHtml("", null, "Publish job");
+assert.match(pendingHtml, /aria-disabled="true"/);
+assert.match(pendingHtml, /<span>Loading\.\.\.<\/span>/);
+assert.doesNotMatch(pendingHtml, /href=/);
 
 assert.strictEqual(liveJobDurationSeconds({
   started_at: "2026-06-14T14:00:00Z",
@@ -460,14 +475,29 @@ assert.match(source, /trackUpstreamJobStatus:\s*null/, "Track-upstream job statu
 assert.match(source, /snapOverlayInFlight:\s*false/, "Snap package live overlay must have an in-flight guard");
 assert.match(
   source,
+  /const fallbackUrl = trackRun\.url \|\| `https:\/\/github\.com\/\$\{REPO_SLUG\}\/actions\/workflows\/track-upstream-releases\.yml`;/,
+  "Component table should fall back to the latest track-upstream run URL before using the workflow definition"
+);
+assert.match(
+  source,
   /const jobUrl = liveState\.trackUpstreamJobUrl \|\| fallbackUrl;/,
   "Component table should prefer the live track-upstream job URL"
 );
 assert.match(
   source,
-  /workflowButtonLabel\(liveState\.trackUpstreamJobDurationSeconds, "Sync job"\)/,
-  "Component table should label live track-upstream links as job links"
+  /const syncDurationSeconds = liveState\.trackUpstreamJobDurationSeconds \?\? trackRun\.duration_seconds;/,
+  "Component table should use live or baked track-upstream duration"
 );
+assert.match(
+  source,
+  /workflowButtonHtml\(jobUrl, syncDurationSeconds, liveState\.trackUpstreamJobUrl \? "Upstream sync job" : "Upstream sync run"\)/,
+  "Component table should render live or baked track-upstream links as duration-only buttons"
+);
+assert.match(source, /<th>Test duration<\/th>/, "Test matrix workflow type should move into the duration column heading");
+assert.match(source, /<th>Sync duration<\/th>/, "Sync workflow type should move into the duration column heading");
+assert.match(source, /<th>Build\/publish duration<\/th>/, "Build and publish workflow type should move into the duration column heading");
+assert.doesNotMatch(source, /#'\s*\+\s*trackRun\.run_number/, "Upstream tracking buttons must not show run numbers");
+assert.doesNotMatch(source, /<span>\$\{[^}]*\}(?:Sync job|Sync run|Test job|Test run|Build job|Publish job|Build workflow|Publish workflow)<\/span>/, "Workflow button visible labels should be duration-only");
 assert.match(
   source,
   /await applyLiveTrackUpstream\(latestByWorkflow\);/,
@@ -487,6 +517,31 @@ assert.match(
   source,
   /statusHtml = liveStatusChip\(status, isGitHub \? "building" : "publishing"\);/,
   "Installation availability should use live build/publish indicators for active jobs"
+);
+assert.match(
+  source,
+  /const GITHUB_BUILD_ARCHES = new Set\(\["AMD64", "ARM64"\]\);/,
+  "Installation availability must know which architectures are built on GitHub runners"
+);
+assert.match(
+  source,
+  /const isGitHub = GITHUB_BUILD_ARCHES\.has\(arch\);/,
+  "Installation availability should choose GitHub versus Launchpad jobs from the architecture"
+);
+assert.match(
+  source,
+  /const workflowSnapshot = \(row\.workflow_runs \|\| \{\}\)\[selectedBranch\] \|\| \{\};/,
+  "Installation availability should use baked per-architecture workflow metadata before live API refresh"
+);
+assert.match(
+  source,
+  /workflowSnapshot\.url \|\| "",\s*workflowSnapshot\.duration_seconds,/,
+  "Installation availability should render baked workflow job URLs and durations"
+);
+assert.doesNotMatch(
+  source,
+  /const fallbackUrl = isGitHub[\s\S]*actions\/workflows\/cicd\.yml[\s\S]*actions\/workflows\/launchpad-builds\.yml[\s\S]*workflowButtonHtml\(fallbackUrl, null/,
+  "Build/publish duration buttons must not fall back to workflow YAML URLs"
 );
 assert.match(
   source,

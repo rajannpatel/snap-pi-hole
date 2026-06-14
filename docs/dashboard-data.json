@@ -679,7 +679,25 @@
         "channel": "stable",
         "build_source": "github",
         "on_stable": true,
-        "build_status": "current"
+        "build_status": "current",
+        "workflow_runs": {
+          "stable": {
+            "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27508103691/job/81302947934",
+            "duration_seconds": 238,
+            "duration_label": "3m 58s",
+            "status": "success",
+            "run_number": 122,
+            "job_name": "build github (stable, amd64)"
+          },
+          "edge": {
+            "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27508103691/job/81302947963",
+            "duration_seconds": 255,
+            "duration_label": "4m 15s",
+            "status": "success",
+            "run_number": 122,
+            "job_name": "build github (edge, amd64)"
+          }
+        }
       },
       {
         "architecture": "ARM64",
@@ -694,7 +712,25 @@
         "channel": "stable",
         "build_source": "github",
         "on_stable": true,
-        "build_status": "current"
+        "build_status": "current",
+        "workflow_runs": {
+          "stable": {
+            "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27508103691/job/81302947936",
+            "duration_seconds": 254,
+            "duration_label": "4m 14s",
+            "status": "success",
+            "run_number": 122,
+            "job_name": "build github (stable, arm64)"
+          },
+          "edge": {
+            "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27508103691/job/81302947946",
+            "duration_seconds": 252,
+            "duration_label": "4m 12s",
+            "status": "success",
+            "run_number": 122,
+            "job_name": "build github (edge, arm64)"
+          }
+        }
       },
       {
         "architecture": "ARMHF",
@@ -709,7 +745,25 @@
         "channel": "stable",
         "build_source": "launchpad",
         "on_stable": true,
-        "build_status": "current"
+        "build_status": "current",
+        "workflow_runs": {
+          "stable": {
+            "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27508411158/job/81303822108",
+            "duration_seconds": 1173,
+            "duration_label": "19m 33s",
+            "status": "success",
+            "run_number": 26,
+            "job_name": "build and publish launchpad (stable, armhf)"
+          },
+          "edge": {
+            "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27508411158/job/81303822174",
+            "duration_seconds": 995,
+            "duration_label": "16m 35s",
+            "status": "success",
+            "run_number": 26,
+            "job_name": "build and publish launchpad (edge, armhf)"
+          }
+        }
       },
       {
         "architecture": "PPC64EL",
@@ -724,7 +778,25 @@
         "channel": "stable",
         "build_source": "launchpad",
         "on_stable": true,
-        "build_status": "current"
+        "build_status": "current",
+        "workflow_runs": {
+          "stable": {
+            "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27508411158/job/81303822365",
+            "duration_seconds": 573,
+            "duration_label": "9m 33s",
+            "status": "failure",
+            "run_number": 26,
+            "job_name": "build and publish launchpad (stable, ppc64el)"
+          },
+          "edge": {
+            "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27508411158/job/81303822112",
+            "duration_seconds": 1099,
+            "duration_label": "18m 19s",
+            "status": "success",
+            "run_number": 26,
+            "job_name": "build and publish launchpad (edge, ppc64el)"
+          }
+        }
       },
       {
         "architecture": "RISCV64",
@@ -739,7 +811,25 @@
         "channel": "stable",
         "build_source": "launchpad",
         "on_stable": true,
-        "build_status": "current"
+        "build_status": "current",
+        "workflow_runs": {
+          "stable": {
+            "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27508411158/job/81303822228",
+            "duration_seconds": 5700,
+            "duration_label": "1h 35m",
+            "status": "in_progress",
+            "run_number": 26,
+            "job_name": "build and publish launchpad (stable, riscv64)"
+          },
+          "edge": {
+            "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27508411158/job/81303822148",
+            "duration_seconds": 5700,
+            "duration_label": "1h 35m",
+            "status": "in_progress",
+            "run_number": 26,
+            "job_name": "build and publish launchpad (edge, riscv64)"
+          }
+        }
       },
       {
         "architecture": "S390X",
@@ -754,7 +844,25 @@
         "channel": "stable",
         "build_source": "launchpad",
         "on_stable": true,
-        "build_status": "current"
+        "build_status": "current",
+        "workflow_runs": {
+          "stable": {
+            "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27508411158/job/81303822163",
+            "duration_seconds": 916,
+            "duration_label": "15m 16s",
+            "status": "success",
+            "run_number": 26,
+            "job_name": "build and publish launchpad (stable, s390x)"
+          },
+          "edge": {
+            "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27508411158/job/81303822130",
+            "duration_seconds": 816,
+            "duration_label": "13m 36s",
+            "status": "success",
+            "run_number": 26,
+            "job_name": "build and publish launchpad (edge, s390x)"
+          }
+        }
       }
     ],
     "published_channels": [
@@ -818,7 +926,9 @@
     "latest_success_run": {
       "run_number": 12,
       "updated_at": "2026-06-14T02:14:48Z",
-      "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27485666718"
+      "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27485666718",
+      "duration_seconds": 15,
+      "duration_label": "15s"
     },
     "edge_releases": [
       {
