@@ -16,6 +16,7 @@ REPO = "snap-pi-hole"
 GITHUB_API = "https://api.github.com"
 SNAP_NAME = "pihole-by-rajannpatel"
 SNAPCRAFT_INFO_URL = f"https://api.snapcraft.io/v2/snaps/info/{SNAP_NAME}"
+UPSTREAM_EDGE_REF = "development"
 
 # GitHub-hosted runners only build amd64 and arm64 (see the build matrix in
 # .github/workflows/cicd.yml). The other four architectures (armhf, ppc64el,
@@ -302,7 +303,7 @@ def latest_cicd_run_with_distro_jobs(client, branch="main"):
     return None, []
 
 
-def collect_distro_matrix(client, branch="main"):
+def collect_distro_matrix(client, branch="main", channel="stable"):
     matrix = []
     failed_links = []
     latest_timestamps = []
@@ -317,8 +318,11 @@ def collect_distro_matrix(client, branch="main"):
 
     for item in DISTRO_WORKFLOWS:
         distro = item.get("distro") or distro_job_key(item["workflow"])
-        prefix = f"distro test ({distro})"
+        prefix = f"distro test ({distro}, {channel})"
+        legacy_prefix = f"distro test ({distro})"
         job = next((j for j in jobs if j.get("name", "").startswith(prefix)), None)
+        if job is None:
+            job = next((j for j in jobs if j.get("name", "").startswith(legacy_prefix)), None)
 
         status = summarize_state(job)
         conclusion = job.get("conclusion") if job else "no_data"
@@ -485,22 +489,23 @@ def collect_edge_release_data(client, versions):
 
     results = []
     for component in components:
-        latest_commit = client.get_json_or_empty(f"{GITHUB_API}/repos/{component['repo']}/commits/dev")
-        latest_sha = latest_commit.get("sha", "")
+        latest_commit = client.get_json_or_empty(f"{GITHUB_API}/repos/{component['repo']}/commits/{UPSTREAM_EDGE_REF}")
+        latest_sha = latest_commit.get("sha", "") or git_remote_ref(component["repo"], UPSTREAM_EDGE_REF)
         local_sha = component["local"]
         update_available = bool(local_sha and latest_sha and local_sha != latest_sha)
         
         compare_url = ""
         if local_sha and latest_sha and local_sha != latest_sha:
-            compare_url = f"https://github.com/{component['repo']}/compare/{local_sha}...dev"
+            compare_url = f"https://github.com/{component['repo']}/compare/{local_sha}...{UPSTREAM_EDGE_REF}"
         else:
-            compare_url = f"https://github.com/{component['repo']}/commits/dev"
+            compare_url = f"https://github.com/{component['repo']}/commits/{UPSTREAM_EDGE_REF}"
 
         results.append(
             {
                 "key": component["key"],
                 "name": component["name"],
                 "repository": component["repo"],
+                "upstream_ref": UPSTREAM_EDGE_REF,
                 "local_commit": local_sha,
                 "upstream_commit": latest_sha,
                 "update_available": update_available,
@@ -508,6 +513,34 @@ def collect_edge_release_data(client, versions):
             }
         )
     return results
+
+
+def collect_upstream_dev_versions(client):
+    components = [
+        ("ftl", "pi-hole/FTL"),
+        ("pi_hole", "pi-hole/pi-hole"),
+        ("web", "pi-hole/web"),
+    ]
+    versions = {}
+    for key, repo in components:
+        latest_commit = client.get_json_or_empty(f"{GITHUB_API}/repos/{repo}/commits/{UPSTREAM_EDGE_REF}")
+        versions[key] = latest_commit.get("sha", "") or git_remote_ref(repo, UPSTREAM_EDGE_REF)
+    return versions
+
+
+def git_remote_ref(repo, ref):
+    try:
+        output = subprocess.check_output(
+            ["git", "ls-remote", f"https://github.com/{repo}.git", f"refs/heads/{ref}"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=30,
+        ).strip()
+    except Exception:
+        return ""
+    if not output:
+        return ""
+    return output.split()[0]
 
 
 def parse_revisions_file(revisions_file_path):
@@ -827,11 +860,11 @@ def main():
     )
 
     versions = extract_snapcraft_versions(repo_root / "snap" / "snapcraft.yaml")
-    edge_versions = extract_snapcraft_versions_from_git(repo_root, "dev")
+    edge_versions = collect_upstream_dev_versions(client)
     build_status_stable = collect_build_status(client, "main")
-    build_status_edge = collect_build_status(client, "dev")
-    distro_matrix_stable = collect_distro_matrix(client, "main")
-    distro_matrix_edge = collect_distro_matrix(client, "dev")
+    build_status_edge = collect_build_status(client, "main")
+    distro_matrix_stable = collect_distro_matrix(client, "main", "stable")
+    distro_matrix_edge = collect_distro_matrix(client, "main", "edge")
     security = collect_security_summary(vuln_summary_path)
     releases = collect_release_data(client, versions)
     edge_releases = collect_edge_release_data(client, edge_versions)

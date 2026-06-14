@@ -721,8 +721,8 @@
         <div class="row">
           <div class="col-12">
             <div class="p-button-group" role="group" aria-label="Select Channel" style="margin-top: 1rem; margin-bottom: 2rem;">
-              <button class="p-button is-active" id="btn-stable" aria-pressed="true">Stable (main)</button>
-              <button class="p-button" id="btn-edge" aria-pressed="false">Edge (dev)</button>
+              <button class="p-button is-active" id="btn-stable" aria-pressed="true">Stable (upstream releases)</button>
+              <button class="p-button" id="btn-edge" aria-pressed="false">Edge (upstream dev)</button>
             </div>
             <div class="p-muted-heading-container u-no-margin--bottom">
               <h3 class="p-muted-heading" id="build-status-title">Build Status</h3>
@@ -2109,8 +2109,10 @@
       const liveFailedLinks = [];
       matrixState.rows = matrixState.rows.map((row) => {
         const key = row.distro || (row.workflow || "").replace(/^test-/, "").replace(/\.yml$/, "");
-        const prefix = `distro test (${key})`;
-        const job = jobs.find((candidate) => (candidate.name || "").startsWith(prefix));
+        const prefix = `distro test (${key}, ${selectedBranch})`;
+        const legacyPrefix = `distro test (${key})`;
+        const job = jobs.find((candidate) => (candidate.name || "").startsWith(prefix))
+          || jobs.find((candidate) => (candidate.name || "").startsWith(legacyPrefix));
         if (!job) {
           const fallback = (matrixState.failedLinks || []).find((link) => link.workflow === row.workflow);
           if (fallback) liveFailedLinks.push(fallback);
@@ -2147,7 +2149,7 @@
 
     // Reconstructs and redraws the main CI/CD build status block metrics
     function applyLiveBuildStatus(runs) {
-      const branchName = selectedBranch === "stable" ? "main" : "dev";
+      const branchName = "main";
       const cicdRuns = runs.filter((run) => (run.path || "").endsWith("/cicd.yml") && run.head_branch === branchName);
       if (!cicdRuns.length) return false;
 
@@ -2327,7 +2329,7 @@
       freshnessState.live.updatedAt = new Date().toISOString();
       const latestByWorkflow = latestRunByWorkflow(runs);
 
-      const branchName = selectedBranch === "stable" ? "main" : "dev";
+      const branchName = "main";
       const cicdRuns = runs.filter((run) => (run.path || "").endsWith("/cicd.yml") && run.head_branch === branchName);
       const lpRuns = runs.filter((run) => (run.path || "").endsWith("/launchpad-builds.yml") && run.head_branch === branchName);
 
@@ -2456,7 +2458,7 @@
         if (!item.repository) continue;
         try {
           const response = await fetch(
-            `${GITHUB_API_BASE}/repos/${item.repository}/commits/dev`,
+            `${GITHUB_API_BASE}/repos/${item.repository}/commits/${item.upstream_ref || "development"}`,
             { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" }
           );
           if (response.ok) {

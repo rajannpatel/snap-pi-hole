@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
-    branches: [main, dev]
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -62,18 +62,24 @@ jobs:
         run: bats tests/integration/
 
   build:
-    name: build github (${{ matrix.arch }})
+    name: build github (${{ matrix.channel }}, ${{ matrix.arch }})
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     environment: snap-publishing
     strategy:
       fail-fast: false
       matrix:
         arch: [amd64, arm64]
+        channel: [stable, edge]
         # armhf, ppc64el, riscv64, and s390x are built on Launchpad's build farm
         # by the separate Launchpad Builds workflow, because GitHub-hosted runners
         # only support amd64 and arm64.
     steps:
       - uses: actions/checkout@v6
+
+      - name: Select upstream Pi-hole sources
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 snap/local/build/select_snapcraft_upstream.py ${{ matrix.channel }}
 
       - name: Mask Snapcraft UA token
         env:
@@ -96,20 +102,20 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
           unsquashfs -d extracted-snap ${{ steps.snapcraft.outputs.snap }}
-          syft scan extracted-snap -o cyclonedx-json=sbom-${{ matrix.arch }}.json
-          python3 snap/local/build/enrich_sbom.py sbom-${{ matrix.arch }}.json extracted-snap
+          syft scan extracted-snap -o cyclonedx-json=sbom-${{ matrix.channel }}-${{ matrix.arch }}.json
+          python3 snap/local/build/enrich_sbom.py sbom-${{ matrix.channel }}-${{ matrix.arch }}.json extracted-snap
 
       - name: Upload SBOM artefact
         uses: actions/upload-artifact@v6
         with:
-          name: sbom-github-${{ matrix.arch }}
-          path: sbom-${{ matrix.arch }}.json
+          name: sbom-github-${{ matrix.channel }}-${{ matrix.arch }}
+          path: sbom-${{ matrix.channel }}-${{ matrix.arch }}.json
           if-no-files-found: error
 
       - name: Upload snap artefact
         uses: actions/upload-artifact@v6
         with:
-          name: pihole-snap-github-${{ matrix.arch }}
+          name: pihole-snap-github-${{ matrix.channel }}-${{ matrix.arch }}
           path: ${{ steps.snapcraft.outputs.snap }}
           if-no-files-found: error
 
@@ -227,18 +233,19 @@ jobs:
 
 
   smoke:
-    name: smoke test (${{ matrix.arch }})
+    name: smoke test (${{ matrix.channel }}, ${{ matrix.arch }})
     needs: [build, lint]
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
         arch: [amd64, arm64]
+        channel: [stable, edge]
     steps:
       - name: Download snap
         uses: actions/download-artifact@v7
         with:
-          name: pihole-snap-github-${{ matrix.arch }}
+          name: pihole-snap-github-${{ matrix.channel }}-${{ matrix.arch }}
 
       - name: Free port 53
         run: |
@@ -438,7 +445,7 @@ jobs:
           sudo cat /var/snap/${{ env.SNAP_NAME }}/common/var/log/pihole/FTL.log || true
 
   distro-test:
-    name: distro test (${{ matrix.distro }})
+    name: distro test (${{ matrix.distro }}, ${{ matrix.channel }})
     needs: [build, lint]
     permissions:
       actions: read
@@ -449,49 +456,94 @@ jobs:
         include:
           - distro: ubuntu
             lxd_image: ubuntu:lts
+            channel: stable
           - distro: ubuntu-daily
             lxd_image: ubuntu-daily:devel
+            channel: stable
           - distro: ubuntu-core
             lxd_image: ""
+            channel: stable
           - distro: debian
             lxd_image: images:debian
+            channel: stable
           - distro: debian-stable
             lxd_image: images:debian/stable
+            channel: stable
           - distro: fedora
             lxd_image: images:fedora
+            channel: stable
           - distro: rockylinux
             lxd_image: images:rockylinux
+            channel: stable
           - distro: almalinux
             lxd_image: images:almalinux
+            channel: stable
           - distro: opensuse-leap
             lxd_image: images:opensuse
+            channel: stable
           - distro: opensuse-tumbleweed
             lxd_image: images:opensuse/tumbleweed
+            channel: stable
           - distro: archlinux
             lxd_image: images:archlinux
+            channel: stable
+          - distro: ubuntu
+            lxd_image: ubuntu:lts
+            channel: edge
+          - distro: ubuntu-daily
+            lxd_image: ubuntu-daily:devel
+            channel: edge
+          - distro: ubuntu-core
+            lxd_image: ""
+            channel: edge
+          - distro: debian
+            lxd_image: images:debian
+            channel: edge
+          - distro: debian-stable
+            lxd_image: images:debian/stable
+            channel: edge
+          - distro: fedora
+            lxd_image: images:fedora
+            channel: edge
+          - distro: rockylinux
+            lxd_image: images:rockylinux
+            channel: edge
+          - distro: almalinux
+            lxd_image: images:almalinux
+            channel: edge
+          - distro: opensuse-leap
+            lxd_image: images:opensuse
+            channel: edge
+          - distro: opensuse-tumbleweed
+            lxd_image: images:opensuse/tumbleweed
+            channel: edge
+          - distro: archlinux
+            lxd_image: images:archlinux
+            channel: edge
     uses: ./.github/workflows/reusable-distro-test.yml
     with:
       distro: ${{ matrix.distro }}
       lxd_image: ${{ matrix.lxd_image }}
-      snap_artifact_name: pihole-snap-github-amd64
+      snap_artifact_name: pihole-snap-github-${{ matrix.channel }}-amd64
     secrets: inherit
 
   publish:
-    name: publish github (${{ matrix.arch }})
+    name: publish github (${{ matrix.channel }}, ${{ matrix.arch }})
     needs: [smoke]
     runs-on: ubuntu-latest
     environment: snap-publishing
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
       matrix:
         arch: [amd64, arm64]
+        channel: [stable, edge]
     steps:
       - uses: actions/checkout@v6
 
       - name: Download snap
         uses: actions/download-artifact@v7
         with:
-          name: pihole-snap-github-${{ matrix.arch }}
+          name: pihole-snap-github-${{ matrix.channel }}-${{ matrix.arch }}
           path: .
 
       - name: Get snap filename and release channel
@@ -507,8 +559,7 @@ jobs:
           MAJOR_VERSION=$(echo "${SNAP_VERSION#v}" | cut -d'.' -f1)
           echo "track=${MAJOR_VERSION}" >> $GITHUB_OUTPUT
 
-          # Publish to edge if building from dev branch; otherwise stable.
-          if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+          if [ "${{ matrix.channel }}" = "edge" ]; then
             echo "channels=latest/edge" >> $GITHUB_OUTPUT
           else
             echo "channels=latest/stable" >> $GITHUB_OUTPUT

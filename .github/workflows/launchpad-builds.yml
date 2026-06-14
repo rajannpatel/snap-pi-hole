@@ -16,19 +16,20 @@ env:
 
 jobs:
   build-and-publish-launchpad:
-    name: build and publish launchpad (${{ matrix.arch }})
+    name: build and publish launchpad (${{ matrix.channel }}, ${{ matrix.arch }})
     runs-on: ubuntu-latest
     environment: snap-publishing
     if: |
       github.event_name == 'workflow_dispatch' ||
       (
         github.event.workflow_run.conclusion == 'success' &&
-        (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev')
+        github.event.workflow_run.head_branch == 'main'
       )
     strategy:
       fail-fast: false
       matrix:
         arch: [armhf, ppc64el, riscv64, s390x]
+        channel: [stable, edge]
     steps:
       # remote-build pushes the git tree to Launchpad and rejects shallow
       # clones, so a full-history checkout is mandatory here.
@@ -36,6 +37,11 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.ref || github.ref }}
+
+      - name: Select upstream Pi-hole sources
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 snap/local/build/select_snapcraft_upstream.py ${{ matrix.channel }}
 
       - name: Install snapcraft
         run: sudo snap install snapcraft --classic --channel=9.x/stable
@@ -74,14 +80,14 @@ jobs:
       - name: Upload snap artifact
         uses: actions/upload-artifact@v6
         with:
-          name: pihole-snap-launchpad-${{ matrix.arch }}
+          name: pihole-snap-launchpad-${{ matrix.channel }}-${{ matrix.arch }}
           path: ${{ env.SNAP_NAME }}_*_${{ matrix.arch }}.snap
           if-no-files-found: error
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v6
         with:
-          name: sbom-launchpad-${{ matrix.arch }}
+          name: sbom-launchpad-${{ matrix.channel }}-${{ matrix.arch }}
           path: sbom-${{ matrix.arch }}.json
           if-no-files-found: error
 
@@ -98,8 +104,7 @@ jobs:
           MAJOR_VERSION=$(echo "${SNAP_VERSION#v}" | cut -d'.' -f1)
           echo "track=${MAJOR_VERSION}" >> $GITHUB_OUTPUT
 
-          # Publish to edge if building from dev branch; otherwise stable.
-          if [ "${{ github.event.workflow_run.head_branch }}" = "dev" ] || [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+          if [ "${{ matrix.channel }}" = "edge" ]; then
             echo "channels=latest/edge" >> $GITHUB_OUTPUT
           else
             echo "channels=latest/stable" >> $GITHUB_OUTPUT

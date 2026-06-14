@@ -5,7 +5,7 @@
 #
 #   - track-upstream-releases.yml: snapcraft.yaml-only upstream tag bumps
 #   - cicd.yml: port-53 timeout guard logic (both success and failure paths)
-#   - cicd.yml / launchpad-builds.yml: stable-only Snap Store publishing policy
+#   - cicd.yml / launchpad-builds.yml: Snap Store publishing channel policy
 #
 # Run locally:  bats tests/unit/ci-workflows.bats
 # In CI:        see .github/workflows/cicd.yml (lint+unit job)
@@ -95,11 +95,28 @@ BASH
     [[ "$output" == *"::error::"* ]]
 }
 
+@test "cicd workflow only runs on the snap-pi-hole main branch" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+on = doc.get("on", doc.get(True, {}))
+assert on["push"]["branches"] == ["main"], on
+assert on["pull_request"]["branches"] == ["main"], on
+for workflow in ("${REPO_ROOT}/.github/workflows/cicd.yml", "${REPO_ROOT}/.github/workflows/launchpad-builds.yml"):
+    text = open(workflow).read()
+    assert "refs/heads/dev" not in text, workflow
+    assert "head_branch == 'dev'" not in text, workflow
+PYEOF
+}
+
 @test "cicd publish releases GitHub builds to stable or edge" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
     doc = yaml.safe_load(f)
+publish = doc["jobs"]["publish"]
+assert sorted(publish["strategy"]["matrix"]["channel"]) == ["edge", "stable"], publish["strategy"]
 runs = "\n".join(s.get("run", "") for s in doc["jobs"]["publish"]["steps"])
 assert "channels=latest/stable" in runs, runs
 assert "channels=latest/edge" in runs, runs
@@ -114,7 +131,9 @@ PYEOF
 import yaml
 with open("${REPO_ROOT}/.github/workflows/launchpad-builds.yml") as f:
     doc = yaml.safe_load(f)
-runs = "\n".join(s.get("run", "") for s in doc["jobs"]["build-and-publish-launchpad"]["steps"])
+job = doc["jobs"]["build-and-publish-launchpad"]
+assert sorted(job["strategy"]["matrix"]["channel"]) == ["edge", "stable"], job["strategy"]
+runs = "\n".join(s.get("run", "") for s in job["steps"])
 assert "channels=latest/stable" in runs, runs
 assert "channels=latest/edge" in runs, runs
 for channel in ("latest/beta", "latest/candidate"):
@@ -233,9 +252,11 @@ with open("${REPO_ROOT}/.github/workflows/launchpad-builds.yml") as f:
 jobs = doc["jobs"]
 assert list(jobs) == ["build-and-publish-launchpad"], list(jobs)
 job = jobs["build-and-publish-launchpad"]
-assert job["name"] == "build and publish launchpad (\${{ matrix.arch }})", job["name"]
-matrix = job["strategy"]["matrix"]["arch"]
-assert sorted(matrix) == ["armhf", "ppc64el", "riscv64", "s390x"], matrix
+assert job["name"] == "build and publish launchpad (\${{ matrix.channel }}, \${{ matrix.arch }})", job["name"]
+arches = job["strategy"]["matrix"]["arch"]
+channels = job["strategy"]["matrix"]["channel"]
+assert sorted(arches) == ["armhf", "ppc64el", "riscv64", "s390x"], arches
+assert sorted(channels) == ["edge", "stable"], channels
 assert job["strategy"].get("fail-fast") is False, job["strategy"]
 steps = job["steps"]
 # remote-build rejects shallow clones, so a full-history checkout is required.
@@ -250,6 +271,7 @@ assert "--build-for \${{ matrix.arch }}" in runs, runs
 assert "--build-for armhf,ppc64el,riscv64,s390x" not in runs, runs
 assert "--launchpad-accept-public-upload" in runs, runs
 assert "--launchpad-timeout" in runs, runs
+assert "select_snapcraft_upstream.py \${{ matrix.channel }}" in runs, runs
 PYEOF
 }
 
@@ -265,15 +287,15 @@ assert "enrich_sbom.py" in runs, runs
 assert "sbom-\${{ matrix.arch }}.json" in runs, runs
 uploads = [s for s in steps if str(s.get("uses", "")).startswith("actions/upload-artifact")]
 names = [s.get("with", {}).get("name") for s in uploads]
-assert "pihole-snap-launchpad-\${{ matrix.arch }}" in names, names
-assert "sbom-launchpad-\${{ matrix.arch }}" in names, names
+assert "pihole-snap-launchpad-\${{ matrix.channel }}-\${{ matrix.arch }}" in names, names
+assert "sbom-launchpad-\${{ matrix.channel }}-\${{ matrix.arch }}" in names, names
 # A sbom-* artifact name keeps Launchpad outputs consistent with GitHub builder
 # artifacts for manual download and later report-refresh workflows.
 assert any(str(n).startswith("sbom-") for n in names), names
 PYEOF
 }
 
-@test "launchpad workflow publishes the four Launchpad arches to stable" {
+@test "launchpad workflow publishes the four Launchpad arches to stable and edge from main" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/.github/workflows/launchpad-builds.yml") as f:
@@ -285,6 +307,7 @@ arches = job["strategy"]["matrix"]["arch"]
 assert sorted(arches) == ["armhf", "ppc64el", "riscv64", "s390x"], arches
 runs = "\n".join(s.get("run", "") for s in job["steps"])
 assert "channels=latest/stable" in runs, runs
+assert "channels=latest/edge" in runs, runs
 assert "snapcraft upload" in runs, runs
 PYEOF
 }
@@ -297,15 +320,19 @@ with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
 jobs = doc["jobs"]
 build = jobs["build"]
 publish = jobs["publish"]
-assert build["name"] == "build github (\${{ matrix.arch }})", build["name"]
-assert publish["name"] == "publish github (\${{ matrix.arch }})", publish["name"]
+assert build["name"] == "build github (\${{ matrix.channel }}, \${{ matrix.arch }})", build["name"]
+assert publish["name"] == "publish github (\${{ matrix.channel }}, \${{ matrix.arch }})", publish["name"]
+assert sorted(build["strategy"]["matrix"]["channel"]) == ["edge", "stable"], build["strategy"]
+assert sorted(publish["strategy"]["matrix"]["channel"]) == ["edge", "stable"], publish["strategy"]
 build_uploads = [s for s in build["steps"] if str(s.get("uses", "")).startswith("actions/upload-artifact")]
 build_names = [s.get("with", {}).get("name") for s in build_uploads]
-assert "pihole-snap-github-\${{ matrix.arch }}" in build_names, build_names
-assert "sbom-github-\${{ matrix.arch }}" in build_names, build_names
+assert "pihole-snap-github-\${{ matrix.channel }}-\${{ matrix.arch }}" in build_names, build_names
+assert "sbom-github-\${{ matrix.channel }}-\${{ matrix.arch }}" in build_names, build_names
 publish_downloads = [s for s in publish["steps"] if str(s.get("uses", "")).startswith("actions/download-artifact")]
 publish_names = [s.get("with", {}).get("name") for s in publish_downloads]
-assert "pihole-snap-github-\${{ matrix.arch }}" in publish_names, publish_names
+assert "pihole-snap-github-\${{ matrix.channel }}-\${{ matrix.arch }}" in publish_names, publish_names
+runs = "\n".join(s.get("run", "") for s in build["steps"])
+assert "select_snapcraft_upstream.py \${{ matrix.channel }}" in runs, runs
 PYEOF
 }
 
@@ -339,11 +366,11 @@ assert "publish-remote" not in condition, condition
 PYEOF
 }
 
-@test "cicd workflow distro tests reuse the main amd64 snap artifact" {
+@test "cicd workflow distro tests reuse the matching channel amd64 snap artifact" {
     local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
     grep -q "^  distro-test:" "$workflow"
     grep -q "uses: ./.github/workflows/reusable-distro-test.yml" "$workflow"
-    grep -q "snap_artifact_name: pihole-snap-github-amd64" "$workflow"
+    grep -q 'snap_artifact_name: pihole-snap-github-${{ matrix.channel }}-amd64' "$workflow"
 }
 
 @test "cicd distro reusable-workflow caller grants required token permissions" {
@@ -386,7 +413,8 @@ import yaml
 with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
     doc = yaml.safe_load(f)
 include = doc["jobs"]["distro-test"]["strategy"]["matrix"]["include"]
-distros = sorted(row["distro"] for row in include)
+distros = sorted({row["distro"] for row in include})
+channels = sorted({row["channel"] for row in include})
 expected = sorted([
     "almalinux",
     "archlinux",
@@ -401,6 +429,9 @@ expected = sorted([
     "ubuntu-daily",
 ])
 assert distros == expected, distros
+assert channels == ["edge", "stable"], channels
+for distro in expected:
+    assert sum(1 for row in include if row["distro"] == distro) == 2, distro
 PYEOF
 }
 
@@ -420,7 +451,7 @@ assert not os.path.exists(path), path
 PYEOF
 }
 
-@test "manual promotion workflow is retired because publishing is stable-only" {
+@test "manual promotion workflow is retired because CI publishes directly to target channels" {
     [ ! -e "${REPO_ROOT}/.github/workflows/promote.yml" ]
 }
 
@@ -434,4 +465,3 @@ cron = on["schedule"][0]["cron"]
 assert cron == "0 */3 * * *", f"Expected cron '0 */3 * * *', got '{cron}'"
 PYEOF
 }
-
