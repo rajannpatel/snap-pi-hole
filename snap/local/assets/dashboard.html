@@ -1341,10 +1341,10 @@
       if (showSpinner) {
         if (durationSeconds !== null && durationSeconds !== undefined) {
           const durationLabel = humanDuration(durationSeconds);
-          contentHtml = `${spinnerHtml}<span>${escapeHtml(durationLabel)}</span>`;
+          contentHtml = `${githubLogoSvg}${spinnerHtml}<span>${escapeHtml(durationLabel)}</span>`;
           accessibleLabel = `${contextLabel || "Workflow"} active, duration: ${durationLabel}`;
         } else {
-          contentHtml = spinnerHtml;
+          contentHtml = `${githubLogoSvg}${spinnerHtml}<span>&#8203;</span>`;
           accessibleLabel = `${contextLabel || "Workflow"} loading`;
         }
       } else {
@@ -1366,16 +1366,12 @@
         : (jobOrRun.status || "queued");
     }
 
-    function liveStatusChip(status, buildingLabel, hideSpinner = false) {
+    function liveStatusChip(status, buildingLabel) {
       const normalized = String(status || "unknown").toLowerCase();
       const text = normalized.replace(/_/g, " ");
       if (isBuildingStatus(normalized)) {
         const label = buildingLabel || "building";
-        const chipHtml = `<span class="status-chip status-building is-building" aria-label="Status: ${label}">${statusIconSvg("building")}<span class="status-text-full" aria-hidden="true">${label}</span><span class="status-text-short" aria-hidden="true">${label}</span></span>`;
-        if (hideSpinner) {
-          return chipHtml;
-        }
-        return `<span class="matrix-building" role="status"><span class="matrix-building__spinner" aria-hidden="true"></span>${chipHtml}</span>`;
+        return `<span class="status-chip status-building is-building" aria-label="Status: ${label}">${statusIconSvg("building")}<span class="status-text-full" aria-hidden="true">${label}</span><span class="status-text-short" aria-hidden="true">${label}</span></span>`;
       }
       return `<span class="status-chip ${statusClass(normalized)}" aria-label="Status: ${text}">${statusIconSvg(normalized)}<span class="status-text-full" aria-hidden="true">${text}</span><span class="status-text-short" aria-hidden="true">${text}</span></span>`;
     }
@@ -1796,11 +1792,7 @@
         const statusText = statusVal.replace("_", " ");
         const statusClassStr = building ? "status-chip status-building is-building" : `status-chip ${statusClass(latest.status)}`;
         
-        if (building) {
-          chip.parentElement.innerHTML = `<span class="matrix-building" role="status"><span class="matrix-building__spinner" aria-hidden="true"></span><span id="latest-run-status-chip" class="${statusClassStr}" aria-label="Status: building">${statusIconSvg(statusVal)}<span class="status-text-full">${statusText}</span><span class="status-text-short">${statusText}</span></span></span>`;
-        } else {
-          chip.parentElement.innerHTML = `<span id="latest-run-status-chip" class="${statusClassStr}" aria-label="Status: ${statusText}">${statusIconSvg(statusVal)}<span class="status-text-full">${statusText}</span><span class="status-text-short">${statusText}</span></span>`;
-        }
+        chip.parentElement.innerHTML = `<span id="latest-run-status-chip" class="${statusClassStr}" aria-label="Status: ${statusText}">${statusIconSvg(statusVal)}<span class="status-text-full">${statusText}</span><span class="status-text-short">${statusText}</span></span>`;
       }
       const latestLink = document.getElementById("latest-run-link");
       if (latestLink && latest.url) {
@@ -1868,7 +1860,7 @@
           ? `<img class="os-badge" src="${badgeSrc}" alt="${logoAlt}">`
           : `<span class="mono">${row.family || ""}</span>`;
         const statusCell = isBuildingStatus(row.status)
-          ? `<span class="matrix-building" role="status"><span class="matrix-building__spinner" aria-hidden="true"></span><span class="status-chip status-building is-building" aria-label="Status: building">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">building</span><span class="status-text-short" aria-hidden="true">building</span></span></span>`
+          ? `<span class="status-chip status-building is-building" aria-label="Status: building">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">building</span><span class="status-text-short" aria-hidden="true">building</span></span>`
           : `<span class="status-chip ${statusClass(row.status)}" aria-label="Status: ${statusText}">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">${statusText}</span><span class="status-text-short" aria-hidden="true">${statusText}</span></span>`;
         tr.innerHTML = `
           <td class="os-logo-col">${badgeCell}</td>
@@ -2818,7 +2810,7 @@
       }
 
       if (isBuilding) {
-        const buildingHtml = `<span class="matrix-building" role="status"><span class="matrix-building__spinner" aria-hidden="true"></span><span class="status-chip status-building is-building" aria-label="Status: checking">${statusIconSvg("building")}<span class="status-text-full" aria-hidden="true">checking</span><span class="status-text-short" aria-hidden="true">checking</span></span></span>`;
+        const buildingHtml = `<span class="status-chip status-building is-building" aria-label="Status: checking">${statusIconSvg("building")}<span class="status-text-full" aria-hidden="true">checking</span><span class="status-text-short" aria-hidden="true">checking</span></span>`;
         stableStatusEl.parentElement.innerHTML = `<span id="stable-track-status">${buildingHtml}</span>`;
         edgeStatusEl.parentElement.innerHTML = `<span id="edge-track-status">${buildingHtml}</span>`;
       } else {
