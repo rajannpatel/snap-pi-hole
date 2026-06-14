@@ -854,13 +854,25 @@ def collect_snap_package_data(client, repo_root):
 
     # The newest released revision is the version actually being served; use it to
     # flag architectures whose builds have fallen behind.
-    reference_version = ""
     newest_timestamp = None
     for info in best_by_arch.values():
         dt = parse_iso(info.get("released_at", ""))
         if dt and (newest_timestamp is None or dt > newest_timestamp):
             newest_timestamp = dt
+
+    reference_version = ""
+    newest_git_time = None
+    for info in best_by_arch.values():
+        git_time = parse_iso(info.get("git_commit_time", ""))
+        if git_time and (newest_git_time is None or git_time > newest_git_time):
+            newest_git_time = git_time
             reference_version = info.get("full_version", "")
+
+    if not reference_version:
+        for info in best_by_arch.values():
+            dt = parse_iso(info.get("released_at", ""))
+            if dt and dt == newest_timestamp:
+                reference_version = info.get("full_version", "")
 
     channels = []
     for arch_upper, info in best_by_arch.items():
