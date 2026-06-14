@@ -506,6 +506,7 @@ def collect_security_summary(vulnerability_summary_path):
     for report in summary.get("reports", []):
         architectures.append(
             {
+                "channel": report.get("channel", "stable"),
                 "architecture": report.get("architecture", "unknown"),
                 "affected_packages": report.get("actionableAffectedPackages", report.get("affectedPackages", 0)),
                 "vulnerabilities": report.get("actionableVulnerabilities", report.get("vulnerabilities", 0)),

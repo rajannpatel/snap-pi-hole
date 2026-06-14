@@ -1318,13 +1318,13 @@ PYEOF
 }
 
 @test "summarizer emits a valid CycloneDX VEX document per architecture" {
-    write_osv_report "${REPORT_DIR}/osv-amd64.json"
-    write_osv_report "${REPORT_DIR}/osv-arm64.json"
+    write_osv_report "${REPORT_DIR}/osv-stable-amd64.json"
+    write_osv_report "${REPORT_DIR}/osv-stable-arm64.json"
 
     python3 "${REPO_ROOT}/snap/local/build/summarize_osv_reports.py" "$REPORT_DIR"
 
-    [ -f "${REPORT_DIR}/vex-amd64.cdx.json" ]
-    [ -f "${REPORT_DIR}/vex-arm64.cdx.json" ]
+    [ -f "${REPORT_DIR}/vex-stable-amd64.cdx.json" ]
+    [ -f "${REPORT_DIR}/vex-stable-arm64.cdx.json" ]
 
     # Structural CycloneDX 1.5 invariants plus self-consistency: every
     # vulnerability's affects[].ref must resolve to a declared component.
@@ -1337,13 +1337,13 @@ PYEOF
       (.vulnerabilities | length) == 2 and
       (.vulnerabilities | all(.analysis.state as $s | ["not_affected","exploitable","in_triage"] | index($s) != null)) and
       ([.components[]."bom-ref"] as $refs | .vulnerabilities | all(.affects[0].ref as $r | $refs | index($r) != null))
-    ' "${REPORT_DIR}/vex-amd64.cdx.json"
+    ' "${REPORT_DIR}/vex-stable-amd64.cdx.json"
     [ "$status" -eq 0 ]
 
     # The USN alias is preserved as a cross-reference on the matching finding.
     run jq -e '
       .vulnerabilities[] | select(.id == "CVE-2023-38545") | .references[0].id == "USN-6425-1"
-    ' "${REPORT_DIR}/vex-amd64.cdx.json"
+    ' "${REPORT_DIR}/vex-stable-amd64.cdx.json"
     [ "$status" -eq 0 ]
 }
 
@@ -1361,7 +1361,7 @@ d = summary.vex_serial_number("amd64", "2026-06-10T00:00:00Z")
 assert a == b, (a, b)
 assert a != c and a != d, (a, c, d)
 assert a.startswith("urn:uuid:"), a
-assert summary.vex_filename("armhf") == "vex-armhf.cdx.json"
+assert summary.vex_filename("stable", "armhf") == "vex-stable-armhf.cdx.json"
 PYEOF
 }
 
@@ -1469,7 +1469,7 @@ PYEOF
 }
 
 @test "write_vex_documents returns written filenames and HTML links to the VEX" {
-    write_osv_report "${REPORT_DIR}/osv-amd64.json"
+    write_osv_report "${REPORT_DIR}/osv-stable-amd64.json"
 
     python3 - <<PYEOF
 import sys, pathlib
@@ -1479,12 +1479,12 @@ import summarize_osv_reports as summary
 reports_dir = pathlib.Path("${REPORT_DIR}")
 data = summary.collect_reports(reports_dir)
 written = summary.write_vex_documents(data, reports_dir)
-assert written == ["vex-amd64.cdx.json"], written
-assert (reports_dir / "vex-amd64.cdx.json").exists()
+assert written == ["vex-stable-amd64.cdx.json"], written
+assert (reports_dir / "vex-stable-amd64.cdx.json").exists()
 
 summary.write_html(data, reports_dir / "index.html")
 html = (reports_dir / "index.html").read_text()
-assert 'href="vex-amd64.cdx.json"' in html, "VEX download link missing"
+assert 'href="vex-stable-amd64.cdx.json"' in html, "VEX download link missing"
 assert ">Download VEX<" in html, "Download VEX button missing"
 PYEOF
 }

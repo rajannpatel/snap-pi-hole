@@ -1255,7 +1255,8 @@ def display_vulnerability_id(vulnerability_id):
 
 
 def normalize_architecture_label(architecture):
-    arch = str(architecture).strip().lower()
+    parts = str(architecture).strip().lower().split("-")
+    arch = parts[1] if len(parts) == 2 else parts[0]
     if arch == "amd64":
         return "AMD64"
     if arch == "arm64":
@@ -1288,6 +1289,14 @@ def architecture_chip(architecture):
     return (
         '<span class="p-chip vulnerability-architecture">'
         f'<span class="p-chip__value">{html.escape(normalize_architecture_label(architecture))}</span>'
+        "</span>"
+    )
+
+
+def channel_chip(channel):
+    return (
+        '<span class="p-chip vulnerability-channel">'
+        f'<span class="p-chip__value">{html.escape(str(channel).strip().lower())}</span>'
         "</span>"
     )
 
@@ -1400,7 +1409,12 @@ def collect_reports(reports_dir):
     for report_path in sorted(reports_dir.glob("osv-*.json")):
         if report_path.name == "osv-summary.json":
             continue
-        arch = report_path.stem.removeprefix("osv-")
+        stem = report_path.stem.removeprefix("osv-")
+        if "-" in stem:
+            channel, arch = stem.split("-", 1)
+        else:
+            channel = "stable"
+            arch = stem
         data = json.loads(report_path.read_text(encoding="utf-8"))
         vulnerabilities = 0
         affected_packages = 0
@@ -1471,6 +1485,7 @@ def collect_reports(reports_dir):
                 })
 
         summary["reports"].append({
+            "channel": channel,
             "architecture": arch,
             "report": report_path.name,
             "generatedAt": generated_time(report_path),
@@ -1672,8 +1687,8 @@ _VEX_SEVERITY_MAP = {
 }
 
 
-def vex_filename(architecture):
-    return f"vex-{architecture}.cdx.json"
+def vex_filename(channel, architecture):
+    return f"vex-{channel}-{architecture}.cdx.json"
 
 
 def vex_serial_number(architecture, timestamp):
@@ -1839,7 +1854,7 @@ def write_vex_documents(summary, reports_dir):
     written = []
     for report in summary.get("reports", []):
         document = build_vex_document(report)
-        filename = vex_filename(report["architecture"])
+        filename = vex_filename(report.get("channel", "stable"), report["architecture"])
         (reports_dir / filename).write_text(
             json.dumps(document, indent=2) + "\n", encoding="utf-8"
         )
@@ -1862,7 +1877,7 @@ def write_html(summary, output_path):
             f'{html.escape(report["generatedAt"]["label"])}</time>'
         )
         report_link = f'<a class="p-button" href="{html.escape(report["report"])}" download>Download OSV</a>'
-        vex_link = f'<a class="p-button" href="{html.escape(vex_filename(report["architecture"]))}" download>Download VEX</a>'
+        vex_link = f'<a class="p-button" href="{html.escape(vex_filename(report.get("channel", "stable"), report["architecture"]))}" download>Download VEX</a>'
 
         report_cell = (
             f'{report_time}<br>'
@@ -1870,9 +1885,11 @@ def write_html(summary, output_path):
             f'{report_link}{vex_link}</div>'
         )
         
+        ch = html.escape(report.get("channel", "stable"))
         summary_rows.append(
             f"<tr>"
-            f"<td><strong>{arch}</strong></td>"
+            f"<td><span class=\"p-chip\">{ch}</span></td>"
+            f"<td><strong>{arch.upper()}</strong></td>"
             f"<td>{actionable_pkgs}</td>"
             f"<td>{actionable_vulns}</td>"
             f"<td>{raw_matches}</td>"
@@ -1921,13 +1938,19 @@ def write_html(summary, output_path):
                         "publication_label": publication_label,
                         "appropriate": vulnerability.get("appropriate", ""),
                         "not_appropriate": vulnerability.get("not_appropriate", ""),
+                        "channels": set(),
                         "architectures": set(),
                     }
+                detail_rows_by_key[detail_key]["channels"].add(report.get("channel", "stable"))
                 detail_rows_by_key[detail_key]["architectures"].add(report["architecture"])
 
     detail_rows = []
     architecture_order = {"AMD64": 0, "ARM64": 1}
     for row_data in detail_rows_by_key.values():
+        channel_labels = sorted(row_data["channels"])
+        channel_cells = " ".join(
+            channel_chip(channel) for channel in channel_labels
+        )
         architecture_labels = sorted(
             {normalize_architecture_label(arch) for arch in row_data["architectures"]},
             key=lambda label: (architecture_order.get(label, 99), label),
@@ -1956,6 +1979,7 @@ def write_html(summary, output_path):
                 row_data["priority"],
                 "actionable" if row_data["patchable"] else "unactionable confined mitigation",
                 publication_label,
+                " ".join(channel_labels),
                 " ".join(architecture_labels),
                 appropriate_text,
                 not_appropriate_text,
@@ -1994,13 +2018,14 @@ def write_html(summary, output_path):
             f"<td>{priority_icon(row_data['priority'])}</td>"
             f"<td>{status_badge(row_data['patchable'])}</td>"
             f"<td>{publication_cell}</td>"
+            f"<td>{channel_cells}</td>"
             f"<td>{architecture_cells}</td>"
             "</tr>\n"
         )
         if explanation_blocks:
             detail_row_html += (
                 f'<tr class="vulnerability-explanation-row" style="background-color: #fafafa;">'
-                f'<td colspan="8" style="padding: 1rem 1.5rem !important; border-bottom: 1px solid #e0e0e0;">'
+                f'<td colspan="9" style="padding: 1rem 1.5rem !important; border-bottom: 1px solid #e0e0e0;">'
                 f'{recommendation_html}'
                 f'<div style="display: flex; gap: 2rem; flex-wrap: wrap;">'
                 f'{"".join(explanation_blocks)}'
@@ -2014,7 +2039,7 @@ def write_html(summary, output_path):
         '<tr><td colspan="5">No OSV reports were generated.</td></tr>'
     )
     detail_body_rows = "\n".join(detail_rows) or (
-        '<tr><td colspan="8">No unpatched vulnerabilities reported by OSV-Scanner.</td></tr>'
+        '<tr><td colspan="9">No unpatched vulnerabilities reported by OSV-Scanner.</td></tr>'
     )
     output_path.write_text(f"""<!DOCTYPE html>
 <html lang="en">
@@ -2224,6 +2249,7 @@ def write_html(summary, output_path):
             <table class="p-table" id="vulnerability-summary-table">
               <thead>
                 <tr>
+                  <th>Channel</th>
                   <th>Architecture</th>
                   <th>Actionable USN Packages</th>
                   <th>Actionable USN Vulnerabilities</th>
@@ -2241,14 +2267,51 @@ def write_html(summary, output_path):
             Actionable counts include only vulnerability matches with a corresponding Ubuntu Security Notice (USN). Confined mitigations represent report-only matches that are sandboxed by snap confinement. <strong>Download VEX</strong> exports each architecture's confinement analysis as a standards-compliant CycloneDX VEX document.
           </p>
           <h2 class="p-heading--3">Vulnerability Details</h2>
-          <div class="row vulnerability-table-controls">
-            <div class="col-12">
+          <div class="row vulnerability-table-controls" style="margin-bottom: 1.5rem; align-items: center; row-gap: 1rem;">
+            <div class="col-6 col-medium-4">
               <form class="p-search-box" onsubmit="event.preventDefault(); filterVulnerabilities();" style="margin-bottom: 0;">
                 <label class="u-off-screen" for="vulnerability-search">Search by package, version, vulnerability, CVSS 3, priority, status, publication date, or architecture</label>
                 <input type="search" id="vulnerability-search" class="p-search-box__input" placeholder="Search by package, version, vulnerability, CVSS 3, priority, status, publication date, architecture, or confinement analysis..." oninput="filterVulnerabilities()" autocomplete="off">
                 <button type="reset" class="p-search-box__reset" onclick="document.getElementById('vulnerability-search').value=''; filterVulnerabilities();"><i class="p-icon--close">Clear</i></button>
                 <button type="submit" class="p-search-box__button"><i class="p-icon--search">Search</i></button>
               </form>
+            </div>
+            <div class="col-3 col-medium-2" style="display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end;">
+              <span style="font-size: 0.875rem; color: #111; white-space: nowrap;">Channel:</span>
+              <input type="hidden" id="filter-channel" value="">
+              <span class="p-contextual-menu" style="position: relative; display: block; width: 100%;">
+                <button type="button" class="p-contextual-menu__toggle" id="channel-toggle-btn" aria-controls="filter-channel-dropdown" aria-expanded="false" aria-haspopup="true" style="width: 100%; font-size: 0.875rem; padding: 0.25rem 0.75rem; text-align: left; display: flex; justify-content: space-between; align-items: center; border: 1px solid #d0d0d0; border-radius: 4px; background: white; margin-bottom: 0;">
+                  All Channels <span style="font-size: 0.6rem; margin-left: 0.5rem; color: #666;">▼</span>
+                </button>
+                <span class="p-contextual-menu__dropdown" id="filter-channel-dropdown" aria-hidden="true" style="min-width: 100%; margin-top: 4px; left: 0; right: auto;">
+                  <span class="p-contextual-menu__group" style="margin-bottom: 0; padding: 0;">
+                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectChannel('', 'All Channels', event)">All Channels</button>
+                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectChannel('stable', 'Stable', event)">Stable</button>
+                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectChannel('edge', 'Edge', event)">Edge</button>
+                  </span>
+                </span>
+              </span>
+            </div>
+            <div class="col-3 col-medium-2" style="display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end;">
+              <span style="font-size: 0.875rem; color: #111; white-space: nowrap;">Architecture:</span>
+              <input type="hidden" id="filter-arch" value="">
+              <span class="p-contextual-menu" style="position: relative; display: block; width: 100%;">
+                <button type="button" class="p-contextual-menu__toggle" id="arch-toggle-btn" aria-controls="filter-arch-dropdown" aria-expanded="false" aria-haspopup="true" style="width: 100%; font-size: 0.875rem; padding: 0.25rem 0.75rem; text-align: left; display: flex; justify-content: space-between; align-items: center; border: 1px solid #d0d0d0; border-radius: 4px; background: white; margin-bottom: 0;">
+                  All Architectures <span style="font-size: 0.6rem; margin-left: 0.5rem; color: #666;">▼</span>
+                </button>
+                <span class="p-contextual-menu__dropdown" id="filter-arch-dropdown" aria-hidden="true" style="min-width: 100%; margin-top: 4px; left: 0; right: auto;">
+                  <span class="p-contextual-menu__group" style="margin-bottom: 0; padding: 0;">
+                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('', 'All Architectures', event)">All Architectures</button>
+                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('amd64', 'AMD64', event)">AMD64</button>
+                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('arm64', 'ARM64', event)">ARM64</button>
+                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('armhf', 'ARMHF', event)">ARMHF</button>
+                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('i386', 'i386', event)">i386</button>
+                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('riscv64', 'riscv64', event)">riscv64</button>
+                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('s390x', 's390x', event)">s390x</button>
+                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('ppc64el', 'ppc64el', event)">ppc64el</button>
+                  </span>
+                </span>
+              </span>
             </div>
           </div>
           <div style="overflow-x: auto;">
@@ -2263,7 +2326,8 @@ def write_html(summary, output_path):
                   <th><button type="button" class="vulnerability-sort-button" data-column="4" aria-sort="none" onclick="sortVulnerabilities(4)">Priority</button></th>
                   <th><button type="button" class="vulnerability-sort-button" data-column="5" aria-sort="none" onclick="sortVulnerabilities(5)">Status</button></th>
                   <th><button type="button" class="vulnerability-sort-button" data-column="6" aria-sort="none" onclick="sortVulnerabilities(6)">Publication Date</button></th>
-                  <th><button type="button" class="vulnerability-sort-button" data-column="7" aria-sort="none" onclick="sortVulnerabilities(7)">Architectures</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="7" aria-sort="none" onclick="sortVulnerabilities(7)">Channels</button></th>
+                  <th><button type="button" class="vulnerability-sort-button" data-column="8" aria-sort="none" onclick="sortVulnerabilities(8)">Architectures</button></th>
                 </tr>
               </thead>
               <tbody id="vulnerability-tbody">
@@ -2375,11 +2439,40 @@ def write_html(summary, output_path):
     function filterVulnerabilities() {{
       const searchInput = document.getElementById('vulnerability-search');
       const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+      const filterChannel = document.getElementById('filter-channel');
+      const channelVal = filterChannel ? filterChannel.value.toLowerCase() : '';
+
+      const filterArch = document.getElementById('filter-arch');
+      const archVal = filterArch ? filterArch.value.toLowerCase() : '';
+
       const rows = document.querySelectorAll('#vulnerability-tbody tr.vulnerability-row');
       rows.forEach(row => {{
         const nextRow = row.nextElementSibling;
         const searchText = row.dataset.search || row.textContent.toLowerCase();
-        const matches = !query || searchText.includes(query);
+        let matches = !query || searchText.includes(query);
+
+        if (matches && (channelVal || archVal)) {{
+          let channelMatches = !channelVal;
+          let archMatches = !archVal;
+
+          if (channelVal) {{
+            const channelChips = Array.from(row.querySelectorAll('.vulnerability-channel .p-chip__value')).map(c => c.textContent.trim().toLowerCase());
+            if (channelChips.includes(channelVal)) {{
+              channelMatches = true;
+            }}
+          }}
+          if (archVal) {{
+            const archChips = Array.from(row.querySelectorAll('.vulnerability-architecture .p-chip__value')).map(c => c.textContent.trim().toLowerCase());
+            if (archChips.includes(archVal)) {{
+              archMatches = true;
+            }}
+          }}
+          if (!channelMatches || !archMatches) {{
+            matches = false;
+          }}
+        }}
+
         const displayStyle = matches ? '' : 'none';
         row.style.display = displayStyle;
         if (nextRow && nextRow.classList.contains('vulnerability-explanation-row')) {{
@@ -2418,6 +2511,58 @@ def write_html(summary, output_path):
         const isActive = Number(button.dataset.column) === column;
         button.setAttribute('aria-sort', isActive ? vulnerabilitySortDirection : 'none');
       }});
+      filterVulnerabilities();
+    }}
+
+    // Contextual menu toggle helper
+    document.querySelectorAll('.p-contextual-menu__toggle').forEach(toggle => {{
+      toggle.addEventListener('click', function(e) {{
+        e.stopPropagation();
+        const dropdownId = this.getAttribute('aria-controls');
+        const dropdown = document.getElementById(dropdownId);
+        const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+        // Close all other dropdowns
+        document.querySelectorAll('.p-contextual-menu__dropdown').forEach(d => {{
+          if (d.id !== dropdownId) {{
+            d.setAttribute('aria-hidden', 'true');
+            const btn = document.querySelector(`[aria-controls="${{d.id}}"]`);
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+          }}
+        }});
+
+        // Toggle current dropdown
+        this.setAttribute('aria-expanded', !isExpanded);
+        dropdown.setAttribute('aria-hidden', isExpanded ? 'true' : 'false');
+      }});
+    }});
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function() {{
+      document.querySelectorAll('.p-contextual-menu__dropdown').forEach(d => {{
+        d.setAttribute('aria-hidden', 'true');
+      }});
+      document.querySelectorAll('.p-contextual-menu__toggle').forEach(b => {{
+        b.setAttribute('aria-expanded', 'false');
+      }});
+    }});
+
+    // Option selection helper functions
+    function selectChannel(val, label, event) {{
+      if (event) event.preventDefault();
+      const input = document.getElementById('filter-channel');
+      input.value = val;
+      const toggle = document.getElementById('channel-toggle-btn');
+      toggle.innerHTML = `${{label}} <span style="font-size: 0.6rem; margin-left: 0.5rem; color: #666;">▼</span>`;
+      filterVulnerabilities();
+    }}
+
+    function selectArch(val, label, event) {{
+      if (event) event.preventDefault();
+      const input = document.getElementById('filter-arch');
+      input.value = val;
+      const toggle = document.getElementById('arch-toggle-btn');
+      toggle.innerHTML = `${{label}} <span style="font-size: 0.6rem; margin-left: 0.5rem; color: #666;">▼</span>`;
       filterVulnerabilities();
     }}
   </script>

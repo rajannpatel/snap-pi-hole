@@ -1897,13 +1897,25 @@
 
     // Draws target architectural security vulnerability metrics tables
     function renderSecurity(security) {
-      setText("security-total-vulns", String(security.total_vulnerabilities ?? 0));
-      setText("security-confined-vulns", String(security.confined_mitigation_vulnerabilities ?? 0));
+      const archRows = (security.architectures || []).filter(row => {
+        const ch = (row.channel || "stable").toLowerCase();
+        return ch === selectedBranch.toLowerCase();
+      });
+
+      let totalVulns = 0;
+      let totalConfined = 0;
+      archRows.forEach(row => {
+        totalVulns += (row.vulnerabilities ?? 0);
+        totalConfined += (row.confined_mitigation_vulnerabilities ?? 0);
+      });
+
+      setText("security-total-vulns", String(totalVulns));
+      setText("security-confined-vulns", String(totalConfined));
+
       const body = document.getElementById("security-arch-body");
       if (!body) return;
-      const archRows = security.architectures || [];
       if (!archRows.length) {
-        body.innerHTML = "<tr><td colspan=\"4\">No vulnerability report summary found.</td></tr>";
+        body.innerHTML = `<tr><td colspan="4">No vulnerability report summary found for the ${selectedBranch} channel.</td></tr>`;
         return;
       }
       body.innerHTML = "";
@@ -1911,7 +1923,7 @@
         const tr = document.createElement("tr");
         const architecture = String(row.architecture || "").toLowerCase();
         const osvUrl = row.report ? `vulnerabilities/${row.report}` : "";
-        const vexUrl = architecture ? `vulnerabilities/vex-${architecture}.cdx.json` : "";
+        const vexUrl = architecture ? `vulnerabilities/vex-${row.channel || "stable"}-${architecture}.cdx.json` : "";
         tr.innerHTML = `
           <td>${String(row.architecture || "").toUpperCase()}</td>
           <td>${row.vulnerabilities ?? 0}</td>
@@ -3210,6 +3222,9 @@
       matrixState.failedLinks = testMatrix.failed_links || [];
       renderMatrixRows();
       renderDependencies();
+      if (globalDashboardData.security) {
+        renderSecurity(globalDashboardData.security);
+      }
     }
 
     function resetLiveWorkflowCache() {
