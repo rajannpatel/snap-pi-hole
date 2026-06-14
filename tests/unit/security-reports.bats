@@ -204,6 +204,21 @@ PYEOF
     [ -s "${REPORT_DIR}/index.html" ]
 }
 
+@test "vulnerability detail channel chips use same 12px value font as other chips" {
+    write_osv_report "${REPORT_DIR}/osv-edge-amd64.json"
+
+    python3 "${REPO_ROOT}/snap/local/build/summarize_osv_reports.py" "$REPORT_DIR"
+
+    python3 - <<PYEOF
+from pathlib import Path
+
+html = Path("${REPORT_DIR}/index.html").read_text()
+assert '<span class="p-chip vulnerability-channel">' in html, html
+assert ".vulnerability-channel .p-chip__value" in html, html
+assert ".vulnerability-channel .p-chip__value {\\n      font-size: 12px;" in html, html
+PYEOF
+}
+
 @test "LLM query uses header auth with configurable endpoint and default model" {
     python3 - <<PYEOF
 import json
@@ -1778,6 +1793,5 @@ with mock.patch("summarize_osv_reports.time.sleep") as mock_sleep:
 print("Batch and individual skip on absurd cooldown unit test passed successfully.")
 PYEOF
 }
-
 
 

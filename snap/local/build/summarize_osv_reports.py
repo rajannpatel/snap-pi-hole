@@ -2180,6 +2180,15 @@ def write_html(summary, output_path):
       font-size: 12px;
       font-weight: 400;
     }}
+    .vulnerability-channel {{
+      margin-bottom: 0;
+      margin-right: 0.3rem;
+      white-space: nowrap;
+    }}
+    .vulnerability-channel .p-chip__value {{
+      font-size: 12px;
+      font-weight: 400;
+    }}
     footer.p-strip--dark {{
       background-color: #2d2d2d !important;
       color: #b6b6b6 !important;
