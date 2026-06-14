@@ -1054,7 +1054,7 @@
     const LIVE_RATE_FLOOR = 8;
 
     // Core live application state variables
-    const liveState = { rateRemaining: null, pollTimer: null, releaseLagDone: false, releaseLagDue: false, lastCicdRunId: null, lastLpRunId: null, trackUpstreamRunUrl: null, trackUpstreamRunDurationSeconds: null };
+    const liveState = { rateRemaining: null, pollTimer: null, releaseLagDone: false, releaseLagDue: false, lastCicdRunId: null, lastLpRunId: null, trackUpstreamRunUrl: null, trackUpstreamRunDurationSeconds: null, cicdJobs: null, cicdRun: null, lpJobs: null };
     const matrixState = { rows: [], failedLinks: [] };
 
     // Snap Store Gist integration (workaround for lack of CORS support on api.snapcraft.io)
@@ -1343,11 +1343,48 @@
 
     function findBuildJob(jobs, arch, channel, isGitHub) {
       if (!jobs || !jobs.length) return null;
-      const prefixes = buildJobNamePrefixes(arch, channel, isGitHub);
-      return jobs.find((job) => {
-        const name = String(job.name || "").toLowerCase();
-        return prefixes.some((prefix) => name.startsWith(prefix));
-      }) || null;
+      const normalizedArch = String(arch || "").toLowerCase();
+      const normalizedChannel = String(channel || "stable").toLowerCase();
+      const buildingStates = typeof BUILDING_STATES !== "undefined"
+        ? BUILDING_STATES
+        : new Set(["queued", "in_progress", "requested", "waiting", "pending", "running"]);
+
+      if (isGitHub) {
+        const stages = [
+          `publish github (${normalizedChannel}, ${normalizedArch})`,
+          `publish github (${normalizedArch})`,
+          `smoke test (${normalizedChannel}, ${normalizedArch})`,
+          `smoke test (${normalizedArch})`,
+          `build github (${normalizedChannel}, ${normalizedArch})`,
+          `build github (${normalizedArch})`
+        ];
+
+        // 1. Try to find an active job in progress
+        for (const stage of stages) {
+          const found = jobs.find((job) => {
+            const name = String(job.name || "").toLowerCase();
+            return name.startsWith(stage) && buildingStates.has((job.status || "").toLowerCase());
+          });
+          if (found) return found;
+        }
+
+        // 2. Fallback to the latest stage that has run
+        for (const stage of stages) {
+          const found = jobs.find((job) => {
+            const name = String(job.name || "").toLowerCase();
+            return name.startsWith(stage);
+          });
+          if (found) return found;
+        }
+
+        return null;
+      } else {
+        const prefixes = buildJobNamePrefixes(arch, channel, isGitHub);
+        return jobs.find((job) => {
+          const name = String(job.name || "").toLowerCase();
+          return prefixes.some((prefix) => name.startsWith(prefix));
+        }) || null;
+      }
     }
 
     // Generates flat status shield badge URLs matching status
@@ -2048,8 +2085,10 @@
           if (isBuildingStatus(status)) {
             isBuilding = true;
             statusHtml = `<span class="matrix-building" role="status"><span class="matrix-building__spinner" aria-hidden="true"></span><span class="status-chip status-building is-building" aria-label="Status: building">${statusIconSvg("building")}<span class="status-text-full" aria-hidden="true">building</span><span class="status-text-short" aria-hidden="true">building</span></span></span>`;
-          } else if (FAILURE_STATES.has(status)) {
-            statusHtml = `<span class="status-chip status-failure" aria-label="Status: build failed">${statusIconSvg(status)}<span class="status-text-full" aria-hidden="true">build failed</span><span class="status-text-short" aria-hidden="true">failed</span></span>`;
+          } else if (FAILURE_STATES.has(status) || status === "cancelled" || status === "skipped") {
+            const displayStatus = status === "timed_out" ? "timed out" : (status === "startup_failure" ? "startup failure" : (status === "action_required" ? "action required" : status));
+            const shortStatus = status === "timed_out" ? "timeout" : status;
+            statusHtml = `<span class="status-chip status-${status}" aria-label="Status: ${displayStatus}">${statusIconSvg(status)}<span class="status-text-full" aria-hidden="true">${displayStatus}</span><span class="status-text-short" aria-hidden="true">${shortStatus}</span></span>`;
           }
         } else if (run && isBuildingStatus(run.status)) {
           isBuilding = true;
@@ -2531,15 +2570,19 @@
         const effective = latestCicd.status === "completed" ? (latestCicd.conclusion || "") : (latestCicd.status || "");
         const cicdBuilding = BUILDING_STATES.has(effective.toLowerCase());
         const cicdChanged = latestCicd.id !== liveState.lastCicdRunId;
-        if (cicdChanged || cicdBuilding || liveState.lastCicdRunId === null) {
+        if (cicdChanged || cicdBuilding || liveState.lastCicdRunId === null || !liveState.cicdJobs) {
           const { jobs, run } = await liveMatrixJobsAndRun(cicdRuns);
           cicdJobs = jobs;
           cicdRun = run;
           const result = applyLiveMatrixFromJobs(jobs, run);
           matrixBuilding = result.building;
           liveState.lastCicdRunId = latestCicd.id;
+          liveState.cicdJobs = jobs;
+          liveState.cicdRun = run;
           liveState.releaseLagDue = true;
         } else {
+          cicdJobs = liveState.cicdJobs;
+          cicdRun = liveState.cicdRun;
           matrixBuilding = matrixState.rows.some((row) => isBuildingStatus(row.status));
         }
       }
@@ -2549,9 +2592,12 @@
       const latestLp = lpRuns[0] || null;
       if (latestLp) {
         const lpBuilding = BUILDING_STATES.has((latestLp.status || "").toLowerCase());
-        if (lpBuilding || !liveState.lastLpRunId || latestLp.id !== liveState.lastLpRunId) {
+        if (lpBuilding || !liveState.lastLpRunId || latestLp.id !== liveState.lastLpRunId || !liveState.lpJobs) {
           lpJobs = await fetchRunJobs(latestLp.id);
           liveState.lastLpRunId = latestLp.id;
+          liveState.lpJobs = lpJobs;
+        } else {
+          lpJobs = liveState.lpJobs;
         }
       }
 

@@ -712,6 +712,8 @@ jobs:
           # Copy SBOMs from all artifact directories
           echo "Finding and copying SBOM files..."
           find sbom-artifacts -name "sbom-*.json" -exec cp -v {} docs/sbom/ \;
+          cp -v docs/sbom/sbom-stable-amd64.json docs/sbom/sbom-amd64.json || true
+          cp -v docs/sbom/sbom-stable-arm64.json docs/sbom/sbom-arm64.json || true
 
           # Copy vulnerability reports generated from SBOM artifacts
           cp -r vulnerability-reports/* docs/vulnerabilities/
