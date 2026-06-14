@@ -566,3 +566,59 @@ assert.match(
 JS
     done
 }
+
+@test "frontend: live snap publish success overrides store lag, component status, and updates row details" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$html" <<'JS'
+const fs = require("fs");
+const source = fs.readFileSync(process.argv[2], "utf8");
+const assert = require("assert");
+
+// Assert targetVersion computation in renderSnapPackage
+assert.match(
+  source,
+  /let targetVersion = "";[\s\S]*snapState\.targetVersion = targetVersion;/,
+  "renderSnapPackage must compute and store snapState.targetVersion"
+);
+
+// Assert Serving status override and row cell updates (version, revision, size, released date) on live success
+assert.match(
+  source,
+  /status === "success"[\s\S]*Serving · \$\{selectedBranch\}[\s\S]*snapState\.targetVersion[\s\S]*versionCell\.textContent = snapState\.targetVersion;[\s\S]*revisionCell\.textContent = "—";[\s\S]*sizeCell\.textContent = "—";[\s\S]*dateCell\.textContent = formatDate\(completionTime\);/,
+  "applyLiveSnapStatus must update status, version, revision, size, and date cells on live build success"
+);
+
+// Assert same updates on live run success when job details are absent
+assert.match(
+  source,
+  /run && run\.status === "completed" && run\.conclusion === "success"[\s\S]*Serving · \$\{selectedBranch\}[\s\S]*versionCell\.textContent = snapState\.targetVersion;/,
+  "applyLiveSnapStatus must update status and cells on live run success when job is absent"
+);
+
+// Assert track status override to "Up to date" on live publish success
+assert.match(
+  source,
+  /isStableSuccessful[\s\S]*stable-track-status[\s\S]*Up to date/,
+  "applyLiveSnapStatus must override stable track status to Up to date on live success"
+);
+assert.match(
+  source,
+  /isEdgeSuccessful[\s\S]*edge-track-status[\s\S]*Up to date/,
+  "applyLiveSnapStatus must override edge track status to Up to date on live success"
+);
+
+// Assert component status override via isLivePublishSuccess()
+assert.match(
+  source,
+  /function isLivePublishSuccess\(\)/,
+  "isLivePublishSuccess must be defined"
+);
+assert.match(
+  source,
+  /if \(isLivePublishSuccess\(\)\)[\s\S]*Up to date/,
+  "componentStatusHtml must return Up to date if live snap publish succeeded"
+);
+JS
+    done
+}
+
