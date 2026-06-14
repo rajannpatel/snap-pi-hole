@@ -58,6 +58,38 @@ teardown() {
     [ "$output" = $'v9.1.0\tv9.2.0\tv9.3.0' ]
 }
 
+@test "edge upstream selector pins commits with source-commit, not source-tag" {
+    python3 - <<PYEOF
+import importlib.util
+import pathlib
+import yaml
+
+selector_path = pathlib.Path("${REPO_ROOT}/snap/local/build/select_snapcraft_upstream.py")
+spec = importlib.util.spec_from_file_location("select_snapcraft_upstream", selector_path)
+selector = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(selector)
+
+snapcraft_path = pathlib.Path("${TEST_WORKDIR}/snapcraft.yaml")
+versions = {
+    "ftl": "a" * 40,
+    "pi_hole": "b" * 40,
+    "web": "c" * 40,
+}
+
+selector.update_source_commits(snapcraft_path, versions)
+
+with snapcraft_path.open() as f:
+    doc = yaml.safe_load(f)
+
+for part, commit in versions.items():
+    part_doc = doc["parts"][part]
+    assert part_doc.get("source-commit") == commit, part_doc
+    assert "source-tag" not in part_doc, part_doc
+
+assert doc["parts"]["ftl"].get("source-depth") == 1, doc["parts"]["ftl"]
+PYEOF
+}
+
 # Port-53 timeout guard logic (from cicd.yml smoke test)
 
 _run_port53_guard() {

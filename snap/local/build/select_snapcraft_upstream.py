@@ -51,7 +51,7 @@ def upstream_dev_versions(token=""):
     return versions
 
 
-def update_source_tags(snapcraft_path, versions):
+def update_source_commits(snapcraft_path, versions):
     current_part = None
     changed = set()
     lines = []
@@ -63,8 +63,8 @@ def update_source_tags(snapcraft_path, versions):
             lines.append(raw)
             continue
 
-        if current_part and re.match(r"^    source-tag:\s*\S+\s*$", raw):
-            lines.append(f"    source-tag: {versions[current_part]}")
+        if current_part and re.match(r"^    source-(tag|commit):\s*\S+\s*$", raw):
+            lines.append(f"    source-commit: {versions[current_part]}")
             changed.add(current_part)
             continue
 
@@ -72,7 +72,7 @@ def update_source_tags(snapcraft_path, versions):
 
     missing = sorted(set(versions) - changed)
     if missing:
-        raise RuntimeError(f"Missing source-tag entries for: {', '.join(missing)}")
+        raise RuntimeError(f"Missing source-tag/source-commit entries for: {', '.join(missing)}")
 
     snapcraft_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -88,7 +88,7 @@ def main():
         return
 
     versions = upstream_dev_versions(token=os.environ.get("GITHUB_TOKEN", ""))
-    update_source_tags(pathlib.Path(args.snapcraft), versions)
+    update_source_commits(pathlib.Path(args.snapcraft), versions)
     print(f"Selected upstream {UPSTREAM_EDGE_REF} commits for edge builds:")
     for key in ("ftl", "pi_hole", "web"):
         print(f"  {key}: {versions[key]}")
