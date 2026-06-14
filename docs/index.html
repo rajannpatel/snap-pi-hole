@@ -1872,7 +1872,7 @@
           <td class="distribution-col">${row.label}</td>
           <td>${statusCell}</td>
           <td class="mono">${formatDate(row.updated_at)}</td>
-          <td>${workflowButtonHtml(logUrl, row.duration_seconds, row.failed_job_url ? "Test job" : "Test run")}</td>
+          <td>${workflowButtonHtml(logUrl, row.duration_seconds, row.failed_job_url ? "Test job" : "Test run", isBuildingStatus(row.status))}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -2002,7 +2002,8 @@
       const fallbackUrl = trackRun.url || `https://github.com/${REPO_SLUG}/actions/workflows/track-upstream-releases.yml`;
       const jobUrl = liveState.trackUpstreamJobUrl || fallbackUrl;
       const syncDurationSeconds = liveState.trackUpstreamJobDurationSeconds ?? trackRun.duration_seconds;
-      const workflowHtml = workflowButtonHtml(jobUrl, syncDurationSeconds, liveState.trackUpstreamJobUrl ? "Upstream sync job" : "Upstream sync run");
+      const isUpstreamBuilding = liveState.trackUpstreamJobStatus ? isBuildingStatus(liveState.trackUpstreamJobStatus) : false;
+      const workflowHtml = workflowButtonHtml(jobUrl, syncDurationSeconds, liveState.trackUpstreamJobUrl ? "Upstream sync job" : "Upstream sync run", isUpstreamBuilding);
       updateUpstreamActivity();
 
       if (selectedBranch === "stable") {
@@ -2874,7 +2875,7 @@
       // Update workflows column
       let workflowHtml = "N/A";
       if (jobUrl) {
-        workflowHtml = workflowButtonHtml(jobUrl, durationSeconds, "Upstream sync job");
+        workflowHtml = workflowButtonHtml(jobUrl, durationSeconds, "Upstream sync job", isBuilding);
 
         // Also update the components/dependencies status and workflow cells with live job data.
         renderDependencies();
