@@ -117,3 +117,21 @@ for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
         assert f'>{label}</span>' in text, f"{rel} missing activity label {label}"
 PYEOF
 }
+
+@test "dashboard report library separates vulnerability CTA from tabbed channel selector" {
+    python3 - <<PYEOF
+import pathlib
+repo = pathlib.Path("${REPO_ROOT}")
+for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
+    text = (repo / rel).read_text(encoding="utf-8")
+    assert 'class="report-action-grid"' in text, f"{rel} missing report action grid"
+    assert 'id="report-vuln-summary"' in text, f"{rel} missing vulnerability report summary target"
+    assert 'class="p-button--positive" href="vulnerabilities/"' in text, f"{rel} vulnerability report CTA is not visually distinct"
+    assert 'class="channel-selector"' in text, f"{rel} channel selector missing dedicated class"
+    assert '<h2 class="channel-selector__label">Channel scope</h2>' in text, f"{rel} channel selector missing h2 label"
+    assert 'class="p-tabs"' in text, f"{rel} channel selector is not using Vanilla tabs"
+    assert 'role="tablist"' in text, f"{rel} channel selector missing tablist role"
+    assert 'id="btn-stable" type="button" role="tab" aria-selected="true"' in text, f"{rel} stable channel is not a selected tab"
+    assert 'id="btn-edge" type="button" role="tab" aria-selected="false"' in text, f"{rel} edge channel is not an unselected tab"
+PYEOF
+}

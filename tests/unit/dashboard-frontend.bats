@@ -169,6 +169,55 @@ JS
     done
 }
 
+@test "frontend: Pi-hole component workflow links prefer the track-upstream job" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadFunctions } = require(process.argv[2]);
+const { trackUpstreamJobFromJobs } = loadFunctions(process.argv[3], ["trackUpstreamJobFromJobs"]);
+const assert = require("assert");
+
+const jobs = [
+  { name: "setup", html_url: "https://example.test/setup" },
+  { name: "update-tags", html_url: "https://example.test/update-tags" },
+];
+
+assert.strictEqual(trackUpstreamJobFromJobs(jobs).html_url, "https://example.test/update-tags");
+assert.strictEqual(trackUpstreamJobFromJobs([{ name: "only-job" }]).name, "only-job");
+assert.strictEqual(trackUpstreamJobFromJobs([]), null);
+assert.strictEqual(trackUpstreamJobFromJobs(null), null);
+JS
+    done
+}
+
+@test "frontend: upstream component commit hashes link to GitHub commits" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadFunctions } = require(process.argv[2]);
+const { githubCommitUrl, upstreamCommitLinkHtml } = loadFunctions(process.argv[3], [
+  "githubCommitUrl",
+  "upstreamCommitLinkHtml",
+]);
+const assert = require("assert");
+
+const row = {
+  repository: "pi-hole/FTL",
+  upstream_commit: "6a976208ae647c1f6b289c35db83b47533c17c5b",
+};
+
+assert.strictEqual(
+  githubCommitUrl(row, row.upstream_commit),
+  "https://github.com/pi-hole/FTL/commit/6a976208ae647c1f6b289c35db83b47533c17c5b"
+);
+assert.strictEqual(
+  upstreamCommitLinkHtml(row),
+  '<a href="https://github.com/pi-hole/FTL/commit/6a976208ae647c1f6b289c35db83b47533c17c5b" target="_blank" rel="noopener noreferrer">6a97620</a>'
+);
+assert.strictEqual(githubCommitUrl({}, row.upstream_commit), "");
+assert.strictEqual(upstreamCommitLinkHtml({ repository: "pi-hole/FTL" }), "");
+JS
+    done
+}
+
 @test "frontend: countdownLabel rounds up while waiting for the next refresh" {
     for html in "${HTML_FILES[@]}"; do
         run_node - "$HELPER" "$html" <<'JS'
@@ -367,6 +416,77 @@ assert.strictEqual(shouldApplySnapPayload("", olderGist), true);
 assert.strictEqual(shouldApplySnapPayload(deployed, {}), true);
 assert.strictEqual(shouldApplySnapPayload("not-a-date", olderGist), true);
 assert.strictEqual(shouldApplySnapPayload(deployed, { generated_at: "bad" }), true);
+JS
+    done
+}
+
+@test "frontend: snap package refresh preserves live workflow job overlays" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$html" <<'JS'
+const fs = require("fs");
+const source = fs.readFileSync(process.argv[2], "utf8");
+const assert = require("assert");
+
+assert.match(source, /lpJobs:\s*null,\s*lpRun:\s*null/, "Launchpad run metadata must be cached with jobs");
+assert.match(
+  source,
+  /renderSnapPackage\(payload\.snap_package \|\| \{\}\);\s*applyLiveSnapStatus\(liveState\.cicdJobs, liveState\.cicdRun, liveState\.lpJobs, liveState\.lpRun\);/s,
+  "Snap Store refresh must reapply live job links and durations"
+);
+assert.match(
+  source,
+  /function resetLiveWorkflowCache\(\)[\s\S]*liveState\.lastLpRunId = null;[\s\S]*liveState\.lpJobs = null;[\s\S]*liveState\.lpRun = null;/,
+  "Channel switches must invalidate Launchpad job cache as well as CI/CD job cache"
+);
+assert.match(
+  source,
+  /applyLiveSnapStatus\(cicdJobs, cicdRun, lpJobs, lpRun\);/,
+  "Live Snap status must use the cached Launchpad run object passed through refreshLiveData"
+);
+JS
+    done
+}
+
+@test "frontend: component table workflow buttons use live track-upstream job links" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$html" <<'JS'
+const fs = require("fs");
+const source = fs.readFileSync(process.argv[2], "utf8");
+const assert = require("assert");
+
+assert.match(source, /trackUpstreamJobUrl:\s*null/, "Track-upstream job URL must be cached");
+assert.match(source, /trackUpstreamJobDurationSeconds:\s*null/, "Track-upstream job duration must be cached");
+assert.match(source, /trackUpstreamJobStatus:\s*null/, "Track-upstream job status must be cached");
+assert.match(
+  source,
+  /const jobUrl = liveState\.trackUpstreamJobUrl \|\| fallbackUrl;/,
+  "Component table should prefer the live track-upstream job URL"
+);
+assert.match(
+  source,
+  /workflowButtonLabel\(liveState\.trackUpstreamJobDurationSeconds, "Sync job"\)/,
+  "Component table should label live track-upstream links as job links"
+);
+assert.match(
+  source,
+  /await applyLiveTrackUpstream\(latestByWorkflow\);/,
+  "Live refresh must await track-upstream job lookup before rendering component links"
+);
+assert.match(
+  source,
+  /function componentStatusHtml\(item, currentLabel\)[\s\S]*liveStatusChip\(liveStatus, "checking"\)/,
+  "Component status chips should show a live checking indicator while the upstream sync job is running"
+);
+assert.match(
+  source,
+  /liveState\.trackUpstreamJobStatus = status;/,
+  "Track-upstream job status must be stored for component status rendering"
+);
+assert.match(
+  source,
+  /statusHtml = liveStatusChip\(status, isGitHub \? "building" : "publishing"\);/,
+  "Installation availability should use live build/publish indicators for active jobs"
+);
 JS
     done
 }
