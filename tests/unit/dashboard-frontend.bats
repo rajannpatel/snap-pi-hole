@@ -100,6 +100,75 @@ JS
     done
 }
 
+@test "frontend: build job matching is channel-aware for GitHub and Launchpad runners" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadFunctions } = require(process.argv[2]);
+const { buildJobNamePrefixes, findBuildJob } = loadFunctions(process.argv[3], [
+  "buildJobNamePrefixes",
+  "findBuildJob",
+]);
+const assert = require("assert");
+
+assert.deepStrictEqual(buildJobNamePrefixes("AMD64", "edge", true), [
+  "build github (edge, amd64)",
+  "build github (amd64)",
+]);
+assert.deepStrictEqual(buildJobNamePrefixes("RISCV64", "stable", false), [
+  "build and publish launchpad (stable, riscv64)",
+  "build and publish launchpad (riscv64)",
+]);
+
+const jobs = [
+  { name: "build github (stable, amd64)" },
+  { name: "build github (edge, amd64)" },
+  { name: "build and publish launchpad (edge, riscv64)" },
+];
+
+assert.strictEqual(findBuildJob(jobs, "AMD64", "edge", true).name, "build github (edge, amd64)");
+assert.strictEqual(findBuildJob(jobs, "AMD64", "stable", true).name, "build github (stable, amd64)");
+assert.strictEqual(findBuildJob(jobs, "RISCV64", "edge", false).name, "build and publish launchpad (edge, riscv64)");
+assert.strictEqual(findBuildJob(jobs, "ARMHF", "edge", false), null);
+JS
+    done
+}
+
+@test "frontend: workflow buttons include job/run duration when available" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadFunctions } = require(process.argv[2]);
+const { humanDuration, workflowButtonLabel, liveJobDurationSeconds } = loadFunctions(process.argv[3], [
+  "humanDuration",
+  "workflowButtonLabel",
+  "liveJobDurationSeconds",
+]);
+const assert = require("assert");
+
+assert.strictEqual(workflowButtonLabel(null, "Job"), "Job");
+assert.strictEqual(workflowButtonLabel(185, "Job"), "3m 5s Job");
+assert.strictEqual(workflowButtonLabel(3661, "Run"), "1h 1m Run");
+
+assert.strictEqual(liveJobDurationSeconds({
+  started_at: "2026-06-14T14:00:00Z",
+  completed_at: "2026-06-14T14:03:05Z",
+  status: "completed",
+}), 185);
+
+const realNow = Date.now;
+try {
+  Date.now = () => Date.parse("2026-06-14T14:04:00Z");
+  assert.strictEqual(liveJobDurationSeconds({
+    started_at: "2026-06-14T14:00:00Z",
+    completed_at: null,
+    status: "in_progress",
+  }), 240);
+} finally {
+  Date.now = realNow;
+}
+JS
+    done
+}
+
 @test "frontend: countdownLabel rounds up while waiting for the next refresh" {
     for html in "${HTML_FILES[@]}"; do
         run_node - "$HELPER" "$html" <<'JS'
@@ -172,7 +241,7 @@ JS
     done
 }
 
-@test "frontend: snapStatusDescriptor marks lagging builds 'behind', never 'failing'" {
+@test "frontend: snapStatusDescriptor marks lagging store revisions as store lag, never failing" {
     for html in "${HTML_FILES[@]}"; do
         run_node - "$HELPER" "$html" <<'JS'
 const { loadFunctions } = require(process.argv[2]);
@@ -185,15 +254,15 @@ assert.strictEqual(current.cls, "status-success");
 assert.strictEqual(current.label, "Serving · stable");
 
 // A stale Launchpad arch (e.g. riscv64 on edge whose store revision lags the
-// newest build) is "behind" on its real channel, not "Build failing · stable".
+// newest build) is store lag on its real channel, not "Build failing · stable".
 const lp = snapStatusDescriptor({ build_status: "stale", channel: "edge", build_source: "launchpad" });
 assert.strictEqual(lp.cls, "status-caution");
-assert.strictEqual(lp.label, "Behind · edge");
+assert.strictEqual(lp.label, "Store lag · edge");
 assert.ok(!/fail/i.test(lp.label), lp.label);
 
 // Stale GitHub arches are described the same way (no failing language).
 const gh = snapStatusDescriptor({ build_status: "stale", channel: "stable", build_source: "github" });
-assert.strictEqual(gh.label, "Behind · stable");
+assert.strictEqual(gh.label, "Store lag · stable");
 JS
     done
 }

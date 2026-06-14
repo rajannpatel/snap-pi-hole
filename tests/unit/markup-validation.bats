@@ -105,3 +105,15 @@ for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
 PYEOF
 }
 
+@test "dashboard exposes channel scope and current activity summary" {
+    python3 - <<PYEOF
+import pathlib
+repo = pathlib.Path("${REPO_ROOT}")
+for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
+    text = (repo / rel).read_text(encoding="utf-8")
+    assert 'id="channel-scope-summary"' in text, f"{rel} missing channel scope summary"
+    assert 'id="current-activity"' in text, f"{rel} missing current activity strip"
+    for label in ("Upstream", "Build", "Store", "Install"):
+        assert f'>{label}</span>' in text, f"{rel} missing activity label {label}"
+PYEOF
+}

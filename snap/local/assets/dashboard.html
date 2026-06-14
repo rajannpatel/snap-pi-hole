@@ -323,6 +323,50 @@
       margin-bottom: 1rem;
     }
 
+    .channel-scope-summary {
+      color: #666;
+      margin-top: -1.4rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .activity-strip {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-bottom: 1.25rem;
+    }
+
+    .activity-item {
+      border-left: 3px solid #0b6bc5;
+      min-width: 0;
+      padding: 0.35rem 0.75rem;
+    }
+
+    .activity-item__label {
+      color: #666;
+      display: block;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+
+    .activity-item__value {
+      display: block;
+      font-weight: 500;
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 979px) {
+      .activity-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 620px) {
+      .activity-strip {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .channels-table,
     .snap-package-table {
       table-layout: auto;
@@ -724,8 +768,15 @@
               <button class="p-button is-active" id="btn-stable" aria-pressed="true">Stable (upstream releases)</button>
               <button class="p-button" id="btn-edge" aria-pressed="false">Edge (upstream dev)</button>
             </div>
+            <p class="channel-scope-summary" id="channel-scope-summary">Viewing stable: upstream release tags, stable Snap Store publication, and stable install tests.</p>
+            <div class="activity-strip" id="current-activity" aria-label="Current release activity">
+              <div class="activity-item"><span class="activity-item__label">Upstream</span><span class="activity-item__value">Loading...</span></div>
+              <div class="activity-item"><span class="activity-item__label">Build</span><span class="activity-item__value">Loading...</span></div>
+              <div class="activity-item"><span class="activity-item__label">Store</span><span class="activity-item__value">Loading...</span></div>
+              <div class="activity-item"><span class="activity-item__label">Install</span><span class="activity-item__value">Loading...</span></div>
+            </div>
             <div class="p-muted-heading-container u-no-margin--bottom">
-              <h3 class="p-muted-heading" id="build-status-title">Build Status</h3>
+              <h3 class="p-muted-heading" id="build-status-title">Build and test</h3>
               <span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
             </div>
           </div>
@@ -759,7 +810,7 @@
                 </tbody>
               </table>
               <div class="dashboard-card-action">
-                <a id="latest-run-link" class="p-button u-no-margin--bottom" href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" target="_blank" rel="noopener noreferrer"><svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="display: inline-block; margin-right: 0.35rem;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>View workflow summary</a>
+                <a id="latest-run-link" class="p-button u-no-margin--bottom" href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" target="_blank" rel="noopener noreferrer"><svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="display: inline-block; margin-right: 0.35rem;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>Pipeline run</a>
               </div>
             </div>
           </div>
@@ -827,7 +878,7 @@
         <div class="row">
           <div class="col-12">
             <div class="p-muted-heading-container">
-              <h3 class="p-muted-heading" id="release-title">Release Info</h3>
+              <h3 class="p-muted-heading" id="release-title">Publish and store</h3>
               <span class="freshness-chip freshness-chip--inline" data-freshness="snap" title="Snap Store package metadata, refreshed hourly via a published gist (api.snapcraft.io is not reachable from the browser)."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Snap Store</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
             </div>
           </div>
@@ -838,7 +889,7 @@
             <div class="dashboard-card dashboard-card--padded">
               <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/pull-request.png" alt="Pull request icon">
               <hr class="u-sv1">
-              <h3 class="dashboard-card-title">Upstream Sync Tracking</h3>
+              <h3 class="dashboard-card-title">Upstream tracking</h3>
               <div class="table-container">
                 <table class="p-table sync-tracking-table table--vertical-center">
                   <thead>
@@ -889,7 +940,7 @@
           </div>
           <div class="row">
             <div class="col-12">
-              <p class="p-heading--4">Latest published revision per architecture, with its build source and serving status.</p>
+              <p class="p-heading--4">Latest Snap Store revision per architecture. A row can show store lag while a newer build is still running, uploaded but not selected, or waiting for store propagation.</p>
               <div id="snap-package-freshness" hidden></div>
               <div class="table-container">
                 <table class="p-table snap-package-table table--vertical-center">
@@ -931,7 +982,7 @@
           </div>
           <div class="row">
             <div class="col-12">
-              <p class="p-heading--4">Version lag and update indicators for FTL, Core, and Web compared with upstream releases.</p>
+              <p class="p-heading--4">Bundled FTL, Core, and Web sources compared with the selected upstream track.</p>
               <div class="table-container">
                 <table class="p-table components-table table--vertical-center">
                   <thead>
@@ -1003,7 +1054,7 @@
     const LIVE_RATE_FLOOR = 8;
 
     // Core live application state variables
-    const liveState = { rateRemaining: null, pollTimer: null, releaseLagDone: false, releaseLagDue: false, lastCicdRunId: null, lastLpRunId: null, trackUpstreamRunUrl: null };
+    const liveState = { rateRemaining: null, pollTimer: null, releaseLagDone: false, releaseLagDue: false, lastCicdRunId: null, lastLpRunId: null, trackUpstreamRunUrl: null, trackUpstreamRunDurationSeconds: null };
     const matrixState = { rows: [], failedLinks: [] };
 
     // Snap Store Gist integration (workaround for lack of CORS support on api.snapcraft.io)
@@ -1018,6 +1069,7 @@
       snap: { updatedAt: null, nextAt: null, fromGist: false, source: "build-time snapshot" },
       build: { updatedAt: null },
     };
+    const activityState = { upstream: "Loading...", build: "Loading...", store: "Loading...", install: "Loading..." };
     let freshnessTimer = null;
     let dependencyRows = [];
     let durationTrendResizeHandler = null;
@@ -1164,6 +1216,138 @@
       const ended = new Date(job.completed_at);
       if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) return null;
       return Math.max(0, Math.round((ended - started) / 1000));
+    }
+
+    // Calculates job duration for completed jobs, or elapsed runtime for active jobs
+    function liveJobDurationSeconds(job) {
+      if (!job) return null;
+      const started = new Date(job.started_at);
+      const ended = job.completed_at ? new Date(job.completed_at) : new Date(Date.now());
+      if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) return null;
+      return Math.max(0, Math.round((ended - started) / 1000));
+    }
+
+    function workflowButtonLabel(durationSeconds, noun) {
+      const label = noun || "Run";
+      if (durationSeconds === null || durationSeconds === undefined) return label;
+      return `${humanDuration(durationSeconds)} ${label}`;
+    }
+
+    function selectedChannelLabel() {
+      return selectedBranch === "edge" ? "edge" : "stable";
+    }
+
+    function updateChannelScopeSummary() {
+      const label = selectedChannelLabel();
+      const summary = label === "edge"
+        ? "Viewing edge: upstream development commits, edge Snap Store publication, and edge install tests."
+        : "Viewing stable: upstream release tags, stable Snap Store publication, and stable install tests.";
+      setText("channel-scope-summary", summary);
+    }
+
+    function renderCurrentActivity() {
+      const container = document.getElementById("current-activity");
+      if (!container) return;
+      const items = [
+        ["Upstream", activityState.upstream],
+        ["Build", activityState.build],
+        ["Store", activityState.store],
+        ["Install", activityState.install],
+      ];
+      container.innerHTML = "";
+      items.forEach(([label, value]) => {
+        const item = document.createElement("div");
+        const labelEl = document.createElement("span");
+        const valueEl = document.createElement("span");
+        item.className = "activity-item";
+        labelEl.className = "activity-item__label";
+        valueEl.className = "activity-item__value";
+        labelEl.textContent = label;
+        valueEl.textContent = value || "Unknown";
+        item.appendChild(labelEl);
+        item.appendChild(valueEl);
+        container.appendChild(item);
+      });
+    }
+
+    function updateUpstreamActivity() {
+      const label = selectedChannelLabel();
+      const rows = label === "edge"
+        ? (globalDashboardData?.auto_update?.edge_releases || [])
+        : (dependencyRows.length ? dependencyRows : (globalDashboardData?.release_info?.components || []));
+      if (!rows.length) {
+        activityState.upstream = "No upstream data";
+      } else {
+        const pending = rows.filter((row) => row.update_available).length;
+        activityState.upstream = pending ? `${pending} component${pending === 1 ? "" : "s"} pending` : "Up to date";
+      }
+      renderCurrentActivity();
+    }
+
+    function updateBuildActivity(buildStatus) {
+      const latest = (buildStatus || {}).latest_run || {};
+      if (!latest.number) {
+        activityState.build = "No run data";
+      } else if (isBuildingStatus(latest.status)) {
+        activityState.build = `Run #${latest.number} building (${latest.duration_label || "0s"})`;
+      } else {
+        activityState.build = `Run #${latest.number} ${latest.status || "unknown"}`;
+      }
+      renderCurrentActivity();
+    }
+
+    function updateInstallActivity(rows) {
+      const matrixRows = rows || matrixState.rows || [];
+      if (!matrixRows.length) {
+        activityState.install = "No test data";
+      } else {
+        const building = matrixRows.filter((row) => isBuildingStatus(row.status)).length;
+        const failed = matrixRows.filter((row) => FAILURE_STATES.has(row.status)).length;
+        const passed = matrixRows.filter((row) => row.status === "success").length;
+        if (building) {
+          activityState.install = `${building} test${building === 1 ? "" : "s"} running`;
+        } else if (failed) {
+          activityState.install = `${failed} failing, ${passed} passing`;
+        } else {
+          activityState.install = `${passed}/${matrixRows.length} passing`;
+        }
+      }
+      renderCurrentActivity();
+    }
+
+    function updateStoreActivity(snapPackage) {
+      const rows = (snapPackage || {}).channels || [];
+      if (!rows.length) {
+        activityState.store = "No store data";
+      } else {
+        const lagging = rows.filter((row) => row.build_status !== "current").length;
+        activityState.store = lagging ? `${lagging} architecture${lagging === 1 ? "" : "s"} store lag` : "Serving all architectures";
+      }
+      renderCurrentActivity();
+    }
+
+    function buildJobNamePrefixes(arch, channel, isGitHub) {
+      const normalizedArch = String(arch || "").toLowerCase();
+      const normalizedChannel = String(channel || "stable").toLowerCase();
+      if (isGitHub) {
+        return [
+          `build github (${normalizedChannel}, ${normalizedArch})`,
+          `build github (${normalizedArch})`,
+        ];
+      }
+      return [
+        `build and publish launchpad (${normalizedChannel}, ${normalizedArch})`,
+        `build and publish launchpad (${normalizedArch})`,
+      ];
+    }
+
+    function findBuildJob(jobs, arch, channel, isGitHub) {
+      if (!jobs || !jobs.length) return null;
+      const prefixes = buildJobNamePrefixes(arch, channel, isGitHub);
+      return jobs.find((job) => {
+        const name = String(job.name || "").toLowerCase();
+        return prefixes.some((prefix) => name.startsWith(prefix));
+      }) || null;
     }
 
     // Generates flat status shield badge URLs matching status
@@ -1423,6 +1607,7 @@
 
     // Updates build status metrics cards and duration baseline/regression descriptions
     function renderBuildStatus(buildStatus) {
+      updateBuildActivity(buildStatus);
       const latest = buildStatus.latest_run || {};
       setText("latest-run-title", latest.number ? `Run #${latest.number}` : "No run data");
       const building = isBuildingStatus(latest.status);
@@ -1489,6 +1674,7 @@
       const tbody = document.getElementById("compatibility-matrix-body");
       if (!tbody) return;
       const rows = matrixState.rows || [];
+      updateInstallActivity(rows);
       tbody.innerHTML = "";
       if (!rows.length) {
         tbody.innerHTML = "<tr><td colspan=\"5\">No matrix rows available.</td></tr>";
@@ -1512,7 +1698,7 @@
           <td class="distribution-col">${row.label}</td>
           <td>${statusCell}</td>
           <td class="mono">${formatDate(row.updated_at)}</td>
-          <td><div class="workflow-buttons">${logUrl ? `<a class="p-button workflow-btn" href="${logUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${row.duration_label ? row.duration_label + ' ' : ''}${row.failed_job_url ? "Job" : "Run"}</span></a>` : "N/A"}</div></td>
+          <td><div class="workflow-buttons">${logUrl ? `<a class="p-button workflow-btn" href="${logUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${row.duration_label ? row.duration_label + ' ' : ''}${row.failed_job_url ? "Test job" : "Test run"}</span></a>` : "N/A"}</div></td>
         `;
         tbody.appendChild(tr);
       });
@@ -1574,7 +1760,8 @@
 
       const fallbackUrl = `https://github.com/${REPO_SLUG}/actions/workflows/track-upstream-releases.yml`;
       const runUrl = liveState.trackUpstreamRunUrl || fallbackUrl;
-      const workflowHtml = `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${runUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>Workflow</span></a></div>`;
+      const workflowHtml = `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${runUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${workflowButtonLabel(liveState.trackUpstreamRunDurationSeconds, "Sync run")}</span></a></div>`;
+      updateUpstreamActivity();
 
       if (selectedBranch === "stable") {
         const rows = dependencyRows.length ? dependencyRows : (globalDashboardData?.release_info?.components || []);
@@ -1657,9 +1844,9 @@
       const rev = (rows || []).map((r) => r.revision).filter(Boolean)[0];
       const lastKnown = rev ? ` (revision ${rev})` : "";
       const notes = {
-        current: { cls: "positive", text: `Up to date — commit <code>${sha}</code> is the live stable revision.` },
-        uploaded_not_selected: { cls: "caution", text: `Commit <code>${sha}</code> is uploaded but is not yet the selected stable revision.` },
-        pending: { cls: "caution", text: `Commit <code>${sha}</code> published successfully and is still propagating to the Snap Store. Showing the last known revision${lastKnown}.` },
+        current: { cls: "positive", text: `Serving current revision: commit <code>${sha}</code> is selected in the Snap Store.` },
+        uploaded_not_selected: { cls: "caution", text: `Awaiting store selection: commit <code>${sha}</code> is uploaded but not yet selected for this channel.` },
+        pending: { cls: "caution", text: `Store propagation pending: commit <code>${sha}</code> published successfully, while the store still reports the last known revision${lastKnown}.` },
         publish_failed: { cls: "negative", text: `Publishing commit <code>${sha}</code> to the Snap Store failed after retries. Showing the last known good revision${lastKnown}.` },
       };
       const note = sha ? notes[snapPackage.freshness] : null;
@@ -1722,7 +1909,7 @@
       const stableWorkflowEl = document.getElementById("stable-track-workflow");
       const edgeWorkflowEl = document.getElementById("edge-track-workflow");
       const workflowHtml = trackRun.url
-        ? `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${trackRun.url}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${trackRun.run_number ? '#' + trackRun.run_number + ' ' : ''}Run</span></a></div>`
+        ? `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${trackRun.url}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${trackRun.run_number ? '#' + trackRun.run_number + ' ' : ''}Sync run</span></a></div>`
         : "N/A";
       if (stableWorkflowEl) stableWorkflowEl.innerHTML = workflowHtml;
       if (edgeWorkflowEl) edgeWorkflowEl.innerHTML = workflowHtml;
@@ -1757,14 +1944,14 @@
     }
 
     // Maps a snap architecture row to its serving-status chip. A non-current
-    // build is "behind" (an older revision is still published), never "failing":
-    // a lagging or not-yet-propagated revision is not a broken build.
+    // build is store lag (an older revision is still selected), never "failing":
+    // a lagging or not-yet-propagated revision is a publication state.
     function snapStatusDescriptor(row) {
       const channel = row.channel || (row.on_stable ? "stable" : "edge");
       if (row.build_status === "current") {
         return { cls: "status-success", label: `Serving · ${channel}`, short: "serving" };
       }
-      return { cls: "status-caution", label: `Behind · ${channel}`, short: "behind" };
+      return { cls: "status-caution", label: `Store lag · ${channel}`, short: "lag" };
     }
 
     // Draws target architectural snap release version tables
@@ -1772,6 +1959,7 @@
       const packageBody = document.getElementById("snap-package-rows");
       if (!packageBody) return;
       const rows = snapPackage.channels || [];
+      updateStoreActivity(snapPackage || {});
       renderSnapFreshness(snapPackage || {}, rows);
       packageBody.innerHTML = "";
       if (!rows.length) {
@@ -1791,7 +1979,8 @@
         const fallbackUrl = isGitHub
           ? `https://github.com/${REPO_SLUG}/actions/workflows/cicd.yml`
           : `https://github.com/${REPO_SLUG}/actions/workflows/launchpad-builds.yml`;
-        const workflow = `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${fallbackUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>Workflow</span></a></div>`;
+        const fallbackLabel = isGitHub ? "Build workflow" : "Publish workflow";
+        const workflow = `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${fallbackUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${fallbackLabel}</span></a></div>`;
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
@@ -1839,21 +2028,15 @@
 
         if (isGitHub) {
           run = cicdRun;
-          if (cicdJobs) {
-            const prefix = `build github (${arch.toLowerCase()})`;
-            job = cicdJobs.find((j) => (j.name || "").toLowerCase().startsWith(prefix));
-          }
+          job = findBuildJob(cicdJobs, arch, selectedBranch, true);
         } else {
           run = lpRun;
-          if (lpJobs) {
-            const prefix = `build and publish launchpad (${arch.toLowerCase()})`;
-            job = lpJobs.find((j) => (j.name || "").toLowerCase().startsWith(prefix));
-          }
+          job = findBuildJob(lpJobs, arch, selectedBranch, false);
         }
 
         let statusHtml = null;
         let isBuilding = false;
-        let runUrl = (run && run.html_url) || "";
+        let runUrl = (job && job.html_url) || (run && run.html_url) || "";
         if (!runUrl) {
           runUrl = isGitHub
             ? `https://github.com/${REPO_SLUG}/actions/workflows/cicd.yml`
@@ -1877,7 +2060,9 @@
           tr.cells[4].innerHTML = statusHtml;
         }
 
-        let workflowHtml = `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${runUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>Workflow</span></a></div>`;
+        const duration = job ? liveJobDurationSeconds(job) : (run ? liveRunDurationSeconds(run) : null);
+        const workflowNoun = job ? (isGitHub ? "Build job" : "Publish job") : "Run";
+        const workflowHtml = `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${runUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${workflowButtonLabel(duration, workflowNoun)}</span></a></div>`;
 
         if (tr.cells.length <= 7) {
           const td = tr.insertCell(7);
@@ -2092,13 +2277,15 @@
       if (cicdRuns[0]) candidates.push(cicdRuns[0]);
       const newestCompleted = cicdRuns.find((run) => run.status === "completed");
       if (newestCompleted && newestCompleted !== cicdRuns[0]) candidates.push(newestCompleted);
+      let latestJobs = null;
       for (const run of candidates) {
         const jobs = await fetchRunJobs(run.id);
+        if (run === cicdRuns[0]) latestJobs = jobs;
         if (jobs && jobs.some((job) => (job.name || "").startsWith("distro test ("))) {
           return { jobs, run };
         }
       }
-      return { jobs: null, run: cicdRuns[0] || null };
+      return { jobs: latestJobs, run: cicdRuns[0] || null };
     }
 
     // Translates GHA job lists into compatibility matrix records and failing log links
@@ -2216,14 +2403,15 @@
       let isBuilding = false;
       let runUrl = "";
       let durationLabel = "";
+      let durationSeconds = null;
 
       if (run) {
         const status = run.status === "completed" ? (run.conclusion || "unknown") : (run.status || "queued");
         isBuilding = isBuildingStatus(status);
         runUrl = run.html_url || "";
-        const duration = liveRunDurationSeconds(run);
-        if (duration !== null) {
-          durationLabel = humanDuration(duration) + " ";
+        durationSeconds = liveRunDurationSeconds(run);
+        if (durationSeconds !== null) {
+          durationLabel = humanDuration(durationSeconds) + " ";
         }
       }
 
@@ -2265,11 +2453,12 @@
       // Update workflows column
       let workflowHtml = "N/A";
       if (runUrl) {
-        workflowHtml = `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${runUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${durationLabel}Run</span></a></div>`;
-        
-        // Also update the components/dependencies workflows if we have a live run URL
-        if (liveState.trackUpstreamRunUrl !== runUrl) {
+        workflowHtml = `<div class="workflow-buttons"><a class="p-button workflow-btn" href="${runUrl}" target="_blank" rel="noopener noreferrer">${githubLogoSvg}<span>${durationLabel}Sync run</span></a></div>`;
+
+        // Also update the components/dependencies workflows if we have live run data
+        if (liveState.trackUpstreamRunUrl !== runUrl || liveState.trackUpstreamRunDurationSeconds !== durationSeconds) {
           liveState.trackUpstreamRunUrl = runUrl;
+          liveState.trackUpstreamRunDurationSeconds = durationSeconds;
           renderDependencies();
         }
       }
@@ -2595,6 +2784,7 @@
 
     function renderBranchData() {
       if (!globalDashboardData) return;
+      updateChannelScopeSummary();
       const buildStatus = globalDashboardData.build_status?.[selectedBranch] || {};
       const testMatrix = globalDashboardData.test_matrix?.[selectedBranch] || {};
 
