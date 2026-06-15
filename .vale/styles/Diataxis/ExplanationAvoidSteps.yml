@@ -1,0 +1,12 @@
+# Explanation - Avoid step-by-step instructions
+
+extends: existence
+message: "Explanation guides should focus on concepts, rationale, and architecture. Step-by-step commands like '%s' belong in a How-to guide or Tutorial."
+level: error
+scope: raw
+ignorecase: true
+tokens:
+  - 'apt install'
+  - 'apt-get install'
+  - 'snap install'
+  - 'git clone'

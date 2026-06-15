@@ -1,0 +1,17 @@
+# Reference - Keep objective and factual
+
+extends: existence
+message: "Reference guides should be objective and factual. Avoid subjective terms like '%s'."
+level: error
+scope: sentence
+ignorecase: true
+tokens:
+  - 'easy'
+  - 'simple'
+  - 'amazing'
+  - 'incredible'
+  - 'please note'
+  - "don't worry"
+  - 'dont worry'
+  - 'obviously'
+  - 'simply'

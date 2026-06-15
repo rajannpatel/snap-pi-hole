@@ -1,0 +1,14 @@
+# How-to - Avoid conceptual explanations
+
+extends: existence
+message: "How-to guides should be task-oriented. Avoid conceptual explanations like '%s' and focus on direct steps."
+level: error
+scope: sentence
+ignorecase: true
+tokens:
+  - 'in this section we will explain'
+  - 'in this guide we will explain'
+  - 'understand how this works'
+  - 'conceptually speaking'
+  - 'the theory behind'
+  - 'the rationale for'
