@@ -1900,9 +1900,11 @@
       if (clock.nextAt) return clock.nextAt;
       if (kind === "live") {
         if (clock.status === "paused") return null;
-        if (clock.status === "building") return Date.now() + LIVE_POLL_MS_BUILDING;
-        if (clock.status === "stale") return Date.now() + LIVE_POLL_MS_BACKOFF;
-        return Date.now() + LIVE_POLL_MS_IDLE;
+        const interval = clock.status === "building"
+          ? LIVE_POLL_MS_BUILDING
+          : (clock.status === "stale" ? LIVE_POLL_MS_BACKOFF : LIVE_POLL_MS_IDLE);
+        const updatedAt = new Date(clock.updatedAt || "").getTime();
+        return (Number.isNaN(updatedAt) ? Date.now() : updatedAt) + interval;
       }
       if (kind === "snap") return nextHourBoundary(Date.now());
       return null;

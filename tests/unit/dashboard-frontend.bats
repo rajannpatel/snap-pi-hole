@@ -795,7 +795,9 @@ global.freshnessState.live = {
   nextAt: null,
   status: "idle",
 };
-assert.strictEqual(freshnessDetail("live"), "updated 50s ago · next 10:00");
+assert.strictEqual(freshnessDetail("live"), "updated 50s ago · next 9:10");
+Date.now = () => new Date("2026-06-14T14:00:10Z").getTime();
+assert.strictEqual(freshnessDetail("live"), "updated 1m ago · next 9:00");
 
 global.freshnessState.snap = {
   updatedAt: null,
@@ -803,6 +805,7 @@ global.freshnessState.snap = {
   fromGist: false,
   source: "build-time snapshot",
 };
+Date.now = () => new Date("2026-06-14T14:00:00Z").getTime();
 assert.strictEqual(freshnessDetail("snap"), "build-time snapshot · next 60:00");
 JS
     done
