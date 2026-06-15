@@ -179,7 +179,7 @@ parts:
     plugin: dump
     source: https://github.com/pi-hole/web.git
     source-type: git
-    source-tag: v6.5
+    source-tag: v6.5.1
     source-depth: 1
     override-build: $CRAFT_PROJECT_DIR/snap/local/build/web-override-build.sh
     organize:
@@ -231,8 +231,6 @@ parts:
     override-prime: |
       craftctl default
       python3 "$CRAFT_PROJECT_DIR/snap/local/build/filter_dpkg_status.py" "$SNAPCRAFT_PRIME"
-
-
 apps:
   # The daemon. Disabled on install so the operator can free port 53 and
   # review interface connections before it starts.
