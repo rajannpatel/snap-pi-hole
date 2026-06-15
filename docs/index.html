@@ -1198,7 +1198,7 @@
 
     // Live API polling parameters
     const LIVE_POLL_MS_BUILDING = 60000;
-    const LIVE_POLL_MS_IDLE = 120000;
+    const LIVE_POLL_MS_IDLE = 600000;
     const LIVE_POLL_MS_BACKOFF = 900000;
     const LIVE_RATE_FLOOR = 8;
 
@@ -2634,6 +2634,7 @@
     function freshnessDetail(kind) {
       if (kind === "live") {
         const clock = freshnessState.live;
+        if (clock.status === "paused") return "paused";
         if (clock.status === "stale") return "unavailable — using snapshot";
         if (!clock.updatedAt) return "connecting…";
         const cd = countdownLabel(clock.nextAt);
@@ -2658,6 +2659,7 @@
         const status = freshnessState.live.status;
         if (status === "building") return "building";
         if (status === "stale") return "stale";
+        if (status === "paused") return "muted";
         if (status === "fresh" || status === "active" || status === "idle") return "fresh";
         return "muted";
       }
@@ -3013,6 +3015,10 @@
         clearTimeout(liveState.pollTimer);
         liveState.pollTimer = null;
       }
+      if (document.hidden) {
+        freshnessState.live.nextAt = null;
+        return;
+      }
       const budgetOk = liveState.rateRemaining === null || liveState.rateRemaining > LIVE_RATE_FLOOR;
       const interval = !budgetOk
         ? LIVE_POLL_MS_BACKOFF
@@ -3114,8 +3120,9 @@
       if (!liveState.releaseLagDone || liveState.releaseLagDue) {
         liveState.releaseLagDone = true;
         liveState.releaseLagDue = false;
-        refreshReleaseLag();
-        refreshEdgeCommits();
+        // Moved to build-time: we don't query github API client-side to stay within 60 queries/hr limit
+        // refreshReleaseLag();
+        // refreshEdgeCommits();
       }
 
       scheduleLivePoll(building);
@@ -3418,6 +3425,8 @@
       renderSecurity(data.security || {});
       renderReleaseInfo(data);
       renderReportSummaries(data);
+      dependencyRows = data.release_info?.components || [];
+      renderDependencies();
       renderFreshnessChips();
     }
 
@@ -3425,6 +3434,22 @@
     async function initDashboard() {
       startFreshnessTicker();
       setupBranchSelector();
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          if (liveState.pollTimer) {
+            clearTimeout(liveState.pollTimer);
+            liveState.pollTimer = null;
+          }
+          freshnessState.live.nextAt = null;
+          freshnessState.live.status = "paused";
+          renderFreshnessChips();
+        } else {
+          if (freshnessState.live.status === "paused") {
+            freshnessState.live.status = "idle";
+            refreshLiveData();
+          }
+        }
+      });
       try {
         globalDashboardData = await loadDashboardData();
 

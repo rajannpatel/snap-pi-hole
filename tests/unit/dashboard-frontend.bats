@@ -700,3 +700,24 @@ assert.doesNotMatch(
 JS
     done
 }
+
+@test "frontend: freshnessDetail and freshnessStatus support paused state" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadFunctions } = require(process.argv[2]);
+const { freshnessDetail, freshnessStatus } = loadFunctions(process.argv[3], [
+  "freshnessDetail",
+  "freshnessStatus",
+]);
+const assert = require("assert");
+
+global.freshnessState = {
+  live: { updatedAt: "2026-06-14T14:00:00Z", nextAt: null, status: "paused" },
+  snap: { updatedAt: null, nextAt: null, fromGist: false }
+};
+
+assert.strictEqual(freshnessDetail("live"), "paused");
+assert.strictEqual(freshnessStatus("live"), "muted");
+JS
+    done
+}
