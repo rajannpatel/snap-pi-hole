@@ -751,12 +751,18 @@ JS
 @test "frontend: freshnessDetail and freshnessStatus show retry clocks for fallback states" {
     for html in "${HTML_FILES[@]}"; do
         run_node - "$HELPER" "$html" <<'JS'
-const { loadFunctions } = require(process.argv[2]);
-const { freshnessDetail, freshnessStatus } = loadFunctions(process.argv[3], [
-  "countdownLabel",
-  "freshnessDetail",
-  "freshnessStatus",
-]);
+const { loadModule } = require(process.argv[2]);
+const { freshnessDetail, freshnessStatus } = loadModule(process.argv[3], {
+  consts: ["LIVE_POLL_MS_BUILDING", "LIVE_POLL_MS_IDLE", "LIVE_POLL_MS_BACKOFF"],
+  functions: [
+    "relativeTime",
+    "countdownLabel",
+    "nextHourBoundary",
+    "fallbackFreshnessNextAt",
+    "freshnessDetail",
+    "freshnessStatus",
+  ],
+});
 const assert = require("assert");
 
 Date.now = () => new Date("2026-06-14T14:00:00Z").getTime();
@@ -783,6 +789,13 @@ global.freshnessState.live = {
   status: "idle",
 };
 assert.strictEqual(freshnessDetail("live"), "connecting… · next 1:30");
+
+global.freshnessState.live = {
+  updatedAt: "2026-06-14T13:59:10Z",
+  nextAt: null,
+  status: "idle",
+};
+assert.strictEqual(freshnessDetail("live"), "updated 50s ago · next 10:00");
 
 global.freshnessState.snap = {
   updatedAt: null,

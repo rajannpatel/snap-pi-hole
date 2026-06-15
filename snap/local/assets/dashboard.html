@@ -1896,10 +1896,22 @@
       freshnessState.snap.nextAt = nextHourBoundary(Date.now());
     }
 
+    function fallbackFreshnessNextAt(kind, clock) {
+      if (clock.nextAt) return clock.nextAt;
+      if (kind === "live") {
+        if (clock.status === "paused") return null;
+        if (clock.status === "building") return Date.now() + LIVE_POLL_MS_BUILDING;
+        if (clock.status === "stale") return Date.now() + LIVE_POLL_MS_BACKOFF;
+        return Date.now() + LIVE_POLL_MS_IDLE;
+      }
+      if (kind === "snap") return nextHourBoundary(Date.now());
+      return null;
+    }
+
     // Evaluates status details text labels of target freshness kinds
     function freshnessDetail(kind) {
       const nextSuffix = (clock) => {
-        const cd = countdownLabel(clock.nextAt);
+        const cd = countdownLabel(fallbackFreshnessNextAt(kind, clock));
         return cd ? ` · next ${cd}` : "";
       };
       if (kind === "live") {
