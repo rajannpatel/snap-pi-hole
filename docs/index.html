@@ -1013,53 +1013,41 @@
         </section>
       </section>
 
-      <!-- FIRST SECTION: Publish & Store (Snap Store data) -->
-      <section aria-labelledby="publish-store-title">
+      <!-- FIRST SECTION: Snap Store package data -->
+      <section class="p-section dashboard-section--spacing" style="padding-top: 0;" aria-labelledby="snap-packages-title">
         <div class="row">
           <div class="col-12">
-            <div class="p-muted-heading-container">
-              <h3 class="p-muted-heading" id="publish-store-title">Publish and store</h3>
+            <div class="p-muted-heading-container u-no-padding--top u-no-margin--bottom">
               <span class="freshness-chip freshness-chip--inline" data-freshness="snap" title="Snap Store package metadata, refreshed hourly via a published gist (api.snapcraft.io is not reachable from the browser)."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Snap Store</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+            </div>
+            <h2 id="snap-packages-title">Stable channel snap packages</h2>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-12">
+            <p class="p-heading--4">Latest Snap Store revision per architecture. A row can show store lag while a newer build is still running, uploaded but not selected, or waiting for store propagation.</p>
+            <div id="snap-package-freshness" hidden></div>
+            <div class="table-container">
+              <table class="p-table snap-package-table table--vertical-center">
+                <thead>
+                  <tr>
+                    <th>Architecture</th>
+                    <th>Built on</th>
+                    <th>Version</th>
+                    <th>Revision</th>
+                    <th>Latest build status</th>
+                    <th>Size</th>
+                    <th>Released</th>
+                    <th>Build/publish duration</th>
+                  </tr>
+                </thead>
+                <tbody id="snap-package-rows">
+                  <tr><td colspan="8">Loading package metadata...</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
-
-        <section class="p-section dashboard-section--spacing" style="padding-top: 0;" aria-label="snap package metadata">
-          <div class="row">
-            <div class="col-12">
-              <div class="p-muted-heading-container u-no-padding--top u-no-margin--bottom">
-                <h3 class="p-muted-heading" id="snap-channel-title">Stable channel</h3>
-                <span class="freshness-chip freshness-chip--inline" data-freshness="snap" title="Snap Store package metadata, refreshed hourly via a published gist (api.snapcraft.io is not reachable from the browser)."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Snap Store</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
-              </div>
-              <h2>Installation availability</h2>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-12">
-              <p class="p-heading--4">Latest Snap Store revision per architecture. A row can show store lag while a newer build is still running, uploaded but not selected, or waiting for store propagation.</p>
-              <div id="snap-package-freshness" hidden></div>
-              <div class="table-container">
-                <table class="p-table snap-package-table table--vertical-center">
-                  <thead>
-                    <tr>
-                      <th>Architecture</th>
-                      <th>Built on</th>
-                      <th>Version</th>
-                      <th>Revision</th>
-                      <th>Latest build status</th>
-                      <th>Size</th>
-                      <th>Released</th>
-                      <th>Build/publish duration</th>
-                    </tr>
-                  </thead>
-                  <tbody id="snap-package-rows">
-                    <tr><td colspan="8">Loading package metadata...</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </section>
       </section>
 
       <!-- PI-HOLE COMPONENTS SECTION -->
@@ -3372,9 +3360,9 @@
       const buildStatus = globalDashboardData.build_status?.[selectedBranch] || {};
       const testMatrix = globalDashboardData.test_matrix?.[selectedBranch] || {};
 
-      const snapTitle = document.getElementById("snap-channel-title");
-      if (snapTitle) {
-        snapTitle.textContent = selectedBranch === "stable" ? "Stable channel" : "Edge channel";
+      const snapPackagesTitle = document.getElementById("snap-packages-title");
+      if (snapPackagesTitle) {
+        snapPackagesTitle.textContent = selectedBranch === "stable" ? "Stable channel snap packages" : "Edge channel snap packages";
       }
 
       renderBuildStatus(buildStatus);

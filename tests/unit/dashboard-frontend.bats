@@ -549,6 +549,14 @@ assert.match(
 assert.match(source, /<th>Test duration<\/th>/, "Test matrix workflow type should move into the duration column heading");
 assert.match(source, /<th>Sync duration<\/th>/, "Sync workflow type should move into the duration column heading");
 assert.match(source, /<th>Build\/publish duration<\/th>/, "Build and publish workflow type should move into the duration column heading");
+assert.doesNotMatch(source, /Publish and store/, "Snap package section should not render a redundant parent heading");
+assert.doesNotMatch(source, /Installation availability/, "Snap package section should use channel-specific package heading text");
+assert.match(source, /id="snap-packages-title">Stable channel snap packages<\/h2>/, "Snap package heading should default to stable channel package text");
+assert.match(
+  source,
+  /snapPackagesTitle\.textContent = selectedBranch === "stable" \? "Stable channel snap packages" : "Edge channel snap packages";/,
+  "Snap package heading should follow the selected channel"
+);
 assert.doesNotMatch(source, /#'\s*\+\s*trackRun\.run_number/, "Upstream tracking buttons must not show run numbers");
 assert.doesNotMatch(source, /<span>\$\{[^}]*\}(?:Sync job|Sync run|Test job|Test run|Build job|Publish job|Build workflow|Publish workflow)<\/span>/, "Workflow button visible labels should be duration-only");
 assert.match(
@@ -569,27 +577,27 @@ assert.match(
 assert.match(
   source,
   /statusHtml = liveStatusChip\(status, isGitHub \? "building" : "publishing", true\);/,
-  "Installation availability should use live build/publish indicators for active jobs"
+  "Snap package table should use live build/publish indicators for active jobs"
 );
 assert.match(
   source,
   /const GITHUB_BUILD_ARCHES = new Set\(\["AMD64", "ARM64"\]\);/,
-  "Installation availability must know which architectures are built on GitHub runners"
+  "Snap package table must know which architectures are built on GitHub runners"
 );
 assert.match(
   source,
   /const isGitHub = GITHUB_BUILD_ARCHES\.has\(arch\);/,
-  "Installation availability should choose GitHub versus Launchpad jobs from the architecture"
+  "Snap package table should choose GitHub versus Launchpad jobs from the architecture"
 );
 assert.match(
   source,
   /const workflowSnapshot = \(row\.workflow_runs \|\| \{\}\)\[selectedBranch\] \|\| \{\};/,
-  "Installation availability should use baked per-architecture workflow metadata before live API refresh"
+  "Snap package table should use baked per-architecture workflow metadata before live API refresh"
 );
 assert.match(
   source,
   /workflowSnapshot\.url \|\| "",\s*workflowSnapshot\.duration_seconds,/,
-  "Installation availability should render baked workflow job URLs and durations"
+  "Snap package table should render baked workflow job URLs and durations"
 );
 assert.doesNotMatch(
   source,
@@ -599,22 +607,22 @@ assert.doesNotMatch(
 assert.match(
   source,
   /applyLiveSnapStatus\(cicdJobs, cicdRun, lpJobs, lpRun\);\s*let buildBuilding = false;/,
-  "Installation availability live overlay must run before other live dashboard sections can fail"
+  "Snap package live overlay must run before other live dashboard sections can fail"
 );
 assert.match(
   source,
   /try \{\s*await applyLiveTrackUpstream\(latestByWorkflow\);[\s\S]*Keep the package table live even if upstream tracking rendering fails/,
-  "Upstream tracking failures must not block Installation availability live overlays"
+  "Upstream tracking failures must not block snap package live overlays"
 );
 assert.match(
   source,
   /refreshLiveSnapPackageStatus\(\);/,
-  "Installation availability should request its own live job overlay whenever the table renders"
+  "Snap package table should request its own live job overlay whenever the table renders"
 );
 assert.match(
   source,
   /async function refreshLiveSnapPackageStatus\(\)[\s\S]*fetchRecentRuns\(\)[\s\S]*fetchRunJobs\(latestLp\.id\)[\s\S]*applyLiveSnapStatus\(cicdJobs, cicdRun, lpJobs, lpRun\);/,
-  "Independent Installation availability overlay must fetch live runs/jobs and apply status"
+  "Independent snap package overlay must fetch live runs/jobs and apply status"
 );
 JS
     done
