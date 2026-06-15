@@ -1074,7 +1074,7 @@
         </div>
         <div class="row">
           <div class="col-12">
-            <p class="p-heading--4">Bundled FTL, Core, and Web sources compared with the selected upstream track.</p>
+            <p id="components-section-desc" class="p-heading--4">Bundled FTL, Core, and Web sources compared with the selected upstream track.</p>
             <div class="table-container">
               <table class="p-table components-table table--vertical-center">
                 <thead>
@@ -1452,13 +1452,20 @@
         ? "Viewing edge: upstream development commits, edge Snap Store publication, and edge install tests."
         : "Viewing stable: upstream release tags, stable Snap Store publication, and stable install tests.";
       setText("channel-scope-summary", summary);
+
+      const descEl = document.getElementById("components-section-desc");
+      if (descEl) {
+        descEl.textContent = label === "edge"
+          ? "Bundled FTL, Core, and Web sources compared with the latest upstream development commits (development-v6 branch). The edge channel builds and rolls out automatically on every commit."
+          : "Bundled FTL, Core, and Web sources compared with the latest upstream release tags. The stable channel tracks tagged GitHub releases; commits pushed to upstream stable branches are only packaged once a new release tag is published.";
+      }
     }
 
     function renderCurrentActivity() {
       const container = document.getElementById("current-activity");
       if (!container) return;
       const items = [
-        ["Upstream", activityState.upstream],
+        ["Pi-hole Components", activityState.upstream],
         ["Build", activityState.build],
         ["Store", activityState.store],
         ["Install", activityState.install],
@@ -1488,7 +1495,15 @@
         activityState.upstream = "No upstream data";
       } else {
         const pending = rows.filter((row) => row.update_available).length;
-        activityState.upstream = pending ? `${pending} component${pending === 1 ? "" : "s"} pending` : "Up to date";
+        if (label === "edge") {
+          activityState.upstream = pending
+            ? `${pending} dev commit${pending === 1 ? "" : "s"} pending`
+            : "Up to date with dev commits";
+        } else {
+          activityState.upstream = pending
+            ? `${pending} release tag${pending === 1 ? "" : "s"} pending`
+            : "Up to date with release tags";
+        }
       }
       renderCurrentActivity();
     }
