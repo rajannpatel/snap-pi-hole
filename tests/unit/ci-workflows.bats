@@ -631,7 +631,8 @@ EOF
     # Test case 2: Edge channel (tag is a commit hash, e.g. 841976c)
     local edge_version
     edge_version=$(run_override_version_logic "841976c")
-    [ "$edge_version" = "v6.4.2+git.841976c.1234567.1781488922" ]
+    [ "$edge_version" = "v6.4.2+git.841976c" ]
+    [ "${#edge_version}" -le 32 ]
 }
 
 @test "ftl-override-build.sh and web-override-build.sh format component tags correctly" {
@@ -672,7 +673,11 @@ EOF
         export -f git
 
         local script_segment
-        script_segment=$(sed -n '/WEB_TAG=\$(git -C/,/fi/p' "${REPO_ROOT}/snap/local/build/web-override-build.sh")
+        script_segment=$(awk '
+            /WEB_TAG=\$\(git -C/ { capture = 1 }
+            capture && /^craftctl default/ { exit }
+            capture { print }
+        ' "${REPO_ROOT}/snap/local/build/web-override-build.sh")
 
         CRAFT_PROJECT_DIR="$TEST_WORKDIR" \
         CRAFT_PART_SRC="/dummy/part/src" \

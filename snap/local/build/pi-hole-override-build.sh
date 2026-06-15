@@ -13,8 +13,10 @@ fi
 FTL_TAG=$(cat "${CRAFT_STAGE}/snap-meta/ftl-tag")
 WEB_TAG=$(cat "${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag")
 CORE_TAG=$(git -C "${CRAFT_PART_SRC}" describe --tags --always)
+EDGE_CORE_COMMIT=false
 
 if [[ ! "$CORE_TAG" =~ ^v ]]; then
+    EDGE_CORE_COMMIT=true
     STABLE_VERSIONS_JSON="${CRAFT_PROJECT_DIR}/snap/local/build/stable-versions.json"
     if [ -f "$STABLE_VERSIONS_JSON" ]; then
         STABLE_CORE=$(python3 -c "import json; print(json.load(open('${STABLE_VERSIONS_JSON}'))['pi_hole'])")
@@ -28,7 +30,9 @@ fi
 if git -C "${CRAFT_PROJECT_DIR}" rev-parse --short HEAD &>/dev/null; then
     WRAPPER_HASH=$(git -C "${CRAFT_PROJECT_DIR}" rev-parse --short HEAD)
     WRAPPER_TIME=$(git -C "${CRAFT_PROJECT_DIR}" log -1 --format=%ct)
-    if [[ "$CORE_TAG" == *"+git."* ]]; then
+    if [ "$EDGE_CORE_COMMIT" = true ]; then
+        SNAP_VERSION="${CORE_TAG}"
+    elif [[ "$CORE_TAG" == *"+git."* ]]; then
         SNAP_VERSION="${CORE_TAG}.${WRAPPER_HASH}.${WRAPPER_TIME}"
     else
         SNAP_VERSION="${CORE_TAG}+git.${WRAPPER_HASH}.${WRAPPER_TIME}"
