@@ -1,0 +1,679 @@
+/* ==========================================================================
+   1. Base Overrides & Resets
+   ========================================================================== */
+main.p-strip {
+  background-color: #ffffff;
+  padding-top: 2rem !important;
+  padding-bottom: 2rem !important;
+}
+
+.mono {
+  font-family: "Ubuntu Mono", monospace;
+}
+
+/* Button group selector overrides */
+.p-button-group .p-button.is-active {
+  background-color: #0e8420 !important;
+  color: white !important;
+  border-color: #0e8420 !important;
+}
+
+/* ==========================================================================
+   2. Navigation & Breadcrumbs
+   ========================================================================== */
+.p-breadcrumbs {
+  min-height: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.p-breadcrumbs__item,
+.p-breadcrumbs__item a {
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.navigation-logo-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.navigation-logo-img {
+  height: 32px;
+  width: 32px;
+}
+
+/* ==========================================================================
+   3. Page Sections & Layout Grid
+   ========================================================================== */
+.dashboard-section {
+  margin-top: 1rem;
+}
+
+.dashboard-section--spacing {
+  margin-top: 2rem;
+}
+
+.snap-package-section {
+  padding-top: 0;
+}
+
+.dashboard-row {
+  margin-bottom: 1.5rem;
+}
+
+section[aria-labelledby],
+section[aria-label] {
+  margin-bottom: 2rem;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+/* ==========================================================================
+   4. Headers, Titles & Spotlight Metrics
+   ========================================================================== */
+.p-muted-heading-container {
+  align-items: center;
+  background-color: #f1f1f1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: space-between;
+  max-width: none;
+  padding: 8px !important;
+  width: 100%;
+}
+
+.p-muted-heading-container .p-muted-heading {
+  margin: 0 !important;
+  padding: 0 !important;
+  text-transform: none;
+}
+
+.p-card__title,
+.p-card h3,
+.p-card h4,
+.p-heading--4 {
+  font-weight: 400;
+}
+
+.dashboard-card-title {
+  margin-bottom: 0.75rem;
+}
+
+.security-spotlight {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.security-spotlight__metric {
+  flex: 1 1 8rem;
+}
+
+.security-spotlight__rule {
+  margin: 0 0 1rem 0;
+}
+
+.security-spotlight__label {
+  margin-top: 0.5rem;
+}
+
+.report-action-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.report-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.report-card--security {
+  border-top: 3px solid #0e8420;
+}
+
+.report-card__summary {
+  flex: 1 1 auto;
+  margin-bottom: 0.75rem;
+}
+
+.report-card__meta {
+  color: #666;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.report-card__actions {
+  margin-top: auto;
+}
+
+.security-panel {
+  border-top: 1px solid #d9d9d9;
+  padding-top: 1rem;
+}
+
+.security-panel--spaced {
+  margin-top: 1.5rem;
+}
+
+.security-panel__header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.security-arch-table td,
+.security-arch-table th {
+  vertical-align: middle;
+}
+
+.security-arch-table .security-count {
+  display: block;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.security-arch-table .security-count-note {
+  color: #666;
+  display: block;
+  font-size: 0.8125rem;
+  margin-top: 0.15rem;
+}
+
+.security-policy {
+  border-left: 3px solid #0b6bc5;
+  color: #444;
+  margin-top: 1.5rem;
+  padding-left: 1rem;
+}
+
+.channel-selector {
+  margin-bottom: 2rem;
+  margin-top: 1rem;
+}
+
+.channel-selector__label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 979px) {
+  .report-action-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   5. Cards & Details Tables Component
+   ========================================================================== */
+.dashboard-card {
+  height: 100%;
+  max-width: none;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-card--padded {
+  padding: 15px;
+}
+
+.dashboard-card-action {
+  margin-top: auto;
+}
+
+.button-icon {
+  display: inline-block;
+  margin-right: 0.35rem;
+  vertical-align: text-bottom;
+}
+
+#failed-log-links {
+  margin-bottom: 0;
+}
+
+.dashboard-card .p-card__thumbnail {
+  display: block;
+  height: 64px;
+  object-fit: contain;
+  width: 64px;
+}
+
+.dashboard-card .p-card__content > .p-card__thumbnail {
+  margin-bottom: 1rem;
+}
+
+.dashboard-details-table {
+  width: 100%;
+  border: none;
+  font-size: 0.9rem;
+  margin-bottom: 1.25rem;
+}
+
+.dashboard-details-table tr {
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+.dashboard-details-table tr:last-child {
+  border-bottom: none;
+}
+
+.dashboard-details-table td {
+  padding: 0.5rem 0;
+}
+
+.dashboard-details-table td.label {
+  font-weight: bold;
+  width: 35%;
+}
+
+/* ==========================================================================
+   6. Freshness & Status Chips
+   ========================================================================== */
+.freshness-chip {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.75rem;
+  gap: 0.4rem;
+  line-height: 1.5rem;
+  padding: 0.1rem 0.6rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.freshness-chip__dot {
+  background: #757575;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  height: 0.5rem;
+  width: 0.5rem;
+}
+
+.freshness-chip__detail {
+  color: var(--vf-color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.freshness-chip[data-status="fresh"] .freshness-chip__dot { background: #0e8420; }
+.freshness-chip[data-status="stale"] .freshness-chip__dot { background: #c7162b; }
+.freshness-chip[data-status="building"] .freshness-chip__dot {
+  animation: dashboard-pulse 1.2s ease-in-out infinite;
+  background: #0b6bc5;
+}
+
+.freshness-chip--inline {
+  flex-wrap: wrap;
+  font-variant: normal;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  vertical-align: middle;
+  white-space: normal;
+}
+
+.status-chip {
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  padding: 0.15rem 0.55rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.status-text-short {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .status-text-full {
+    display: none;
+  }
+  .status-text-short {
+    display: inline;
+  }
+}
+
+.status-success { background: #0e8420; }
+.status-failure,
+.status-timed_out,
+.status-action_required,
+.status-startup_failure { background: #c7162b; }
+.status-queued,
+.status-in_progress { background: #0b6bc5; }
+.status-caution {
+  background: #f99b11;
+  color: #111;
+}
+.status-no_data,
+.status-neutral,
+.status-skipped,
+.status-cancelled,
+.status-unknown { background: #757575; }
+.status-building { background: #0b6bc5; }
+
+/* Custom built-on repository status tags */
+.status-chip--github-builder {
+  background: #24292e !important;
+  text-transform: none;
+}
+
+.status-chip--launchpad-builder {
+  background: #e95420 !important;
+  text-transform: none;
+}
+
+.status-chip-logo {
+  display: block;
+  margin-right: 0.35rem;
+}
+
+#snap-package-freshness {
+  margin-bottom: 1rem;
+}
+
+.channel-scope-summary {
+  color: #666;
+  margin-top: -1.4rem;
+  margin-bottom: 1.5rem;
+}
+
+.activity-strip {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 1.25rem;
+}
+
+.activity-item {
+  border-left: 3px solid #0b6bc5;
+  min-width: 0;
+  padding: 0.35rem 0.75rem;
+}
+
+.activity-item__label {
+  color: #666;
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.activity-item__value {
+  display: block;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 979px) {
+  .activity-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .activity-strip {
+    grid-template-columns: 1fr;
+  }
+}
+
+.snap-package-table {
+  table-layout: auto;
+  width: 100%;
+}
+
+.p-chip {
+  font-size: 0.75rem;
+}
+
+/* ==========================================================================
+   7. Spinners & Animations
+   ========================================================================== */
+@keyframes dashboard-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.is-building {
+  animation: dashboard-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes dashboard-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   8. Trend Charts & Matrix Controls
+   ========================================================================== */
+.trend-chart-wrap {
+  height: clamp(16.25rem, 21vh, 18rem);
+  margin-top: 0.75rem;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+#duration-trend-chart {
+  height: 100%;
+  overflow: hidden;
+  width: 100%;
+}
+
+.finance-chart-svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.finance-chart-tooltip {
+  min-width: 18rem;
+  width: 18rem;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 0.12s ease-out;
+  visibility: hidden;
+  z-index: 2;
+}
+
+.finance-chart-tooltip.is-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.finance-chart-tooltip [class*="p-notification--"] {
+  margin: 0;
+}
+
+@media (max-width: 979px) {
+  .trend-chart-wrap {
+    height: 20rem;
+  }
+}
+
+@media (min-width: 1036px) {
+  .trend-chart-wrap {
+    height: 16.25rem;
+  }
+}
+
+/* ==========================================================================
+   9. Tables & Element Alignments
+   ========================================================================== */
+.os-badge {
+  border-radius: 50%;
+  display: inline-block;
+  height: 20px;
+  object-fit: cover;
+  vertical-align: middle;
+  width: 20px;
+}
+
+td {
+  vertical-align: top;
+}
+
+td .p-button {
+  margin-right: 0.5rem;
+}
+
+td .p-button:last-child {
+  margin-right: 0;
+}
+
+/* Center-aligned table cells for tables with status indicators and single-line content */
+.table--vertical-center tbody td {
+  vertical-align: middle;
+}
+
+/* Button group containers in table cells: flex layout with top-alignment */
+td .report-button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+td .workflow-btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.35rem;
+  justify-content: flex-start !important;
+  margin-bottom: 0;
+  text-align: left !important;
+}
+
+td .workflow-btn .status-chip-logo {
+  display: block;
+  flex: 0 0 0.875rem;
+  height: 0.875rem;
+  margin-right: 0 !important;
+  width: 0.875rem;
+}
+
+td .workflow-btn .workflow-btn__spinner {
+  animation: dashboard-spin 0.9s linear infinite;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  border-top-color: transparent;
+  box-sizing: border-box;
+  display: block;
+  flex: 0 0 0.75rem;
+  height: 0.75rem;
+  margin-right: 0;
+  width: 0.75rem;
+}
+
+td .workflow-btn .workflow-btn__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+td .workflow-buttons {
+  align-items: flex-start;
+  display: flex;
+  justify-content: flex-start;
+  text-align: left;
+  width: 100%;
+}
+
+td .status-chip {
+  vertical-align: middle;
+}
+
+td .os-badge {
+  margin-top: 2px !important;
+  margin-bottom: 2px !important;
+  vertical-align: top;
+}
+
+.matrix-table th.os-logo-col,
+.matrix-table td.os-logo-col {
+  padding-right: 0.25rem;
+  width: 2.75rem;
+}
+
+.matrix-table th.distribution-col,
+.matrix-table td.distribution-col {
+  padding-left: 0.25rem;
+}
+
+/* Table columns sizing overrides (Prevents clipping/truncation) */
+.snap-package-table,
+.matrix-table,
+.components-table,
+.security-arch-table,
+.sync-tracking-table {
+  table-layout: auto;
+  width: 100%;
+}
+
+.snap-package-table th,
+.snap-package-table td,
+.matrix-table th,
+.matrix-table td,
+.components-table th,
+.components-table td,
+.security-arch-table th,
+.security-arch-table td,
+.sync-tracking-table th,
+.sync-tracking-table td {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.snap-package-table td.snap-version {
+  max-width: 20ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-note {
+  margin-bottom: 1rem;
+  margin-top: 1rem;
+}
+
+/* ==========================================================================
+   10. Footer Section
+   ========================================================================== */
+footer.p-strip--dark {
+  background-color: #2d2d2d !important;
+  color: #b6b6b6 !important;
+  margin-top: 3rem;
+  padding-bottom: 2rem !important;
+  padding-top: 2rem !important;
+}
+
+footer.p-strip--dark h2 {
+  color: #eaeaea !important;
+}
+
+footer.p-strip--dark a {
+  color: rgb(102, 153, 204) !important;
+  text-decoration: none;
+  transition: color 0.2s ease, text-decoration 0.2s ease;
+}
+
+footer.p-strip--dark a:hover {
+  color: #e95420 !important;
+  text-decoration: underline !important;
+}
