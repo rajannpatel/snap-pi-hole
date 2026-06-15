@@ -870,6 +870,31 @@ def collect_snap_package_data(client, repo_root):
         if risk not in all_channels_raw:
             all_channels_raw[risk] = {}
         all_channels_raw[risk][arch_upper] = entry
+
+    def reference_versions_by_channel():
+        references = {}
+        for risk, entries in all_channels_raw.items():
+            reference_version = ""
+            newest_git_time = None
+            newest_release_time = None
+            newest_release_version = ""
+            for entry in entries.values():
+                version_str = entry.get("version", "")
+                _, _, git_commit_time = resolve_git_metadata_for_version(repo_root, version_str)
+                parsed_git_time = parse_iso(git_commit_time)
+                if parsed_git_time and (newest_git_time is None or parsed_git_time > newest_git_time):
+                    newest_git_time = parsed_git_time
+                    reference_version = version_str
+
+                released_at = entry.get("channel", {}).get("released-at", "")
+                parsed_release_time = parse_iso(released_at)
+                if parsed_release_time and (newest_release_time is None or parsed_release_time > newest_release_time):
+                    newest_release_time = parsed_release_time
+                    newest_release_version = version_str
+            references[risk] = reference_version or newest_release_version
+        return references
+
+    channel_reference_versions = reference_versions_by_channel()
  
     # Pick the best (highest-risk, then newest) published revision per architecture
     # in the latest track. amd64/arm64 are promoted all the way to stable (the
@@ -908,36 +933,22 @@ def collect_snap_package_data(client, repo_root):
                 "_rank": rank,
             }
 
-    # The newest released revision is the version actually being served; use it to
-    # flag architectures whose builds have fallen behind.
+    # The newest release timestamp feeds the Snap Store freshness clock.
     newest_timestamp = None
     for info in best_by_arch.values():
         dt = parse_iso(info.get("released_at", ""))
         if dt and (newest_timestamp is None or dt > newest_timestamp):
             newest_timestamp = dt
 
-    reference_version = ""
-    newest_git_time = None
-    for info in best_by_arch.values():
-        git_time = parse_iso(info.get("git_commit_time", ""))
-        if git_time and (newest_git_time is None or git_time > newest_git_time):
-            newest_git_time = git_time
-            reference_version = info.get("full_version", "")
-
-    if not reference_version:
-        for info in best_by_arch.values():
-            dt = parse_iso(info.get("released_at", ""))
-            if dt and dt == newest_timestamp:
-                reference_version = info.get("full_version", "")
-
     channels = []
     for arch_upper, info in best_by_arch.items():
         info.pop("_rank", None)
         info["build_source"] = "github" if arch_upper in GITHUB_BUILD_ARCHES else "launchpad"
         info["on_stable"] = arch_upper in stable_arches
+        reference_version_for_channel = channel_reference_versions.get(info.get("channel", ""))
         info["build_status"] = (
             "current"
-            if reference_version and info.get("full_version", "") == reference_version
+            if reference_version_for_channel and info.get("full_version", "") == reference_version_for_channel
             else "stale"
         )
         info["workflow_runs"] = {
@@ -956,6 +967,7 @@ def collect_snap_package_data(client, repo_root):
         for arch_upper, entry in all_channels_raw[risk].items():
             version_str = entry.get("version", "")
             base_version, git_commit, git_commit_time = resolve_git_metadata_for_version(repo_root, version_str)
+            reference_version_for_channel = channel_reference_versions.get(risk, "")
             info = {
                 "architecture": arch_upper,
                 "full_version": version_str,
@@ -971,7 +983,7 @@ def collect_snap_package_data(client, repo_root):
                 "on_stable": arch_upper in stable_arches,
                 "build_status": (
                     "current"
-                    if reference_version and version_str == reference_version
+                    if reference_version_for_channel and version_str == reference_version_for_channel
                     else "stale"
                 ),
                 "workflow_runs": {

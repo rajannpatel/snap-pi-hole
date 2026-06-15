@@ -393,6 +393,27 @@ JS
     done
 }
 
+@test "frontend: snapStatusDescriptor does not report store lag while live API is using snapshot" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadFunctions } = require(process.argv[2]);
+const { snapStatusDescriptor } = loadFunctions(process.argv[3], ["snapStatusDescriptor"]);
+const assert = require("assert");
+
+global.freshnessState = { live: { status: "stale" } };
+
+const stale = snapStatusDescriptor({ build_status: "stale", channel: "edge" });
+assert.strictEqual(stale.cls, "status-neutral");
+assert.strictEqual(stale.label, "Snapshot · edge");
+assert.strictEqual(stale.short, "snapshot");
+
+const current = snapStatusDescriptor({ build_status: "current", channel: "edge" });
+assert.strictEqual(current.cls, "status-success");
+assert.strictEqual(current.label, "Serving · edge");
+JS
+    done
+}
+
 @test "frontend: trendPointColor renders cancelled/skipped as neutral grey, not success green" {
     for html in "${HTML_FILES[@]}"; do
         run_node - "$HELPER" "$html" <<'JS'
@@ -519,6 +540,11 @@ assert.match(
   source,
   /applyLiveSnapStatus\(cicdJobs, cicdRun, lpJobs, lpRun\);/,
   "Live Snap status must use the cached Launchpad run object passed through refreshLiveData"
+);
+assert.match(
+  source,
+  /if \(statusHtml\) \{\s*tr\.cells\[6\]\.innerHTML = statusHtml;\s*\}/,
+  "Live Snap status must update the status column after Released"
 );
 JS
     done
@@ -722,23 +748,49 @@ JS
     done
 }
 
-@test "frontend: freshnessDetail and freshnessStatus support paused state" {
+@test "frontend: freshnessDetail and freshnessStatus show retry clocks for fallback states" {
     for html in "${HTML_FILES[@]}"; do
         run_node - "$HELPER" "$html" <<'JS'
 const { loadFunctions } = require(process.argv[2]);
 const { freshnessDetail, freshnessStatus } = loadFunctions(process.argv[3], [
+  "countdownLabel",
   "freshnessDetail",
   "freshnessStatus",
 ]);
 const assert = require("assert");
 
+Date.now = () => new Date("2026-06-14T14:00:00Z").getTime();
+
 global.freshnessState = {
   live: { updatedAt: "2026-06-14T14:00:00Z", nextAt: null, status: "paused" },
-  snap: { updatedAt: null, nextAt: null, fromGist: false }
+  snap: { updatedAt: null, nextAt: null, fromGist: false, source: "build-time snapshot" }
 };
 
 assert.strictEqual(freshnessDetail("live"), "paused");
 assert.strictEqual(freshnessStatus("live"), "muted");
+
+global.freshnessState.live = {
+  updatedAt: "2026-06-14T13:55:00Z",
+  nextAt: new Date("2026-06-14T14:15:00Z").getTime(),
+  status: "stale",
+};
+assert.strictEqual(freshnessDetail("live"), "unavailable — using snapshot · next 15:00");
+assert.strictEqual(freshnessStatus("live"), "stale");
+
+global.freshnessState.live = {
+  updatedAt: null,
+  nextAt: new Date("2026-06-14T14:01:30Z").getTime(),
+  status: "idle",
+};
+assert.strictEqual(freshnessDetail("live"), "connecting… · next 1:30");
+
+global.freshnessState.snap = {
+  updatedAt: null,
+  nextAt: new Date("2026-06-14T15:00:00Z").getTime(),
+  fromGist: false,
+  source: "build-time snapshot",
+};
+assert.strictEqual(freshnessDetail("snap"), "build-time snapshot · next 60:00");
 JS
     done
 }

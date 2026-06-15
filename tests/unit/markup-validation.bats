@@ -135,6 +135,18 @@ for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
     assert "<th>Test duration</th>" in text, f"{rel} missing test duration column"
     assert "<th>Sync duration</th>" in text, f"{rel} missing sync duration column"
     assert "<th>Build/publish duration</th>" in text, f"{rel} missing build/publish duration column"
+    snap_columns = [
+        "<th>Version</th>",
+        "<th>Revision</th>",
+        "<th>Size</th>",
+        "<th>Released</th>",
+        "<th>Latest build status</th>",
+        "<th>Build/publish duration</th>",
+    ]
+    cursor = -1
+    for column in snap_columns:
+        cursor = text.find(column, cursor + 1)
+        assert cursor != -1, f"{rel} snap package columns out of order near {column}"
     assert 'colspan="5">Loading dependency comparisons...' in text, f"{rel} missing colspan 5 loading row"
 PYEOF
 }

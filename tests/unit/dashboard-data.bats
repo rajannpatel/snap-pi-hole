@@ -318,6 +318,54 @@ assert published["edge"]["released_at"] == "2026-06-10T17:00:00Z", f"edge releas
 PYEOF
 }
 
+@test "dashboard data: snap package build status is scoped to each channel" {
+    python3 - <<PYEOF
+import pathlib
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+def ch(track, risk, arch, version, revision, released, size):
+    return {
+        "channel": {"track": track, "risk": risk, "architecture": arch, "released-at": released},
+        "version": version,
+        "revision": revision,
+        "download": {"size": size, "url": f"https://example.test/{arch}.snap"},
+    }
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        if url == dashboard.SNAPCRAFT_INFO_URL:
+            return {
+                "channel-map": [
+                    # Stable has a newer release than edge.
+                    ch("latest", "stable", "amd64", "v6.4.2+git.newstable.1781499977", 410, "2026-06-15T05:14:44Z", 100),
+                    ch("latest", "stable", "arm64", "v6.4.2+git.newstable.1781499977", 411, "2026-06-15T05:15:17Z", 110),
+                    # Edge is older than stable, but internally current for GitHub arches.
+                    ch("latest", "edge", "amd64", "v6.4.2+git.edgehead.1781062076", 390, "2026-06-10T17:00:00Z", 100),
+                    ch("latest", "edge", "arm64", "v6.4.2+git.edgehead.1781062076", 391, "2026-06-10T17:00:00Z", 110),
+                    # A genuinely older edge-only arch should still be marked stale.
+                    ch("latest", "edge", "s390x", "v6.4.2+git.oldedge.1780975672", 137, "2026-06-09T14:47:52Z", 120),
+                ]
+            }
+        return {}
+
+result = dashboard.collect_snap_package_data(FakeClient(), pathlib.Path("${TEST_TMPDIR}"))
+all_rows = {
+    (row["channel"], row["architecture"]): row
+    for row in result["all_channels"]
+}
+
+assert all_rows[("stable", "AMD64")]["build_status"] == "current", all_rows[("stable", "AMD64")]
+assert all_rows[("stable", "ARM64")]["build_status"] == "current", all_rows[("stable", "ARM64")]
+
+# Regression guard: edge rows must be compared to latest/edge, not latest/stable.
+assert all_rows[("edge", "AMD64")]["build_status"] == "current", all_rows[("edge", "AMD64")]
+assert all_rows[("edge", "ARM64")]["build_status"] == "current", all_rows[("edge", "ARM64")]
+assert all_rows[("edge", "S390X")]["build_status"] == "stale", all_rows[("edge", "S390X")]
+PYEOF
+}
+
 @test "dashboard data: snap package includes baked build and publish job links" {
     python3 - <<PYEOF
 import pathlib

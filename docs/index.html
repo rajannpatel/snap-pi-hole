@@ -287,9 +287,9 @@
                     <th>Built on</th>
                     <th>Version</th>
                     <th>Revision</th>
-                    <th>Latest build status</th>
                     <th>Size</th>
                     <th>Released</th>
+                    <th>Latest build status</th>
                     <th>Build/publish duration</th>
                   </tr>
                 </thead>
@@ -1542,6 +1542,9 @@
       if (row.build_status === "current") {
         return { cls: "status-success", label: `Serving · ${channel}`, short: "serving" };
       }
+      if (typeof freshnessState !== "undefined" && freshnessState.live?.status === "stale") {
+        return { cls: "status-neutral", label: `Snapshot · ${channel}`, short: "snapshot" };
+      }
       return { cls: "status-caution", label: `Store lag · ${channel}`, short: "lag" };
     }
 
@@ -1625,9 +1628,9 @@
           <td>${builtOn}</td>
           <td class="mono snap-version">${version}</td>
           <td class="mono">${row.revision || "Unknown"}</td>
-          <td>${status}</td>
           <td class="mono">${formatBytes(row.size_bytes)}</td>
           <td class="mono">${formatDate(row.released_at)}</td>
+          <td>${status}</td>
           <td>${workflow}</td>
         `;
         packageBody.appendChild(tr);
@@ -1695,7 +1698,7 @@
         }
 
         if (statusHtml) {
-          tr.cells[4].innerHTML = statusHtml;
+          tr.cells[6].innerHTML = statusHtml;
         }
 
         const duration = (job ? liveJobDurationSeconds(job) : null) ?? (run ? liveRunDurationSeconds(run) : null);
@@ -1890,24 +1893,26 @@
       freshnessState.snap.updatedAt = updatedAt || null;
       freshnessState.snap.fromGist = fromGist;
       freshnessState.snap.source = fromGist ? "Snap Store · hourly gist" : "build-time snapshot";
-      freshnessState.snap.nextAt = fromGist ? nextHourBoundary(Date.now()) : null;
+      freshnessState.snap.nextAt = nextHourBoundary(Date.now());
     }
 
     // Evaluates status details text labels of target freshness kinds
     function freshnessDetail(kind) {
+      const nextSuffix = (clock) => {
+        const cd = countdownLabel(clock.nextAt);
+        return cd ? ` · next ${cd}` : "";
+      };
       if (kind === "live") {
         const clock = freshnessState.live;
         if (clock.status === "paused") return "paused";
-        if (clock.status === "stale") return "unavailable — using snapshot";
-        if (!clock.updatedAt) return "connecting…";
-        const cd = countdownLabel(clock.nextAt);
-        return `updated ${relativeTime(clock.updatedAt)}${cd ? ` · next ${cd}` : ""}`;
+        if (clock.status === "stale") return `unavailable — using snapshot${nextSuffix(clock)}`;
+        if (!clock.updatedAt) return `connecting…${nextSuffix(clock)}`;
+        return `updated ${relativeTime(clock.updatedAt)}${nextSuffix(clock)}`;
       }
       if (kind === "snap") {
         const clock = freshnessState.snap;
-        if (!clock.updatedAt) return clock.source;
-        const cd = countdownLabel(clock.nextAt);
-        return `updated ${relativeTime(clock.updatedAt)}${cd ? ` · next ${cd}` : ""}`;
+        if (!clock.updatedAt) return `${clock.source}${nextSuffix(clock)}`;
+        return `updated ${relativeTime(clock.updatedAt)}${nextSuffix(clock)}`;
       }
       if (kind === "build") {
         const clock = freshnessState.build;
@@ -2304,8 +2309,8 @@
       const runs = await fetchRecentRuns();
       if (!runs) {
         freshnessState.live.status = "stale";
-        renderFreshnessChips();
         scheduleLivePoll(false);
+        renderFreshnessChips();
         return;
       }
       freshnessState.live.updatedAt = new Date().toISOString();
