@@ -1987,6 +1987,19 @@
           : `<span class="status-chip status-success" aria-label="No actionable USN vulnerabilities">${checkIconSvg}<span class="status-text-full" aria-hidden="true">No USN action</span><span class="status-text-short" aria-hidden="true">clear</span></span>`;
         const osvUrl = row.report ? `vulnerabilities/${row.report}` : "";
         const vexUrl = architecture ? `vulnerabilities/vex-${channelLabel}-${architecture}.cdx.json` : "";
+        
+        let datePart = "Unknown";
+        let timePart = "";
+        if (row.generated_at) {
+          const date = new Date(row.generated_at);
+          if (!Number.isNaN(date.getTime())) {
+            datePart = date.toLocaleDateString();
+            timePart = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          } else {
+            datePart = row.generated_at;
+          }
+        }
+
         tr.innerHTML = `
           <td><span class="mono">${escapeHtml(architectureLabel)}</span></td>
           <td>
@@ -2001,7 +2014,10 @@
             <strong class="security-count">${rawMatches}</strong>
             <span class="security-count-note">${rawPackages} package${rawPackages === 1 ? "" : "s"} scanned</span>
           </td>
-          <td class="mono">${formatDate(row.generated_at)}</td>
+          <td>
+            <strong class="security-count">${datePart}</strong>
+            ${timePart ? `<span class="security-count-note">${timePart}</span>` : ""}
+          </td>
           <td>
             ${row.report ? `
               <div class="report-button-group">

@@ -1891,7 +1891,6 @@ def write_html(summary, output_path):
             f"<td><span class=\"p-chip\">{ch}</span></td>"
             f"<td><strong>{arch.upper()}</strong></td>"
             f"<td>{actionable_pkgs}</td>"
-            f"<td>{actionable_vulns}</td>"
             f"<td>{raw_matches}</td>"
             f"<td>{confined_mitigations}</td>"
             f"<td>{report_cell}</td>"
@@ -2260,9 +2259,8 @@ def write_html(summary, output_path):
                 <tr>
                   <th>Channel</th>
                   <th>Architecture</th>
-                  <th>Actionable USN Packages</th>
-                  <th>Actionable USN Vulnerabilities</th>
-                  <th>Raw OSV Matches</th>
+                  <th>Published Fixes (USN)</th>
+                  <th>CVE Matches</th>
                   <th>Confined Mitigations</th>
                   <th>Report</th>
                 </tr>
