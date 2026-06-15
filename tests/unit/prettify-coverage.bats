@@ -158,24 +158,24 @@ assert_warn() {
     assert_warn "grep -q '<caption class=\"u-off-screen\">' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing accessible table caption"
     assert_warn "grep -q 'aria-pressed=\"true\"' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html architecture selector is missing pressed state"
     
-    # 2. Assert sbom-explorer.html contains unified footer background color (#2d2d2d)
-    assert_warn "grep -q 'background-color: #2d2d2d' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing unified dark footer background (#2d2d2d)"
+    # 2. Assert sbom-explorer stylesheet contains unified footer background color (#2d2d2d)
+    assert_warn "grep -q 'background-color: #2d2d2d' '${REPO_ROOT}/snap/local/assets/sbom-explorer.css'" "sbom-explorer.css is missing unified dark footer background (#2d2d2d)"
     
-    # 3. Assert sbom-explorer.html contains custom link color (rgb(102, 153, 204))
-    assert_warn "grep -q 'color: rgb(102, 153, 204)' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing custom link color rgb(102, 153, 204)"
+    # 3. Assert sbom-explorer stylesheet contains custom link color (rgb(102, 153, 204))
+    assert_warn "grep -q 'color: rgb(102, 153, 204)' '${REPO_ROOT}/snap/local/assets/sbom-explorer.css'" "sbom-explorer.css is missing custom link color rgb(102, 153, 204)"
     
-    # 4. Assert sbom-explorer.html contains hover transition to Ubuntu Orange (#e95420)
-    assert_warn "grep -q 'color: #e95420' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing hover color transition to Ubuntu Orange (#e95420)"
+    # 4. Assert sbom-explorer stylesheet contains hover transition to Ubuntu Orange (#e95420)
+    assert_warn "grep -q 'color: #e95420' '${REPO_ROOT}/snap/local/assets/sbom-explorer.css'" "sbom-explorer.css is missing hover color transition to Ubuntu Orange (#e95420)"
     
     # 5. Assert sbom-explorer.html contains License column wrapping rule and space joiner
-    assert_warn "grep -q 'td:nth-child(4)' '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing License column CSS wrapping rule"
+    assert_warn "grep -q 'td:nth-child(4)' '${REPO_ROOT}/snap/local/assets/sbom-explorer.css'" "sbom-explorer.css is missing License column CSS wrapping rule"
     assert_warn "grep -q \"join(' ')\" '${REPO_ROOT}/snap/local/assets/sbom-explorer.html'" "sbom-explorer.html is missing license chip space joiner"
 }
 
 @test "dashboard.html layout and styling requirements (non-blocking warning)" {
     # 1. Assert dashboard.html uses Vanilla typography source and breadcrumb overrides
     assert_warn "! grep -q 'fonts.googleapis.com' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html should not import Google Fonts"
-    assert_warn "grep -q 'letter-spacing: normal' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing breadcrumb letter-spacing override"
+    assert_warn "grep -q 'letter-spacing: normal' '${REPO_ROOT}/snap/local/assets/dashboard.css'" "dashboard.css is missing breadcrumb letter-spacing override"
     
     # 3. Assert dashboard.html has breadcrumbs element
     assert_warn "grep -q 'p-breadcrumbs' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing Vanilla Framework breadcrumbs"
@@ -184,12 +184,12 @@ assert_warn() {
     assert_warn "grep -q 'class=\"p-button\" href=\"sbom/\"' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html SBOM button is not using the default button style"
     assert_warn "grep -q 'href=\"vulnerabilities/\"' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing vulnerability reports link"
     
-    # 4. Assert dashboard.html contains unified footer background color (#2d2d2d)
-    assert_warn "grep -q 'background-color: #2d2d2d' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing unified dark footer background (#2d2d2d)"
+    # 4. Assert dashboard stylesheet contains unified footer background color (#2d2d2d)
+    assert_warn "grep -q 'background-color: #2d2d2d' '${REPO_ROOT}/snap/local/assets/dashboard.css'" "dashboard.css is missing unified dark footer background (#2d2d2d)"
     
-    # 5. Assert dashboard.html contains custom link color (rgb(102, 153, 204))
-    assert_warn "grep -q 'color: rgb(102, 153, 204)' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing custom link color rgb(102, 153, 204)"
+    # 5. Assert dashboard stylesheet contains custom link color (rgb(102, 153, 204))
+    assert_warn "grep -q 'color: rgb(102, 153, 204)' '${REPO_ROOT}/snap/local/assets/dashboard.css'" "dashboard.css is missing custom link color rgb(102, 153, 204)"
     
-    # 6. Assert dashboard.html contains hover transition to Ubuntu Orange (#e95420)
-    assert_warn "grep -q 'color: #e95420' '${REPO_ROOT}/snap/local/assets/dashboard.html'" "dashboard.html is missing hover color transition to Ubuntu Orange (#e95420)"
+    # 6. Assert dashboard stylesheet contains hover transition to Ubuntu Orange (#e95420)
+    assert_warn "grep -q 'color: #e95420' '${REPO_ROOT}/snap/local/assets/dashboard.css'" "dashboard.css is missing hover color transition to Ubuntu Orange (#e95420)"
 }

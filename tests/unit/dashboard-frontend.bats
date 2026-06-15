@@ -163,12 +163,19 @@ assert.match(pendingHtml, /aria-disabled="true"/);
 assert.match(pendingHtml, /class="workflow-btn__spinner"/);
 assert.doesNotMatch(pendingHtml, /href=/);
 
-const source = require("fs").readFileSync(process.argv[3], "utf8");
-assert.match(source, /td \.workflow-btn \{[\s\S]*display: inline-flex !important;[\s\S]*gap: 0\.35rem;[\s\S]*justify-content: flex-start !important;[\s\S]*text-align: left !important;/);
-assert.match(source, /td \.workflow-btn \.workflow-btn__label \{[\s\S]*flex: 1 1 auto;[\s\S]*text-align: left;/);
-assert.match(source, /td \.workflow-buttons \{[\s\S]*display: flex;[\s\S]*justify-content: flex-start;[\s\S]*width: 100%;/);
-assert.match(source, /td \.workflow-btn \.workflow-btn__spinner \{[\s\S]*border-radius: 50%;[\s\S]*box-sizing: border-box;[\s\S]*flex: 0 0 0\.75rem;[\s\S]*height: 0\.75rem;[\s\S]*width: 0\.75rem;/);
-assert.match(source, /td \.workflow-btn \.status-chip-logo \{[\s\S]*flex: 0 0 0\.875rem;[\s\S]*height: 0\.875rem;[\s\S]*width: 0\.875rem;/);
+const fs = require("fs");
+const path = require("path");
+const htmlPath = process.argv[3];
+const source = fs.readFileSync(htmlPath, "utf8");
+const cssPath = htmlPath.endsWith(path.join("docs", "index.html"))
+  ? path.join(path.dirname(htmlPath), "dashboard.css")
+  : path.join(path.dirname(htmlPath), "dashboard.css");
+const cssSource = fs.readFileSync(cssPath, "utf8");
+assert.match(cssSource, /td \.workflow-btn \{[\s\S]*display: inline-flex !important;[\s\S]*gap: 0\.35rem;[\s\S]*justify-content: flex-start !important;[\s\S]*text-align: left !important;/);
+assert.match(cssSource, /td \.workflow-btn \.workflow-btn__label \{[\s\S]*flex: 1 1 auto;[\s\S]*text-align: left;/);
+assert.match(cssSource, /td \.workflow-buttons \{[\s\S]*display: flex;[\s\S]*justify-content: flex-start;[\s\S]*width: 100%;/);
+assert.match(cssSource, /td \.workflow-btn \.workflow-btn__spinner \{[\s\S]*border-radius: 50%;[\s\S]*box-sizing: border-box;[\s\S]*flex: 0 0 0\.75rem;[\s\S]*height: 0\.75rem;[\s\S]*width: 0\.75rem;/);
+assert.match(cssSource, /td \.workflow-btn \.status-chip-logo \{[\s\S]*flex: 0 0 0\.875rem;[\s\S]*height: 0\.875rem;[\s\S]*width: 0\.875rem;/);
 assert.match(source, /btn\.querySelector\("\.workflow-btn__label"\)/);
 
 assert.strictEqual(liveJobDurationSeconds(null), null);
@@ -549,7 +556,7 @@ assert.match(
 assert.match(source, /<th>Test duration<\/th>/, "Test matrix workflow type should move into the duration column heading");
 assert.match(source, /<th>Sync duration<\/th>/, "Sync workflow type should move into the duration column heading");
 assert.match(source, /<th>Build\/publish duration<\/th>/, "Build and publish workflow type should move into the duration column heading");
-assert.doesNotMatch(source, /Publish and store/, "Snap package section should not render a redundant parent heading");
+assert.match(source, /<h3 class="p-muted-heading">Publish and store<\/h3>/, "Snap package section should keep a muted category heading");
 assert.doesNotMatch(source, /Installation availability/, "Snap package section should use channel-specific package heading text");
 assert.match(source, /id="snap-packages-title">Stable channel snap packages<\/h2>/, "Snap package heading should default to stable channel package text");
 assert.match(

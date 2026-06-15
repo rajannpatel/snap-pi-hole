@@ -213,9 +213,11 @@ PYEOF
 from pathlib import Path
 
 html = Path("${REPORT_DIR}/index.html").read_text()
+css = Path("${REPORT_DIR}/vulnerability-report.css").read_text()
 assert '<span class="p-chip vulnerability-channel">' in html, html
-assert ".vulnerability-channel .p-chip__value" in html, html
-assert ".vulnerability-channel .p-chip__value {\\n      font-size: 12px;" in html, html
+assert 'rel="stylesheet" href="vulnerability-report.css"' in html, html
+assert ".vulnerability-channel .p-chip__value" in css, css
+assert "font-size: 12px;" in css, css
 PYEOF
 }
 
@@ -1793,5 +1795,4 @@ with mock.patch("summarize_osv_reports.time.sleep") as mock_sleep:
 print("Batch and individual skip on absurd cooldown unit test passed successfully.")
 PYEOF
 }
-
 

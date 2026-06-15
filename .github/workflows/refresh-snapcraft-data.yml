@@ -48,7 +48,7 @@ jobs:
           # Uses only the public api.snapcraft.io info endpoint plus local git
           # history, so no Snap Store credentials are required.
           python3 snap/local/build/generate_dashboard_data.py --snapcraft-only . "${DATA_FILE}"
-          echo "----- ${DATA_FILE} -----"
+          echo "Dashboard data file: ${DATA_FILE}"
           cat "${DATA_FILE}"
 
       - name: Publish to gist

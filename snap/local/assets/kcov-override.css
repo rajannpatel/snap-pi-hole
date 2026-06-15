@@ -39,6 +39,9 @@ td, th {
 footer.p-strip--dark {
   background-color: #2d2d2d !important;
   color: #b6b6b6 !important;
+  margin-top: 3rem !important;
+  padding-bottom: 2rem !important;
+  padding-top: 2rem !important;
 }
 
 footer.p-strip--dark h2 {
@@ -93,6 +96,63 @@ footer.p-strip--dark a:hover, footer.p-strip--dark a.is-dark:hover {
 .navigation a:hover {
   color: #e95420 !important; /* Ubuntu Orange */
   text-decoration: none !important;
+}
+
+.navigation-logo-link {
+  align-items: center;
+  display: flex;
+  text-decoration: none;
+}
+
+.navigation-logo-img {
+  height: 32px;
+  width: 32px;
+}
+
+.coverage-main {
+  background-color: #ffffff;
+  flex-grow: 1;
+  padding-bottom: 2rem !important;
+  padding-top: 2rem !important;
+}
+
+.coverage-breadcrumbs {
+  margin-bottom: 1.5rem;
+}
+
+.coverage-header-section,
+.coverage-summary,
+.coverage-terminology-row {
+  margin-bottom: 2rem;
+}
+
+.coverage-title {
+  margin-bottom: 1.5rem;
+}
+
+.coverage-command {
+  font-family: monospace;
+}
+
+.coverage-rule {
+  margin: 1.5rem 0;
+}
+
+.coverage-highlight-rule {
+  margin: 0 0 1rem 0 !important;
+}
+
+.coverage-spotlight-label {
+  margin-top: 0.5rem !important;
+}
+
+.coverage-card-description {
+  color: #666666;
+  font-size: 0.9rem;
+}
+
+.coverage-table-wrap {
+  overflow-x: auto;
 }
 
 /* Header Info Table overrides */

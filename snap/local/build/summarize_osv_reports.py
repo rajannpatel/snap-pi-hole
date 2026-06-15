@@ -1233,7 +1233,7 @@ def status_chip(text, priority, alt):
         f'<img src="{SEVERITY_ICONS[icon_priority]}" '
         f'alt="{html.escape(alt)}" '
         f'title="{html.escape(text)}" '
-        'style="height: 14px; width: 14px; vertical-align: text-bottom; margin-right: 0.25rem;">'
+        'class="vulnerability-severity-icon">'
         f'{html.escape(visible_text)}'
         '</span>'
         '</span>'
@@ -1626,13 +1626,13 @@ def write_markdown(summary, output_path):
 def status_badge(patchable):
     if patchable:
         return (
-            '<span class="p-chip" style="background-color: #e6f2ff; border: 1px solid #b3d7ff; color: #004085;">'
+            '<span class="p-chip vulnerability-status-badge--actionable">'
             '<span class="p-chip__value">Actionable (USN)</span>'
             '</span>'
         )
     else:
         return (
-            '<span class="p-chip" style="background-color: #f3e5f5; border: 1px solid #e1bee7; color: #4a148c;" title="Mitigated by snap confinement">'
+            '<span class="p-chip vulnerability-status-badge--confined" title="Mitigated by snap confinement">'
             '<span class="p-chip__value">Confined Mitigation</span>'
             '</span>'
         )
@@ -1641,13 +1641,13 @@ def status_badge(patchable):
 def confinement_recommendation_badge(recommendation):
     if recommendation == CONFINEMENT_CONTAINED:
         return (
-            '<span class="p-chip" style="background-color: #e8f5e9; border: 1px solid #a5d6a7; color: #1b5e20;" title="No residual risk remains beyond snap confinement">'
+            '<span class="p-chip confinement-badge--contained" title="No residual risk remains beyond snap confinement">'
             '<span class="p-chip__value">\u2713 Contained by confinement</span>'
             '</span>'
         )
     if recommendation == CONFINEMENT_RESIDUAL:
         return (
-            '<span class="p-chip" style="background-color: #fff3e0; border: 1px solid #ffcc80; color: #e65100;" title="Residual risk extends beyond snap confinement">'
+            '<span class="p-chip confinement-badge--residual" title="Residual risk extends beyond snap confinement">'
             '<span class="p-chip__value">\u26a0 Residual risk beyond confinement</span>'
             '</span>'
         )
@@ -1890,7 +1890,7 @@ def write_html(summary, output_path):
 
         report_cell = (
             f'{report_time}<br>'
-            f'<div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">'
+            f'<div class="vulnerability-report-actions">'
             f'{report_link}{vex_link}</div>'
         )
         
@@ -1997,23 +1997,23 @@ def write_html(summary, output_path):
         recommendation_html = ""
         if recommendation:
             recommendation_html = (
-                f'<div style="margin-bottom: 0.75rem;">'
+                f'<div class="confinement-recommendation">'
                 f'{confinement_recommendation_badge(recommendation)}'
                 f'</div>'
             )
         explanation_blocks = []
         if appropriate_text:
             explanation_blocks.append(
-                f'<div style="flex: 1; min-width: 280px; border-left: 4px solid #1976d2; padding-left: 1rem;">'
-                f'<h4 style="font-size: 0.9rem; font-weight: 600; color: #1976d2; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.5px;">Snap confinement mitigates risk</h4>'
-                f'<p style="font-size: 0.875rem; line-height: 1.5; color: #333; margin: 0;">{html.escape(appropriate_text)}</p>'
+                f'<div class="vulnerability-explanation vulnerability-explanation--contained">'
+                f'<h4 class="vulnerability-explanation__title">Snap confinement mitigates risk</h4>'
+                f'<p class="vulnerability-explanation__body">{html.escape(appropriate_text)}</p>'
                 f'</div>'
             )
         if not_appropriate_text:
             explanation_blocks.append(
-                f'<div style="flex: 1; min-width: 280px; border-left: 4px solid #d32f2f; padding-left: 1rem;">'
-                f'<h4 style="font-size: 0.9rem; font-weight: 600; color: #d32f2f; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.5px;">Risk boundary extends beyond snap confinement</h4>'
-                f'<p style="font-size: 0.875rem; line-height: 1.5; color: #333; margin: 0;">{html.escape(not_appropriate_text)}</p>'
+                f'<div class="vulnerability-explanation vulnerability-explanation--residual">'
+                f'<h4 class="vulnerability-explanation__title">Risk boundary extends beyond snap confinement</h4>'
+                f'<p class="vulnerability-explanation__body">{html.escape(not_appropriate_text)}</p>'
                 f'</div>'
             )
 
@@ -2032,10 +2032,10 @@ def write_html(summary, output_path):
         )
         if explanation_blocks:
             detail_row_html += (
-                f'<tr class="vulnerability-explanation-row" style="background-color: #fafafa;">'
-                f'<td colspan="9" style="padding: 1rem 1.5rem !important; border-bottom: 1px solid #e0e0e0;">'
+                f'<tr class="vulnerability-explanation-row">'
+                f'<td class="vulnerability-explanation-cell" colspan="9">'
                 f'{recommendation_html}'
-                f'<div style="display: flex; gap: 2rem; flex-wrap: wrap;">'
+                f'<div class="vulnerability-explanation-grid">'
                 f'{"".join(explanation_blocks)}'
                 f'</div>'
                 f'</td>'
@@ -2049,6 +2049,9 @@ def write_html(summary, output_path):
     detail_body_rows = "\n".join(detail_rows) or (
         '<tr><td colspan="9">No unpatched vulnerabilities reported by OSV-Scanner.</td></tr>'
     )
+    css_source = pathlib.Path(__file__).resolve().parent.parent / "assets" / "vulnerability-report.css"
+    css_target = output_path.parent / "vulnerability-report.css"
+    css_target.write_text(css_source.read_text(encoding="utf-8"), encoding="utf-8")
     output_path.write_text(f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2056,238 +2059,48 @@ def write_html(summary, output_path):
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vulnerability Reports - snap Pi-hole</title>
 {vanilla_framework_css_link()}
-    <style>
-    .p-breadcrumbs {{
-      min-height: 1.5rem;
-    }}
-    .p-breadcrumbs__item,
-    .p-breadcrumbs__item a {{
-      font-weight: 400;
-      letter-spacing: normal;
-      text-transform: none;
-    }}
-    .p-card__title,
-    .p-heading--4 {{
-      font-weight: 400;
-    }}
-    .vulnerability-summary-card-column {{
-      display: flex;
-    }}
-    .vulnerability-summary-card {{
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-    }}
-    .vulnerability-summary-card .p-card__content {{
-      margin-top: auto;
-    }}
-    .vulnerability-table-controls {{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      margin-bottom: 1.5rem;
-    }}
-    .vulnerability-search-wrap {{
-      flex: 1 1 400px;
-    }}
-    .vulnerability-filter-dropdown-wrap {{
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }}
-    .vulnerability-filter-label {{
-      margin-bottom: 0;
-      white-space: nowrap;
-      font-weight: 400;
-      font-size: 0.875rem;
-      color: #111;
-    }}
-    .vulnerability-filter-select {{
-      margin-bottom: 0;
-      min-width: 150px;
-    }}
-    .vulnerability-sort-button {{
-      background: none;
-      border: 0;
-      color: inherit;
-      cursor: pointer;
-      font: inherit;
-      font-weight: 400;
-      margin: 0;
-      padding: 0;
-      text-align: left;
-    }}
-    .vulnerability-sort-button::after {{
-      content: "↕";
-      display: inline-block;
-      font-size: 0.8rem;
-      margin-left: 0.35rem;
-      color: #777;
-    }}
-    .vulnerability-sort-button[aria-sort="ascending"]::after {{
-      content: "↑";
-    }}
-    .vulnerability-sort-button[aria-sort="descending"]::after {{
-      content: "↓";
-    }}
-    #vulnerability-summary-table,
-    .vulnerability-details {{
-      table-layout: auto !important;
-      width: 100% !important;
-    }}
-    #vulnerability-summary-table th,
-    #vulnerability-summary-table td,
-    .vulnerability-details th,
-    .vulnerability-row td {{
-      width: auto !important;
-      overflow: visible !important;
-      text-overflow: clip !important;
-      white-space: nowrap !important;
-    }}
-    .vulnerability-details th,
-    .vulnerability-details td {{
-      line-height: 1.45;
-      padding-bottom: 1rem !important;
-      padding-top: 1rem !important;
-      vertical-align: top;
-    }}
-    .vulnerability-details th:nth-child(1),
-    .vulnerability-details td:nth-child(1) {{
-      width: 14%;
-    }}
-    .vulnerability-details th:nth-child(2),
-    .vulnerability-details td:nth-child(2) {{
-      width: 12%;
-    }}
-    .vulnerability-details th:nth-child(3),
-    .vulnerability-details td:nth-child(3) {{
-      width: 14%;
-    }}
-    .vulnerability-details th:nth-child(4),
-    .vulnerability-details td:nth-child(4) {{
-      width: 11%;
-    }}
-    .vulnerability-details th:nth-child(5),
-    .vulnerability-details td:nth-child(5) {{
-      width: 10%;
-    }}
-    .vulnerability-details th:nth-child(6),
-    .vulnerability-details td:nth-child(6) {{
-      width: 15%;
-    }}
-    .vulnerability-details th:nth-child(7),
-    .vulnerability-details td:nth-child(7) {{
-      width: 12%;
-    }}
-    .vulnerability-details th:nth-child(8),
-    .vulnerability-details td:nth-child(8) {{
-      width: 12%;
-    }}
-    .vulnerability-details th:nth-child(8),
-    .vulnerability-row td:nth-child(8) {{
-      white-space: normal !important;
-      word-break: break-word;
-    }}
-    .vulnerability-details td:nth-child(2),
-    .vulnerability-details td:nth-child(3) {{
-      font-family: "Ubuntu Mono", monospace;
-    }}
-    .vulnerability-severity {{
-      font-size: 12px;
-      margin-bottom: 0;
-      white-space: nowrap;
-    }}
-    .vulnerability-severity .p-chip__value {{
-      font-size: 12px;
-      font-weight: 400;
-    }}
-    .vulnerability-architecture {{
-      margin-bottom: 0;
-      margin-right: 0.3rem;
-      white-space: nowrap;
-    }}
-    .vulnerability-architecture .p-chip__value {{
-      font-size: 12px;
-      font-weight: 400;
-    }}
-    .vulnerability-channel {{
-      margin-bottom: 0;
-      margin-right: 0.3rem;
-      white-space: nowrap;
-    }}
-    .vulnerability-channel .p-chip__value {{
-      font-size: 12px;
-      font-weight: 400;
-    }}
-    footer.p-strip--dark {{
-      background-color: #2d2d2d !important;
-      color: #b6b6b6 !important;
-    }}
-    footer.p-strip--dark h2 {{
-      color: #eaeaea !important;
-      font-weight: 500 !important;
-    }}
-    footer.p-strip--dark p,
-    footer.p-strip--dark li,
-    footer.p-strip--dark span {{
-      color: #b6b6b6 !important;
-    }}
-    footer.p-strip--dark a,
-    footer.p-strip--dark a.is-dark {{
-      color: rgb(102, 153, 204) !important;
-      text-decoration: none !important;
-      transition: color 0.15s ease !important;
-    }}
-    footer.p-strip--dark a:hover,
-    footer.p-strip--dark a.is-dark:hover {{
-      color: #e95420 !important;
-      text-decoration: underline !important;
-    }}
-  </style>
+  <link rel="stylesheet" href="vulnerability-report.css">
 </head>
 <body>
   <div class="l-site">
     <header id="navigation" class="p-navigation is-dark">
       <div class="p-navigation__row">
         <div class="p-navigation__banner">
-          <a class="p-navigation__link" href="../" style="display: flex; align-items: center; text-decoration: none;">
-            <img src="../pihole.png" alt="Pi-hole Logo" style="height: 32px; width: 32px;">
+          <a class="p-navigation__link navigation-logo-link" href="../">
+            <img src="../pihole.png" alt="Pi-hole Logo" class="navigation-logo-img">
           </a>
         </div>
       </div>
     </header>
 
-    <main class="p-strip" style="background-color: #ffffff; flex-grow: 1; padding-top: 2rem !important; padding-bottom: 2rem !important;">
+    <main class="p-strip">
       <div class="row">
         <div class="col-12">
-          <nav class="p-breadcrumbs" aria-label="Breadcrumbs" style="margin-bottom: 1.5rem;">
+          <nav class="p-breadcrumbs vulnerability-breadcrumbs" aria-label="Breadcrumbs">
             <ol class="p-breadcrumbs__items">
               <li class="p-breadcrumbs__item"><a href="../">Reports Dashboard</a></li>
               <li class="p-breadcrumbs__item" aria-current="page">Vulnerability Reports</li>
             </ol>
           </nav>
-          <section class="row" style="margin-bottom: 1rem;" aria-labelledby="vulnerability-title">
+          <section class="row vulnerability-header" aria-labelledby="vulnerability-title">
             <div class="col-12">
-              <h1 class="p-heading--2" id="vulnerability-title" style="margin-bottom: 1.5rem;">Vulnerability Reports</h1>
+              <h1 class="p-heading--2 vulnerability-title" id="vulnerability-title">Vulnerability Reports</h1>
               <p class="p-heading--4">OSV-Scanner findings from the generated SBOMs.</p>
             </div>
           </section>
           
-          <div class="p-strip" style="background-color: #f7f7f7; padding: 1.5rem; border-radius: 4px; margin-bottom: 2rem; border-left: 4px solid #772953;">
-            <h3 class="p-heading--4" style="margin-bottom: 0.5rem; color: #772953; font-weight: 500;">The value of snap confinement</h3>
-            <p style="line-height: 1.6; margin-bottom: 1.25rem;">
+          <div class="p-strip vulnerability-confinement-note">
+            <h3 class="p-heading--4 vulnerability-confinement-note__title">The value of snap confinement</h3>
+            <p class="vulnerability-confinement-note__body">
               This report contains both <strong>Actionable</strong> (USN available) and <strong>Confined Mitigation</strong> (no USN or official patch available upstream) findings.
             </p>
-            <p style="line-height: 1.6; margin-bottom: 0;">
+            <p class="vulnerability-confinement-note__body">
               The CI workflow publishes OSV reports for visibility and fails only when the scanner itself errors. Known-vulnerability exit code 1 is treated as a warning. Unlike conventional deployments, a strictly confined snap executes within a sandbox: process capabilities and host interactions are restricted by <strong>AppArmor profiles, seccomp filters, and a read-only SquashFS filesystem</strong>.
             </p>
           </div>
 
           <h2 class="p-heading--3">Vulnerability Summary</h2>
-          <div style="overflow-x: auto; margin-bottom: 0.5rem;">
+          <div class="vulnerability-table-wrap vulnerability-table-wrap--summary">
             <table class="p-table" id="vulnerability-summary-table">
               <thead>
                 <tr>
@@ -2304,14 +2117,14 @@ def write_html(summary, output_path):
               </tbody>
             </table>
           </div>
-          <p class="p-text--small" style="margin-bottom: 2rem;">
+          <p class="p-text--small vulnerability-summary-note">
             Actionable counts include only vulnerability matches with a corresponding Ubuntu Security Notice (USN). Confined mitigations represent report-only matches that are sandboxed by snap confinement. <strong>Download VEX</strong> exports each architecture's confinement analysis as a standards-compliant CycloneDX VEX document.
           </p>
           <h2 class="p-heading--3">Vulnerability Details</h2>
           <div class="vulnerability-table-controls">
             <!-- Search Box -->
             <div class="vulnerability-search-wrap">
-              <form class="p-search-box" onsubmit="event.preventDefault(); filterVulnerabilities();" style="margin-bottom: 0;">
+              <form class="p-search-box vulnerability-search-form" onsubmit="event.preventDefault(); filterVulnerabilities();">
                 <label class="u-off-screen" for="vulnerability-search">Search by package, version, vulnerability, CVSS 3, priority, status, publication date, or architecture</label>
                 <input type="search" id="vulnerability-search" class="p-search-box__input" placeholder="Search by package, version, vulnerability, CVSS 3, priority, status, publication date, architecture, or confinement analysis..." oninput="filterVulnerabilities()" autocomplete="off">
                 <button type="reset" class="p-search-box__reset" onclick="document.getElementById('vulnerability-search').value=''; filterVulnerabilities();"><i class="p-icon--close">Clear</i></button>
@@ -2337,7 +2150,7 @@ def write_html(summary, output_path):
               </select>
             </div>
           </div>
-          <div style="overflow-x: auto;">
+          <div class="vulnerability-table-wrap">
             <table class="p-table vulnerability-details" id="vulnerability-table">
               <caption class="u-off-screen">OSV vulnerability details by package</caption>
               <thead>
@@ -2363,7 +2176,7 @@ def write_html(summary, output_path):
       </div>
     </main>
 
-    <footer class="p-strip--dark" style="padding-top: 2rem !important; padding-bottom: 2rem !important; margin-top: 3rem;">
+    <footer class="p-strip--dark">
       <div class="row">
         <div class="col-4">
           <h2 class="p-heading--5">Project Resources</h2>

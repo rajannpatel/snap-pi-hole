@@ -328,9 +328,7 @@ jobs:
               exit 1
           fi
 
-          # =================================================================
-          # NEW POST-START SANITY CHECK
-          # =================================================================
+          # Post-start sanity check.
           echo "Verifying live CLI status reporting..."
           sudo ${{ env.SNAP_NAME }}.pihole status
 
@@ -406,9 +404,7 @@ jobs:
       - name: Check for AppArmor denials
         if: always()
         run: |
-          # ---------------------------------------------------------------------
           # AppArmor Verification Exceptions
-          # ---------------------------------------------------------------------
           # This smoke test enforces strict zero-tolerance for unexpected AppArmor
           # denials to ensure confinement doesn't silently break core functionality.
           # However, certain utilities inherently probe for elevated capabilities
@@ -433,7 +429,6 @@ jobs:
           #            every invocation, even for plain HTTPS requests.
           #   Reason:  Non-fatal. curl gracefully continues without LDAP
           #            configuration; all HTTP/HTTPS downloads work normally.
-          # ---------------------------------------------------------------------
           if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin|ldap\.conf'; then
               echo "::error::AppArmor recorded fatal denials against the pihole snap (see above)"
               # Print the actual fatal errors to the log before exiting
@@ -713,6 +708,8 @@ jobs:
           # Render HTML templates from snap assets
           python3 snap/local/build/render_report_template.py snap/local/assets/dashboard.html docs/index.html
           python3 snap/local/build/render_report_template.py snap/local/assets/sbom-explorer.html docs/sbom/index.html
+          cp snap/local/assets/dashboard.css docs/dashboard.css
+          cp snap/local/assets/sbom-explorer.css docs/sbom/sbom-explorer.css
 
           # Copy native Pi-hole logo for header display
           cp snap/gui/pihole.png docs/pihole.png

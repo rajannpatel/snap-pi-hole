@@ -65,13 +65,45 @@ import pathlib
 import re
 
 repo = pathlib.Path("${REPO_ROOT}")
-for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
+for rel in ("docs/dashboard.css", "snap/local/assets/dashboard.css"):
     text = (repo / rel).read_text(encoding="utf-8")
     match = re.search(r"\\.status-caution\\s*\\{([^}]+)\\}", text, re.S)
     assert match, f"{rel} does not define .status-caution"
     body = match.group(1)
     assert "background:" in body, f"{rel} .status-caution has no background"
     assert "color:" in body, f"{rel} .status-caution has no text color"
+PYEOF
+}
+
+@test "report templates use external stylesheets without inline CSS" {
+    python3 - <<PYEOF
+import pathlib
+import re
+
+repo = pathlib.Path("${REPO_ROOT}")
+checks = {
+    "docs/index.html": "dashboard.css",
+    "snap/local/assets/dashboard.html": "dashboard.css",
+    "snap/local/assets/sbom-explorer.html": "sbom-explorer.css",
+}
+for rel, css_href in checks.items():
+    text = (repo / rel).read_text(encoding="utf-8")
+    assert f'rel="stylesheet" href="{css_href}"' in text, f"{rel} missing {css_href} link"
+    assert "<style" not in text.lower(), f"{rel} should not contain inline <style> blocks"
+    assert not re.search(r"\\sstyle\\s*=", text, re.I), f"{rel} should not contain style attributes"
+PYEOF
+}
+
+@test "report generators do not emit inline CSS" {
+    python3 - <<PYEOF
+import pathlib
+import re
+
+repo = pathlib.Path("${REPO_ROOT}")
+for rel in ("snap/local/build/prettify_coverage.py", "snap/local/build/summarize_osv_reports.py"):
+    text = (repo / rel).read_text(encoding="utf-8")
+    assert "<style" not in text.lower(), f"{rel} should not emit inline <style> blocks"
+    assert not re.search(r"\\sstyle\\s*=", text, re.I), f"{rel} should not emit style attributes"
 PYEOF
 }
 

@@ -39,9 +39,7 @@ jobs:
           echo "Latest Stable Pi-hole: $LATEST_PIHOLE"
           echo "Latest Stable Web: $LATEST_WEB"
 
-          # ----------------------------------------------------
           # Update main branch (Stable channel)
-          # ----------------------------------------------------
           CURRENT_FTL=$(yq '.parts.ftl.source-tag' snap/snapcraft.yaml)
           CURRENT_PIHOLE=$(yq '.parts.pi_hole.source-tag' snap/snapcraft.yaml)
           CURRENT_WEB=$(yq '.parts.web.source-tag' snap/snapcraft.yaml)

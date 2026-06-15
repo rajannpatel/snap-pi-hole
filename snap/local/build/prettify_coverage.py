@@ -53,7 +53,7 @@ def prettify_file(filepath, is_root):
     if is_root:
         dashboard_href = '../'
         breadcrumbs_html = f"""
-          <nav class="p-breadcrumbs" aria-label="Breadcrumbs" style="margin-bottom: 1.5rem;">
+          <nav class="p-breadcrumbs coverage-breadcrumbs" aria-label="Breadcrumbs">
             <ol class="p-breadcrumbs__items">
               <li class="p-breadcrumbs__item">
                 <a href="{dashboard_href}">Reports Dashboard</a>
@@ -78,7 +78,7 @@ def prettify_file(filepath, is_root):
             detail_name = re.sub(r'\.html$', '', detail_name)
 
         breadcrumbs_html = f"""
-          <nav class="p-breadcrumbs" aria-label="Breadcrumbs" style="margin-bottom: 1.5rem;">
+          <nav class="p-breadcrumbs coverage-breadcrumbs" aria-label="Breadcrumbs">
             <ol class="p-breadcrumbs__items">
               <li class="p-breadcrumbs__item">
                 <a href="{dashboard_href}">Reports Dashboard</a>
@@ -95,7 +95,7 @@ def prettify_file(filepath, is_root):
 
     footer_html = f"""
     <!-- Footer -->
-    <footer class="p-strip--dark" style="padding-top: 2rem !important; padding-bottom: 2rem !important; margin-top: 3rem;">
+    <footer class="p-strip--dark">
       <div class="row">
         <div class="col-4">
           <h2 class="p-heading--5">Project Resources</h2>
@@ -129,29 +129,29 @@ def prettify_file(filepath, is_root):
     if is_detail_page:
         explanations_html = """
           <!-- Terminology Explanations -->
-          <section class="row u-equal-height" style="margin-bottom: 2rem;" aria-label="Coverage terminology">
+          <section class="row u-equal-height coverage-terminology-row" aria-label="Coverage terminology">
             <div class="col-3">
               <article class="p-card">
                 <h4 class="p-card__title">Instrumented Lines</h4>
-                <p class="p-card__content" style="font-size: 0.9rem; color: #666666;">The total lines of code that are executable and monitored for coverage.</p>
+                <p class="p-card__content coverage-card-description">The total lines of code that are executable and monitored for coverage.</p>
               </article>
             </div>
             <div class="col-3">
               <article class="p-card">
                 <h4 class="p-card__title">Hits</h4>
-                <p class="p-card__content" style="font-size: 0.9rem; color: #666666;">The exact number of times a specific line of code was executed.</p>
+                <p class="p-card__content coverage-card-description">The exact number of times a specific line of code was executed.</p>
               </article>
             </div>
             <div class="col-3">
               <article class="p-card">
                 <h4 class="p-card__title">Executed Lines</h4>
-                <p class="p-card__content" style="font-size: 0.9rem; color: #666666;">The number of instrumented lines that were run at least once during tests.</p>
+                <p class="p-card__content coverage-card-description">The number of instrumented lines that were run at least once during tests.</p>
               </article>
             </div>
             <div class="col-3">
               <article class="p-card">
                 <h4 class="p-card__title">Order</h4>
-                <p class="p-card__content" style="font-size: 0.9rem; color: #666666;">The sequence index indicating when a line was executed relative to others.</p>
+                <p class="p-card__content coverage-card-description">The sequence index indicating when a line was executed relative to others.</p>
               </article>
             </div>
           </section>
@@ -165,28 +165,28 @@ def prettify_file(filepath, is_root):
     <header id="navigation" class="p-navigation is-dark">
       <div class="p-navigation__row">
         <div class="p-navigation__banner">
-          <a class="p-navigation__link" href="{dashboard_href}" style="display: flex; align-items: center; text-decoration: none;">
-            <img src="{logo_src}" alt="Pi-hole Logo" style="height: 32px; width: 32px;">
+          <a class="p-navigation__link navigation-logo-link" href="{dashboard_href}">
+            <img src="{logo_src}" alt="Pi-hole Logo" class="navigation-logo-img">
           </a>
         </div>
       </div>
     </header>
 
     <!-- Main Content Strip -->
-    <main class="p-strip" style="background-color: #ffffff; flex-grow: 1; padding-top: 2rem !important; padding-bottom: 2rem !important;">
+    <main class="p-strip coverage-main">
       <div class="row">
         <div class="col-12">
           {breadcrumbs_html}
           
           <!-- Semantic Header -->
-          <section class="row" style="margin-bottom: 2rem;" aria-labelledby="coverage-title">
+          <section class="row coverage-header-section" aria-labelledby="coverage-title">
             <div class="col-12">
-              <h1 class="p-heading--2" id="coverage-title" style="margin-bottom: 1.5rem;">Coverage Report</h1>
+              <h1 class="p-heading--2 coverage-title" id="coverage-title">Coverage Report</h1>
               <div class="row">
                 <div class="col-4">
                   <article class="p-card">
                     <span class="p-text--small-muted">COMMAND</span>
-                    <h4 class="p-card__title" id="header-command" style="font-family: monospace;">???</h4>
+                    <h4 class="p-card__title coverage-command" id="header-command">???</h4>
                   </article>
                 </div>
                 <div class="col-4">
@@ -198,38 +198,38 @@ def prettify_file(filepath, is_root):
               </div>
             </div>
           </section>
-          <hr class="is-muted" style="margin: 1.5rem 0;">
+          <hr class="is-muted coverage-rule">
 
           <!-- Data Spotlight Statistics -->
-          <section class="row p-equal-height-row--wrap u-sv3" style="margin-bottom: 2rem;" aria-label="Coverage summary">
+          <section class="row p-equal-height-row--wrap u-sv3 coverage-summary" aria-label="Coverage summary">
             <div class="col-4 p-equal-height-row__col u-no-margin--bottom p-data-spotlight__block">
               <div class="p-equal-height-row__item">
-                <hr class="p-rule--highlight" style="margin: 0 0 1rem 0 !important;">
+                <hr class="p-rule--highlight coverage-highlight-rule">
                 <p class="p-heading--1 u-no-margin u-no-padding"><span id="header-percent-covered">???</span></p>
               </div>
-              <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Code Covered</p>
+              <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding coverage-spotlight-label">Code Covered</p>
             </div>
             <div class="col-4 p-equal-height-row__col u-no-margin--bottom p-data-spotlight__block">
               <div class="p-equal-height-row__item">
-                <hr class="p-rule--highlight" style="margin: 0 0 1rem 0 !important;">
+                <hr class="p-rule--highlight coverage-highlight-rule">
                 <p class="p-heading--1 u-no-margin u-no-padding"><span id="header-instrumented">???</span></p>
               </div>
-              <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Instrumented Lines</p>
+              <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding coverage-spotlight-label">Instrumented Lines</p>
             </div>
             <div class="col-4 p-equal-height-row__col u-no-margin--bottom p-data-spotlight__block">
               <div class="p-equal-height-row__item">
-                <hr class="p-rule--highlight" style="margin: 0 0 1rem 0 !important;">
+                <hr class="p-rule--highlight coverage-highlight-rule">
                 <p class="p-heading--1 u-no-margin u-no-padding"><span id="header-covered">???</span></p>
               </div>
-              <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding" style="margin-top: 0.5rem !important;">Executed Lines</p>
+              <p class="p-equal-height-row__item p-heading--3 u-no-margin u-no-padding coverage-spotlight-label">Executed Lines</p>
             </div>
           </section>
-          <hr class="is-muted" style="margin: 1.5rem 0;">
+          <hr class="is-muted coverage-rule">
           {explanations_html}
 
           <!-- Main Coverage Data -->
           {template_html}
-          <div style="overflow-x: auto;">
+          <div class="coverage-table-wrap">
             {placeholder_html}
           </div>
 
