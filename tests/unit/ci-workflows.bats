@@ -256,20 +256,24 @@ assert "smoke" in needs, f"deploy-pages needs does not include smoke: {needs}"
 PYEOF
 }
 
-@test "cicd deploy-pages waits for publish so reports see the newest revision" {
+@test "cicd deploy-pages does not wait for the GitHub publish matrix" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
     doc = yaml.safe_load(f)
 deploy = doc["jobs"]["deploy-pages"]
 needs = deploy["needs"]
-assert "publish" in needs, f"deploy-pages needs does not include publish: {needs}"
-# Option B: still deploy if publish flakes, but only when real deps succeeded.
+assert "publish" not in needs, f"deploy-pages should not wait for publish: {needs}"
 condition = deploy["if"]
 assert "always()" in condition, condition
 for dep in ("lint", "build", "smoke", "vulnerability-scan"):
     assert f"needs.{dep}.result == 'success'" in condition, (dep, condition)
 assert "needs.publish.result == 'success'" not in condition, condition
+runs = "\n".join(s.get("run", "") for s in deploy["steps"])
+assert "Publish matrix is not a prerequisite for Pages" in runs, runs
+assert "not visible yet" not in runs, runs
+env_values = [s.get("env", {}).get("PUBLISH_RESULT") for s in deploy["steps"] if "PUBLISH_RESULT" in s.get("env", {})]
+assert env_values == ["not_waited", "not_waited"], env_values
 PYEOF
 }
 
@@ -435,6 +439,19 @@ assert "publish-remote" not in needs, needs
 condition = deploy["if"]
 assert "remote-build" not in condition, condition
 assert "publish-remote" not in condition, condition
+PYEOF
+}
+
+@test "cicd deploy-pages is not blocked by GitHub Snap Store publishing" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+deploy = doc["jobs"]["deploy-pages"]
+needs = deploy["needs"]
+assert "publish" not in needs, needs
+condition = deploy["if"]
+assert "needs.publish" not in condition, condition
 PYEOF
 }
 
