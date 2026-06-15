@@ -119,6 +119,7 @@ echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/sys/devices
 echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/proc/123/comm\""
 echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/etc/ldap/ldap.conf\""
 echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/sys/fs/cgroup/system.slice/snap.pihole.pihole.scope/cpu.max\" comm=\"snap-exec\""
+echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/sys/fs/cgroup/system.slice/snap.pihole.pihole-ftl.service/cpu.max\" comm=\"snapctl\""
 echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/proc/1234/mountinfo\" comm=\"snapctl\""
 EOF
     run "${CHECK_SCRIPT}"

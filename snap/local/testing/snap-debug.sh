@@ -147,7 +147,7 @@ if snapctl is-connected "system-observe"; then
     FATAL=$(dmesg 2>/dev/null \
         | grep -F 'apparmor="DENIED"' \
         | grep "snap.${SNAP_INSTANCE}" \
-        | grep -vE '/sys/devices/virtual/dmi/id/|/proc/[0-9]+/comm|/etc/ldap/ldap\.conf|name="/sys/fs/cgroup/system\.slice/snap\.[a-zA-Z0-9.-]+\.scope/cpu\.max".*comm="(snap-exec|snapctl)"|name="/proc/[0-9]+/mountinfo".*comm="(snap-exec|snapctl)"' \
+        | grep -vE '/sys/devices/virtual/dmi/id/|/proc/[0-9]+/comm|/etc/ldap/ldap\.conf|name="/sys/fs/cgroup/system\.slice/snap\.[a-zA-Z0-9.-]+\.(scope|service)/cpu\.max".*comm="(snap-exec|snapctl)"|name="/proc/[0-9]+/mountinfo".*comm="(snap-exec|snapctl)"' \
         || true)
     if [ -n "$FATAL" ]; then
         echo "  [WARN] Unexpected AppArmor denials (may affect functionality):"
