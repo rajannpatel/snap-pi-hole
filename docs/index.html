@@ -192,6 +192,24 @@
       margin-bottom: 1rem;
     }
 
+    .security-arch-table td,
+    .security-arch-table th {
+      vertical-align: middle;
+    }
+
+    .security-arch-table .security-count {
+      display: block;
+      font-size: 1.25rem;
+      line-height: 1.2;
+    }
+
+    .security-arch-table .security-count-note {
+      color: #666;
+      display: block;
+      font-size: 0.8125rem;
+      margin-top: 0.15rem;
+    }
+
     .security-policy {
       border-left: 3px solid #0b6bc5;
       color: #444;
@@ -615,18 +633,19 @@
     }
 
     td .workflow-btn {
-      display: inline-flex;
+      display: inline-flex !important;
       align-items: center;
+      gap: 0.35rem;
+      justify-content: flex-start !important;
       margin-bottom: 0;
-      justify-content: flex-start;
-      text-align: left;
+      text-align: left !important;
     }
 
     td .workflow-btn .status-chip-logo {
       display: block;
       flex: 0 0 0.875rem;
       height: 0.875rem;
-      margin-right: 0.35rem;
+      margin-right: 0 !important;
       width: 0.875rem;
     }
 
@@ -639,12 +658,22 @@
       display: block;
       flex: 0 0 0.75rem;
       height: 0.75rem;
-      margin-right: 0.35rem;
+      margin-right: 0;
       width: 0.75rem;
     }
 
+    td .workflow-btn .workflow-btn__label {
+      flex: 1 1 auto;
+      min-width: 0;
+      text-align: left;
+    }
+
     td .workflow-buttons {
-      display: inline-block;
+      align-items: flex-start;
+      display: flex;
+      justify-content: flex-start;
+      text-align: left;
+      width: 100%;
     }
 
     td .status-chip {
@@ -832,23 +861,26 @@
               <div class="security-panel" aria-label="Architecture security breakdown">
                 <div class="security-panel__header">
                   <div>
-                    <h2>Architecture breakdown</h2>
-                    <p>Per-architecture vulnerability counts and machine-readable outputs.</p>
+                    <h2>Vulnerability summary</h2>
+                    <p>Per-architecture action status, report-only findings, and downloadable evidence.</p>
                   </div>
                   <a class="p-button--positive" href="vulnerabilities/">Open detailed findings</a>
                 </div>
                 <div class="table-container">
                   <table class="p-table security-arch-table">
+                    <caption class="u-off-screen">Vulnerability summary by architecture for the selected channel</caption>
                     <thead>
                       <tr>
                         <th>Architecture</th>
-                        <th>Actionable USN Vulnerabilities</th>
-                        <th>Mitigated by Confinement</th>
-                        <th>JSON</th>
+                        <th>Action needed</th>
+                        <th>Report-only findings</th>
+                        <th>OSV matches</th>
+                        <th>Updated</th>
+                        <th>Evidence</th>
                       </tr>
                     </thead>
                     <tbody id="security-arch-body">
-                      <tr><td colspan="4">Loading vulnerability summary...</td></tr>
+                      <tr><td colspan="6">Loading vulnerability summary...</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -1930,24 +1962,45 @@
       const body = document.getElementById("security-arch-body");
       if (!body) return;
       if (!archRows.length) {
-        body.innerHTML = `<tr><td colspan="4">No vulnerability report summary found for the ${selectedBranch} channel.</td></tr>`;
+        body.innerHTML = `<tr><td colspan="6">No vulnerability report summary found for the ${escapeHtml(selectedBranch)} channel.</td></tr>`;
         return;
       }
       body.innerHTML = "";
       archRows.forEach((row) => {
         const tr = document.createElement("tr");
         const architecture = String(row.architecture || "").toLowerCase();
+        const architectureLabel = String(row.architecture || "").toUpperCase();
+        const channelLabel = String(row.channel || "stable").toLowerCase();
+        const actionable = row.vulnerabilities ?? 0;
+        const actionablePackages = row.affected_packages ?? 0;
+        const reportOnly = row.confined_mitigation_vulnerabilities ?? 0;
+        const rawMatches = row.raw_vulnerability_matches ?? actionable + reportOnly;
+        const rawPackages = row.raw_affected_packages ?? actionablePackages;
+        const actionChip = actionable > 0
+          ? `<span class="status-chip status-caution" aria-label="${actionable} actionable USN vulnerabilities require review">${warningIconSvg}<span class="status-text-full" aria-hidden="true">Review ${actionable} USN</span><span class="status-text-short" aria-hidden="true">review</span></span>`
+          : `<span class="status-chip status-success" aria-label="No actionable USN vulnerabilities">${checkIconSvg}<span class="status-text-full" aria-hidden="true">No USN action</span><span class="status-text-short" aria-hidden="true">clear</span></span>`;
         const osvUrl = row.report ? `vulnerabilities/${row.report}` : "";
-        const vexUrl = architecture ? `vulnerabilities/vex-${row.channel || "stable"}-${architecture}.cdx.json` : "";
+        const vexUrl = architecture ? `vulnerabilities/vex-${channelLabel}-${architecture}.cdx.json` : "";
         tr.innerHTML = `
-          <td>${String(row.architecture || "").toUpperCase()}</td>
-          <td>${row.vulnerabilities ?? 0}</td>
-          <td>${row.confined_mitigation_vulnerabilities ?? 0}</td>
+          <td><span class="mono">${escapeHtml(architectureLabel)}</span></td>
+          <td>
+            ${actionChip}
+            <span class="security-count-note">${actionablePackages} actionable package${actionablePackages === 1 ? "" : "s"}</span>
+          </td>
+          <td>
+            <strong class="security-count">${reportOnly}</strong>
+            <span class="security-count-note">confined / report-only</span>
+          </td>
+          <td>
+            <strong class="security-count">${rawMatches}</strong>
+            <span class="security-count-note">${rawPackages} package${rawPackages === 1 ? "" : "s"} scanned</span>
+          </td>
+          <td class="mono">${formatDate(row.generated_at)}</td>
           <td>
             ${row.report ? `
               <div class="report-button-group">
-                <a class="p-button" href="${osvUrl}" download title="Download the OSV JSON report">OSV</a>
-                <a class="p-button" href="${vexUrl}" download title="Download the CycloneDX VEX JSON report">VEX</a>
+                <a class="p-button" href="${escapeHtml(osvUrl)}" download title="Download the OSV JSON report">OSV JSON</a>
+                <a class="p-button" href="${escapeHtml(vexUrl)}" download title="Download the CycloneDX VEX JSON report">VEX JSON</a>
               </div>
             ` : "N/A"}
           </td>

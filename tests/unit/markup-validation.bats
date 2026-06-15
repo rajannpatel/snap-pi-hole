@@ -107,6 +107,24 @@ for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
 PYEOF
 }
 
+@test "dashboard vulnerability summary table explains action and report-only findings" {
+    python3 - <<PYEOF
+import pathlib
+repo = pathlib.Path("${REPO_ROOT}")
+for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
+    text = (repo / rel).read_text(encoding="utf-8")
+    assert "<h2>Vulnerability summary</h2>" in text, f"{rel} missing vulnerability summary heading"
+    assert "<th>Action needed</th>" in text, f"{rel} missing action-needed column"
+    assert "<th>Report-only findings</th>" in text, f"{rel} missing report-only column"
+    assert "<th>OSV matches</th>" in text, f"{rel} missing OSV matches column"
+    assert "<th>Evidence</th>" in text, f"{rel} missing evidence column"
+    assert 'colspan="6">Loading vulnerability summary...' in text, f"{rel} loading row colspan is stale"
+    assert "No USN action" in text, f"{rel} missing clear action label"
+    assert "Review \${actionable} USN" in text, f"{rel} missing actionable review label"
+    assert "OSV JSON" in text and "VEX JSON" in text, f"{rel} evidence buttons are unclear"
+PYEOF
+}
+
 @test "dashboard exposes channel scope and current activity summary" {
     python3 - <<PYEOF
 import pathlib
