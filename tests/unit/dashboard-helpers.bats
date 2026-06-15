@@ -261,3 +261,41 @@ assert ftl["upstream_commit"] == "mocksha_v6.5", ftl["upstream_commit"]
 assert result["last_updated"] == "2026-06-10T00:00:00Z", result["last_updated"]
 PYEOF
 }
+
+@test "dashboard helpers: collect_edge_release_data keeps version labels alongside commit pins" {
+    python3 - <<PYEOF
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+LATEST = {
+    "pi-hole/FTL": {"tag_name": "v6.6.2"},
+    "pi-hole/pi-hole": {"tag_name": "v6.4.2"},
+    "pi-hole/web": {"tag_name": "v6.5.1"},
+}
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        if url.endswith("/releases/latest"):
+            repo = url.split("/repos/", 1)[1].rsplit("/releases/latest", 1)[0]
+            return LATEST[repo]
+        if "/commits/development" in url:
+            repo = url.split("/repos/", 1)[1].rsplit("/commits/development", 1)[0]
+            return {"sha": f"devsha_{repo.rsplit('/', 1)[1]}"}
+        raise AssertionError(f"unexpected url {url}")
+
+versions = {"ftl": "local-ftl", "pi_hole": "local-core", "web": "local-web"}
+display_versions = {"ftl": "v6.6.2", "pi_hole": "v6.4.2", "web": "v6.5"}
+rows = dashboard.collect_edge_release_data(FakeClient(), versions, display_versions)
+by_key = {row["key"]: row for row in rows}
+
+assert by_key["ftl"]["local_tag"] == "v6.6.2", by_key["ftl"]
+assert by_key["ftl"]["upstream_tag"] == "v6.6.2", by_key["ftl"]
+assert by_key["pi_hole"]["local_tag"] == "v6.4.2", by_key["pi_hole"]
+assert by_key["pi_hole"]["upstream_tag"] == "v6.4.2", by_key["pi_hole"]
+assert by_key["web"]["local_tag"] == "v6.5", by_key["web"]
+assert by_key["web"]["upstream_tag"] == "v6.5.1", by_key["web"]
+assert by_key["web"]["local_commit"] == "local-web", by_key["web"]
+assert by_key["web"]["upstream_commit"] == "devsha_web", by_key["web"]
+PYEOF
+}

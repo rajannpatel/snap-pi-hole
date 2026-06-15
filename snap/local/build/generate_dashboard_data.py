@@ -595,7 +595,8 @@ def collect_release_data(client, versions):
     return {"components": results, "last_updated": dt_to_iso(max([d for d in latest_dates if d], default=None))}
 
 
-def collect_edge_release_data(client, versions):
+def collect_edge_release_data(client, versions, display_versions=None):
+    display_versions = display_versions or {}
     components = [
         {"key": "ftl", "name": "FTL", "repo": "pi-hole/FTL", "local": versions.get("ftl", "")},
         {"key": "pi_hole", "name": "Pi-hole Core", "repo": "pi-hole/pi-hole", "local": versions.get("pi_hole", "")},
@@ -606,6 +607,9 @@ def collect_edge_release_data(client, versions):
     for component in components:
         latest_commit = client.get_json_or_empty(f"{GITHUB_API}/repos/{component['repo']}/commits/{UPSTREAM_EDGE_REF}")
         latest_sha = latest_commit.get("sha", "") or git_remote_ref(component["repo"], UPSTREAM_EDGE_REF)
+        latest_release = client.get_json_or_empty(f"{GITHUB_API}/repos/{component['repo']}/releases/latest")
+        upstream_tag = latest_release.get("tag_name", "")
+        local_tag = display_versions.get(component["key"], "") or upstream_tag
         local_sha = component["local"]
         update_available = bool(local_sha and latest_sha and local_sha != latest_sha)
         
@@ -621,7 +625,9 @@ def collect_edge_release_data(client, versions):
                 "name": component["name"],
                 "repository": component["repo"],
                 "upstream_ref": UPSTREAM_EDGE_REF,
+                "local_tag": local_tag,
                 "local_commit": local_sha,
+                "upstream_tag": upstream_tag,
                 "upstream_commit": latest_sha,
                 "update_available": update_available,
                 "compare_url": compare_url,
@@ -1002,7 +1008,7 @@ def main():
     distro_matrix_edge = collect_distro_matrix(client, "main", "edge")
     security = collect_security_summary(vuln_summary_path)
     releases = collect_release_data(client, versions)
-    edge_releases = collect_edge_release_data(client, edge_versions)
+    edge_releases = collect_edge_release_data(client, edge_versions, versions)
     snap_package = collect_snap_package_data(client, repo_root)
     auto_update = collect_track_upstream_status(client)
     schedule = extract_track_upstream_cron(repo_root / ".github" / "workflows" / "track-upstream-releases.yml")

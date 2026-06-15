@@ -233,6 +233,46 @@ JS
     done
 }
 
+@test "frontend: edge component source cells keep version labels before commit links" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$HELPER" "$html" <<'JS'
+const { loadModule } = require(process.argv[2]);
+const { sourceVersionWithCommitHtml } = loadModule(process.argv[3], {
+  functions: ["githubCommitUrl", "sourceVersionWithCommitHtml"],
+});
+const assert = require("assert");
+
+const row = {
+  repository: "pi-hole/pi-hole",
+  local_tag: "v6.4.2",
+  local_commit: "23c3b4a64839179fe25d91b5fe8eff4f642eb4ca",
+};
+
+const html = sourceVersionWithCommitHtml(row, "local_tag", "local_commit");
+assert.match(html, /^v6\.4\.2 \(/, html);
+assert.match(html, /23c3b4a/, html);
+assert.match(html, /https:\/\/github\.com\/pi-hole\/pi-hole\/commit\/23c3b4a64839179fe25d91b5fe8eff4f642eb4ca/, html);
+assert.strictEqual(sourceVersionWithCommitHtml({}, "local_tag", "local_commit"), "Unknown");
+JS
+    done
+}
+
+@test "frontend: edge live refresh updates upstream version tags as well as commits" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$html" <<'JS'
+const fs = require("fs");
+const source = fs.readFileSync(process.argv[2], "utf8");
+const assert = require("assert");
+
+assert.match(
+  source,
+  /async function refreshEdgeCommits\(\)[\s\S]*\/commits\/\$\{item\.upstream_ref \|\| "development"\}[\s\S]*\/releases\/latest[\s\S]*item\.upstream_tag = releaseData\.tag_name;/,
+  "Edge live refresh should keep upstream version tags current, not only commit SHAs"
+);
+JS
+    done
+}
+
 @test "frontend: countdownLabel rounds up while waiting for the next refresh" {
     for html in "${HTML_FILES[@]}"; do
         run_node - "$HELPER" "$html" <<'JS'

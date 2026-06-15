@@ -1990,6 +1990,16 @@
       return `<a href="${url}" target="_blank" rel="noopener noreferrer">${shortSha}</a>`;
     }
 
+    function sourceVersionWithCommitHtml(item, tagKey, commitKey) {
+      const version = item?.[tagKey] || "Unknown";
+      const sha = item?.[commitKey] || "";
+      if (!sha) return version;
+      const shortSha = sha.substring(0, 7);
+      const url = githubCommitUrl(item, sha);
+      const commit = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${shortSha}</a>` : shortSha;
+      return `${version} (${commit})`;
+    }
+
     function renderDependencies() {
       const body = document.getElementById("dependency-rows");
       if (!body) return;
@@ -2035,14 +2045,14 @@
         rows.forEach((item) => {
           const statusHtml = componentStatusHtml(item, "Up to date");
 
-          const localCommitShort = item.local_commit ? item.local_commit.substring(0, 7) : "Unknown";
-          const upstreamCommitShort = upstreamCommitLinkHtml(item) || "Unknown";
+          const localSource = sourceVersionWithCommitHtml(item, "local_tag", "local_commit");
+          const upstreamSource = sourceVersionWithCommitHtml(item, "upstream_tag", "upstream_commit");
 
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td>${item.name}</td>
-            <td class="mono">${localCommitShort}</td>
-            <td class="mono">${upstreamCommitShort}</td>
+            <td class="mono">${localSource}</td>
+            <td class="mono">${upstreamSource}</td>
             <td>${statusHtml}</td>
             <td>${workflowHtml}</td>
           `;
@@ -3093,6 +3103,21 @@
             if (commitData && commitData.sha && item.upstream_commit !== commitData.sha) {
               item.upstream_commit = commitData.sha;
               item.update_available = Boolean(item.local_commit && item.local_commit !== commitData.sha);
+              changed = true;
+            }
+          }
+        } catch (error) {
+          // ignore
+        }
+        try {
+          const releaseResponse = await fetch(
+            `${GITHUB_API_BASE}/repos/${item.repository}/releases/latest`,
+            { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" }
+          );
+          if (releaseResponse.ok) {
+            const releaseData = await releaseResponse.json();
+            if (releaseData && releaseData.tag_name && item.upstream_tag !== releaseData.tag_name) {
+              item.upstream_tag = releaseData.tag_name;
               changed = true;
             }
           }

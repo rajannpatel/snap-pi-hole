@@ -936,7 +936,9 @@
         "name": "FTL",
         "repository": "pi-hole/FTL",
         "upstream_ref": "development",
+        "local_tag": "v6.6.2",
         "local_commit": "6a976208ae647c1f6b289c35db83b47533c17c5b",
+        "upstream_tag": "v6.6.2",
         "upstream_commit": "6a976208ae647c1f6b289c35db83b47533c17c5b",
         "update_available": false,
         "compare_url": "https://github.com/pi-hole/FTL/commits/development"
@@ -946,7 +948,9 @@
         "name": "Pi-hole Core",
         "repository": "pi-hole/pi-hole",
         "upstream_ref": "development",
+        "local_tag": "v6.4.2",
         "local_commit": "23c3b4a64839179fe25d91b5fe8eff4f642eb4ca",
+        "upstream_tag": "v6.4.2",
         "upstream_commit": "23c3b4a64839179fe25d91b5fe8eff4f642eb4ca",
         "update_available": false,
         "compare_url": "https://github.com/pi-hole/pi-hole/commits/development"
@@ -956,7 +960,9 @@
         "name": "Web UI",
         "repository": "pi-hole/web",
         "upstream_ref": "development",
+        "local_tag": "v6.5",
         "local_commit": "b04eaf9778a9fde98bcf0090d8ac66e2b33eb860",
+        "upstream_tag": "v6.5",
         "upstream_commit": "b04eaf9778a9fde98bcf0090d8ac66e2b33eb860",
         "update_available": false,
         "compare_url": "https://github.com/pi-hole/web/commits/development"
