@@ -2073,7 +2073,32 @@ def write_html(summary, output_path):
       margin-top: auto;
     }}
     .vulnerability-table-controls {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
       margin-bottom: 1.5rem;
+    }}
+    .vulnerability-search-wrap {{
+      flex: 1 1 400px;
+    }}
+    .vulnerability-filter-dropdown-wrap {{
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }}
+    .vulnerability-filter-label {{
+      margin-bottom: 0;
+      white-space: nowrap;
+      font-weight: 400;
+      font-size: 0.875rem;
+      color: #111;
+    }}
+    .vulnerability-filter-select {{
+      margin-bottom: 0;
+      min-width: 150px;
     }}
     .vulnerability-sort-button {{
       background: none;
@@ -2274,8 +2299,9 @@ def write_html(summary, output_path):
             Actionable counts include only vulnerability matches with a corresponding Ubuntu Security Notice (USN). Confined mitigations represent report-only matches that are sandboxed by snap confinement. <strong>Download VEX</strong> exports each architecture's confinement analysis as a standards-compliant CycloneDX VEX document.
           </p>
           <h2 class="p-heading--3">Vulnerability Details</h2>
-          <div class="row vulnerability-table-controls" style="margin-bottom: 1.5rem; align-items: center; row-gap: 1rem;">
-            <div class="col-6 col-medium-4">
+          <div class="vulnerability-table-controls">
+            <!-- Search Box -->
+            <div class="vulnerability-search-wrap">
               <form class="p-search-box" onsubmit="event.preventDefault(); filterVulnerabilities();" style="margin-bottom: 0;">
                 <label class="u-off-screen" for="vulnerability-search">Search by package, version, vulnerability, CVSS 3, priority, status, publication date, or architecture</label>
                 <input type="search" id="vulnerability-search" class="p-search-box__input" placeholder="Search by package, version, vulnerability, CVSS 3, priority, status, publication date, architecture, or confinement analysis..." oninput="filterVulnerabilities()" autocomplete="off">
@@ -2283,42 +2309,28 @@ def write_html(summary, output_path):
                 <button type="submit" class="p-search-box__button"><i class="p-icon--search">Search</i></button>
               </form>
             </div>
-            <div class="col-3 col-medium-2" style="display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end;">
-              <span style="font-size: 0.875rem; color: #111; white-space: nowrap;">Channel:</span>
-              <input type="hidden" id="filter-channel" value="">
-              <span class="p-contextual-menu" style="position: relative; display: block; width: 100%;">
-                <button type="button" class="p-contextual-menu__toggle" id="channel-toggle-btn" aria-controls="filter-channel-dropdown" aria-expanded="false" aria-haspopup="true" style="width: 100%; font-size: 0.875rem; padding: 0.25rem 0.75rem; text-align: left; display: flex; justify-content: space-between; align-items: center; border: 1px solid #d0d0d0; border-radius: 4px; background: white; margin-bottom: 0;">
-                  All Channels <span style="font-size: 0.6rem; margin-left: 0.5rem; color: #666;">▼</span>
-                </button>
-                <span class="p-contextual-menu__dropdown" id="filter-channel-dropdown" aria-hidden="true" style="min-width: 100%; margin-top: 4px; left: 0; right: auto;">
-                  <span class="p-contextual-menu__group" style="margin-bottom: 0; padding: 0;">
-                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectChannel('', 'All Channels', event)">All Channels</button>
-                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectChannel('stable', 'Stable', event)">Stable</button>
-                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectChannel('edge', 'Edge', event)">Edge</button>
-                  </span>
-                </span>
-              </span>
+            <!-- Channel Filter -->
+            <div class="vulnerability-filter-dropdown-wrap">
+              <label for="filter-channel" class="vulnerability-filter-label">Channel:</label>
+              <select id="filter-channel" onchange="filterVulnerabilities()" class="vulnerability-filter-select">
+                <option value="">All Channels</option>
+                <option value="stable">Stable</option>
+                <option value="edge">Edge</option>
+              </select>
             </div>
-            <div class="col-3 col-medium-2" style="display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end;">
-              <span style="font-size: 0.875rem; color: #111; white-space: nowrap;">Architecture:</span>
-              <input type="hidden" id="filter-arch" value="">
-              <span class="p-contextual-menu" style="position: relative; display: block; width: 100%;">
-                <button type="button" class="p-contextual-menu__toggle" id="arch-toggle-btn" aria-controls="filter-arch-dropdown" aria-expanded="false" aria-haspopup="true" style="width: 100%; font-size: 0.875rem; padding: 0.25rem 0.75rem; text-align: left; display: flex; justify-content: space-between; align-items: center; border: 1px solid #d0d0d0; border-radius: 4px; background: white; margin-bottom: 0;">
-                  All Architectures <span style="font-size: 0.6rem; margin-left: 0.5rem; color: #666;">▼</span>
-                </button>
-                <span class="p-contextual-menu__dropdown" id="filter-arch-dropdown" aria-hidden="true" style="min-width: 100%; margin-top: 4px; left: 0; right: auto;">
-                  <span class="p-contextual-menu__group" style="margin-bottom: 0; padding: 0;">
-                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('', 'All Architectures', event)">All Architectures</button>
-                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('amd64', 'AMD64', event)">AMD64</button>
-                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('arm64', 'ARM64', event)">ARM64</button>
-                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('armhf', 'ARMHF', event)">ARMHF</button>
-                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('i386', 'i386', event)">i386</button>
-                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('riscv64', 'riscv64', event)">riscv64</button>
-                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('s390x', 's390x', event)">s390x</button>
-                    <button type="button" class="p-contextual-menu__link" style="width: 100%; text-align: left; border: none; background: transparent; cursor: pointer; padding: 0.5rem 1rem;" onclick="selectArch('ppc64el', 'ppc64el', event)">ppc64el</button>
-                  </span>
-                </span>
-              </span>
+            <!-- Architecture Filter -->
+            <div class="vulnerability-filter-dropdown-wrap">
+              <label for="filter-arch" class="vulnerability-filter-label">Architecture:</label>
+              <select id="filter-arch" onchange="filterVulnerabilities()" class="vulnerability-filter-select">
+                <option value="">All Architectures</option>
+                <option value="amd64">AMD64</option>
+                <option value="arm64">ARM64</option>
+                <option value="armhf">ARMHF</option>
+                <option value="i386">i386</option>
+                <option value="riscv64">riscv64</option>
+                <option value="s390x">s390x</option>
+                <option value="ppc64el">ppc64el</option>
+              </select>
             </div>
           </div>
           <div style="overflow-x: auto;">
@@ -2521,57 +2533,6 @@ def write_html(summary, output_path):
       filterVulnerabilities();
     }}
 
-    // Contextual menu toggle helper
-    document.querySelectorAll('.p-contextual-menu__toggle').forEach(toggle => {{
-      toggle.addEventListener('click', function(e) {{
-        e.stopPropagation();
-        const dropdownId = this.getAttribute('aria-controls');
-        const dropdown = document.getElementById(dropdownId);
-        const isExpanded = this.getAttribute('aria-expanded') === 'true';
-
-        // Close all other dropdowns
-        document.querySelectorAll('.p-contextual-menu__dropdown').forEach(d => {{
-          if (d.id !== dropdownId) {{
-            d.setAttribute('aria-hidden', 'true');
-            const btn = document.querySelector(`[aria-controls="${{d.id}}"]`);
-            if (btn) btn.setAttribute('aria-expanded', 'false');
-          }}
-        }});
-
-        // Toggle current dropdown
-        this.setAttribute('aria-expanded', !isExpanded);
-        dropdown.setAttribute('aria-hidden', isExpanded ? 'true' : 'false');
-      }});
-    }});
-
-    // Close dropdowns when clicking outside
-    document.addEventListener('click', function() {{
-      document.querySelectorAll('.p-contextual-menu__dropdown').forEach(d => {{
-        d.setAttribute('aria-hidden', 'true');
-      }});
-      document.querySelectorAll('.p-contextual-menu__toggle').forEach(b => {{
-        b.setAttribute('aria-expanded', 'false');
-      }});
-    }});
-
-    // Option selection helper functions
-    function selectChannel(val, label, event) {{
-      if (event) event.preventDefault();
-      const input = document.getElementById('filter-channel');
-      input.value = val;
-      const toggle = document.getElementById('channel-toggle-btn');
-      toggle.innerHTML = `${{label}} <span style="font-size: 0.6rem; margin-left: 0.5rem; color: #666;">▼</span>`;
-      filterVulnerabilities();
-    }}
-
-    function selectArch(val, label, event) {{
-      if (event) event.preventDefault();
-      const input = document.getElementById('filter-arch');
-      input.value = val;
-      const toggle = document.getElementById('arch-toggle-btn');
-      toggle.innerHTML = `${{label}} <span style="font-size: 0.6rem; margin-left: 0.5rem; color: #666;">▼</span>`;
-      filterVulnerabilities();
-    }}
   </script>
 </body>
 </html>
