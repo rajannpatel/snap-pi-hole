@@ -108,8 +108,32 @@ steps = cicd["jobs"]["lint"]["steps"]
 install = next(step for step in steps if step.get("name") == "Install shellcheck, bats, yamllint, and kcov")
 run = install["run"]
 
-assert "apt-get install -y shellcheck bats python3-yaml yamllint kcov" in run, run
+assert "apt-get install -y shellcheck bats python3-yaml yamllint" in run, run
 assert "bats-core" not in run, run
+PYEOF
+}
+
+@test "lint job builds kcov from source only when apt kcov is unavailable" {
+    python3 - <<PYEOF
+import yaml
+
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    cicd = yaml.safe_load(f)
+
+steps = cicd["jobs"]["lint"]["steps"]
+install = next(step for step in steps if step.get("name") == "Install shellcheck, bats, yamllint, and kcov")
+run = install["run"]
+
+apt_kcov = "if sudo apt-get install -y kcov; then"
+source_notice = "kcov is not available from apt on this runner; building from source."
+clone = "git clone --depth 1 --branch v43 https://github.com/SimonKagstrom/kcov.git"
+build = "cmake --build"
+install_from_build = "sudo cmake --install"
+
+for needle in (apt_kcov, source_notice, clone, build, install_from_build):
+    assert needle in run, run
+
+assert run.index(apt_kcov) < run.index(source_notice) < run.index(clone) < run.index(build) < run.index(install_from_build), run
 PYEOF
 }
 

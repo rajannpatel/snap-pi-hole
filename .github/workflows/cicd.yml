@@ -20,7 +20,33 @@ jobs:
       - name: Install shellcheck, bats, yamllint, and kcov
         run: |
           sudo apt-get update
-          sudo apt-get install -y shellcheck bats python3-yaml yamllint kcov
+          sudo apt-get install -y shellcheck bats python3-yaml yamllint
+
+          if sudo apt-get install -y kcov; then
+            kcov --version
+          else
+            echo "kcov is not available from apt on this runner; building from source."
+            sudo apt-get install -y \
+              build-essential \
+              cmake \
+              git \
+              libcurl4-openssl-dev \
+              libdw-dev \
+              libelf-dev \
+              libiberty-dev \
+              libssl-dev \
+              pkg-config \
+              zlib1g-dev
+
+            tmpdir="$(mktemp -d)"
+            trap 'rm -rf "${tmpdir}"' EXIT
+
+            git clone --depth 1 --branch v43 https://github.com/SimonKagstrom/kcov.git "${tmpdir}/kcov"
+            cmake -S "${tmpdir}/kcov" -B "${tmpdir}/kcov/build" -DCMAKE_BUILD_TYPE=Release
+            cmake --build "${tmpdir}/kcov/build" --parallel "$(nproc)"
+            sudo cmake --install "${tmpdir}/kcov/build"
+            kcov --version
+          fi
 
       - name: shellcheck launchers and hooks
         run: |
