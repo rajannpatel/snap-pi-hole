@@ -17,7 +17,7 @@ env:
 jobs:
   preflight:
     name: launchpad preflight
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     if: |
       github.event_name == 'workflow_dispatch' ||
       (
@@ -80,7 +80,7 @@ jobs:
   build-and-publish-launchpad:
     name: build and publish launchpad (${{ matrix.channel }}, ${{ matrix.arch }})
     needs: [preflight]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: snap-publishing
     if: |
       github.event_name == 'workflow_dispatch' ||

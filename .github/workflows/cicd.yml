@@ -13,7 +13,7 @@ env:
 jobs:
   lint:
     name: shellcheck + bats
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
 
@@ -89,7 +89,7 @@ jobs:
 
   build:
     name: build github (${{ matrix.channel }}, ${{ matrix.arch }})
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-26.04-arm' || 'ubuntu-26.04' }}
     environment: snap-publishing
     strategy:
       fail-fast: false
@@ -152,7 +152,7 @@ jobs:
     # are built and published by a separate workflow so slow remote-build queues
     # cannot block the amd64/arm64 security gate or dashboard deploy.
     if: always() && needs.build.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: snap-publishing
     permissions:
       contents: read
@@ -268,7 +268,7 @@ jobs:
   smoke:
     name: smoke test (${{ matrix.channel }}, ${{ matrix.arch }})
     needs: [build, lint]
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-26.04-arm' || 'ubuntu-26.04' }}
     strategy:
       fail-fast: false
       matrix:
@@ -290,7 +290,7 @@ jobs:
       - name: Install snap and connect plugs
         run: |
           # `snap refresh` only works once the snapd snap exists, which isn't
-          # guaranteed on a fresh ubuntu-latest runner (only the apt package
+          # guaranteed on a fresh ubuntu-26.04 runner (only the apt package
           sudo apt-get install -y iproute2 dnsutils
           sudo snap install snapd \
             || sudo snap refresh snapd
@@ -558,7 +558,7 @@ jobs:
   publish:
     name: publish github (${{ matrix.channel }}, ${{ matrix.arch }})
     needs: [smoke]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: snap-publishing
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
@@ -643,7 +643,7 @@ jobs:
   deploy-pages:
     name: Deploy reports to GitHub Pages
     needs: [lint, build, smoke, vulnerability-scan]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: snap-publishing
     if: |
       always() &&

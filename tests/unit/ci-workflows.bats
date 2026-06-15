@@ -92,7 +92,7 @@ assert "printf '{}\\\\n'" in run, run
 PYEOF
 }
 
-@test "x64 GitHub Actions jobs use ubuntu-latest runners and distro bats" {
+@test "x64 GitHub Actions jobs use ubuntu-26.04 runners and distro bats" {
     python3 - <<PYEOF
 import yaml
 
@@ -101,8 +101,8 @@ with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
 with open("${REPO_ROOT}/.github/workflows/reusable-distro-test.yml") as f:
     distro_test = yaml.safe_load(f)
 
-assert cicd["jobs"]["lint"]["runs-on"] == "ubuntu-latest", cicd["jobs"]["lint"]["runs-on"]
-assert distro_test["jobs"]["distro-test"]["runs-on"] == "ubuntu-latest", distro_test["jobs"]["distro-test"]["runs-on"]
+assert cicd["jobs"]["lint"]["runs-on"] == "ubuntu-26.04", cicd["jobs"]["lint"]["runs-on"]
+assert distro_test["jobs"]["distro-test"]["runs-on"] == "ubuntu-26.04", distro_test["jobs"]["distro-test"]["runs-on"]
 
 steps = cicd["jobs"]["lint"]["steps"]
 install = next(step for step in steps if step.get("name") == "Install shellcheck, bats, yamllint, and kcov")
@@ -110,6 +110,21 @@ run = install["run"]
 
 assert "apt-get install -y shellcheck bats python3-yaml yamllint" in run, run
 assert "bats-core" not in run, run
+PYEOF
+}
+
+@test "GitHub Actions workflows use Ubuntu 26.04 runner labels" {
+    python3 - <<PYEOF
+from pathlib import Path
+
+workflow_dir = Path("${REPO_ROOT}/.github/workflows")
+workflow_text = "\\n".join(path.read_text() for path in workflow_dir.glob("*.yml"))
+
+for stale in ("ubuntu-latest", "ubuntu-24.04", "ubuntu-24.04-arm"):
+    assert stale not in workflow_text, stale
+
+assert "ubuntu-26.04" in workflow_text, workflow_text
+assert "ubuntu-26.04-arm" in workflow_text, workflow_text
 PYEOF
 }
 
