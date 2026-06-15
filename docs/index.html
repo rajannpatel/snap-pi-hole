@@ -1062,6 +1062,40 @@
         </section>
       </section>
 
+      <!-- PI-HOLE COMPONENTS SECTION -->
+      <section class="p-section dashboard-section--spacing" aria-label="Pi-hole components">
+        <div class="row">
+          <div class="col-12">
+            <hr class="p-rule">
+          </div>
+          <div class="col-12">
+            <h2>Pi-hole components</h2>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-12">
+            <p class="p-heading--4">Bundled FTL, Core, and Web sources compared with the selected upstream track.</p>
+            <div class="table-container">
+              <table class="p-table components-table table--vertical-center">
+                <thead>
+                  <tr>
+                    <th>Component</th>
+                    <th>Bundled</th>
+                    <th>Upstream</th>
+                    <th>Status</th>
+                    <th>Sync duration</th>
+                  </tr>
+                </thead>
+                <tbody id="dependency-rows">
+                  <tr><td colspan="5">Loading dependency comparisons...</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="p-text--small u-text--muted" style="margin-top: 1rem; margin-bottom: 1rem;">Next scheduled auto-rebuild check: <span id="release-tracking-schedule-note" class="mono">--</span></p>
+          </div>
+        </div>
+      </section>
+
       <!-- SECOND SECTION: Release Tracking & Upstream Sync -->
       <section aria-labelledby="release-tracking-title">
         <div class="row">
@@ -1117,39 +1151,6 @@
             </div>
           </div>
         </div>
-
-        <section class="p-section dashboard-section--spacing" aria-label="Pi-hole components">
-          <div class="row">
-            <div class="col-12">
-              <hr class="p-rule">
-            </div>
-            <div class="col-12">
-              <h2>Pi-hole components</h2>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-12">
-              <p class="p-heading--4">Bundled FTL, Core, and Web sources compared with the selected upstream track.</p>
-              <p class="p-text--small u-text--muted" style="margin-bottom: 1rem;">Next scheduled auto-rebuild check: <span id="release-tracking-schedule-note" class="mono">--</span></p>
-              <div class="table-container">
-                <table class="p-table components-table table--vertical-center">
-                  <thead>
-                    <tr>
-                      <th>Component</th>
-                      <th>Bundled</th>
-                      <th>Upstream</th>
-                      <th>Status</th>
-                      <th>Sync duration</th>
-                    </tr>
-                  </thead>
-                  <tbody id="dependency-rows">
-                    <tr><td colspan="5">Loading dependency comparisons...</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </section>
       </section>
 
 
