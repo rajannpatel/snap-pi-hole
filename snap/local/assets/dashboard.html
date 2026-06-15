@@ -1899,12 +1899,8 @@
         return ch === selectedBranch.toLowerCase();
       });
 
-      let totalVulns = 0;
-      let totalConfined = 0;
-      archRows.forEach(row => {
-        totalVulns += (row.vulnerabilities ?? 0);
-        totalConfined += (row.confined_mitigation_vulnerabilities ?? 0);
-      });
+      const totalVulns = archRows.length ? Math.max(...archRows.map(row => row.vulnerabilities ?? 0)) : 0;
+      const totalConfined = archRows.length ? Math.max(...archRows.map(row => row.confined_mitigation_vulnerabilities ?? 0)) : 0;
 
       setText("security-total-vulns", String(totalVulns));
       setText("security-confined-vulns", String(totalConfined));
