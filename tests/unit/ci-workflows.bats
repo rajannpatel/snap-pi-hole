@@ -3,7 +3,7 @@
 # Unit tests for the CI/CD workflow logic that cannot be run in GitHub Actions
 # without a real API call. Tests cover:
 #
-#   - track-upstream-releases.yml: snapcraft.yaml-only upstream tag bumps
+#   - track-upstream-releases.yml: upstream source commit bumps
 #   - cicd.yml: port-53 timeout guard logic (both success and failure paths)
 #   - cicd.yml / launchpad-builds.yml: Snap Store publishing channel policy
 #
@@ -22,11 +22,13 @@ teardown() {
 
 # track-upstream-releases.yml
 
-@test "track-upstream workflow updates only snapcraft source-tag fields" {
+@test "track-upstream workflow updates snapcraft source commits and stable version labels" {
     local workflow="${REPO_ROOT}/.github/workflows/track-upstream-releases.yml"
-    grep -q 'yq -i ".parts.ftl.source-tag' "$workflow"
-    grep -q 'yq -i ".parts.pi_hole.source-tag' "$workflow"
-    grep -q 'yq -i ".parts.web.source-tag' "$workflow"
+    grep -q 'yq -i ".parts.ftl.\\"source-commit\\"' "$workflow"
+    grep -q 'yq -i ".parts.pi_hole.\\"source-commit\\"' "$workflow"
+    grep -q 'yq -i ".parts.web.\\"source-commit\\"' "$workflow"
+    grep -q 'snap/local/build/stable-versions.json' "$workflow"
+    grep -q '/commits/master' "$workflow"
     ! grep -q "README.md" "$workflow"
     ! grep -q "sed -i" "$workflow"
 }
@@ -42,14 +44,14 @@ teardown() {
 import yaml
 with open("${REPO_ROOT}/.github/workflows/track-upstream-releases.yml") as f:
     doc = yaml.safe_load(f)
-steps = doc["jobs"]["update-tags"]["steps"]
+steps = doc["jobs"]["update-sources"]["steps"]
 checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout@"))
 assert checkout.get("with", {}).get("persist-credentials") is False, checkout
 assert any(step.get("uses", "").startswith("peter-evans/create-pull-request@") for step in steps), steps
 PYEOF
 }
 
-@test "track-upstream yq source-tag updates mutate the expected snapcraft parts" {
+@test "track-upstream yq source-commit updates mutate the expected snapcraft parts" {
     if ! command -v yq >/dev/null 2>&1; then
         skip "yq is not installed"
     fi
@@ -61,13 +63,13 @@ PYEOF
     fi
 
     local target="${TEST_WORKDIR}/snapcraft.yaml"
-    yq -i '.parts.ftl.source-tag = "v9.1.0"' "$target"
-    yq -i '.parts.pi_hole.source-tag = "v9.2.0"' "$target"
-    yq -i '.parts.web.source-tag = "v9.3.0"' "$target"
+    yq -i '.parts.ftl."source-commit" = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" | del(.parts.ftl."source-tag") | del(.parts.ftl."source-branch")' "$target"
+    yq -i '.parts.pi_hole."source-commit" = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" | del(.parts.pi_hole."source-tag") | del(.parts.pi_hole."source-branch")' "$target"
+    yq -i '.parts.web."source-commit" = "cccccccccccccccccccccccccccccccccccccccc" | del(.parts.web."source-tag") | del(.parts.web."source-branch")' "$target"
 
-    run yq -r '[.parts.ftl.source-tag, .parts.pi_hole.source-tag, .parts.web.source-tag] | @tsv' "$target"
+    run yq -r '[.parts.ftl."source-commit", .parts.pi_hole."source-commit", .parts.web."source-commit"] | @tsv' "$target"
     [ "$status" -eq 0 ]
-    [ "$output" = $'v9.1.0\tv9.2.0\tv9.3.0' ]
+    [ "$output" = $'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\tbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\tcccccccccccccccccccccccccccccccccccccccc' ]
 }
 
 @test "vulnerability scan initializes llm cache file after cache restore" {
@@ -100,6 +102,7 @@ selector_path = pathlib.Path("${REPO_ROOT}/snap/local/build/select_snapcraft_ups
 spec = importlib.util.spec_from_file_location("select_snapcraft_upstream", selector_path)
 selector = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(selector)
+selector.latest_release_versions = lambda token="": dict(selector.DEFAULTS)
 
 snapcraft_path = pathlib.Path("${TEST_WORKDIR}/snapcraft.yaml")
 versions = {
@@ -119,6 +122,37 @@ for part, commit in versions.items():
     assert "source-tag" not in part_doc, part_doc
 
 assert doc["parts"]["ftl"].get("source-depth") == 1, doc["parts"]["ftl"]
+PYEOF
+}
+
+@test "stable upstream selector also pins branch commits with source-commit" {
+    python3 - <<PYEOF
+import importlib.util
+import pathlib
+import yaml
+
+selector_path = pathlib.Path("${REPO_ROOT}/snap/local/build/select_snapcraft_upstream.py")
+spec = importlib.util.spec_from_file_location("select_snapcraft_upstream", selector_path)
+selector = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(selector)
+
+snapcraft_path = pathlib.Path("${TEST_WORKDIR}/snapcraft.yaml")
+versions = {
+    "ftl": "1" * 40,
+    "pi_hole": "2" * 40,
+    "web": "3" * 40,
+}
+
+selector.update_source_commits(snapcraft_path, versions)
+
+with snapcraft_path.open() as f:
+    doc = yaml.safe_load(f)
+
+for part, commit in versions.items():
+    part_doc = doc["parts"][part]
+    assert part_doc.get("source-commit") == commit, part_doc
+    assert "source-tag" not in part_doc, part_doc
+    assert "source-branch" not in part_doc, part_doc
 PYEOF
 }
 
@@ -244,6 +278,21 @@ PYEOF
     grep -q "name: vulnerability-reports" "$workflow"
     grep -q "docs/vulnerabilities" "$workflow"
     grep -q "cp -r vulnerability-reports/\\* docs/vulnerabilities/" "$workflow"
+}
+
+@test "cicd deploy-pages selects stable upstream sources before dashboard data generation" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+steps = doc["jobs"]["deploy-pages"]["steps"]
+organize = next(step for step in steps if step.get("name") == "Organize files for GitHub Pages")
+run = organize["run"]
+select_idx = run.index("python3 snap/local/build/select_snapcraft_upstream.py stable")
+generate_idx = run.index("python3 snap/local/build/generate_dashboard_data.py")
+assert select_idx < generate_idx, run
+assert organize.get("env", {}).get("GITHUB_TOKEN") is not None, organize
+PYEOF
 }
 
 @test "cicd deploy-pages waits for smoke tests" {
@@ -555,7 +604,7 @@ assert cron == "0 */3 * * *", f"Expected cron '0 */3 * * *', got '{cron}'"
 PYEOF
 }
 
-@test "edge upstream selector extracts and saves stable versions to json" {
+@test "upstream selector extracts and saves stable version labels to json" {
     python3 - <<PYEOF
 import importlib.util
 import pathlib
@@ -565,14 +614,14 @@ selector_path = pathlib.Path("${REPO_ROOT}/snap/local/build/select_snapcraft_ups
 spec = importlib.util.spec_from_file_location("select_snapcraft_upstream", selector_path)
 selector = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(selector)
+selector.latest_release_versions = lambda token="": dict(selector.DEFAULTS)
 
 snapcraft_path = pathlib.Path("${TEST_WORKDIR}/snapcraft.yaml")
 
-# Test get_stable_versions parses the tags correctly
 stable_versions = selector.get_stable_versions(snapcraft_path)
 assert stable_versions.get("pi_hole") == "v6.4.2", f"expected v6.4.2, got: {stable_versions.get('pi_hole')}"
 assert stable_versions.get("ftl") == "v6.6.2", f"expected v6.6.2, got: {stable_versions.get('ftl')}"
-assert stable_versions.get("web") == "v6.5", f"expected v6.5, got: {stable_versions.get('web')}"
+assert stable_versions.get("web") == "v6.5.1", f"expected v6.5.1, got: {stable_versions.get('web')}"
 
 # Test it uses defaults if file is missing/empty
 missing_path = pathlib.Path("${TEST_WORKDIR}/nonexistent.yaml")
@@ -587,7 +636,7 @@ PYEOF
     mkdir -p "${temp_stage}/snap-meta"
     echo "v6.6.2" > "${temp_stage}/snap-meta/ftl-tag"
     mkdir -p "${temp_stage}/var/www/html/admin/snap-meta"
-    echo "v6.5" > "${temp_stage}/var/www/html/admin/snap-meta/web-tag"
+    echo "v6.5.1" > "${temp_stage}/var/www/html/admin/snap-meta/web-tag"
 
     # Create stable-versions.json in our test workspace
     mkdir -p "${TEST_WORKDIR}/snap/local/build"
@@ -595,24 +644,18 @@ PYEOF
 {
   "ftl": "v6.6.2",
   "pi_hole": "v6.4.2",
-  "web": "v6.5"
+  "web": "v6.5.1"
 }
 EOF
 
     # Helper function to run the version-parsing logic of pi-hole-override-build.sh
     run_override_version_logic() {
-        local core_tag_mock="$1"
-        local wrapper_hash_mock="1234567"
-        local wrapper_time_mock="1781488922"
+        local core_commit_mock="$1"
 
-        # Mock git describe and git rev-parse commands
+        # Mock git rev-parse command for the fetched upstream pi-hole source.
         git() {
-            if [[ "$*" == *"describe"* ]]; then
-                echo "$core_tag_mock"
-            elif [[ "$*" == *"rev-parse"* ]]; then
-                echo "$wrapper_hash_mock"
-            elif [[ "$*" == *"log"* ]]; then
-                echo "$wrapper_time_mock"
+            if [[ "$*" == *"rev-parse --short HEAD"* ]]; then
+                echo "$core_commit_mock"
             else
                 command git "$@"
             fi
@@ -640,12 +683,12 @@ EOF
         echo "$set_version"
     }
 
-    # Test case 1: Stable channel (tag starts with v)
+    # Stable and edge both include the fetched upstream pi-hole commit.
     local stable_version
-    stable_version=$(run_override_version_logic "v6.4.2")
-    [ "$stable_version" = "v6.4.2+git.1234567.1781488922" ]
+    stable_version=$(run_override_version_logic "3413768")
+    [ "$stable_version" = "v6.4.2+git.3413768" ]
+    [ "${#stable_version}" -le 32 ]
 
-    # Test case 2: Edge channel (tag is a commit hash, e.g. 841976c)
     local edge_version
     edge_version=$(run_override_version_logic "841976c")
     [ "$edge_version" = "v6.4.2+git.841976c" ]
@@ -659,7 +702,7 @@ EOF
 {
   "ftl": "v6.6.2",
   "pi_hole": "v6.4.2",
-  "web": "v6.5"
+  "web": "v6.5.1"
 }
 EOF
 
@@ -709,7 +752,7 @@ EOF
     [ "$(run_ftl_tag_logic "56ef789")" = "v6.6.2+git.56ef789" ]
 
     # Test Web stable
-    [ "$(run_web_tag_logic "v6.5")" = "v6.5" ]
+    [ "$(run_web_tag_logic "v6.5.1")" = "v6.5.1" ]
     # Test Web edge
-    [ "$(run_web_tag_logic "12ab34c")" = "v6.5+git.12ab34c" ]
+    [ "$(run_web_tag_logic "12ab34c")" = "v6.5.1+git.12ab34c" ]
 }

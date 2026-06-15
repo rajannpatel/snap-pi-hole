@@ -150,7 +150,7 @@
               <nav class="p-tabs" aria-label="Select channel scope">
                 <ul class="p-tabs__list" role="tablist">
                   <li class="p-tabs__item" role="presentation">
-                    <button class="p-tabs__link is-active" id="btn-stable" type="button" role="tab" aria-selected="true">Stable (upstream releases)</button>
+                    <button class="p-tabs__link is-active" id="btn-stable" type="button" role="tab" aria-selected="true">Stable (upstream branch)</button>
                   </li>
                   <li class="p-tabs__item" role="presentation">
                     <button class="p-tabs__link" id="btn-edge" type="button" role="tab" aria-selected="false" tabindex="-1">Edge (upstream dev)</button>
@@ -158,7 +158,7 @@
                 </ul>
               </nav>
             </div>
-            <p class="channel-scope-summary" id="channel-scope-summary">Viewing stable: upstream release tags, stable Snap Store publication, and stable install tests.</p>
+            <p class="channel-scope-summary" id="channel-scope-summary">Viewing stable: upstream stable branch commits, stable Snap Store publication, and stable install tests.</p>
             <div class="activity-strip" id="current-activity" aria-label="Current release activity">
               <div class="activity-item"><span class="activity-item__label">Upstream</span><span class="activity-item__value">Loading...</span></div>
               <div class="activity-item"><span class="activity-item__label">Build</span><span class="activity-item__value">Loading...</span></div>
@@ -690,14 +690,14 @@
       const label = selectedChannelLabel();
       const summary = label === "edge"
         ? "Viewing edge: upstream development commits, edge Snap Store publication, and edge install tests."
-        : "Viewing stable: upstream release tags, stable Snap Store publication, and stable install tests.";
+        : "Viewing stable: upstream stable branch commits, stable Snap Store publication, and stable install tests.";
       setText("channel-scope-summary", summary);
 
       const descEl = document.getElementById("components-section-desc");
       if (descEl) {
         descEl.textContent = label === "edge"
           ? "Bundled FTL, Core, and Web sources compared with the latest upstream development commits (development-v6 branch). The edge channel builds and rolls out automatically on every commit."
-          : "Bundled FTL, Core, and Web sources compared with the latest upstream release tags. The stable channel tracks tagged GitHub releases; commits pushed to upstream stable branches are only packaged once a new release tag is published.";
+          : "Bundled FTL, Core, and Web sources compared with the latest upstream stable branch commits. Release tags are shown as version labels, but stable packaging follows the upstream branch head.";
       }
     }
 
@@ -741,8 +741,8 @@
             : "Up to date with dev commits";
         } else {
           activityState.upstream = pending
-            ? `${pending} release tag${pending === 1 ? "" : "s"} pending`
-            : "Up to date with release tags";
+            ? `${pending} stable commit${pending === 1 ? "" : "s"} pending`
+            : "Up to date with stable branch";
         }
       }
       renderCurrentActivity();
@@ -1317,7 +1317,7 @@
         return liveStatusChip(liveStatus);
       }
       if (item.update_available) {
-        const pendingLabel = selectedBranch === "edge" ? "Dev commit pending" : "Release tag pending";
+        const pendingLabel = selectedBranch === "edge" ? "Dev commit pending" : "Stable commit pending";
         return `<span class="status-chip status-caution">${warningIconSvg}${pendingLabel}</span>`;
       }
       if (isLivePublishSuccess()) {
@@ -2147,7 +2147,9 @@
     // Updates track-upstream status timestamps and workflows with live values
     function trackUpstreamJobFromJobs(jobs) {
       if (!jobs || !jobs.length) return null;
-      return jobs.find((job) => (job.name || "") === "update-tags") || jobs[0];
+      return jobs.find((job) => (job.name || "") === "update-sources")
+        || jobs.find((job) => (job.name || "") === "update-tags")
+        || jobs[0];
     }
 
     async function resolveTrackUpstreamJob(run) {
@@ -2385,7 +2387,7 @@
       renderFreshnessChips();
     }
 
-    // Pulls upstream tags to refresh release-lag metrics live from the client
+    // Pulls upstream branch heads to refresh stable source-lag metrics live from the client
     async function refreshReleaseLag() {
       if (!dependencyRows.length) return;
       if (liveState.rateRemaining !== null && liveState.rateRemaining <= 20) return;
@@ -2409,7 +2411,6 @@
         const upstreamTag = release.tag_name;
         if (!upstreamTag) continue;
         const upstreamDate = release.published_at || item.upstream_release_date;
-        const updateAvailable = Boolean(item.local_tag && upstreamTag && item.local_tag !== upstreamTag);
         let lagDays = item.lag_days;
         const localDate = new Date(item.local_release_date);
         const upDate = new Date(upstreamDate);
@@ -2418,20 +2419,21 @@
         }
         item.upstream_tag = upstreamTag;
         item.upstream_release_date = upstreamDate;
-        item.update_available = updateAvailable;
         item.lag_days = lagDays;
         if (release.html_url) item.release_notes_url = release.html_url;
 
-        // Fetch the commit SHA for this new upstream release tag
+        // Fetch the branch head SHA. Stable builds pin this commit; tags are labels.
         try {
+          const upstreamRef = item.upstream_ref || "master";
           const commitResponse = await fetch(
-            `${GITHUB_API_BASE}/repos/${item.repository}/commits/${upstreamTag}`,
+            `${GITHUB_API_BASE}/repos/${item.repository}/commits/${upstreamRef}`,
             { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" }
           );
           if (commitResponse.ok) {
             const commitData = await commitResponse.json();
             if (commitData && commitData.sha) {
               item.upstream_commit = commitData.sha;
+              item.update_available = Boolean(item.local_commit && item.upstream_commit && item.local_commit !== item.upstream_commit);
             }
           }
         } catch (e) {

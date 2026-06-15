@@ -16,7 +16,18 @@ REPO = "snap-pi-hole"
 GITHUB_API = "https://api.github.com"
 SNAP_NAME = "pihole-by-rajannpatel"
 SNAPCRAFT_INFO_URL = f"https://api.snapcraft.io/v2/snaps/info/{SNAP_NAME}"
+UPSTREAM_STABLE_REF = "master"
 UPSTREAM_EDGE_REF = "development"
+UPSTREAM_COMPONENTS = {
+    "ftl": {"name": "FTL", "repo": "pi-hole/FTL"},
+    "pi_hole": {"name": "Pi-hole Core", "repo": "pi-hole/pi-hole"},
+    "web": {"name": "Web UI", "repo": "pi-hole/web"},
+}
+DEFAULT_STABLE_VERSIONS = {
+    "ftl": "v6.6.2",
+    "pi_hole": "v6.4.2",
+    "web": "v6.5.1",
+}
 
 # GitHub-hosted runners only build amd64 and arm64 (see the build matrix in
 # .github/workflows/cicd.yml). The other four architectures (armhf, ppc64el,
@@ -100,8 +111,11 @@ class HTTPClient:
             return {}
 
 
-def extract_snapcraft_versions(snapcraft_path):
-    versions = {"ftl": "", "pi_hole": "", "web": ""}
+def extract_snapcraft_sources(snapcraft_path):
+    sources = {
+        key: {"tag": "", "commit": "", "branch": ""}
+        for key in UPSTREAM_COMPONENTS
+    }
     in_parts = False
     current_part = None
 
@@ -118,14 +132,50 @@ def extract_snapcraft_versions(snapcraft_path):
         part_match = re.match(r"^\s{2}([a-zA-Z0-9_]+):\s*$", raw)
         if part_match:
             candidate = part_match.group(1)
-            current_part = candidate if candidate in versions else None
+            current_part = candidate if candidate in sources else None
             continue
 
         tag_match = re.match(r"^\s{4}source-tag:\s*(\S+)\s*$", raw)
         if current_part and tag_match:
-            versions[current_part] = tag_match.group(1).strip("'\"")
+            sources[current_part]["tag"] = tag_match.group(1).strip("'\"")
+            continue
 
+        commit_match = re.match(r"^\s{4}source-commit:\s*(\S+)\s*$", raw)
+        if current_part and commit_match:
+            sources[current_part]["commit"] = commit_match.group(1).strip("'\"")
+            continue
+
+        branch_match = re.match(r"^\s{4}source-branch:\s*(\S+)\s*$", raw)
+        if current_part and branch_match:
+            sources[current_part]["branch"] = branch_match.group(1).strip("'\"")
+
+    return sources
+
+
+def stable_version_labels(repo_root, snapcraft_sources=None):
+    versions = dict(DEFAULT_STABLE_VERSIONS)
+    labels_path = repo_root / "snap" / "local" / "build" / "stable-versions.json"
+    if labels_path.exists():
+        try:
+            data = json.loads(labels_path.read_text(encoding="utf-8"))
+            for key in versions:
+                value = str(data.get(key, "")).strip()
+                if value:
+                    versions[key] = value
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    for key, source in (snapcraft_sources or {}).items():
+        if source.get("tag"):
+            versions[key] = source["tag"]
     return versions
+
+
+def extract_snapcraft_versions(snapcraft_path):
+    resolved = snapcraft_path.resolve()
+    repo_root = resolved.parents[1] if resolved.parent.name == "snap" else resolved.parent
+    sources = extract_snapcraft_sources(snapcraft_path)
+    return stable_version_labels(repo_root, sources)
 
 
 def extract_snapcraft_versions_from_git(repo_root, ref):
@@ -528,17 +578,23 @@ def collect_security_summary(vulnerability_summary_path):
     }
 
 
-def collect_release_data(client, versions):
+def collect_release_data(client, versions, snapcraft_sources=None):
     components = [
-        {"key": "ftl", "name": "FTL", "repo": "pi-hole/FTL", "local": versions.get("ftl", "")},
-        {"key": "pi_hole", "name": "Pi-hole Core", "repo": "pi-hole/pi-hole", "local": versions.get("pi_hole", "")},
-        {"key": "web", "name": "Web UI", "repo": "pi-hole/web", "local": versions.get("web", "")},
+        {
+            "key": key,
+            "name": meta["name"],
+            "repo": meta["repo"],
+            "local": versions.get(key, ""),
+            "source": (snapcraft_sources or {}).get(key, {}),
+        }
+        for key, meta in UPSTREAM_COMPONENTS.items()
     ]
 
     results = []
     latest_dates = []
     for component in components:
         latest_release = client.get_json_or_empty(f"{GITHUB_API}/repos/{component['repo']}/releases/latest")
+        upstream_ref = component["source"].get("branch") or UPSTREAM_STABLE_REF
         local_release = {}
         if component["local"]:
             local_release = client.get_json_or_empty(
@@ -553,39 +609,45 @@ def collect_release_data(client, versions):
         latest_dt = parse_iso(latest_date)
         if local_dt and latest_dt:
             lag_days = max(0, (latest_dt - local_dt).days)
-        compare_url = ""
-        if component["local"] and latest_tag and component["local"] != latest_tag:
-            compare_url = f"https://github.com/{component['repo']}/compare/{component['local']}...{latest_tag}"
-        elif latest_release.get("html_url"):
-            compare_url = latest_release["html_url"]
-
-        # Retrieve commit SHAs
-        local_commit = ""
-        if component["local"]:
+        local_commit = component["source"].get("commit", "")
+        if not local_commit and component["local"]:
             local_commit_resp = client.get_json_or_empty(
                 f"{GITHUB_API}/repos/{component['repo']}/commits/{component['local']}"
             )
             local_commit = local_commit_resp.get("sha", "")
 
-        upstream_commit = ""
-        if latest_tag:
-            upstream_commit_resp = client.get_json_or_empty(
-                f"{GITHUB_API}/repos/{component['repo']}/commits/{latest_tag}"
-            )
-            upstream_commit = upstream_commit_resp.get("sha", "")
+        upstream_commit_resp = client.get_json_or_empty(
+            f"{GITHUB_API}/repos/{component['repo']}/commits/{upstream_ref}"
+        )
+        upstream_commit = upstream_commit_resp.get("sha", "") or git_remote_ref(component["repo"], upstream_ref)
+
+        update_available = False
+        if local_commit and upstream_commit:
+            update_available = local_commit != upstream_commit
+        elif component["local"] and latest_tag:
+            update_available = component["local"] != latest_tag
+
+        compare_url = ""
+        if local_commit and upstream_commit and local_commit != upstream_commit:
+            compare_url = f"https://github.com/{component['repo']}/compare/{local_commit}...{upstream_ref}"
+        elif component["local"] and latest_tag and component["local"] != latest_tag:
+            compare_url = f"https://github.com/{component['repo']}/compare/{component['local']}...{latest_tag}"
+        elif latest_release.get("html_url"):
+            compare_url = latest_release["html_url"]
 
         results.append(
             {
                 "key": component["key"],
                 "name": component["name"],
                 "repository": component["repo"],
+                "upstream_ref": upstream_ref,
                 "local_tag": component["local"],
                 "local_commit": local_commit,
                 "local_release_date": local_date,
                 "upstream_tag": latest_tag,
                 "upstream_commit": upstream_commit,
                 "upstream_release_date": latest_date,
-                "update_available": bool(component["local"] and latest_tag and component["local"] != latest_tag),
+                "update_available": update_available,
                 "lag_days": lag_days,
                 "compare_url": compare_url,
                 "release_notes_url": latest_release.get("html_url", ""),
@@ -1000,14 +1062,15 @@ def main():
         args[2] if len(args) > 2 else repo_root / "vulnerability-reports" / "osv-summary.json"
     )
 
-    versions = extract_snapcraft_versions(repo_root / "snap" / "snapcraft.yaml")
+    snapcraft_sources = extract_snapcraft_sources(repo_root / "snap" / "snapcraft.yaml")
+    versions = stable_version_labels(repo_root, snapcraft_sources)
     edge_versions = collect_upstream_dev_versions(client)
     build_status_stable = collect_build_status(client, "main")
     build_status_edge = collect_build_status(client, "main")
     distro_matrix_stable = collect_distro_matrix(client, "main", "stable")
     distro_matrix_edge = collect_distro_matrix(client, "main", "edge")
     security = collect_security_summary(vuln_summary_path)
-    releases = collect_release_data(client, versions)
+    releases = collect_release_data(client, versions, snapcraft_sources)
     edge_releases = collect_edge_release_data(client, edge_versions, versions)
     snap_package = collect_snap_package_data(client, repo_root)
     auto_update = collect_track_upstream_status(client)

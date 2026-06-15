@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
 Generate patch files for the pi-hole snap build.
-Downloads the upstream source files at the tag declared in snapcraft.yaml,
+Downloads the upstream source files at the ref declared in snapcraft.yaml,
 applies snap-specific modifications, and writes correct unified diffs using
 Python's difflib — no shell escaping issues.
 
 Run from the snap-pi-hole project root:
     python3 snap/local/build/generate-patches.py
-    python3 snap/local/build/generate-patches.py v6.4.3   # override tag
+    python3 snap/local/build/generate-patches.py v6.4.3   # override ref
 """
 import difflib
 import pathlib
@@ -16,22 +16,21 @@ import sys
 import urllib.request
 
 
-def _read_tag_from_snapcraft() -> str:
-    """Read the pi_hole part source-tag from snapcraft.yaml."""
+def _read_ref_from_snapcraft() -> str:
+    """Read the pi_hole part source ref from snapcraft.yaml."""
     yaml_path = pathlib.Path("snap/snapcraft.yaml")
     text = yaml_path.read_text()
-    # Look for the pi_hole part block and extract source-tag
-    m = re.search(r"pi_hole:.*?source-tag:\s*(\S+)", text, re.DOTALL)
+    m = re.search(r"pi_hole:.*?source-(?:commit|tag|branch):\s*(\S+)", text, re.DOTALL)
     if not m:
-        raise RuntimeError("Could not find pi_hole source-tag in snap/snapcraft.yaml")
+        raise RuntimeError("Could not find pi_hole source ref in snap/snapcraft.yaml")
     return m.group(1)
 
 
-TAG = sys.argv[1] if len(sys.argv) > 1 else _read_tag_from_snapcraft()
-UPSTREAM_BASE = f"https://raw.githubusercontent.com/pi-hole/pi-hole/{TAG}/advanced/Scripts"
+REF = sys.argv[1] if len(sys.argv) > 1 else _read_ref_from_snapcraft()
+UPSTREAM_BASE = f"https://raw.githubusercontent.com/pi-hole/pi-hole/{REF}/advanced/Scripts"
 PATCHES_DIR = pathlib.Path("snap/local/patches")
 PATCHES_DIR.mkdir(parents=True, exist_ok=True)
-print(f"Using upstream tag: {TAG}")
+print(f"Using upstream ref: {REF}")
 
 
 def fetch(filename):

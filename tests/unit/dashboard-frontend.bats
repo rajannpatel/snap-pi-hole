@@ -213,10 +213,12 @@ const assert = require("assert");
 
 const jobs = [
   { name: "setup", html_url: "https://example.test/setup" },
+  { name: "update-sources", html_url: "https://example.test/update-sources" },
   { name: "update-tags", html_url: "https://example.test/update-tags" },
 ];
 
-assert.strictEqual(trackUpstreamJobFromJobs(jobs).html_url, "https://example.test/update-tags");
+assert.strictEqual(trackUpstreamJobFromJobs(jobs).html_url, "https://example.test/update-sources");
+assert.strictEqual(trackUpstreamJobFromJobs([{ name: "update-tags", html_url: "https://example.test/update-tags" }]).html_url, "https://example.test/update-tags");
 assert.strictEqual(trackUpstreamJobFromJobs([{ name: "only-job" }]).name, "only-job");
 assert.strictEqual(trackUpstreamJobFromJobs([]), null);
 assert.strictEqual(trackUpstreamJobFromJobs(null), null);
@@ -699,7 +701,7 @@ const assert = require("assert");
 
 assert.match(
   source,
-  /const pendingLabel = selectedBranch === "edge" \? "Dev commit pending" : "Release tag pending";/,
+  /const pendingLabel = selectedBranch === "edge" \? "Dev commit pending" : "Stable commit pending";/,
   "Release tracking should label upstream mismatches by selected channel scope"
 );
 assert.match(

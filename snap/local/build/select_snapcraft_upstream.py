@@ -9,6 +9,7 @@ import urllib.request
 
 
 GITHUB_API = "https://api.github.com"
+UPSTREAM_STABLE_REF = "master"
 UPSTREAM_EDGE_REF = "development"
 COMPONENTS = {
     "ftl": "pi-hole/FTL",
@@ -40,14 +41,21 @@ def git_remote_ref(repo, ref):
     return output.split()[0]
 
 
-def upstream_dev_versions(token=""):
+DEFAULTS = {
+    "ftl": "v6.6.2",
+    "pi_hole": "v6.4.2",
+    "web": "v6.5.1",
+}
+
+
+def upstream_ref_versions(ref, token=""):
     versions = {}
     for key, repo in COMPONENTS.items():
         try:
-            data = github_json(f"{GITHUB_API}/repos/{repo}/commits/{UPSTREAM_EDGE_REF}", token=token)
+            data = github_json(f"{GITHUB_API}/repos/{repo}/commits/{ref}", token=token)
             versions[key] = data["sha"]
         except Exception:
-            versions[key] = git_remote_ref(repo, UPSTREAM_EDGE_REF)
+            versions[key] = git_remote_ref(repo, ref)
     return versions
 
 
@@ -63,8 +71,8 @@ def update_source_commits(snapcraft_path, versions):
             lines.append(raw)
             continue
 
-        if current_part and re.match(r"^    source-(tag|commit):\s*\S+\s*$", raw):
-            lines.append(f"    source-commit: {versions[current_part]}")
+        if current_part and re.match(r"^    source-(tag|commit|branch):\s*\S+\s*$", raw):
+            lines.append(f"    source-commit: \"{versions[current_part]}\"")
             changed.add(current_part)
             continue
 
@@ -72,22 +80,28 @@ def update_source_commits(snapcraft_path, versions):
 
     missing = sorted(set(versions) - changed)
     if missing:
-        raise RuntimeError(f"Missing source-tag/source-commit entries for: {', '.join(missing)}")
+        raise RuntimeError(f"Missing source-tag/source-commit/source-branch entries for: {', '.join(missing)}")
 
     snapcraft_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-DEFAULTS = {
-    "ftl": "v6.6.2",
-    "pi_hole": "v6.4.2",
-    "web": "v6.5",
-}
+def latest_release_versions(token=""):
+    versions = {}
+    for key, repo in COMPONENTS.items():
+        try:
+            data = github_json(f"{GITHUB_API}/repos/{repo}/releases/latest", token=token)
+            tag = data.get("tag_name") or ""
+            versions[key] = tag if tag.startswith("v") else DEFAULTS[key]
+        except Exception:
+            versions[key] = DEFAULTS[key]
+    return versions
 
 
-def get_stable_versions(snapcraft_path):
+def get_stable_versions(snapcraft_path=None, token=""):
+    release_versions = latest_release_versions(token=token)
     versions = {}
     current_part = None
-    if snapcraft_path.exists():
+    if snapcraft_path and snapcraft_path.exists():
         for raw in snapcraft_path.read_text(encoding="utf-8").splitlines():
             part_match = re.match(r"^  ([A-Za-z0-9_]+):\s*$", raw)
             if part_match:
@@ -100,7 +114,7 @@ def get_stable_versions(snapcraft_path):
                 if m:
                     versions[current_part] = m.group(1)
 
-    for key, val in DEFAULTS.items():
+    for key, val in release_versions.items():
         if key not in versions:
             versions[key] = val
     return versions
@@ -113,7 +127,8 @@ def main():
     args = parser.parse_args()
 
     snapcraft_path = pathlib.Path(args.snapcraft)
-    stable_versions = get_stable_versions(snapcraft_path)
+    token = os.environ.get("GITHUB_TOKEN", "")
+    stable_versions = get_stable_versions(snapcraft_path, token=token)
 
     # Save stable versions to stable-versions.json in the same directory as this script
     script_dir = pathlib.Path(__file__).parent.resolve()
@@ -122,13 +137,10 @@ def main():
         json.dump(stable_versions, f, indent=2)
     print(f"Saved stable versions to {json_path}")
 
-    if args.channel == "stable":
-        print("Using committed stable upstream release tags from snap/snapcraft.yaml.")
-        return
-
-    versions = upstream_dev_versions(token=os.environ.get("GITHUB_TOKEN", ""))
+    ref = UPSTREAM_STABLE_REF if args.channel == "stable" else UPSTREAM_EDGE_REF
+    versions = upstream_ref_versions(ref, token=token)
     update_source_commits(snapcraft_path, versions)
-    print(f"Selected upstream {UPSTREAM_EDGE_REF} commits for edge builds:")
+    print(f"Selected upstream {ref} commits for {args.channel} builds:")
     for key in ("ftl", "pi_hole", "web"):
         print(f"  {key}: {versions[key]}")
 

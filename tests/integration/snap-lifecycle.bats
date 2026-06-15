@@ -86,7 +86,7 @@ _setup_scripts() {
     cat > "${SNAP}/opt/pihole/templates/versions" << 'EOF'
 CORE_VERSION=v6.4.2
 CORE_BRANCH=snap
-WEB_VERSION=v6.5
+WEB_VERSION=v6.5.1
 WEB_BRANCH=snap
 FTL_VERSION=v6.6.2
 FTL_BRANCH=snap

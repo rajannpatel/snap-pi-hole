@@ -676,6 +676,7 @@ jobs:
 
       - name: Organize files for GitHub Pages
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PUBLISH_RESULT: not_waited
         run: |
           # Create docs directory structure
@@ -701,6 +702,9 @@ jobs:
 
           # Copy vulnerability reports generated from SBOM artifacts
           cp -r vulnerability-reports/* docs/vulnerabilities/
+
+          # Match the stable source refs used by build jobs before rendering dashboard data.
+          python3 snap/local/build/select_snapcraft_upstream.py stable
 
           # Build dashboard data model used by the interactive homepage
           python3 snap/local/build/generate_dashboard_data.py . docs/dashboard-data.json vulnerability-reports/osv-summary.json

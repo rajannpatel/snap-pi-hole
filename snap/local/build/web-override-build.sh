@@ -12,7 +12,7 @@ if [[ ! "$WEB_TAG" =~ ^v ]]; then
     if [ -f "$STABLE_VERSIONS_JSON" ]; then
         STABLE_WEB=$(python3 -c "import json; print(json.load(open('${STABLE_VERSIONS_JSON}'))['web'])")
     else
-        STABLE_WEB="v6.5"
+        STABLE_WEB="v6.5.1"
     fi
     WEB_TAG="${STABLE_WEB}+git.${WEB_TAG}"
 fi

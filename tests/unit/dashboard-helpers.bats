@@ -168,34 +168,43 @@ assert missing == {"cron": "", "label": "Unknown"}, missing
 PYEOF
 }
 
-@test "dashboard helpers: extract_snapcraft_versions reads source-tags for tracked parts" {
+@test "dashboard helpers: extract_snapcraft_versions reads release labels for tracked parts" {
     cat > "${TEST_TMPDIR}/snapcraft.yaml" <<'EOF'
 name: pihole-by-rajannpatel
 base: core24
 parts:
   ftl:
     plugin: nil
-    source-tag: 'v6.4.2'
+    source-commit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   pi_hole:
     plugin: dump
-    source-tag: v6.4
+    source-commit: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
   web:
-    source-tag: "v6.0.1"
+    source-commit: cccccccccccccccccccccccccccccccccccccccc
   unrelated:
     source-tag: v9.9.9
 apps:
   pihole:
     command: bin/pihole
 EOF
+    mkdir -p "${TEST_TMPDIR}/snap/local/build"
+    cat > "${TEST_TMPDIR}/snap/local/build/stable-versions.json" <<'EOF'
+{"ftl": "v6.6.2", "pi_hole": "v6.4.2", "web": "v6.5.1"}
+EOF
 
     python3 - <<PYEOF
 import pathlib
 import sys
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-from generate_dashboard_data import extract_snapcraft_versions
+from generate_dashboard_data import extract_snapcraft_sources, extract_snapcraft_versions
 
-versions = extract_snapcraft_versions(pathlib.Path("${TEST_TMPDIR}/snapcraft.yaml"))
-assert versions == {"ftl": "v6.4.2", "pi_hole": "v6.4", "web": "v6.0.1"}, versions
+path = pathlib.Path("${TEST_TMPDIR}/snapcraft.yaml")
+versions = extract_snapcraft_versions(path)
+assert versions == {"ftl": "v6.6.2", "pi_hole": "v6.4.2", "web": "v6.5.1"}, versions
+sources = extract_snapcraft_sources(path)
+assert sources["ftl"]["commit"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", sources
+assert sources["pi_hole"]["commit"] == "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", sources
+assert sources["web"]["commit"] == "cccccccccccccccccccccccccccccccccccccccc", sources
 PYEOF
 }
 
@@ -235,17 +244,17 @@ versions = {"ftl": "v6.4", "pi_hole": "v6.4", "web": ""}
 result = dashboard.collect_release_data(FakeClient(), versions)
 by_key = {c["key"]: c for c in result["components"]}
 
-# FTL: behind upstream -> update available, 9 day lag, compare link.
+# FTL: behind upstream -> update available, 9 day lag, compare pinned commit to master.
 ftl = by_key["ftl"]
 assert ftl["update_available"] is True, ftl
 assert ftl["lag_days"] == 9, ftl
-assert ftl["compare_url"] == "https://github.com/pi-hole/FTL/compare/v6.4...v6.5", ftl
+assert ftl["compare_url"] == "https://github.com/pi-hole/FTL/compare/mocksha_v6.4...master", ftl
 
-# Core: local == upstream -> no update, no lag, compare falls back to release page.
+# Core: local tag == upstream tag, but the pinned source commit differs from master.
 core = by_key["pi_hole"]
-assert core["update_available"] is False, core
+assert core["update_available"] is True, core
 assert core["lag_days"] == 0, core
-assert core["compare_url"] == "https://github.com/pi-hole/pi-hole/releases/v6.4", core
+assert core["compare_url"] == "https://github.com/pi-hole/pi-hole/compare/mocksha_v6.4...master", core
 
 # Web: no local tag -> no update, lag unknown, compare falls back to release page.
 web = by_key["web"]
@@ -255,7 +264,7 @@ assert web["compare_url"] == "https://github.com/pi-hole/web/releases/v6.1", web
 
 # Verify commit SHAs are populated
 assert ftl["local_commit"] == "mocksha_v6.4", ftl["local_commit"]
-assert ftl["upstream_commit"] == "mocksha_v6.5", ftl["upstream_commit"]
+assert ftl["upstream_commit"] == "mocksha_master", ftl["upstream_commit"]
 
 # Aggregate last_updated tracks the newest upstream release.
 assert result["last_updated"] == "2026-06-10T00:00:00Z", result["last_updated"]
@@ -285,7 +294,7 @@ class FakeClient:
         raise AssertionError(f"unexpected url {url}")
 
 versions = {"ftl": "local-ftl", "pi_hole": "local-core", "web": "local-web"}
-display_versions = {"ftl": "v6.6.2", "pi_hole": "v6.4.2", "web": "v6.5"}
+display_versions = {"ftl": "v6.6.2", "pi_hole": "v6.4.2", "web": "v6.5.1"}
 rows = dashboard.collect_edge_release_data(FakeClient(), versions, display_versions)
 by_key = {row["key"]: row for row in rows}
 
@@ -293,7 +302,7 @@ assert by_key["ftl"]["local_tag"] == "v6.6.2", by_key["ftl"]
 assert by_key["ftl"]["upstream_tag"] == "v6.6.2", by_key["ftl"]
 assert by_key["pi_hole"]["local_tag"] == "v6.4.2", by_key["pi_hole"]
 assert by_key["pi_hole"]["upstream_tag"] == "v6.4.2", by_key["pi_hole"]
-assert by_key["web"]["local_tag"] == "v6.5", by_key["web"]
+assert by_key["web"]["local_tag"] == "v6.5.1", by_key["web"]
 assert by_key["web"]["upstream_tag"] == "v6.5.1", by_key["web"]
 assert by_key["web"]["local_commit"] == "local-web", by_key["web"]
 assert by_key["web"]["upstream_commit"] == "devsha_web", by_key["web"]

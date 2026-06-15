@@ -32,7 +32,7 @@ teardown() {
     cat <<EOF > "${TEST_DIR}/extracted/opt/pihole/templates/versions"
 CORE_VERSION=v6.4.2
 CORE_BRANCH=snap
-WEB_VERSION=v6.5
+WEB_VERSION=v6.5.1
 WEB_BRANCH=snap
 FTL_VERSION=v6.6.2
 FTL_BRANCH=snap
@@ -178,7 +178,7 @@ assert components["pi-hole"]["licenses"][0]["license"].get("id") == "GPL-3.0-onl
 
 # Verify web (Discovered primary component)
 assert "web" in components, "web missing from SBOM"
-assert components["web"]["version"] == "v6.5"
+assert components["web"]["version"] == "v6.5.1"
 assert components["web"]["licenses"][0]["license"].get("id") == "MIT"
 
 # Verify missing-package remains unchanged
@@ -777,4 +777,3 @@ lib2_lics = [l["license"].get("name") for l in components["lib2"]["licenses"]]
 assert lib2_lics == ["GPL-2.0-or-later WITH Autoconf-exception-2.0"], f"Expected ['GPL-2.0-or-later WITH Autoconf-exception-2.0'], got {lib2_lics}"
 PYEOF
 }
-

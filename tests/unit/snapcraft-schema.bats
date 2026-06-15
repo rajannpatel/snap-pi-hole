@@ -12,7 +12,7 @@
 #   2. Parts and layout structure       - ftl, pi_hole, web, wrappers, paths
 #   3. Daemon (apps.pihole-ftl)         - refresh-mode, plugs, lifecycle
 #   4. Other apps and timers            - CLI, gravity-sync
-#   5. Version single-source-of-truth   - locks in derivation from source-tag
+#   5. Version single-source-of-truth   - locks in derivation from source refs
 #   6. Build-rule safety nets           - snapcraft schema gotchas
 #   7. Repository file presence         - hooks, launchers, assets
 #   8. Shell script integrity           - bash -n on hooks and launchers
@@ -193,21 +193,32 @@ PYEOF
 
 # 5. Version single-source-of-truth invariants
 #
-# The only places versions live in this file are the three `source-tag:`
-# lines (one per upstream part). The snap version string, the GIT_VERSION
-# baked into pihole-FTL, and the `versions` template that powers `pihole -v`
-# are all derived at build time from the tags actually fetched. These tests
-# prevent a silent revert to hardcoded duplicates.
+# The upstream parts pin source commits. Human-readable release labels live in
+# stable-versions.json for commit-based builds whose git describe output is not
+# itself a release tag.
 
-@test "snapcraft.yaml each upstream part declares source-tag" {
+@test "snapcraft.yaml each upstream part declares source-commit" {
     python3 - <<PYEOF
 import yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
 for name in ("ftl", "pi_hole", "web"):
-    tag = doc["parts"][name].get("source-tag")
-    assert tag and tag.startswith("v"), \
-        f"parts.{name}.source-tag missing or malformed: {tag!r}"
+    part = doc["parts"][name]
+    commit = part.get("source-commit")
+    assert commit and len(commit) == 40, \
+        f"parts.{name}.source-commit missing or malformed: {commit!r}"
+    assert "source-tag" not in part, \
+        f"parts.{name}.source-tag should not be used for stable branch tracking"
+PYEOF
+}
+
+@test "stable release labels are recorded separately from source commits" {
+    python3 - <<PYEOF
+import json
+labels = json.load(open("${REPO_ROOT}/snap/local/build/stable-versions.json"))
+for name in ("ftl", "pi_hole", "web"):
+    value = labels.get(name)
+    assert value and value.startswith("v"), f"{name} label missing or malformed: {value!r}"
 PYEOF
 }
 
@@ -234,7 +245,7 @@ PYEOF
     # The runtime versions template must be generated from each part's
     # actual fetched tag in pi_hole.override-build, not hardcoded in
     # pi_hole.override-pull. A heredoc that bakes CORE_VERSION=vX.Y.Z would
-    # silently drift the moment the nightly bot bumps any source-tag.
+    # silently drift the moment the upstream source tracker bumps any source ref.
     python3 - <<PYEOF
 import re, yaml
 with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:

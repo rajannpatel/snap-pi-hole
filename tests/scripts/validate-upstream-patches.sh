@@ -15,7 +15,7 @@ override-pull scripts with a stub craftctl. This is a networked preflight for
 patch drift before sending builds to GitHub runners.
 
 Modes:
-  stable  Validate committed source-tag releases from snap/snapcraft.yaml.
+  stable  Validate committed source commits from snap/snapcraft.yaml.
   edge    Validate current upstream development heads.
   all     Validate both stable and edge (default).
 EOF
@@ -108,9 +108,9 @@ validate_part() {
 }
 
 validate_stable() {
-  validate_part stable ftl "$(snapcraft_part_value ftl source-tag)" \
+  validate_part stable ftl "$(snapcraft_part_value ftl source-commit)" \
     "${REPO_ROOT}/snap/local/build/ftl-override-pull.sh"
-  validate_part stable pi_hole "$(snapcraft_part_value pi_hole source-tag)" \
+  validate_part stable pi_hole "$(snapcraft_part_value pi_hole source-commit)" \
     "${REPO_ROOT}/snap/local/build/pi-hole-override-pull.sh"
 }
 
