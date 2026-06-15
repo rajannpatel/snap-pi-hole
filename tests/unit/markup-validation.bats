@@ -116,7 +116,7 @@ for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
     assert "<h2>Vulnerability summary</h2>" in text, f"{rel} missing vulnerability summary heading"
     assert "<th>Action needed</th>" in text, f"{rel} missing action-needed column"
     assert "<th>Report-only findings</th>" in text, f"{rel} missing report-only column"
-    assert "<th>OSV matches</th>" in text, f"{rel} missing OSV matches column"
+    assert "<th>CVE matches</th>" in text, f"{rel} missing CVE matches column"
     assert "<th>Evidence</th>" in text, f"{rel} missing evidence column"
     assert 'colspan="6">Loading vulnerability summary...' in text, f"{rel} loading row colspan is stale"
     assert "No USN action" in text, f"{rel} missing clear action label"

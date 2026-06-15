@@ -841,49 +841,47 @@
         </div>
         <div class="row">
           <div class="col-12">
-            <div class="security-layout">
-              <div class="security-panel" aria-label="Security summary">
-                <h2>Security posture</h2>
-                <p>Outstanding OSV-Scanner findings from the generated SBOMs, separated by actionable USN exposure and confinement-mitigated report-only findings.</p>
-                <div class="security-spotlight" aria-label="Security summary spotlight">
-                  <div class="security-spotlight__metric">
-                    <hr class="p-rule--highlight security-spotlight__rule">
-                    <p class="p-heading--1 u-no-margin u-no-padding"><span id="security-total-vulns">--</span></p>
-                    <p class="security-spotlight__label p-text--small u-no-margin u-no-padding">Actionable USN vulnerabilities</p>
-                  </div>
-                  <div class="security-spotlight__metric">
-                    <hr class="p-rule--highlight security-spotlight__rule">
-                    <p class="p-heading--1 u-no-margin u-no-padding"><span id="security-confined-vulns">--</span></p>
-                    <p class="security-spotlight__label p-text--small u-no-margin u-no-padding">Mitigated by confinement</p>
-                  </div>
+            <div class="security-panel" aria-label="Security summary">
+              <h2>Security posture</h2>
+              <p>Outstanding OSV-Scanner findings from the generated SBOMs, separated by actionable USN exposure and confinement-mitigated report-only findings.</p>
+              <div class="security-spotlight" aria-label="Security summary spotlight">
+                <div class="security-spotlight__metric">
+                  <hr class="p-rule--highlight security-spotlight__rule">
+                  <p class="p-heading--1 u-no-margin u-no-padding"><span id="security-total-vulns">--</span></p>
+                  <p class="security-spotlight__label p-text--small u-no-margin u-no-padding">Actionable USN vulnerabilities</p>
+                </div>
+                <div class="security-spotlight__metric">
+                  <hr class="p-rule--highlight security-spotlight__rule">
+                  <p class="p-heading--1 u-no-margin u-no-padding"><span id="security-confined-vulns">--</span></p>
+                  <p class="security-spotlight__label p-text--small u-no-margin u-no-padding">Mitigated by confinement</p>
                 </div>
               </div>
-              <div class="security-panel" aria-label="Architecture security breakdown">
-                <div class="security-panel__header">
-                  <div>
-                    <h2>Vulnerability summary</h2>
-                    <p>Per-architecture action status, report-only findings, and downloadable evidence.</p>
-                  </div>
-                  <a class="p-button--positive" href="vulnerabilities/">Open detailed findings</a>
+            </div>
+            <div class="security-panel" style="margin-top: 1.5rem;" aria-label="Architecture security breakdown">
+              <div class="security-panel__header">
+                <div>
+                  <h2>Vulnerability summary</h2>
+                  <p>Per-architecture action status, report-only findings, and downloadable evidence.</p>
                 </div>
-                <div class="table-container">
-                  <table class="p-table security-arch-table">
-                    <caption class="u-off-screen">Vulnerability summary by architecture for the selected channel</caption>
-                    <thead>
-                      <tr>
-                        <th>Architecture</th>
-                        <th>Action needed</th>
-                        <th>Report-only findings</th>
-                        <th>OSV matches</th>
-                        <th>Updated</th>
-                        <th>Evidence</th>
-                      </tr>
-                    </thead>
-                    <tbody id="security-arch-body">
-                      <tr><td colspan="6">Loading vulnerability summary...</td></tr>
-                    </tbody>
-                  </table>
-                </div>
+                <a class="p-button--positive" href="vulnerabilities/">Open detailed findings</a>
+              </div>
+              <div class="table-container">
+                <table class="p-table security-arch-table">
+                  <caption class="u-off-screen">Vulnerability summary by architecture for the selected channel</caption>
+                  <thead>
+                    <tr>
+                      <th>Architecture</th>
+                      <th>Action needed</th>
+                      <th>Report-only findings</th>
+                      <th>CVE matches</th>
+                      <th>Updated</th>
+                      <th>Evidence</th>
+                    </tr>
+                  </thead>
+                  <tbody id="security-arch-body">
+                    <tr><td colspan="6">Loading vulnerability summary...</td></tr>
+                  </tbody>
+                </table>
               </div>
             </div>
             <p class="p-text--small security-policy">
