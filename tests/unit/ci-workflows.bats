@@ -302,8 +302,16 @@ assert wr["workflows"] == ["CI/CD Pipeline"], wr
 assert wr["types"] == ["completed"], wr
 job = doc["jobs"]["build-and-publish-launchpad"]
 cond = job["if"]
-assert "github.event.workflow_run.conclusion == 'success'" in cond, cond
-assert "github.event.workflow_run.head_branch == 'main'" in cond, cond
+preflight = doc["jobs"]["preflight"]
+preflight_cond = preflight["if"]
+preflight_runs = "\n".join(s.get("run", "") for s in preflight["steps"])
+assert "github.event.workflow_run.conclusion == 'success'" not in cond, cond
+assert "needs.preflight.outputs.should_build == 'true'" in cond, cond
+assert job["needs"] == ["preflight"], job["needs"]
+assert "github.event.workflow_run.head_branch == 'main'" in preflight_cond, preflight_cond
+assert "github.event.workflow_run.event == 'push'" in preflight_cond, preflight_cond
+assert '"distro test "*|*" / distro-test"' in preflight_runs, preflight_runs
+assert "should_build=true" in preflight_runs, preflight_runs
 assert "workflow_dispatch" in cond, cond
 PYEOF
 }
@@ -314,7 +322,7 @@ import yaml
 with open("${REPO_ROOT}/.github/workflows/launchpad-builds.yml") as f:
     doc = yaml.safe_load(f)
 jobs = doc["jobs"]
-assert list(jobs) == ["build-and-publish-launchpad"], list(jobs)
+assert list(jobs) == ["preflight", "build-and-publish-launchpad"], list(jobs)
 job = jobs["build-and-publish-launchpad"]
 assert job["name"] == "build and publish launchpad (\${{ matrix.channel }}, \${{ matrix.arch }})", job["name"]
 arches = job["strategy"]["matrix"]["arch"]
@@ -365,7 +373,7 @@ import yaml
 with open("${REPO_ROOT}/.github/workflows/launchpad-builds.yml") as f:
     doc = yaml.safe_load(f)
 jobs = doc["jobs"]
-assert list(jobs) == ["build-and-publish-launchpad"], list(jobs)
+assert list(jobs) == ["preflight", "build-and-publish-launchpad"], list(jobs)
 job = jobs["build-and-publish-launchpad"]
 arches = job["strategy"]["matrix"]["arch"]
 assert sorted(arches) == ["armhf", "ppc64el", "riscv64", "s390x"], arches
