@@ -637,7 +637,7 @@ JS
     done
 }
 
-@test "frontend: live snap publish success overrides store lag, component status, and updates row details" {
+@test "frontend: live snap publish success preserves current store package details" {
     for html in "${HTML_FILES[@]}"; do
         run_node - "$html" <<'JS'
 const fs = require("fs");
@@ -651,18 +651,22 @@ assert.match(
   "renderSnapPackage must compute and store snapState.targetVersion"
 );
 
-// Assert Serving status override and row cell updates (version, revision, size, released date) on live success
+// Assert Serving status override on live success, without replacing Snap Store cells
 assert.match(
   source,
-  /status === "success"[\s\S]*Serving · \$\{selectedBranch\}[\s\S]*snapState\.targetVersion[\s\S]*versionCell\.textContent = snapState\.targetVersion;[\s\S]*revisionCell\.textContent = "—";[\s\S]*sizeCell\.textContent = "—";[\s\S]*dateCell\.textContent = formatDate\(completionTime\);/,
-  "applyLiveSnapStatus must update status, version, revision, size, and date cells on live build success"
+  /status === "success"[\s\S]*Serving · \$\{selectedBranch\}/,
+  "applyLiveSnapStatus must update status on live build success"
 );
+assert.doesNotMatch(source, /revisionCell\.textContent = "—";/, "Live snap overlay must not blank the store revision");
+assert.doesNotMatch(source, /sizeCell\.textContent = "—";/, "Live snap overlay must not blank the store size");
+assert.doesNotMatch(source, /versionCell\.textContent = snapState\.targetVersion;/, "Live snap overlay must not replace the currently served store version");
+assert.doesNotMatch(source, /dateCell\.textContent = formatDate\(completionTime\);/, "Live snap overlay must not replace the store release date with workflow completion time");
 
-// Assert same updates on live run success when job details are absent
+// Assert same status override on live run success when job details are absent
 assert.match(
   source,
-  /run && run\.status === "completed" && run\.conclusion === "success"[\s\S]*Serving · \$\{selectedBranch\}[\s\S]*versionCell\.textContent = snapState\.targetVersion;/,
-  "applyLiveSnapStatus must update status and cells on live run success when job is absent"
+  /run && run\.status === "completed" && run\.conclusion === "success"[\s\S]*Serving · \$\{selectedBranch\}/,
+  "applyLiveSnapStatus must update status on live run success when job is absent"
 );
 
 // Assert track status override to "Up to date" on live publish success

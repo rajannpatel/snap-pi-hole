@@ -1659,38 +1659,12 @@
             statusHtml = liveStatusChip(status);
           } else if (status === "success") {
             statusHtml = `<span class="status-chip status-success" aria-label="Status: Serving · ${selectedBranch}">${checkIconSvg}<span class="status-text-full" aria-hidden="true">Serving · ${selectedBranch}</span><span class="status-text-short" aria-hidden="true">serving</span></span>`;
-            if (snapState.targetVersion) {
-              const versionCell = tr.cells[2];
-              if (versionCell) versionCell.textContent = snapState.targetVersion;
-              const revisionCell = tr.cells[3];
-              if (revisionCell) revisionCell.textContent = "—";
-              const sizeCell = tr.cells[5];
-              if (sizeCell) sizeCell.textContent = "—";
-              const dateCell = tr.cells[6];
-              if (dateCell) {
-                const completionTime = (job && job.completed_at) || (run && run.updated_at) || new Date().toISOString();
-                dateCell.textContent = formatDate(completionTime);
-              }
-            }
           }
         } else if (run && isBuildingStatus(run.status)) {
           isBuilding = true;
           statusHtml = liveStatusChip(run.status, isGitHub ? "building" : "publishing", true);
         } else if (run && run.status === "completed" && run.conclusion === "success") {
           statusHtml = `<span class="status-chip status-success" aria-label="Status: Serving · ${selectedBranch}">${checkIconSvg}<span class="status-text-full" aria-hidden="true">Serving · ${selectedBranch}</span><span class="status-text-short" aria-hidden="true">serving</span></span>`;
-          if (snapState.targetVersion) {
-            const versionCell = tr.cells[2];
-            if (versionCell) versionCell.textContent = snapState.targetVersion;
-            const revisionCell = tr.cells[3];
-            if (revisionCell) revisionCell.textContent = "—";
-            const sizeCell = tr.cells[5];
-            if (sizeCell) sizeCell.textContent = "—";
-            const dateCell = tr.cells[6];
-            if (dateCell) {
-              const completionTime = (job && job.completed_at) || (run && run.updated_at) || new Date().toISOString();
-              dateCell.textContent = formatDate(completionTime);
-            }
-          }
         }
 
         if (statusHtml) {
