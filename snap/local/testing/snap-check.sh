@@ -122,8 +122,8 @@ fi
 echo "--- CONFINEMENT ---"
 echo ""
 if snapctl is-connected "system-observe"; then
-    # Parse dmesg for recent apparmor DENIED logs related to pihole
-    if dmesg 2>/dev/null | grep -i "apparmor=\"DENIED\"" | grep -q "snap.${SNAP_INSTANCE}"; then
+    # Parse dmesg for recent apparmor DENIED logs related to pihole, filtering out benign exceptions
+    if dmesg 2>/dev/null | grep -i "apparmor=\"DENIED\"" | grep "snap.${SNAP_INSTANCE}" | grep -q -vE 'dac_read_search|dac_override|net_admin|/sys/devices/virtual/dmi/id/|/proc/[0-9]+/comm|/etc/ldap/ldap\.conf|name="/sys/fs/cgroup/system\.slice/snap\.[a-zA-Z0-9.-]+\.scope/cpu\.max".*comm="(snap-exec|snapctl)"|name="/proc/[0-9]+/mountinfo".*comm="(snap-exec|snapctl)"'; then
         printf "%b[WARN]%b AppArmor denials detected in dmesg.\n" "${YELLOW}" "${NC}"
         printf "This indicates strict confinement is blocking a daemon action.\n"
         printf "Remediation: Run the following command on your host for details:\n\n"

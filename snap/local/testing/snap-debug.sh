@@ -136,12 +136,18 @@ echo ""
 #   /etc/ldap/ldap.conf            – curl probes this for SASL/LDAP plugin
 #                                    discovery on every invocation; non-fatal,
 #                                    HTTPS downloads work normally without it.
+#   cpu.max                        – cgroup limits checked by snap-exec/snapctl;
+#                                    non-fatal. Refined to match exact cgroup path
+#                                    and supervisor command execution context.
+#   mountinfo                      – mount information checked by snap-exec/snapctl;
+#                                    non-fatal. Refined to match exact proc mountinfo
+#                                    and supervisor command execution context.
 echo "--- CONFINEMENT ---"
 if snapctl is-connected "system-observe"; then
     FATAL=$(dmesg 2>/dev/null \
         | grep -F 'apparmor="DENIED"' \
         | grep "snap.${SNAP_INSTANCE}" \
-        | grep -vE '/sys/devices/virtual/dmi/id/|/proc/[0-9]+/comm|/etc/ldap/ldap\.conf' \
+        | grep -vE '/sys/devices/virtual/dmi/id/|/proc/[0-9]+/comm|/etc/ldap/ldap\.conf|name="/sys/fs/cgroup/system\.slice/snap\.[a-zA-Z0-9.-]+\.scope/cpu\.max".*comm="(snap-exec|snapctl)"|name="/proc/[0-9]+/mountinfo".*comm="(snap-exec|snapctl)"' \
         || true)
     if [ -n "$FATAL" ]; then
         echo "  [WARN] Unexpected AppArmor denials (may affect functionality):"

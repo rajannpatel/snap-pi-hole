@@ -169,6 +169,8 @@ EOF
 echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/sys/devices/virtual/dmi/id/bios_vendor\""
 echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/proc/123/comm\""
 echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/etc/ldap/ldap.conf\""
+echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/sys/fs/cgroup/system.slice/snap.pihole.pihole.scope/cpu.max\" comm=\"snap-exec\""
+echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/proc/1234/mountinfo\" comm=\"snapctl\""
 EOF
     run "${SCRIPT_UNDER_TEST}"
     [ "$status" -eq 0 ]

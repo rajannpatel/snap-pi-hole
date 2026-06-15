@@ -455,10 +455,18 @@ jobs:
           #            every invocation, even for plain HTTPS requests.
           #   Reason:  Non-fatal. curl gracefully continues without LDAP
           #            configuration; all HTTP/HTTPS downloads work normally.
-          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin|ldap\.conf'; then
+          #
+          # EXCEPTION 4: cpu.max (cgroup limits)
+          #   Context: snap-exec and snapctl query cgroup CPU limits.
+          #   Reason:  Non-fatal cgroup resource query.
+          #
+          # EXCEPTION 5: mountinfo
+          #   Context: snapctl and snap-exec query mount information from /proc/self/mountinfo.
+          #   Reason:  Non-fatal mount lookup.
+          if sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin|ldap\.conf|name="/sys/fs/cgroup/system\.slice/snap\.[a-zA-Z0-9.-]+\.scope/cpu\.max".*comm="(snap-exec|snapctl)"|name="/proc/[0-9]+/mountinfo".*comm="(snap-exec|snapctl)"'; then
               echo "::error::AppArmor recorded fatal denials against the pihole snap (see above)"
               # Print the actual fatal errors to the log before exiting
-              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin|ldap\.conf'
+              sudo dmesg | grep -F 'apparmor="DENIED"' | grep 'snap.${{ env.SNAP_NAME }}' | grep -vE 'dac_read_search|dac_override|net_admin|ldap\.conf|name="/sys/fs/cgroup/system\.slice/snap\.[a-zA-Z0-9.-]+\.scope/cpu\.max".*comm="(snap-exec|snapctl)"|name="/proc/[0-9]+/mountinfo".*comm="(snap-exec|snapctl)"'
               exit 1
           else
               echo "No fatal AppArmor denials recorded for snap.pihole."

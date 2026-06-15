@@ -43,6 +43,12 @@ EOF
     export MOCK_UDP_PORTS_IN_USE=""
     export MOCK_FTL_ACTIVE="true"
 
+    cat > "${MOCK_BIN}/dmesg" <<'EOF'
+#!/bin/bash
+echo "clean log"
+EOF
+    chmod +x "${MOCK_BIN}/dmesg"
+
     export CHECK_SCRIPT="${REPO_ROOT}/snap/local/testing/snap-check.sh"
 }
 
@@ -103,4 +109,32 @@ teardown() {
     run "${CHECK_SCRIPT}"
     [ "$status" -eq 0 ]
     [[ "$output" == *"[WARN] Port 67/546 (DHCP) is in use"* ]]
+}
+
+@test "snap-check filters benign AppArmor denials" {
+    export MOCK_DISCONNECT_system_observe="false"
+    cat > "${MOCK_BIN}/dmesg" <<'EOF'
+#!/bin/bash
+echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/sys/devices/virtual/dmi/id/bios_vendor\""
+echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/proc/123/comm\""
+echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/etc/ldap/ldap.conf\""
+echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/sys/fs/cgroup/system.slice/snap.pihole.pihole.scope/cpu.max\" comm=\"snap-exec\""
+echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/proc/1234/mountinfo\" comm=\"snapctl\""
+EOF
+    run "${CHECK_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[OK] No recent AppArmor denials detected."* ]]
+    [[ "$output" != *"[WARN] AppArmor denials detected in dmesg."* ]]
+}
+
+@test "snap-check flags unexpected AppArmor denials" {
+    export MOCK_DISCONNECT_system_observe="false"
+    cat > "${MOCK_BIN}/dmesg" <<'EOF'
+#!/bin/bash
+echo "apparmor=\"DENIED\" profile=\"snap.pihole.pihole-ftl\" name=\"/some/unexpected/path\""
+EOF
+    run "${CHECK_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[WARN] AppArmor denials detected in dmesg."* ]]
+    [[ "$output" != *"[OK] No recent AppArmor denials detected."* ]]
 }
