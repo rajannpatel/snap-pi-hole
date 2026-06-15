@@ -537,3 +537,157 @@ cron = on["schedule"][0]["cron"]
 assert cron == "0 */3 * * *", f"Expected cron '0 */3 * * *', got '{cron}'"
 PYEOF
 }
+
+@test "edge upstream selector extracts and saves stable versions to json" {
+    python3 - <<PYEOF
+import importlib.util
+import pathlib
+import json
+
+selector_path = pathlib.Path("${REPO_ROOT}/snap/local/build/select_snapcraft_upstream.py")
+spec = importlib.util.spec_from_file_location("select_snapcraft_upstream", selector_path)
+selector = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(selector)
+
+snapcraft_path = pathlib.Path("${TEST_WORKDIR}/snapcraft.yaml")
+
+# Test get_stable_versions parses the tags correctly
+stable_versions = selector.get_stable_versions(snapcraft_path)
+assert stable_versions.get("pi_hole") == "v6.4.2", f"expected v6.4.2, got: {stable_versions.get('pi_hole')}"
+assert stable_versions.get("ftl") == "v6.6.2", f"expected v6.6.2, got: {stable_versions.get('ftl')}"
+assert stable_versions.get("web") == "v6.5", f"expected v6.5, got: {stable_versions.get('web')}"
+
+# Test it uses defaults if file is missing/empty
+missing_path = pathlib.Path("${TEST_WORKDIR}/nonexistent.yaml")
+defaults = selector.get_stable_versions(missing_path)
+assert defaults == selector.DEFAULTS, f"expected {selector.DEFAULTS}, got: {defaults}"
+PYEOF
+}
+
+@test "pi-hole-override-build.sh formats SNAP_VERSION correctly for stable and edge" {
+    # Create a dummy CRAFT_STAGE directory with tags
+    local temp_stage="${TEST_WORKDIR}/stage"
+    mkdir -p "${temp_stage}/snap-meta"
+    echo "v6.6.2" > "${temp_stage}/snap-meta/ftl-tag"
+    mkdir -p "${temp_stage}/var/www/html/admin/snap-meta"
+    echo "v6.5" > "${temp_stage}/var/www/html/admin/snap-meta/web-tag"
+
+    # Create stable-versions.json in our test workspace
+    mkdir -p "${TEST_WORKDIR}/snap/local/build"
+    cat <<EOF > "${TEST_WORKDIR}/snap/local/build/stable-versions.json"
+{
+  "ftl": "v6.6.2",
+  "pi_hole": "v6.4.2",
+  "web": "v6.5"
+}
+EOF
+
+    # Helper function to run the version-parsing logic of pi-hole-override-build.sh
+    run_override_version_logic() {
+        local core_tag_mock="$1"
+        local wrapper_hash_mock="1234567"
+        local wrapper_time_mock="1781488922"
+
+        # Mock git describe and git rev-parse commands
+        git() {
+            if [[ "$*" == *"describe"* ]]; then
+                echo "$core_tag_mock"
+            elif [[ "$*" == *"rev-parse"* ]]; then
+                echo "$wrapper_hash_mock"
+            elif [[ "$*" == *"log"* ]]; then
+                echo "$wrapper_time_mock"
+            else
+                command git "$@"
+            fi
+        }
+        export -f git
+
+        # Mock craftctl set version
+        local set_version=""
+        craftctl() {
+            if [[ "$1" == "set" && "$2" == "version="* ]]; then
+                set_version="${2#version=}"
+            fi
+        }
+        export -f craftctl
+
+        # Extract the version logic from the override script
+        local script_segment
+        script_segment=$(sed -n '/FTL_TAG=\$(cat/,/craftctl set version=/p' "${REPO_ROOT}/snap/local/build/pi-hole-override-build.sh")
+
+        CRAFT_STAGE="$temp_stage" \
+        CRAFT_PROJECT_DIR="$TEST_WORKDIR" \
+        CRAFT_PART_SRC="/dummy/part/src" \
+        eval "$script_segment"
+
+        echo "$set_version"
+    }
+
+    # Test case 1: Stable channel (tag starts with v)
+    local stable_version
+    stable_version=$(run_override_version_logic "v6.4.2")
+    [ "$stable_version" = "v6.4.2+git.1234567.1781488922" ]
+
+    # Test case 2: Edge channel (tag is a commit hash, e.g. 841976c)
+    local edge_version
+    edge_version=$(run_override_version_logic "841976c")
+    [ "$edge_version" = "v6.4.2+git.841976c.1234567.1781488922" ]
+}
+
+@test "ftl-override-build.sh and web-override-build.sh format component tags correctly" {
+    # Create stable-versions.json
+    mkdir -p "${TEST_WORKDIR}/snap/local/build"
+    cat <<EOF > "${TEST_WORKDIR}/snap/local/build/stable-versions.json"
+{
+  "ftl": "v6.6.2",
+  "pi_hole": "v6.4.2",
+  "web": "v6.5"
+}
+EOF
+
+    # Helper function to run ftl-override-build.sh tag logic
+    run_ftl_tag_logic() {
+        local ftl_tag_mock="$1"
+        git() {
+            echo "$ftl_tag_mock"
+        }
+        export -f git
+
+        local script_segment
+        script_segment=$(sed -n '/FTL_TAG=\$(git -C/,/export GIT_TAG=/p' "${REPO_ROOT}/snap/local/build/ftl-override-build.sh")
+
+        CRAFT_PROJECT_DIR="$TEST_WORKDIR" \
+        CRAFT_PART_SRC="/dummy/part/src" \
+        eval "$script_segment"
+
+        echo "$FTL_TAG"
+    }
+
+    # Helper function to run web-override-build.sh tag logic
+    run_web_tag_logic() {
+        local web_tag_mock="$1"
+        git() {
+            echo "$web_tag_mock"
+        }
+        export -f git
+
+        local script_segment
+        script_segment=$(sed -n '/WEB_TAG=\$(git -C/,/fi/p' "${REPO_ROOT}/snap/local/build/web-override-build.sh")
+
+        CRAFT_PROJECT_DIR="$TEST_WORKDIR" \
+        CRAFT_PART_SRC="/dummy/part/src" \
+        eval "$script_segment"
+
+        echo "$WEB_TAG"
+    }
+
+    # Test FTL stable
+    [ "$(run_ftl_tag_logic "v6.6.2")" = "v6.6.2" ]
+    # Test FTL edge
+    [ "$(run_ftl_tag_logic "56ef789")" = "v6.6.2+git.56ef789" ]
+
+    # Test Web stable
+    [ "$(run_web_tag_logic "v6.5")" = "v6.5" ]
+    # Test Web edge
+    [ "$(run_web_tag_logic "12ab34c")" = "v6.5+git.12ab34c" ]
+}

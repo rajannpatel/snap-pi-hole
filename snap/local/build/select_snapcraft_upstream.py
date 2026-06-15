@@ -77,18 +77,57 @@ def update_source_commits(snapcraft_path, versions):
     snapcraft_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+DEFAULTS = {
+    "ftl": "v6.6.2",
+    "pi_hole": "v6.4.2",
+    "web": "v6.5",
+}
+
+
+def get_stable_versions(snapcraft_path):
+    versions = {}
+    current_part = None
+    if snapcraft_path.exists():
+        for raw in snapcraft_path.read_text(encoding="utf-8").splitlines():
+            part_match = re.match(r"^  ([A-Za-z0-9_]+):\s*$", raw)
+            if part_match:
+                candidate = part_match.group(1)
+                current_part = candidate if candidate in COMPONENTS else None
+                continue
+
+            if current_part:
+                m = re.match(r"^    source-tag:\s*(\S+)\s*$", raw)
+                if m:
+                    versions[current_part] = m.group(1)
+
+    for key, val in DEFAULTS.items():
+        if key not in versions:
+            versions[key] = val
+    return versions
+
+
 def main():
     parser = argparse.ArgumentParser(description="Select upstream Pi-hole sources for snapcraft builds.")
     parser.add_argument("channel", choices=["stable", "edge"])
     parser.add_argument("--snapcraft", default="snap/snapcraft.yaml")
     args = parser.parse_args()
 
+    snapcraft_path = pathlib.Path(args.snapcraft)
+    stable_versions = get_stable_versions(snapcraft_path)
+
+    # Save stable versions to stable-versions.json in the same directory as this script
+    script_dir = pathlib.Path(__file__).parent.resolve()
+    json_path = script_dir / "stable-versions.json"
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(stable_versions, f, indent=2)
+    print(f"Saved stable versions to {json_path}")
+
     if args.channel == "stable":
         print("Using committed stable upstream release tags from snap/snapcraft.yaml.")
         return
 
     versions = upstream_dev_versions(token=os.environ.get("GITHUB_TOKEN", ""))
-    update_source_commits(pathlib.Path(args.snapcraft), versions)
+    update_source_commits(snapcraft_path, versions)
     print(f"Selected upstream {UPSTREAM_EDGE_REF} commits for edge builds:")
     for key in ("ftl", "pi_hole", "web"):
         print(f"  {key}: {versions[key]}")

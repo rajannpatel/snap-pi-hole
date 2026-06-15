@@ -14,11 +14,25 @@ FTL_TAG=$(cat "${CRAFT_STAGE}/snap-meta/ftl-tag")
 WEB_TAG=$(cat "${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag")
 CORE_TAG=$(git -C "${CRAFT_PART_SRC}" describe --tags --always)
 
+if [[ ! "$CORE_TAG" =~ ^v ]]; then
+    STABLE_VERSIONS_JSON="${CRAFT_PROJECT_DIR}/snap/local/build/stable-versions.json"
+    if [ -f "$STABLE_VERSIONS_JSON" ]; then
+        STABLE_CORE=$(python3 -c "import json; print(json.load(open('${STABLE_VERSIONS_JSON}'))['pi_hole'])")
+    else
+        STABLE_CORE="v6.4.2"
+    fi
+    CORE_TAG="${STABLE_CORE}+git.${CORE_TAG}"
+fi
+
 # Get the short Git hash and commit timestamp from the wrapper repository (snap-pi-hole)
 if git -C "${CRAFT_PROJECT_DIR}" rev-parse --short HEAD &>/dev/null; then
     WRAPPER_HASH=$(git -C "${CRAFT_PROJECT_DIR}" rev-parse --short HEAD)
     WRAPPER_TIME=$(git -C "${CRAFT_PROJECT_DIR}" log -1 --format=%ct)
-    SNAP_VERSION="${CORE_TAG}+git.${WRAPPER_HASH}.${WRAPPER_TIME}"
+    if [[ "$CORE_TAG" == *"+git."* ]]; then
+        SNAP_VERSION="${CORE_TAG}.${WRAPPER_HASH}.${WRAPPER_TIME}"
+    else
+        SNAP_VERSION="${CORE_TAG}+git.${WRAPPER_HASH}.${WRAPPER_TIME}"
+    fi
 else
     SNAP_VERSION="${CORE_TAG}"
 fi
