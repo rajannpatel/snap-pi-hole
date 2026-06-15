@@ -70,6 +70,26 @@ PYEOF
     [ "$output" = $'v9.1.0\tv9.2.0\tv9.3.0' ]
 }
 
+@test "vulnerability scan initializes llm cache file after cache restore" {
+    python3 - <<PYEOF
+import yaml
+
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+
+steps = doc["jobs"]["vulnerability-scan"]["steps"]
+cache_idx = next(i for i, step in enumerate(steps) if step.get("uses", "").startswith("actions/cache@"))
+init_idx = next(i for i, step in enumerate(steps) if step.get("name") == "Initialize LLM cache file")
+scan_idx = next(i for i, step in enumerate(steps) if step.get("name") == "Scan SBOMs with OSV-Scanner")
+
+assert cache_idx < init_idx < scan_idx, (cache_idx, init_idx, scan_idx)
+run = steps[init_idx]["run"]
+assert "mkdir -p local-vulnerabilities" in run, run
+assert "local-vulnerabilities/llm-cache.json" in run, run
+assert "printf '{}\\\\n'" in run, run
+PYEOF
+}
+
 @test "edge upstream selector pins commits with source-commit, not source-tag" {
     python3 - <<PYEOF
 import importlib.util

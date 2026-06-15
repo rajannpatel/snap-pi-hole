@@ -18,6 +18,9 @@ __pycache__/
 
 # Local test output
 *.log
+/implementation_plan.md
+/sbom-*.json
+/docs/sbom-explorer.html
 
 # OS
 .DS_Store
@@ -35,4 +38,3 @@ local-sbom.json
 local-extracted-snap/
 .deckwork/
 local-vulnerabilities/*
-!local-vulnerabilities/llm-cache.json

@@ -146,6 +146,13 @@ jobs:
           restore-keys: |
             llm-cache-
 
+      - name: Initialize LLM cache file
+        run: |
+          mkdir -p local-vulnerabilities
+          if [ ! -f local-vulnerabilities/llm-cache.json ]; then
+            printf '{}\n' > local-vulnerabilities/llm-cache.json
+          fi
+
       - name: Download SBOMs
         uses: actions/download-artifact@v7
         with:
