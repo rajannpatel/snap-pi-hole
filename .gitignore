@@ -38,4 +38,3 @@ local-sbom.json
 local-extracted-snap/
 .deckwork/
 local-vulnerabilities/*
-snap/local/build/stable-versions.json

@@ -22,12 +22,12 @@ teardown() {
 
 # track-upstream-releases.yml
 
-@test "track-upstream workflow updates snapcraft source commits and stable version labels" {
+@test "track-upstream workflow updates snapcraft source commits only" {
     local workflow="${REPO_ROOT}/.github/workflows/track-upstream-releases.yml"
     grep -q 'yq -i ".parts.ftl.\\"source-commit\\"' "$workflow"
     grep -q 'yq -i ".parts.pi_hole.\\"source-commit\\"' "$workflow"
     grep -q 'yq -i ".parts.web.\\"source-commit\\"' "$workflow"
-    grep -q 'snap/local/build/stable-versions.json' "$workflow"
+    ! grep -q 'snap/local/build/stable-versions.json' "$workflow"
     grep -q '/commits/master' "$workflow"
     ! grep -q "README.md" "$workflow"
     ! grep -q "sed -i" "$workflow"
@@ -162,7 +162,6 @@ selector_path = pathlib.Path("${REPO_ROOT}/snap/local/build/select_snapcraft_ups
 spec = importlib.util.spec_from_file_location("select_snapcraft_upstream", selector_path)
 selector = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(selector)
-selector.latest_release_versions = lambda token="": dict(selector.DEFAULTS)
 
 snapcraft_path = pathlib.Path("${TEST_WORKDIR}/snapcraft.yaml")
 versions = {
@@ -664,29 +663,26 @@ assert cron == "0 */3 * * *", f"Expected cron '0 */3 * * *', got '{cron}'"
 PYEOF
 }
 
-@test "upstream selector extracts and saves stable version labels to json" {
+@test "upstream selector resolves release labels without writing version metadata" {
     python3 - <<PYEOF
 import importlib.util
 import pathlib
-import json
 
 selector_path = pathlib.Path("${REPO_ROOT}/snap/local/build/select_snapcraft_upstream.py")
 spec = importlib.util.spec_from_file_location("select_snapcraft_upstream", selector_path)
 selector = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(selector)
-selector.latest_release_versions = lambda token="": dict(selector.DEFAULTS)
+selector.latest_release_versions = lambda token="": {
+    "ftl": "v6.6.2",
+    "pi_hole": "v6.4.2",
+    "web": "v6.5.1",
+}
 
-snapcraft_path = pathlib.Path("${TEST_WORKDIR}/snapcraft.yaml")
-
-stable_versions = selector.get_stable_versions(snapcraft_path)
+stable_versions = selector.latest_release_versions()
 assert stable_versions.get("pi_hole") == "v6.4.2", f"expected v6.4.2, got: {stable_versions.get('pi_hole')}"
 assert stable_versions.get("ftl") == "v6.6.2", f"expected v6.6.2, got: {stable_versions.get('ftl')}"
 assert stable_versions.get("web") == "v6.5.1", f"expected v6.5.1, got: {stable_versions.get('web')}"
-
-# Test it uses defaults if file is missing/empty
-missing_path = pathlib.Path("${TEST_WORKDIR}/nonexistent.yaml")
-defaults = selector.get_stable_versions(missing_path)
-assert defaults == selector.DEFAULTS, f"expected {selector.DEFAULTS}, got: {defaults}"
+assert not pathlib.Path("${REPO_ROOT}/snap/local/build/stable-versions.json").exists()
 PYEOF
 }
 
@@ -697,16 +693,6 @@ PYEOF
     echo "v6.6.2" > "${temp_stage}/snap-meta/ftl-tag"
     mkdir -p "${temp_stage}/var/www/html/admin/snap-meta"
     echo "v6.5.1" > "${temp_stage}/var/www/html/admin/snap-meta/web-tag"
-
-    # Create stable-versions.json in our test workspace
-    mkdir -p "${TEST_WORKDIR}/snap/local/build"
-    cat <<EOF > "${TEST_WORKDIR}/snap/local/build/stable-versions.json"
-{
-  "ftl": "v6.6.2",
-  "pi_hole": "v6.4.2",
-  "web": "v6.5.1"
-}
-EOF
 
     # Helper function to run the version-parsing logic of pi-hole-override-build.sh
     run_override_version_logic() {
@@ -721,6 +707,15 @@ EOF
             fi
         }
         export -f git
+
+        python3() {
+            if [[ "$*" == *"resolve_upstream_version.py pi_hole"* ]]; then
+                echo "v6.4.2"
+            else
+                command python3 "$@"
+            fi
+        }
+        export -f python3
 
         # Mock craftctl set version
         local set_version=""
@@ -756,16 +751,6 @@ EOF
 }
 
 @test "ftl-override-build.sh and web-override-build.sh format component tags correctly" {
-    # Create stable-versions.json
-    mkdir -p "${TEST_WORKDIR}/snap/local/build"
-    cat <<EOF > "${TEST_WORKDIR}/snap/local/build/stable-versions.json"
-{
-  "ftl": "v6.6.2",
-  "pi_hole": "v6.4.2",
-  "web": "v6.5.1"
-}
-EOF
-
     # Helper function to run ftl-override-build.sh tag logic
     run_ftl_tag_logic() {
         local ftl_tag_mock="$1"
@@ -773,6 +758,15 @@ EOF
             echo "$ftl_tag_mock"
         }
         export -f git
+
+        python3() {
+            if [[ "$*" == *"resolve_upstream_version.py ftl"* ]]; then
+                echo "v6.6.2"
+            else
+                command python3 "$@"
+            fi
+        }
+        export -f python3
 
         local script_segment
         script_segment=$(sed -n '/FTL_TAG=\$(git -C/,/export GIT_TAG=/p' "${REPO_ROOT}/snap/local/build/ftl-override-build.sh")
@@ -791,6 +785,15 @@ EOF
             echo "$web_tag_mock"
         }
         export -f git
+
+        python3() {
+            if [[ "$*" == *"resolve_upstream_version.py web"* ]]; then
+                echo "v6.5.1"
+            else
+                command python3 "$@"
+            fi
+        }
+        export -f python3
 
         local script_segment
         script_segment=$(awk '

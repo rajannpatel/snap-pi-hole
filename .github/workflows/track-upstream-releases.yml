@@ -83,18 +83,6 @@ jobs:
             echo "| **web (admin)** | \`${CURRENT_WEB:0:12}\` | \`${LATEST_WEB_COMMIT:0:12}\` | \`$LATEST_WEB\` | [Compare](https://github.com/pi-hole/web/compare/$CURRENT_WEB...master) |" >> "$BODY_FILE"
           fi
 
-          tmp_versions=$(mktemp)
-          jq -n \
-            --arg ftl "$LATEST_FTL" \
-            --arg pi_hole "$LATEST_PIHOLE" \
-            --arg web "$LATEST_WEB" \
-            '{ftl: $ftl, pi_hole: $pi_hole, web: $web}' > "$tmp_versions"
-          if ! cmp -s "$tmp_versions" snap/local/build/stable-versions.json; then
-            cp "$tmp_versions" snap/local/build/stable-versions.json
-            UPDATED=true
-          fi
-          rm -f "$tmp_versions"
-
           echo "" >> "$BODY_FILE"
           echo "_This PR was generated automatically by the Track Upstream Sources GitHub Action workflow._" >> "$BODY_FILE"
 

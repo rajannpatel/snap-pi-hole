@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 import argparse
-import json
 import os
 import pathlib
 import re
 import subprocess
+import sys
 import urllib.request
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+from resolve_upstream_version import latest_release_versions
 
 
 GITHUB_API = "https://api.github.com"
@@ -39,13 +42,6 @@ def git_remote_ref(repo, ref):
     if not output:
         raise RuntimeError(f"Could not resolve {repo}@{ref}")
     return output.split()[0]
-
-
-DEFAULTS = {
-    "ftl": "v6.6.2",
-    "pi_hole": "v6.4.2",
-    "web": "v6.5.1",
-}
 
 
 def upstream_ref_versions(ref, token=""):
@@ -85,41 +81,6 @@ def update_source_commits(snapcraft_path, versions):
     snapcraft_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def latest_release_versions(token=""):
-    versions = {}
-    for key, repo in COMPONENTS.items():
-        try:
-            data = github_json(f"{GITHUB_API}/repos/{repo}/releases/latest", token=token)
-            tag = data.get("tag_name") or ""
-            versions[key] = tag if tag.startswith("v") else DEFAULTS[key]
-        except Exception:
-            versions[key] = DEFAULTS[key]
-    return versions
-
-
-def get_stable_versions(snapcraft_path=None, token=""):
-    release_versions = latest_release_versions(token=token)
-    versions = {}
-    current_part = None
-    if snapcraft_path and snapcraft_path.exists():
-        for raw in snapcraft_path.read_text(encoding="utf-8").splitlines():
-            part_match = re.match(r"^  ([A-Za-z0-9_]+):\s*$", raw)
-            if part_match:
-                candidate = part_match.group(1)
-                current_part = candidate if candidate in COMPONENTS else None
-                continue
-
-            if current_part:
-                m = re.match(r"^    source-tag:\s*(\S+)\s*$", raw)
-                if m:
-                    versions[current_part] = m.group(1)
-
-    for key, val in release_versions.items():
-        if key not in versions:
-            versions[key] = val
-    return versions
-
-
 def main():
     parser = argparse.ArgumentParser(description="Select upstream Pi-hole sources for snapcraft builds.")
     parser.add_argument("channel", choices=["stable", "edge"])
@@ -128,21 +89,14 @@ def main():
 
     snapcraft_path = pathlib.Path(args.snapcraft)
     token = os.environ.get("GITHUB_TOKEN", "")
-    stable_versions = get_stable_versions(snapcraft_path, token=token)
-
-    # Save stable versions to stable-versions.json in the same directory as this script
-    script_dir = pathlib.Path(__file__).parent.resolve()
-    json_path = script_dir / "stable-versions.json"
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(stable_versions, f, indent=2)
-    print(f"Saved stable versions to {json_path}")
+    stable_versions = latest_release_versions(token=token)
 
     ref = UPSTREAM_STABLE_REF if args.channel == "stable" else UPSTREAM_EDGE_REF
     versions = upstream_ref_versions(ref, token=token)
     update_source_commits(snapcraft_path, versions)
     print(f"Selected upstream {ref} commits for {args.channel} builds:")
     for key in ("ftl", "pi_hole", "web"):
-        print(f"  {key}: {versions[key]}")
+        print(f"  {key}: {versions[key]} ({stable_versions[key]})")
 
 
 if __name__ == "__main__":

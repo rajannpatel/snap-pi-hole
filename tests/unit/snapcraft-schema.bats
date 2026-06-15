@@ -193,9 +193,8 @@ PYEOF
 
 # 5. Version single-source-of-truth invariants
 #
-# The upstream parts pin source commits. Human-readable release labels live in
-# stable-versions.json for commit-based builds whose git describe output is not
-# itself a release tag.
+# The upstream parts pin source commits. Human-readable release labels are
+# resolved from the Pi-hole repositories during build/dashboard generation.
 
 @test "snapcraft.yaml each upstream part declares source-commit" {
     python3 - <<PYEOF
@@ -212,13 +211,21 @@ for name in ("ftl", "pi_hole", "web"):
 PYEOF
 }
 
-@test "stable release labels are recorded separately from source commits" {
+@test "stable release labels are resolved from upstream repositories" {
     python3 - <<PYEOF
-import json
-labels = json.load(open("${REPO_ROOT}/snap/local/build/stable-versions.json"))
-for name in ("ftl", "pi_hole", "web"):
-    value = labels.get(name)
-    assert value and value.startswith("v"), f"{name} label missing or malformed: {value!r}"
+import pathlib
+
+repo_root = pathlib.Path("${REPO_ROOT}")
+assert not (repo_root / "snap/local/build/stable-versions.json").exists()
+
+resolver = (repo_root / "snap/local/build/resolve_upstream_version.py").read_text()
+for repo in ("pi-hole/FTL", "pi-hole/pi-hole", "pi-hole/web"):
+    assert repo in resolver, f"{repo} missing from resolver"
+
+for script_name in ("ftl-override-build.sh", "pi-hole-override-build.sh", "web-override-build.sh"):
+    script = (repo_root / "snap/local/build" / script_name).read_text()
+    assert "resolve_upstream_version.py" in script, f"{script_name} does not use upstream resolver"
+    assert "stable-versions.json" not in script, f"{script_name} still reads stable-versions.json"
 PYEOF
 }
 

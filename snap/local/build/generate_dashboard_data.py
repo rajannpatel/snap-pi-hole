@@ -10,6 +10,8 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
+from resolve_upstream_version import latest_release_versions
+
 
 OWNER = "rajannpatel"
 REPO = "snap-pi-hole"
@@ -23,12 +25,6 @@ UPSTREAM_COMPONENTS = {
     "pi_hole": {"name": "Pi-hole Core", "repo": "pi-hole/pi-hole"},
     "web": {"name": "Web UI", "repo": "pi-hole/web"},
 }
-DEFAULT_STABLE_VERSIONS = {
-    "ftl": "v6.6.2",
-    "pi_hole": "v6.4.2",
-    "web": "v6.5.1",
-}
-
 # GitHub-hosted runners only build amd64 and arm64 (see the build matrix in
 # .github/workflows/cicd.yml). The other four architectures (armhf, ppc64el,
 # riscv64, s390x) are built by the `remote-build` matrix, one Launchpad
@@ -152,18 +148,11 @@ def extract_snapcraft_sources(snapcraft_path):
     return sources
 
 
-def stable_version_labels(repo_root, snapcraft_sources=None):
-    versions = dict(DEFAULT_STABLE_VERSIONS)
-    labels_path = repo_root / "snap" / "local" / "build" / "stable-versions.json"
-    if labels_path.exists():
-        try:
-            data = json.loads(labels_path.read_text(encoding="utf-8"))
-            for key in versions:
-                value = str(data.get(key, "")).strip()
-                if value:
-                    versions[key] = value
-        except (json.JSONDecodeError, OSError):
-            pass
+def stable_version_labels(snapcraft_sources=None, token=""):
+    try:
+        versions = latest_release_versions(token=token)
+    except Exception:
+        versions = {key: "" for key in UPSTREAM_COMPONENTS}
 
     for key, source in (snapcraft_sources or {}).items():
         if source.get("tag"):
@@ -172,10 +161,8 @@ def stable_version_labels(repo_root, snapcraft_sources=None):
 
 
 def extract_snapcraft_versions(snapcraft_path):
-    resolved = snapcraft_path.resolve()
-    repo_root = resolved.parents[1] if resolved.parent.name == "snap" else resolved.parent
     sources = extract_snapcraft_sources(snapcraft_path)
-    return stable_version_labels(repo_root, sources)
+    return stable_version_labels(sources)
 
 
 def extract_snapcraft_versions_from_git(repo_root, ref):
@@ -1063,7 +1050,7 @@ def main():
     )
 
     snapcraft_sources = extract_snapcraft_sources(repo_root / "snap" / "snapcraft.yaml")
-    versions = stable_version_labels(repo_root, snapcraft_sources)
+    versions = stable_version_labels(snapcraft_sources, token=token)
     edge_versions = collect_upstream_dev_versions(client)
     build_status_stable = collect_build_status(client, "main")
     build_status_edge = collect_build_status(client, "main")

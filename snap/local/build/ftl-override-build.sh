@@ -6,12 +6,7 @@ set -e
 # dependency on undocumented snapcraft variables.
 FTL_TAG=$(git -C "${CRAFT_PART_SRC}" describe --tags --always)
 if [[ ! "$FTL_TAG" =~ ^v ]]; then
-    STABLE_VERSIONS_JSON="${CRAFT_PROJECT_DIR}/snap/local/build/stable-versions.json"
-    if [ -f "$STABLE_VERSIONS_JSON" ]; then
-        STABLE_FTL=$(python3 -c "import json; print(json.load(open('${STABLE_VERSIONS_JSON}'))['ftl'])")
-    else
-        STABLE_FTL="v6.6.2"
-    fi
+    STABLE_FTL=$(python3 "${CRAFT_PROJECT_DIR}/snap/local/build/resolve_upstream_version.py" ftl --source-dir "${CRAFT_PART_SRC}")
     FTL_TAG="${STABLE_FTL}+git.${FTL_TAG}"
 fi
 export GIT_VERSION="${FTL_TAG}"

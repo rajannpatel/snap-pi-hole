@@ -187,21 +187,22 @@ apps:
   pihole:
     command: bin/pihole
 EOF
-    mkdir -p "${TEST_TMPDIR}/snap/local/build"
-    cat > "${TEST_TMPDIR}/snap/local/build/stable-versions.json" <<'EOF'
-{"ftl": "v6.6.2", "pi_hole": "v6.4.2", "web": "v6.5.1"}
-EOF
-
     python3 - <<PYEOF
 import pathlib
 import sys
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-from generate_dashboard_data import extract_snapcraft_sources, extract_snapcraft_versions
+import generate_dashboard_data as dashboard
+
+dashboard.latest_release_versions = lambda token="": {
+    "ftl": "v6.6.2",
+    "pi_hole": "v6.4.2",
+    "web": "v6.5.1",
+}
 
 path = pathlib.Path("${TEST_TMPDIR}/snapcraft.yaml")
-versions = extract_snapcraft_versions(path)
+versions = dashboard.extract_snapcraft_versions(path)
 assert versions == {"ftl": "v6.6.2", "pi_hole": "v6.4.2", "web": "v6.5.1"}, versions
-sources = extract_snapcraft_sources(path)
+sources = dashboard.extract_snapcraft_sources(path)
 assert sources["ftl"]["commit"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", sources
 assert sources["pi_hole"]["commit"] == "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", sources
 assert sources["web"]["commit"] == "cccccccccccccccccccccccccccccccccccccccc", sources

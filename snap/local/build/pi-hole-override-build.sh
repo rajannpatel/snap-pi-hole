@@ -13,13 +13,7 @@ fi
 FTL_TAG=$(cat "${CRAFT_STAGE}/snap-meta/ftl-tag")
 WEB_TAG=$(cat "${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag")
 CORE_COMMIT=$(git -C "${CRAFT_PART_SRC}" rev-parse --short HEAD)
-
-STABLE_VERSIONS_JSON="${CRAFT_PROJECT_DIR}/snap/local/build/stable-versions.json"
-if [ -f "$STABLE_VERSIONS_JSON" ]; then
-    STABLE_CORE=$(python3 -c "import json; print(json.load(open('${STABLE_VERSIONS_JSON}'))['pi_hole'])")
-else
-    STABLE_CORE="v6.4.2"
-fi
+STABLE_CORE=$(python3 "${CRAFT_PROJECT_DIR}/snap/local/build/resolve_upstream_version.py" pi_hole --source-dir "${CRAFT_PART_SRC}")
 
 CORE_TAG="${STABLE_CORE}+git.${CORE_COMMIT}"
 SNAP_VERSION="${CORE_TAG}"
