@@ -452,7 +452,7 @@
     const SNAP_GIST_DESCRIPTION = "snap-pi-hole dashboard data (auto-updated hourly; do not edit)";
     const SNAP_MIN_REFETCH_MS = 300000;
     const SNAP_OVERLAY_MIN_REFETCH_MS = 30000;
-    const snapState = { gistId: null, rawUrl: null, discovered: false, hasGistData: false, generatedAt: null, lastFetch: 0, nextAt: null, inFlight: false };
+    const snapState = { gistId: null, rawUrl: null, discovered: false, hasGistData: false, generatedAt: null, lastFetch: 0, nextAt: null, inFlight: false, snapPackage: null };
 
     // Freshness clocks state tracking
     const freshnessState = {
@@ -1547,9 +1547,36 @@
 
     // Draws target architectural snap release version tables
     function renderSnapPackage(snapPackage) {
+      snapState.snapPackage = snapPackage;
       const packageBody = document.getElementById("snap-package-rows");
       if (!packageBody) return;
-      const rows = snapPackage.channels || [];
+
+      const allRows = snapPackage.all_channels || snapPackage.channels || [];
+      const selectedRows = [];
+      const arches = Array.from(new Set(allRows.map(r => r.architecture)));
+
+      arches.forEach(arch => {
+        const archRows = allRows.filter(r => r.architecture === arch);
+        if (selectedBranch === "stable") {
+          const stableEntry = archRows.find(r => r.channel === "stable");
+          if (stableEntry) {
+            selectedRows.push(stableEntry);
+          } else {
+            const edgeEntry = archRows.find(r => r.channel === "edge");
+            if (edgeEntry) selectedRows.push(edgeEntry);
+          }
+        } else {
+          const edgeEntry = archRows.find(r => r.channel === "edge");
+          if (edgeEntry) {
+            selectedRows.push(edgeEntry);
+          } else {
+            const stableEntry = archRows.find(r => r.channel === "stable");
+            if (stableEntry) selectedRows.push(stableEntry);
+          }
+        }
+      });
+      const rows = selectedRows;
+
       updateStoreActivity(snapPackage || {});
       renderSnapFreshness(snapPackage || {}, rows);
 
@@ -1766,13 +1793,19 @@
 
         let cicdJobs = liveState.cicdJobs;
         let cicdRun = liveState.cicdRun || latestCicd;
-        if (latestCicd && (latestCicd.id !== liveState.lastCicdRunId || !cicdJobs)) {
-          const result = await liveMatrixJobsAndRun(cicdRuns);
-          cicdJobs = result.jobs;
-          cicdRun = result.run || latestCicd;
-          liveState.lastCicdRunId = latestCicd.id;
-          liveState.cicdJobs = cicdJobs;
-          liveState.cicdRun = cicdRun;
+        if (latestCicd) {
+          const latestCicdBuilding = BUILDING_STATES.has((latestCicd.status || "").toLowerCase());
+          const latestChanged = (latestCicd.id !== liveState.lastCicdRunId || !liveState.cicdJobs || (liveState.cicdRun && liveState.cicdRun.id !== latestCicd.id));
+          if (latestChanged || latestCicdBuilding) {
+            cicdJobs = await fetchRunJobs(latestCicd.id);
+            cicdRun = latestCicd;
+            liveState.lastCicdRunId = latestCicd.id;
+            liveState.cicdJobs = cicdJobs;
+            liveState.cicdRun = cicdRun;
+          } else {
+            cicdJobs = liveState.cicdJobs;
+            cicdRun = liveState.cicdRun;
+          }
         }
 
         let lpJobs = liveState.lpJobs;
@@ -2283,9 +2316,9 @@
       const lpRuns = runs.filter((run) => (run.path || "").endsWith("/launchpad-builds.yml") && run.head_branch === branchName);
 
       let matrixBuilding = false;
-      let cicdJobs = null;
+      let cicdJobs = liveState.cicdJobs;
       const latestCicd = cicdRuns[0] || null;
-      let cicdRun = latestCicd;
+      let cicdRun = liveState.cicdRun || latestCicd;
 
       if (latestCicd) {
         const effective = latestCicd.status === "completed" ? (latestCicd.conclusion || "") : (latestCicd.status || "");
@@ -2293,18 +2326,24 @@
         const cicdChanged = latestCicd.id !== liveState.lastCicdRunId;
         if (cicdChanged || cicdBuilding || liveState.lastCicdRunId === null || !liveState.cicdJobs) {
           const { jobs, run } = await liveMatrixJobsAndRun(cicdRuns);
-          cicdJobs = jobs;
-          cicdRun = run;
           const result = applyLiveMatrixFromJobs(jobs, run);
           matrixBuilding = result.building;
           liveState.lastCicdRunId = latestCicd.id;
-          liveState.cicdJobs = jobs;
-          liveState.cicdRun = run;
           liveState.releaseLagDue = true;
+        } else {
+          matrixBuilding = matrixState.rows.some((row) => isBuildingStatus(row.status));
+        }
+
+        const latestCicdBuilding = BUILDING_STATES.has((latestCicd.status || "").toLowerCase());
+        const latestChanged = (latestCicd.id !== liveState.lastCicdRunId || !liveState.cicdJobs || (liveState.cicdRun && liveState.cicdRun.id !== latestCicd.id));
+        if (latestChanged || latestCicdBuilding) {
+          cicdJobs = await fetchRunJobs(latestCicd.id);
+          cicdRun = latestCicd;
+          liveState.cicdJobs = cicdJobs;
+          liveState.cicdRun = cicdRun;
         } else {
           cicdJobs = liveState.cicdJobs;
           cicdRun = liveState.cicdRun;
-          matrixBuilding = matrixState.rows.some((row) => isBuildingStatus(row.status));
         }
       }
 
@@ -2340,7 +2379,7 @@
       } catch (error) {
         // Keep the package table live even if upstream tracking rendering fails.
       }
-      applyLiveSnapStatus(cicdJobs, cicdRun, lpJobs, lpRun);
+      applyLiveSnapStatus(latestCicdJobs, latestCicdRun, lpJobs, lpRun);
 
       const lpBuildingStatus = latestLp && BUILDING_STATES.has((latestLp.status || "").toLowerCase());
       const trackBuildingStatus = latestByWorkflow["track-upstream-releases.yml"] && BUILDING_STATES.has((latestByWorkflow["track-upstream-releases.yml"].status || "").toLowerCase());
@@ -2601,6 +2640,9 @@
       renderDependencies();
       if (globalDashboardData.security) {
         renderSecurity(globalDashboardData.security);
+      }
+      if (snapState.snapPackage) {
+        renderSnapPackage(snapState.snapPackage);
       }
     }
 

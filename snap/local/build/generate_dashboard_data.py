@@ -948,6 +948,40 @@ def collect_snap_package_data(client, repo_root):
 
     # GitHub-built architectures first, then Launchpad; alphabetical within groups.
     channels.sort(key=lambda c: (0 if c["build_source"] == "github" else 1, c["architecture"]))
+
+    all_channels = []
+    for risk in ("stable", "edge"):
+        if risk not in all_channels_raw:
+            continue
+        for arch_upper, entry in all_channels_raw[risk].items():
+            version_str = entry.get("version", "")
+            base_version, git_commit, git_commit_time = resolve_git_metadata_for_version(repo_root, version_str)
+            info = {
+                "architecture": arch_upper,
+                "full_version": version_str,
+                "version": base_version,
+                "git_commit": git_commit,
+                "git_commit_time": git_commit_time,
+                "revision": entry.get("revision", ""),
+                "size_bytes": entry.get("download", {}).get("size"),
+                "released_at": entry.get("channel", {}).get("released-at", ""),
+                "download_url": entry.get("download", {}).get("url", ""),
+                "channel": risk,
+                "build_source": "github" if arch_upper in GITHUB_BUILD_ARCHES else "launchpad",
+                "on_stable": arch_upper in stable_arches,
+                "build_status": (
+                    "current"
+                    if reference_version and version_str == reference_version
+                    else "stale"
+                ),
+                "workflow_runs": {
+                    channel: workflow_jobs.get((arch_upper, channel), workflow_job_details(None, None))
+                    for channel in ("stable", "edge")
+                }
+            }
+            all_channels.append(info)
+
+    all_channels.sort(key=lambda c: (0 if c["build_source"] == "github" else 1, c["architecture"], 0 if c["channel"] == "stable" else 1))
  
     revisions_list = parse_revisions_file(repo_root / "snapcraft-revisions.txt")
     freshness = compute_snap_freshness(
@@ -987,6 +1021,7 @@ def collect_snap_package_data(client, repo_root):
       
     return {
         "channels": channels,
+        "all_channels": all_channels,
         "published_channels": published_channels,
         "last_updated": dt_to_iso(newest_timestamp),
         **freshness,
