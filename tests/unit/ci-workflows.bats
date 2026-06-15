@@ -92,6 +92,27 @@ assert "printf '{}\\\\n'" in run, run
 PYEOF
 }
 
+@test "x64 GitHub Actions jobs use ubuntu-latest runners and distro bats" {
+    python3 - <<PYEOF
+import yaml
+
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    cicd = yaml.safe_load(f)
+with open("${REPO_ROOT}/.github/workflows/reusable-distro-test.yml") as f:
+    distro_test = yaml.safe_load(f)
+
+assert cicd["jobs"]["lint"]["runs-on"] == "ubuntu-latest", cicd["jobs"]["lint"]["runs-on"]
+assert distro_test["jobs"]["distro-test"]["runs-on"] == "ubuntu-latest", distro_test["jobs"]["distro-test"]["runs-on"]
+
+steps = cicd["jobs"]["lint"]["steps"]
+install = next(step for step in steps if step.get("name") == "Install shellcheck, bats, yamllint, and kcov")
+run = install["run"]
+
+assert "apt-get install -y shellcheck bats python3-yaml yamllint kcov" in run, run
+assert "bats-core" not in run, run
+PYEOF
+}
+
 @test "edge upstream selector pins commits with source-commit, not source-tag" {
     python3 - <<PYEOF
 import importlib.util
