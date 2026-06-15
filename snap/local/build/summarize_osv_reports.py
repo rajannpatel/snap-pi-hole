@@ -1866,7 +1866,16 @@ def write_html(summary, output_path):
     summary_rows = []
     detail_rows_by_key = {}
 
-    for report in summary["reports"]:
+    sorted_reports = sorted(
+        summary.get("reports", []),
+        key=lambda r: (
+            {"amd64": 0, "arm64": 1}.get(r["architecture"].lower(), 99),
+            r["architecture"].lower(),
+            r.get("channel", "stable").lower()
+        )
+    )
+
+    for report in sorted_reports:
         arch = html.escape(report["architecture"])
         actionable_pkgs = str(report["actionableAffectedPackages"])
         actionable_vulns = str(report["actionableVulnerabilities"])
@@ -2325,11 +2334,6 @@ def write_html(summary, output_path):
                 <option value="">All Architectures</option>
                 <option value="amd64">AMD64</option>
                 <option value="arm64">ARM64</option>
-                <option value="armhf">ARMHF</option>
-                <option value="i386">i386</option>
-                <option value="riscv64">riscv64</option>
-                <option value="s390x">s390x</option>
-                <option value="ppc64el">ppc64el</option>
               </select>
             </div>
           </div>
