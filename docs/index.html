@@ -2046,12 +2046,12 @@
       if (liveStatus && (FAILURE_STATES.has(liveStatus) || liveStatus === "cancelled" || liveStatus === "skipped")) {
         return liveStatusChip(liveStatus);
       }
-      if (isLivePublishSuccess()) {
-        return `<span class="status-chip status-success">${checkIconSvg}${currentLabel || "Up to date"}</span>`;
-      }
       if (item.update_available) {
         const pendingLabel = selectedBranch === "edge" ? "Dev commit pending" : "Release tag pending";
         return `<span class="status-chip status-caution">${warningIconSvg}${pendingLabel}</span>`;
+      }
+      if (isLivePublishSuccess()) {
+        return `<span class="status-chip status-success">${checkIconSvg}${currentLabel || "Up to date"}</span>`;
       }
       if (item.lag_days === null || item.lag_days === undefined || item.lag_days === 0 || currentLabel) {
         return `<span class="status-chip status-success">${checkIconSvg}${currentLabel || "Up to date"}</span>`;
