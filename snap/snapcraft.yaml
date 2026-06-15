@@ -91,6 +91,9 @@ parts:
     build-environment:
       - GIT_HASH: "snap"
       - GIT_BRANCH: "snap"
+      # Limit parallel compilation to prevent Out-Of-Memory (OOM) crashes on constrained/emulated Launchpad builders (like riscv64).
+      - CRAFT_PARALLEL_BUILD_COUNT: "2"
+      - CMAKE_BUILD_PARALLEL_LEVEL: "2"
     override-build: $CRAFT_PROJECT_DIR/snap/local/build/ftl-override-build.sh
     prime:
       - -snap-meta
