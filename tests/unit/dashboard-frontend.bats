@@ -171,6 +171,11 @@ assert.match(source, /td \.workflow-btn \.workflow-btn__spinner \{[\s\S]*border-
 assert.match(source, /td \.workflow-btn \.status-chip-logo \{[\s\S]*flex: 0 0 0\.875rem;[\s\S]*height: 0\.875rem;[\s\S]*width: 0\.875rem;/);
 assert.match(source, /btn\.querySelector\("\.workflow-btn__label"\)/);
 
+assert.strictEqual(liveJobDurationSeconds(null), null);
+assert.strictEqual(liveJobDurationSeconds({}), null);
+assert.strictEqual(liveJobDurationSeconds({ started_at: null }), null);
+assert.strictEqual(liveJobDurationSeconds({ started_at: "" }), null);
+
 assert.strictEqual(liveJobDurationSeconds({
   started_at: "2026-06-14T14:00:00Z",
   completed_at: "2026-06-14T14:03:05Z",

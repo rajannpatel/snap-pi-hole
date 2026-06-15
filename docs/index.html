@@ -1381,7 +1381,7 @@
 
     // Calculates job duration for completed jobs, or elapsed runtime for active jobs
     function liveJobDurationSeconds(job) {
-      if (!job) return null;
+      if (!job || !job.started_at) return null;
       const started = new Date(job.started_at);
       const ended = job.completed_at ? new Date(job.completed_at) : new Date(Date.now());
       if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) return null;
@@ -2441,7 +2441,7 @@
           tr.cells[4].innerHTML = statusHtml;
         }
 
-        const duration = job ? liveJobDurationSeconds(job) : (run ? liveRunDurationSeconds(run) : null);
+        const duration = (job ? liveJobDurationSeconds(job) : null) ?? (run ? liveRunDurationSeconds(run) : null);
         const workflowContext = job
           ? (isGitHub ? "Build job" : "Publish job")
           : (isGitHub ? "Build run" : "Publish run");
@@ -2804,7 +2804,7 @@
         matched += 1;
         const status = job.status === "completed" ? (job.conclusion || "unknown") : (job.status || "queued");
         if (isBuildingStatus(status)) building = true;
-        const durationSeconds = liveJobDurationSeconds(job);
+        const durationSeconds = liveJobDurationSeconds(job) ?? liveRunDurationSeconds(run);
         const failed = FAILURE_STATES.has(status);
         const failedUrl = failed ? (job.html_url || (run && run.html_url) || "") : "";
         if (failed) {
@@ -2907,7 +2907,7 @@
       const jobs = await fetchRunJobs(run.id);
       const job = trackUpstreamJobFromJobs(jobs);
       const url = (job && job.html_url) || run.html_url || "";
-      const durationSeconds = job ? liveJobDurationSeconds(job) : liveRunDurationSeconds(run);
+      const durationSeconds = (job ? liveJobDurationSeconds(job) : null) ?? liveRunDurationSeconds(run);
       const status = normalizedLiveStatus(job || run);
       liveState.trackUpstreamRunId = run.id;
       liveState.trackUpstreamJobUrl = url;
