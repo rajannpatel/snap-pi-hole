@@ -618,7 +618,29 @@
       display: inline-flex;
       align-items: center;
       margin-bottom: 0;
-      justify-content: center;
+      justify-content: flex-start;
+      text-align: left;
+    }
+
+    td .workflow-btn .status-chip-logo {
+      display: block;
+      flex: 0 0 0.875rem;
+      height: 0.875rem;
+      margin-right: 0.35rem;
+      width: 0.875rem;
+    }
+
+    td .workflow-btn .workflow-btn__spinner {
+      animation: dashboard-spin 0.9s linear infinite;
+      border: 1.5px solid currentColor;
+      border-radius: 50%;
+      border-top-color: transparent;
+      box-sizing: border-box;
+      display: block;
+      flex: 0 0 0.75rem;
+      height: 0.75rem;
+      margin-right: 0.35rem;
+      width: 0.75rem;
     }
 
     td .workflow-buttons {
@@ -1335,7 +1357,7 @@
 
     function workflowButtonHtml(url, durationSeconds, contextLabel, isBuilding = false) {
       const showSpinner = isBuilding || durationSeconds === null || durationSeconds === undefined;
-      const spinnerHtml = `<span class="matrix-building__spinner" aria-hidden="true" style="display: inline-block; margin-right: 0.35rem; border-color: currentColor; border-top-color: transparent; border-width: 1.5px; height: 0.75rem; width: 0.75rem; vertical-align: middle;"></span>`;
+      const spinnerHtml = `<span class="workflow-btn__spinner" aria-hidden="true"></span>`;
       
       let contentHtml;
       let accessibleLabel;
@@ -1344,17 +1366,17 @@
       if (showSpinner) {
         if (durationSeconds !== null && durationSeconds !== undefined) {
           const durationLabel = humanDuration(durationSeconds);
-          contentHtml = `${githubLogoSvg}${spinnerHtml}<span>${escapeHtml(durationLabel)}</span>`;
+          contentHtml = `${githubLogoSvg}${spinnerHtml}<span class="workflow-btn__label">${escapeHtml(durationLabel)}</span>`;
           accessibleLabel = `${contextLabel || "Workflow"} active, duration: ${durationLabel}`;
           const startTime = Date.now() - (durationSeconds * 1000);
           dataAttrs = ` data-start-time="${startTime}" data-context-label="${escapeHtml(contextLabel || "Workflow")}"`;
         } else {
-          contentHtml = `${githubLogoSvg}${spinnerHtml}<span>&#8203;</span>`;
+          contentHtml = `${githubLogoSvg}${spinnerHtml}<span class="workflow-btn__label">&#8203;</span>`;
           accessibleLabel = `${contextLabel || "Workflow"} loading`;
         }
       } else {
         const durationLabel = humanDuration(durationSeconds);
-        contentHtml = `${githubLogoSvg}<span>${escapeHtml(durationLabel)}</span>`;
+        contentHtml = `${githubLogoSvg}<span class="workflow-btn__label">${escapeHtml(durationLabel)}</span>`;
         accessibleLabel = `${contextLabel || "Workflow"} duration: ${durationLabel}`;
       }
 
@@ -2590,7 +2612,7 @@
         const elapsed = Math.max(0, Math.round((Date.now() - startTime) / 1000));
         const durationLabel = humanDuration(elapsed);
         
-        const textSpan = btn.querySelector("span:not(.matrix-building__spinner)");
+        const textSpan = btn.querySelector(".workflow-btn__label");
         if (textSpan) {
           textSpan.textContent = durationLabel;
         }

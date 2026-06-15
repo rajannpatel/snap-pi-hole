@@ -153,15 +153,21 @@ assert.strictEqual(workflowButtonLabel(185), "3m 5s");
 assert.strictEqual(workflowButtonLabel(3661), "1h 1m");
 
 const buttonHtml = workflowButtonHtml("https://example.test/run?x=1&y=2", 185, "Build job");
-assert.match(buttonHtml, /<span>3m 5s<\/span>/);
+assert.match(buttonHtml, /<span class="workflow-btn__label">3m 5s<\/span>/);
 assert.doesNotMatch(buttonHtml, />Build job</);
 assert.match(buttonHtml, /aria-label="Build job duration: 3m 5s"/);
 assert.match(buttonHtml, /href="https:\/\/example\.test\/run\?x=1&amp;y=2"/);
 
 const pendingHtml = workflowButtonHtml("", null, "Publish job");
 assert.match(pendingHtml, /aria-disabled="true"/);
-assert.match(pendingHtml, /class="matrix-building__spinner"/);
+assert.match(pendingHtml, /class="workflow-btn__spinner"/);
 assert.doesNotMatch(pendingHtml, /href=/);
+
+const source = require("fs").readFileSync(process.argv[3], "utf8");
+assert.match(source, /td \.workflow-btn \{[\s\S]*justify-content: flex-start;[\s\S]*text-align: left;/);
+assert.match(source, /td \.workflow-btn \.workflow-btn__spinner \{[\s\S]*border-radius: 50%;[\s\S]*box-sizing: border-box;[\s\S]*flex: 0 0 0\.75rem;[\s\S]*height: 0\.75rem;[\s\S]*width: 0\.75rem;/);
+assert.match(source, /td \.workflow-btn \.status-chip-logo \{[\s\S]*flex: 0 0 0\.875rem;[\s\S]*height: 0\.875rem;[\s\S]*width: 0\.875rem;/);
+assert.match(source, /btn\.querySelector\("\.workflow-btn__label"\)/);
 
 assert.strictEqual(liveJobDurationSeconds({
   started_at: "2026-06-14T14:00:00Z",
