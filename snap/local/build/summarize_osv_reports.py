@@ -1522,6 +1522,15 @@ def collect_reports(reports_dir):
     if cache_updated:
         save_cache(cache)
 
+    summary["reports"] = sorted(
+        summary["reports"],
+        key=lambda r: (
+            {"amd64": 0, "arm64": 1}.get(r["architecture"].lower(), 99),
+            r["architecture"].lower(),
+            r.get("channel", "stable").lower()
+        )
+    )
+
     return summary
 
 def write_markdown(summary, output_path):
@@ -1875,36 +1884,66 @@ def write_html(summary, output_path):
         )
     )
 
+
+    # Count reports per architecture to determine rowspan
+    arch_counts = {}
+    for r in sorted_reports:
+        a = r["architecture"].upper()
+        arch_counts[a] = arch_counts.get(a, 0) + 1
+
+    rendered_arches = set()
     for report in sorted_reports:
-        arch = html.escape(report["architecture"])
-        actionable_pkgs = str(report["actionableAffectedPackages"])
+        arch = report["architecture"].upper()
+        arch_escaped = html.escape(arch)
+        ch = html.escape(report.get("channel", "stable"))
+        
         actionable_vulns = str(report["actionableVulnerabilities"])
+        actionable_pkgs = report["actionableAffectedPackages"]
+        actionable_cell = (
+            f'<strong class="security-count">{actionable_vulns}</strong>'
+            f'<span class="security-count-note">{actionable_pkgs} actionable package{"s" if actionable_pkgs != 1 else ""}</span>'
+        )
+
         raw_matches = str(report["vulnerabilities"])
+        raw_packages = report["affectedPackages"]
+        raw_matches_cell = (
+            f'<strong class="security-count">{raw_matches}</strong>'
+            f'<span class="security-count-note">across {raw_packages} package{"s" if raw_packages != 1 else ""}</span>'
+        )
+
         confined_mitigations = str(report["confinedMitigationVulnerabilities"])
+        confined_cell = (
+            f'<strong class="security-count">{confined_mitigations}</strong>'
+            f'<span class="security-count-note">confined / report-only</span>'
+        )
+
         report_time = (
             f'<time datetime="{html.escape(report["generatedAt"]["datetime"])}">'
             f'{html.escape(report["generatedAt"]["label"])}</time>'
         )
         report_link = f'<a class="p-button" href="{html.escape(report["report"])}" download>Download OSV</a>'
         vex_link = f'<a class="p-button" href="{html.escape(vex_filename(report.get("channel", "stable"), report["architecture"]))}" download>Download VEX</a>'
-
         report_cell = (
             f'{report_time}<br>'
             f'<div class="vulnerability-report-actions">'
             f'{report_link}{vex_link}</div>'
         )
-        
-        ch = html.escape(report.get("channel", "stable"))
-        summary_rows.append(
-            f"<tr>"
-            f"<td><span class=\"p-chip\">{ch}</span></td>"
-            f"<td><strong>{arch.upper()}</strong></td>"
-            f"<td>{actionable_pkgs}</td>"
-            f"<td>{raw_matches}</td>"
-            f"<td>{confined_mitigations}</td>"
-            f"<td>{report_cell}</td>"
-            f"</tr>"
+
+        row_html = "<tr>"
+        if arch not in rendered_arches:
+            rowspan = arch_counts[arch]
+            row_html += f'<td rowspan="{rowspan}"><strong>{arch_escaped}</strong></td>'
+            rendered_arches.add(arch)
+
+        row_html += (
+            f'<td><span class="p-chip">{ch}</span></td>'
+            f'<td>{actionable_cell}</td>'
+            f'<td>{raw_matches_cell}</td>'
+            f'<td>{confined_cell}</td>'
+            f'<td>{report_cell}</td>'
+            f'</tr>'
         )
+        summary_rows.append(row_html)
 
         for package in report["packages"]:
             for vulnerability in package["vulnerabilities"]:
@@ -2104,8 +2143,8 @@ def write_html(summary, output_path):
             <table class="p-table" id="vulnerability-summary-table">
               <thead>
                 <tr>
-                  <th>Channel</th>
                   <th>Architecture</th>
+                  <th>Channel</th>
                   <th>Published Fixes (USN)</th>
                   <th>CVE Matches</th>
                   <th>Confined Mitigations</th>
