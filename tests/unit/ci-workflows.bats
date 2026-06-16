@@ -936,3 +936,37 @@ matrix = wf["jobs"]["run-smoke"]["strategy"]["matrix"]["include"]
 assert matrix == [{"arch": "arm64", "runner": "ubuntu-26.04-arm"}], matrix
 PYEOF
 }
+
+@test "refresh-dashboard workflow republishes Pages after channel switch completes" {
+    python3 - <<PYEOF
+import yaml
+
+path = "${REPO_ROOT}/.github/workflows/refresh-dashboard.yml"
+with open(path) as f:
+    doc = yaml.safe_load(f)
+
+on = doc.get("on", doc.get(True, {}))
+assert on["workflow_run"]["workflows"] == ["Channel Switch Smoke"], on
+assert on["workflow_run"]["types"] == ["completed"], on
+assert "workflow_dispatch" in on, on
+
+permissions = doc["permissions"]
+assert permissions["actions"] == "read", permissions
+assert permissions["pages"] == "write", permissions
+assert permissions["id-token"] == "write", permissions
+
+job = doc["jobs"]["refresh"]
+run_blocks = "\\n".join(step.get("run", "") for step in job["steps"])
+uses = [step.get("uses", "") for step in job["steps"]]
+
+assert "gh run list" in run_blocks and "--workflow cicd.yml" in run_blocks, run_blocks
+assert "gh run download" in run_blocks and "code-coverage-report" in run_blocks, run_blocks
+assert "--pattern \"sbom-*\"" in run_blocks, run_blocks
+assert "vulnerability-reports" in run_blocks, run_blocks
+assert "generate_dashboard_data.py . docs/dashboard-data.json" in run_blocks, run_blocks
+assert "generate_dashboard_data.py --snapcraft-only" in run_blocks, run_blocks
+assert "GIST_TOKEN is not set; skipping gist update" in run_blocks, run_blocks
+assert "actions/upload-pages-artifact@v3" in uses, uses
+assert "actions/deploy-pages@v4" in uses, uses
+PYEOF
+}

@@ -78,7 +78,12 @@ assert.match(waiting, /uploads the channel-switch result artifact/);
 assert.doesNotMatch(waiting, /channel-switch-revision-chip/);
 
 const missing = channelSwitch.channelSwitchTimelineHtml({ status: "success", path: "roundtrip" });
-assert.match(missing, /Runner result missing revisions/);
+assert.match(missing, /Refresh path verified/);
+assert.match(missing, /dashboard data refresh reads the result artifact/);
+assert.doesNotMatch(missing, /Runner result missing revisions/);
+
+const failedMissing = channelSwitch.channelSwitchTimelineHtml({ status: "failure", path: "roundtrip" });
+assert.match(failedMissing, /Runner result missing revisions/);
 
 const escaped = channelSwitch.channelRevisionChipHtml({
   channel: "stable<script>",
@@ -105,7 +110,7 @@ const applyLiveChannelSwitchSource = extractFunction(source, "applyLiveChannelSw
 const factory = new Function(`
 const BUILDING_STATES = new Set(["queued", "in_progress", "requested", "waiting", "pending", "running"]);
 const liveState = { lastChannelSwitchRunId: null, lastChannelSwitchRunUpdatedAt: null, channelSwitchJobs: null };
-let globalDashboardData = { channel_switch: { rows: [{ arch: "arm64", path: "roundtrip" }], path: "roundtrip", summary: "snapshot" } };
+let globalDashboardData = { channel_switch: { run_id: 999, stable_revision: "old-stable", edge_revision: "old-edge", rows: [{ arch: "arm64", path: "roundtrip", summary: "old snapshot" }], path: "roundtrip", summary: "snapshot" } };
 let fetchCount = 0;
 let rendered = [];
 function isBuildingStatus(status) { return BUILDING_STATES.has(String(status || "").toLowerCase()); }
@@ -140,6 +145,8 @@ return { applyLiveChannelSwitch, liveState, rendered, getFetchCount: () => fetch
   assert.strictEqual(api.getFetchCount(), 2);
   assert.strictEqual(api.liveState.lastChannelSwitchRunUpdatedAt, "2026-06-16T04:42:49Z");
   assert.deepStrictEqual(api.rendered.map((item) => item.rows[0].status), ["in_progress", "success"]);
+  assert.strictEqual(api.rendered.at(-1).stable_revision, "");
+  assert.strictEqual(api.rendered.at(-1).edge_revision, "");
 })().catch((error) => {
   console.error(error);
   process.exit(1);
@@ -634,7 +641,7 @@ const assert = require("assert");
 assert.match(source, /lpJobs:\s*null,\s*lpRun:\s*null/, "Launchpad run metadata must be cached with jobs");
 assert.match(
   source,
-  /renderSnapPackage\(payload\.snap_package \|\| \{\}\);\s*applyLiveSnapStatus\(liveState\.cicdJobs, liveState\.cicdRun, liveState\.lpJobs, liveState\.lpRun\);/s,
+  /renderSnapPackage\(payload\.snap_package \|\| \{\}\);[\s\S]*applyLiveSnapStatus\(liveState\.cicdJobs, liveState\.cicdRun, liveState\.lpJobs, liveState\.lpRun\);/,
   "Snap Store refresh must reapply live job links and durations"
 );
 assert.match(
@@ -942,6 +949,12 @@ assert.match(source, /dashboard-channel-switch\.js/);
 // 2. Assert renderChannelSwitch function exists in the Javascript
 assert.match(source, /function renderChannelSwitch\(cs\)/);
 assert.match(source, /renderChannelSwitch\(data\.channel_switch\)/);
+assert.match(source, /if \(payload\.channel_switch\) \{/);
+assert.match(source, /globalDashboardData\.channel_switch = payload\.channel_switch/);
+assert.match(source, /renderChannelSwitch\(payload\.channel_switch\)/);
+assert.match(source, /function renderBakedSections\(data, options = \{\}\)/);
+assert.match(source, /renderBakedSections\(snapshot, \{ renderChannelSwitchSection: false \}\)/);
+assert.match(source, /if \(renderChannelSwitchSection\) \{\s*renderChannelSwitch\(data\.channel_switch\);\s*\}/);
 assert.match(source, /function applyLiveChannelSwitch\(latestByWorkflow\)/);
 assert.match(source, /await applyLiveChannelSwitch\(latestByWorkflow\)/);
 assert.match(source, /lastChannelSwitchRunId:\s*null/);

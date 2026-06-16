@@ -1,0 +1,168 @@
+name: Refresh dashboard
+
+on:
+  workflow_run:
+    workflows:
+      - Channel Switch Smoke
+    types:
+      - completed
+  workflow_dispatch:
+
+concurrency:
+  group: refresh-dashboard
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  SNAP_NAME: pihole-by-rajannpatel
+  GIST_DATA_FILE: snapcraft-dashboard-data.json
+  GIST_DESCRIPTION: "snap-pi-hole dashboard data (auto-updated hourly; do not edit)"
+
+jobs:
+  refresh:
+    name: Regenerate dashboard after channel switch
+    runs-on: ubuntu-26.04
+    environment: snap-publishing
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.event == 'workflow_run'
+      )
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Locate latest successful CI/CD run
+        id: cicd
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id="$(gh run list \
+            --workflow cicd.yml \
+            --branch main \
+            --event push \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')"
+
+          if [ -z "${run_id}" ] || [ "${run_id}" = "null" ]; then
+            echo "::error::No successful main-branch CI/CD run found to reconstruct Pages artifacts." >&2
+            exit 1
+          fi
+
+          echo "run_id=${run_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Download latest dashboard source artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p coverage-report sbom-artifacts vulnerability-reports
+          gh run download "${{ steps.cicd.outputs.run_id }}" --name code-coverage-report --dir coverage-report
+          gh run download "${{ steps.cicd.outputs.run_id }}" --pattern "sbom-*" --dir sbom-artifacts
+          gh run download "${{ steps.cicd.outputs.run_id }}" --name vulnerability-reports --dir vulnerability-reports
+
+      - name: Fetch Snapcraft revisions
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+          PUBLISH_RESULT: not_waited
+        run: |
+          if [ -n "${SNAPCRAFT_STORE_CREDENTIALS:-}" ]; then
+            while IFS= read -r line; do
+              if [ -n "$line" ]; then
+                echo "::add-mask::$line"
+              fi
+            done <<< "${SNAPCRAFT_STORE_CREDENTIALS}"
+          fi
+
+          sudo snap install --classic snapcraft
+          /snap/bin/snapcraft revisions "${SNAP_NAME}" > snapcraft-revisions.txt 2>/dev/null || true
+
+      - name: Organize files for GitHub Pages
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PUBLISH_RESULT: not_waited
+        run: |
+          mkdir -p docs/coverage docs/sbom docs/vulnerabilities
+
+          if [ -d coverage-report/index ]; then
+            cp -r coverage-report/index/* docs/coverage/
+          else
+            cp -r coverage-report/* docs/coverage/ || true
+          fi
+
+          python3 snap/local/build/prettify_coverage.py docs/coverage
+          find docs/coverage/ -name "*.css" -exec sh -c "cat snap/local/assets/kcov-override.css > {}" \;
+
+          find sbom-artifacts -name "sbom-*.json" -exec cp -v {} docs/sbom/ \;
+          cp -v docs/sbom/sbom-stable-amd64.json docs/sbom/sbom-amd64.json || true
+          cp -v docs/sbom/sbom-stable-arm64.json docs/sbom/sbom-arm64.json || true
+
+          cp -r vulnerability-reports/* docs/vulnerabilities/
+
+          python3 snap/local/build/select_snapcraft_upstream.py stable
+          python3 snap/local/build/generate_dashboard_data.py . docs/dashboard-data.json vulnerability-reports/osv-summary.json
+          python3 snap/local/build/render_report_template.py snap/local/assets/dashboard.html docs/index.html
+          python3 snap/local/build/render_report_template.py snap/local/assets/sbom-explorer.html docs/sbom/index.html
+          cp snap/local/assets/dashboard.css docs/dashboard.css
+          cp snap/local/assets/dashboard-channel-switch.js docs/dashboard-channel-switch.js
+          cp snap/local/assets/sbom-explorer.css docs/sbom/sbom-explorer.css
+          cp snap/gui/pihole.png docs/pihole.png
+          cp snap/gui/pihole.png docs/coverage/pihole.png
+
+      - name: Generate gist payload
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 snap/local/build/generate_dashboard_data.py --snapcraft-only . "${GIST_DATA_FILE}"
+
+      - name: Publish gist payload
+        env:
+          GH_TOKEN: ${{ secrets.GIST_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::GIST_TOKEN is not set; skipping gist update. GitHub Pages will still be refreshed."
+            exit 0
+          fi
+
+          python3 - "${GIST_DATA_FILE}" "${GIST_DESCRIPTION}" > body.json <<'PY'
+          import json, sys
+          data_file, description = sys.argv[1], sys.argv[2]
+          with open(data_file, encoding="utf-8") as handle:
+              content = handle.read()
+          print(json.dumps({
+              "description": description,
+              "public": True,
+              "files": {data_file: {"content": content}},
+          }))
+          PY
+
+          gist_id="$(gh api --paginate /gists \
+            --jq ".[] | select(.files[\"${GIST_DATA_FILE}\"]) | select(.description == \"${GIST_DESCRIPTION}\") | .id" \
+            | head -n1)"
+
+          if [ -n "${gist_id}" ]; then
+            gh api --method PATCH "/gists/${gist_id}" --input body.json \
+              --jq '"Updated " + .html_url'
+          else
+            gh api --method POST /gists --input body.json \
+              --jq '"Created " + .html_url + " (id " + .id + ")"'
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4

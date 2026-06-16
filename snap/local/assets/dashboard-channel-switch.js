@@ -37,13 +37,16 @@
     const edgeRevision = state.edge_revision || state.channels?.edge?.revision || "";
     if (!stableRevision || !edgeRevision) {
       const waiting = isBuildingStatus(state.status) || state.status === "no_data";
+      const succeeded = state.status === "success";
       return [
         {
-          title: waiting ? "Waiting for runner result" : "Runner result missing revisions",
+          title: waiting ? "Waiting for runner result" : (succeeded ? "Refresh path verified" : "Runner result missing revisions"),
           meta: [],
           description: waiting
             ? "Channel revisions will appear after the GitHub runner uploads the channel-switch result artifact."
-            : "The GitHub runner result did not include stable and edge revision evidence for the refresh path.",
+            : (succeeded
+              ? "The GitHub runner completed successfully; channel revision evidence will appear after the dashboard data refresh reads the result artifact."
+              : "The GitHub runner result did not include stable and edge revision evidence for the refresh path."),
         },
       ];
     }

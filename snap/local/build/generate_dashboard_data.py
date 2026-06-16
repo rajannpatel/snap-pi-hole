@@ -1419,10 +1419,20 @@ def dt_to_iso(value):
 
 def build_snapcraft_payload(client, repo_root):
     snap_package = collect_snap_package_data(client, repo_root)
+    channel_switch = collect_channel_switch_status(client, "main")
+    source_updates = [
+        value
+        for value in (
+            snap_package.get("last_updated"),
+            channel_switch.get("updated_at"),
+        )
+        if value
+    ]
     return {
         "generated_at": utc_now_iso(),
-        "data_last_updated": snap_package.get("last_updated") or utc_now_iso(),
+        "data_last_updated": max(source_updates, default=utc_now_iso()),
         "snap_package": snap_package,
+        "channel_switch": channel_switch,
     }
 
 

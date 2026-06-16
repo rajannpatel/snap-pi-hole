@@ -536,8 +536,16 @@ out_path = pathlib.Path("${TEST_TMPDIR}/snapcraft-dashboard-data.json")
 # Mock sys.argv and collect_snap_package_data
 test_argv = ["generate_dashboard_data.py", "--snapcraft-only", "${REPO_ROOT}", str(out_path)]
 
+mock_channel_switch = {
+    "status": "success",
+    "updated_at": "2026-06-10T12:05:00Z",
+    "stable_revision": "840",
+    "edge_revision": "838",
+}
+
 with patch("sys.argv", test_argv), \
-     patch("generate_dashboard_data.collect_snap_package_data", return_value=mock_snap_package):
+     patch("generate_dashboard_data.collect_snap_package_data", return_value=mock_snap_package), \
+     patch("generate_dashboard_data.collect_channel_switch_status", return_value=mock_channel_switch):
     dashboard.main()
 
 # Verify output file exists and has correct structure
@@ -546,8 +554,9 @@ with open(out_path, "r", encoding="utf-8") as f:
     data = json.load(f)
 
 assert "generated_at" in data
-assert data["data_last_updated"] == "2026-06-10T12:00:00Z"
+assert data["data_last_updated"] == "2026-06-10T12:05:00Z"
 assert data["snap_package"] == mock_snap_package
+assert data["channel_switch"] == mock_channel_switch
 PYEOF
 }
 

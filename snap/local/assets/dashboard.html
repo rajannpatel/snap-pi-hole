@@ -2328,8 +2328,13 @@
       const durationSeconds = (job ? liveJobDurationSeconds(job) : null) ?? liveRunDurationSeconds(run);
       const snapshot = globalDashboardData?.channel_switch || {};
       const snapshotRow = (snapshot.rows || []).find((row) => row.arch === "arm64") || {};
+      const snapshotMatchesRun = String(snapshot.run_id || "") === String(run.id || "");
+      const snapshotRunData = snapshotMatchesRun ? snapshot : {};
+      const snapshotRowData = snapshotMatchesRun ? snapshotRow : {};
       const liveChannelSwitch = {
         ...snapshot,
+        stable_revision: snapshotRunData.stable_revision || "",
+        edge_revision: snapshotRunData.edge_revision || "",
         status: rowStatus,
         conclusion: job?.conclusion || (run.status === "completed" ? (run.conclusion || "unknown") : run.status),
         run_number: run.run_number ?? snapshot.run_number,
@@ -2340,17 +2345,17 @@
         duration_label: humanDuration(durationSeconds),
         rows: [
           {
-            ...snapshotRow,
+            ...snapshotRowData,
             arch: "arm64",
             status: rowStatus,
             conclusion: job?.conclusion || (run.status === "completed" ? (run.conclusion || "unknown") : run.status),
-            path: snapshotRow.path || snapshot.path || "roundtrip",
-            summary: snapshotRow.summary || snapshot.summary || "stable -> edge -> stable",
-            updated_at: job?.completed_at || job?.started_at || run.updated_at || snapshotRow.updated_at || snapshot.updated_at || "",
+            path: snapshotRowData.path || snapshotRunData.path || "roundtrip",
+            summary: snapshotRowData.summary || snapshotRunData.summary || "stable -> edge -> stable",
+            updated_at: job?.completed_at || job?.started_at || run.updated_at || snapshotRowData.updated_at || snapshotRunData.updated_at || "",
             duration_seconds: durationSeconds,
             duration_label: humanDuration(durationSeconds),
-            url: job?.html_url || run.html_url || snapshotRow.url || snapshot.html_url || "",
-            reason: snapshotRow.reason || snapshot.reason || "",
+            url: job?.html_url || run.html_url || snapshotRowData.url || snapshotRunData.html_url || "",
+            reason: snapshotRowData.reason || snapshotRunData.reason || "",
           },
         ],
       };
@@ -2560,7 +2565,7 @@
     async function refreshLiveData() {
       try {
         const snapshot = await loadDashboardData();
-        renderBakedSections(snapshot);
+        renderBakedSections(snapshot, { renderChannelSwitchSection: false });
       } catch (error) {
         // Fallback to screen state if offline
       }
@@ -2831,13 +2836,17 @@
       return incomingMs >= currentMs;
     }
 
-    // Resolves and displays gist snap-store data
+    // Resolves and displays gist snap-store and channel-switch data
     function applySnapData(payload) {
       if (!shouldApplySnapPayload(snapState.generatedAt, payload)) {
         renderFreshnessChips();
         return false;
       }
       renderSnapPackage(payload.snap_package || {});
+      if (payload.channel_switch) {
+        globalDashboardData.channel_switch = payload.channel_switch;
+        renderChannelSwitch(payload.channel_switch);
+      }
       applyLiveSnapStatus(liveState.cicdJobs, liveState.cicdRun, liveState.lpJobs, liveState.lpRun);
       snapState.hasGistData = true;
       snapState.generatedAt = payload.generated_at || snapState.generatedAt;
@@ -2964,7 +2973,8 @@
     }
 
     // Renders baked/snapshot data sections
-    function renderBakedSections(data) {
+    function renderBakedSections(data, options = {}) {
+      const renderChannelSwitchSection = options.renderChannelSwitchSection !== false;
       freshnessState.build.updatedAt = data.generated_at || data.data_last_updated || null;
       const freq = data.auto_update?.frequency || {};
       setText("stable-track-cadence", freq.label || "Every 3 hours");
@@ -2972,7 +2982,9 @@
       renderSecurity(data.security || {});
       renderReleaseInfo(data);
       renderReportSummaries(data);
-      renderChannelSwitch(data.channel_switch);
+      if (renderChannelSwitchSection) {
+        renderChannelSwitch(data.channel_switch);
+      }
       dependencyRows = data.release_info?.components || [];
       renderDependencies();
       renderFreshnessChips();
