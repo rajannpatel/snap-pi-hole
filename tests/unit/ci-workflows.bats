@@ -846,11 +846,21 @@ with open("${REPO_ROOT}/.github/workflows/channel-switch.yml") as f:
 on_val = wf.get("on") or wf.get(True) or {}
 assert "pull_request" not in on_val, on_val
 
-cond = wf["jobs"]["run-smoke"]["if"]
-assert "github.event_name == 'workflow_dispatch'" in cond, cond
-assert "github.event.workflow_run.conclusion == 'success'" in cond, cond
-assert "github.event.workflow_run.event == 'push'" in cond, cond
-assert "github.event.workflow_run.head_branch == 'main'" in cond, cond
+preflight = wf["jobs"]["preflight"]
+preflight_cond = preflight["if"]
+assert "github.event_name == 'workflow_dispatch'" in preflight_cond, preflight_cond
+assert "github.event.workflow_run.conclusion" not in preflight_cond, preflight_cond
+assert "github.event.workflow_run.event == 'push'" in preflight_cond, preflight_cond
+assert "github.event.workflow_run.head_branch == 'main'" in preflight_cond, preflight_cond
+
+preflight_script = preflight["steps"][0]["run"]
+assert '"distro test "*|*" / distro-test")' in preflight_script, preflight_script
+assert "Ignoring distro-test result" in preflight_script, preflight_script
+assert "Blocking channel switch" in preflight_script, preflight_script
+
+run_smoke = wf["jobs"]["run-smoke"]
+assert run_smoke["needs"] == ["preflight"], run_smoke
+assert run_smoke["if"] == "needs.preflight.outputs.should_run == 'true'", run_smoke["if"]
 
 # Ensure existing cicd.yml required jobs do not 'need' channel-switch
 with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
