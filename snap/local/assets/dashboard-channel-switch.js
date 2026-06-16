@@ -33,6 +33,9 @@
   function channelSwitchPathSteps(cs) {
     const state = cs || {};
     const path = state.path || "roundtrip";
+    const snapName = state.snap_name || "pihole-by-rajannpatel";
+    const stableToEdgeCommand = `sudo snap refresh ${snapName} --channel=latest/edge`;
+    const edgeToStableCommand = `sudo snap refresh ${snapName} --channel=latest/stable`;
     const stableRevision = state.stable_revision || state.channels?.stable?.revision || "";
     const edgeRevision = state.edge_revision || state.channels?.edge?.revision || "";
     if (!stableRevision || !edgeRevision) {
@@ -65,31 +68,31 @@
     if (path === "stable-to-edge") {
       return [
         {
-          title: "Stable to edge",
+          title: stableToEdgeCommand,
           meta: [stablePoint, edgePoint],
-          description: state.status === "failure" ? (state.reason || "Transition failed") : "Refresh completed and health checks passed.",
+          description: state.status === "failure" ? `Stable to edge: ${state.reason || "transition failed"}.` : "Stable to edge: edge refresh completed and health checks passed.",
         },
       ];
     }
     if (path === "edge-to-stable") {
       return [
         {
-          title: "Edge to stable",
+          title: edgeToStableCommand,
           meta: [edgePoint, stablePoint],
-          description: state.status === "failure" ? (state.reason || "Transition failed") : "Refresh completed and health checks passed.",
+          description: state.status === "failure" ? `Edge to stable: ${state.reason || "transition failed"}.` : "Edge to stable: stable rollback completed and health checks passed.",
         },
       ];
     }
     return [
       {
-        title: "Stable to edge",
+        title: stableToEdgeCommand,
         meta: [stablePoint, edgePoint],
-        description: state.status === "failure" ? (state.reason || "Transition failed before round trip completed") : "Edge refresh completed and health checks passed.",
+        description: state.status === "failure" ? `Stable to edge: ${state.reason || "transition failed before round trip completed"}.` : "Stable to edge: edge refresh completed and health checks passed.",
       },
       {
-        title: "Edge to stable",
+        title: edgeToStableCommand,
         meta: [edgePoint, stablePoint],
-        description: state.status === "failure" ? (state.summary || "Stable rollback did not complete cleanly") : "Stable rollback completed and health checks passed.",
+        description: state.status === "failure" ? `Edge to stable: ${state.summary || "stable rollback did not complete cleanly"}.` : "Edge to stable: stable rollback completed and health checks passed.",
       },
     ];
   }
