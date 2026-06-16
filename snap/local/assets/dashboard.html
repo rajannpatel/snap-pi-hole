@@ -169,10 +169,12 @@
               <nav class="p-tabs" aria-label="Select channel scope">
                 <ul class="p-tabs__list" role="tablist">
                   <li class="p-tabs__item" role="presentation">
-                    <button class="p-tabs__link is-active" id="btn-stable" type="button" role="tab" aria-selected="true">Stable (upstream branch)</button>
+                    <button class="p-tabs__link is-active" id="btn-stable" type="button" role="tab"
+                      aria-selected="true">Stable (upstream branch)</button>
                   </li>
                   <li class="p-tabs__item" role="presentation">
-                    <button class="p-tabs__link" id="btn-edge" type="button" role="tab" aria-selected="false" tabindex="-1">Edge (upstream dev)</button>
+                    <button class="p-tabs__link" id="btn-edge" type="button" role="tab" aria-selected="false"
+                      tabindex="-1">Edge (upstream dev)</button>
                   </li>
                 </ul>
               </nav>
@@ -2375,7 +2377,11 @@
 
     async function applyLiveChannelSwitch(latestByWorkflow) {
       const run = latestByWorkflow["channel-switch.yml"];
-      if (!run || run.head_branch !== "main") return false;
+      if (!run) return false;
+      // Allow 'main' branch OR allow any 'workflow_run' event (which defaults to main but often returns head_branch: null)
+      if (run.head_branch !== "main" && run.event !== "workflow_run") {
+        return false;
+      }
 
       const runStatus = run.status === "completed" ? (run.conclusion || "unknown") : (run.status || "queued");
       const runBuilding = isBuildingStatus(runStatus);
