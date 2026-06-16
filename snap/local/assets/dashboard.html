@@ -230,13 +230,13 @@
                 </tbody>
               </table>
               <div class="dashboard-card-action">
-                <a id="latest-run-link" class="p-button u-no-margin--bottom"
+                <a id="latest-run-link" class="p-button workflow-btn u-no-margin--bottom"
                   href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" target="_blank"
                   rel="noopener noreferrer"><svg class="button-icon" viewBox="0 0 16 16" width="12" height="12"
                     fill="currentColor">
                     <path
                       d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8" />
-                  </svg>Pipeline run</a>
+                  </svg><span class="workflow-btn__label">Pipeline run</span></a>
               </div>
             </div>
           </div>
@@ -2042,11 +2042,23 @@
     }
 
     function channelSwitchPathSteps(cs) {
+      const path = cs.path || "roundtrip";
       const stableRevision = cs.stable_revision || cs.channels?.stable?.revision || "";
       const edgeRevision = cs.edge_revision || cs.channels?.edge?.revision || "";
-      const stablePoint = { channel: "stable", revision: stableRevision || "?" };
-      const edgePoint = { channel: "edge", revision: edgeRevision || "?" };
-      const path = cs.path || "roundtrip";
+      if (!stableRevision || !edgeRevision) {
+        const waiting = isBuildingStatus(cs.status) || cs.status === "no_data";
+        return [
+          {
+            title: waiting ? "Waiting for runner result" : "Runner result missing revisions",
+            meta: [],
+            description: waiting
+              ? "Channel revisions will appear after the GitHub runner uploads the channel-switch result artifact."
+              : "The GitHub runner result did not include stable and edge revision evidence for the refresh path.",
+          },
+        ];
+      }
+      const stablePoint = { channel: "stable", revision: stableRevision };
+      const edgePoint = { channel: "edge", revision: edgeRevision };
       if (cs.status === "skipped") {
         return [
           {
@@ -2091,7 +2103,7 @@
     function channelRevisionChipHtml(point) {
       const channel = point?.channel || "channel";
       const revision = point?.revision || "?";
-      return `<span class="p-chip channel-switch-revision-chip"><span class="p-chip__value">${escapeHtml(channel)} r${escapeHtml(revision)}</span></span>`;
+      return `<span class="p-chip channel-switch-revision-chip"><span class="p-chip__value">${escapeHtml(channel)}</span><span class="channel-switch-revision-badge">r${escapeHtml(revision)}</span></span>`;
     }
 
     function channelSwitchMetaHtml(points) {

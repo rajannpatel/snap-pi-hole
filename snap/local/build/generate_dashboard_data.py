@@ -497,6 +497,23 @@ def collect_workflow_artifacts(client, run_id):
     return results
 
 
+def channel_switch_revisions_from_artifact(artifact):
+    stable_rev = artifact.get("channels", {}).get("stable", {}).get("revision", "")
+    edge_rev = artifact.get("channels", {}).get("edge", {}).get("revision", "")
+    for transition in artifact.get("transitions", []) or []:
+        from_channel = transition.get("from", "")
+        to_channel = transition.get("to", "")
+        if not stable_rev and from_channel.endswith("/stable"):
+            stable_rev = transition.get("from_revision", "")
+        if not stable_rev and to_channel.endswith("/stable"):
+            stable_rev = transition.get("to_revision", "")
+        if not edge_rev and from_channel.endswith("/edge"):
+            edge_rev = transition.get("from_revision", "")
+        if not edge_rev and to_channel.endswith("/edge"):
+            edge_rev = transition.get("to_revision", "")
+    return str(stable_rev or ""), str(edge_rev or "")
+
+
 def collect_channel_switch_status(client, branch="main"):
     runs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/workflows/{CHANNEL_SWITCH_WORKFLOW}/runs"
     runs_data = client.get_json_or_empty(
@@ -571,8 +588,9 @@ def collect_channel_switch_status(client, branch="main"):
             url = art.get("workflow", {}).get("url") or html_url
             updated = art.get("completed_at") or art.get("started_at") or updated_at
             
-            stable_rev = art.get("channels", {}).get("stable", {}).get("revision", "unknown")
-            edge_rev = art.get("channels", {}).get("edge", {}).get("revision", "unknown")
+            stable_rev, edge_rev = channel_switch_revisions_from_artifact(art)
+            stable_rev = stable_rev or "unknown"
+            edge_rev = edge_rev or "unknown"
             if status == "skipped":
                 summary = f"stable and edge both serve r{stable_rev}"
             else:
@@ -631,8 +649,7 @@ def collect_channel_switch_status(client, branch="main"):
 
     art = next((a for a in artifacts if a.get("status") != "no_data"), None)
     if art:
-        stable_rev = art.get("channels", {}).get("stable", {}).get("revision", "")
-        edge_rev = art.get("channels", {}).get("edge", {}).get("revision", "")
+        stable_rev, edge_rev = channel_switch_revisions_from_artifact(art)
         path = art.get("path", "roundtrip")
         reason = art.get("reason", "")
     else:

@@ -625,6 +625,8 @@ with patch("urllib.request.urlopen", return_value=mock_response):
     assert res["status"] == "success", res
     assert res["summary"] == "stable r123 -> edge r124 -> stable r123", res["summary"]
     assert res["rows"][0]["updated_at"] == "2026-06-15T12:00:00Z", res["rows"][0]
+    assert res["stable_revision"] == "123", res
+    assert res["edge_revision"] == "124", res
 
 # Test 3: arm64 failure is reported
 artifact_data_arm64 = artifact_data.copy()
@@ -732,5 +734,15 @@ with patch("urllib.request.urlopen", return_value=mock_response_corrupt):
 # Test 8: duration label is humanized
 assert dashboard.human_duration(90) == "1m 30s"
 assert dashboard.human_duration(3600) == "1h 0m"
+
+# Test 9: missing channel fields are derived from runner artifact transitions
+artifact_without_channels = {
+    "transitions": [
+        {"from": "latest/stable", "to": "latest/edge", "from_revision": "840", "to_revision": "838"}
+    ]
+}
+stable_rev, edge_rev = dashboard.channel_switch_revisions_from_artifact(artifact_without_channels)
+assert stable_rev == "840", stable_rev
+assert edge_rev == "838", edge_rev
 PYEOF
 }

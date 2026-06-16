@@ -571,6 +571,15 @@ td .report-button-group {
   width: 0.875rem;
 }
 
+.workflow-btn .button-icon {
+  align-self: center;
+  display: block;
+  flex: 0 0 1rem;
+  height: 1rem;
+  margin-right: 0 !important;
+  width: 1rem;
+}
+
 td .workflow-btn .workflow-btn__spinner {
   animation: dashboard-spin 0.9s linear infinite;
   border: 1.5px solid currentColor;
@@ -760,7 +769,21 @@ td .os-badge {
 }
 
 .channel-switch-revision-chip {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.35rem;
   margin-bottom: 0;
+}
+
+.channel-switch-revision-badge {
+  background-color: #e5e5e5;
+  border-radius: 999px;
+  color: #333;
+  display: inline-block;
+  font-family: "Ubuntu Mono", monospace;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.18rem 0.35rem;
 }
 
 .channel-switch-chevron {
