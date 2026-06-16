@@ -91,6 +91,62 @@ assert.doesNotMatch(escaped, /onerror=alert\(1\)>/);
 JS
 }
 
+@test "frontend: channel switch live status refetches stale running job when run completes" {
+    run_node - "${REPO_ROOT}" <<'JS'
+const fs = require("fs");
+const path = require("path");
+const assert = require("assert");
+const { extractFunction } = require(path.join(process.argv[2], "tests/helpers/extract-js-funcs.js"));
+
+const repo = process.argv[2];
+const source = fs.readFileSync(path.join(repo, "snap/local/assets/dashboard.html"), "utf8");
+const applyLiveChannelSwitchSource = extractFunction(source, "applyLiveChannelSwitch").replace(/^function /, "async function ");
+
+const factory = new Function(`
+const BUILDING_STATES = new Set(["queued", "in_progress", "requested", "waiting", "pending", "running"]);
+const liveState = { lastChannelSwitchRunId: null, lastChannelSwitchRunUpdatedAt: null, channelSwitchJobs: null };
+let globalDashboardData = { channel_switch: { rows: [{ arch: "arm64", path: "roundtrip" }], path: "roundtrip", summary: "snapshot" } };
+let fetchCount = 0;
+let rendered = [];
+function isBuildingStatus(status) { return BUILDING_STATES.has(String(status || "").toLowerCase()); }
+function normalizedLiveStatus(jobOrRun) { return jobOrRun.status === "completed" ? (jobOrRun.conclusion || "unknown") : (jobOrRun.status || "queued"); }
+function liveJobDurationSeconds(job) {
+  if (!job || !job.started_at) return null;
+  const started = new Date(job.started_at);
+  const ended = job.completed_at ? new Date(job.completed_at) : new Date("2026-06-16T04:42:00Z");
+  return Math.max(0, Math.round((ended - started) / 1000));
+}
+function liveRunDurationSeconds() { return 90; }
+function humanDuration(seconds) { return seconds + "s"; }
+async function fetchRunJobs() {
+  fetchCount += 1;
+  if (fetchCount === 1) {
+    return [{ name: "Channel Switch Smoke (arm64)", status: "in_progress", conclusion: null, started_at: "2026-06-16T04:41:18Z", completed_at: null, html_url: "https://example.test/job" }];
+  }
+  return [{ name: "Channel Switch Smoke (arm64)", status: "completed", conclusion: "success", started_at: "2026-06-16T04:41:18Z", completed_at: "2026-06-16T04:42:48Z", html_url: "https://example.test/job" }];
+}
+function renderChannelSwitch(cs) { rendered.push(cs); }
+${applyLiveChannelSwitchSource}
+return { applyLiveChannelSwitch, liveState, rendered, getFetchCount: () => fetchCount };
+`);
+
+(async () => {
+  const api = factory();
+  const firstRun = { id: 27594620936, status: "in_progress", conclusion: null, run_number: 9, updated_at: "2026-06-16T04:41:30Z", html_url: "https://example.test/run", head_branch: "main", event: "workflow_run" };
+  const secondRun = { ...firstRun, status: "completed", conclusion: "success", updated_at: "2026-06-16T04:42:49Z" };
+
+  assert.strictEqual(await api.applyLiveChannelSwitch({ "channel-switch.yml": firstRun }), true);
+  assert.strictEqual(await api.applyLiveChannelSwitch({ "channel-switch.yml": secondRun }), false);
+  assert.strictEqual(api.getFetchCount(), 2);
+  assert.strictEqual(api.liveState.lastChannelSwitchRunUpdatedAt, "2026-06-16T04:42:49Z");
+  assert.deepStrictEqual(api.rendered.map((item) => item.rows[0].status), ["in_progress", "success"]);
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
+JS
+}
+
 @test "frontend: formatDate returns 'Unknown' for empty and echoes unparseable input" {
     for html in "${HTML_FILES[@]}"; do
         run_node - "$HELPER" "$html" <<'JS'
