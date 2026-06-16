@@ -82,8 +82,19 @@ assert.match(details, /Health checks passed/);
 assert.match(details, /sudo snap refresh pihole-by-rajannpatel --channel=latest\/edge/);
 assert.match(details, /snap list pihole-by-rajannpatel/);
 assert.match(details, /0\.0\.0\.0/);
-assert.match(details, /channel-switch-evidence__output/);
+assert.match(details, /p-code-snippet__block--icon/);
+assert.match(details, /p-code-snippet__block/);
+assert.match(details, /p-chip--positive/);
 assert.doesNotMatch(details, /<script>/);
+
+const failedDetails = channelSwitch.channelSwitchEvidenceHtml({
+  status: "failure",
+  evidence: [{ title: "DNS query", status: "failure", command: "dig @127.0.0.1 pi.hole", output: "connection timed out" }],
+});
+assert.match(failedDetails, /p-chip--negative/);
+assert.match(failedDetails, /p-chip__value">fail<\/span>/);
+assert.match(failedDetails, /p-code-snippet__block--icon/);
+assert.match(failedDetails, /p-code-snippet__block/);
 
 const waiting = channelSwitch.channelSwitchTimelineHtml({ status: "in_progress", path: "roundtrip" });
 assert.match(waiting, /Waiting for runner result/);

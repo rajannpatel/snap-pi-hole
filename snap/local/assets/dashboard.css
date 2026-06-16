@@ -726,49 +726,6 @@ td .os-badge {
   font-weight: 600;
 }
 
-.channel-switch-evidence__status {
-  border-radius: 2px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.1rem 0.35rem;
-  text-transform: uppercase;
-}
-
-.channel-switch-evidence__status.is-success {
-  background: #e8f5e9;
-  color: #0b6b0b;
-}
-
-.channel-switch-evidence__status.is-failure {
-  background: #fae6e8;
-  color: #c7162b;
-}
-
-.channel-switch-evidence__status.is-unknown {
-  background: #f2f2f2;
-  color: #555;
-}
-
-.channel-switch-evidence__command {
-  display: block;
-  margin-bottom: 0.35rem;
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-.channel-switch-evidence__output {
-  background: #111;
-  border-radius: 4px;
-  color: #f7f7f7;
-  font-size: 0.8125rem;
-  line-height: 1.35;
-  margin: 0;
-  max-width: 100%;
-  overflow-x: auto;
-  padding: 0.75rem;
-  white-space: pre;
-}
-
 .p-list-timeline {
   list-style: none;
   margin: 0 0 2rem;

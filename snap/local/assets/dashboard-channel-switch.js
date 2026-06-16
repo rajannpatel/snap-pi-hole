@@ -41,15 +41,16 @@
       const status = item?.status || "unknown";
       const command = item?.command || "";
       const output = item?.output || "";
-      const statusClass = status === "success" ? "is-success" : (status === "failure" ? "is-failure" : "is-unknown");
+      const chipClass = status === "success" ? "p-chip--positive" : (status === "failure" ? "p-chip--negative" : "");
+      const statusLabel = status === "failure" ? "fail" : status;
       return `
         <div class="channel-switch-evidence">
           <div class="channel-switch-evidence__header">
             <span class="channel-switch-evidence__title">${escapeHtml(title)}</span>
-            <span class="channel-switch-evidence__status ${statusClass}">${escapeHtml(status)}</span>
+            <span class="p-chip ${chipClass}"><span class="p-chip__value">${escapeHtml(statusLabel)}</span></span>
           </div>
-          ${command ? `<code class="channel-switch-evidence__command">$ ${escapeHtml(command)}</code>` : ""}
-          ${output ? `<pre class="channel-switch-evidence__output"><code>${escapeHtml(output)}</code></pre>` : ""}
+          ${command ? `<div class="p-code-snippet"><pre class="p-code-snippet__block--icon"><code>$ ${escapeHtml(command)}</code></pre></div>` : ""}
+          ${output ? `<div class="p-code-snippet"><pre class="p-code-snippet__block"><code>${escapeHtml(output)}</code></pre></div>` : ""}
         </div>
       `;
     }).join("");
