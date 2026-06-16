@@ -7,6 +7,11 @@ set -Eeuo pipefail
 SNAP_NAME="${SNAP_NAME:-pihole-by-rajannpatel}"
 CHANNEL_SWITCH_PATH="${CHANNEL_SWITCH_PATH:-roundtrip}"
 CHANNEL_SWITCH_RESULT="${CHANNEL_SWITCH_RESULT:-channel-switch-result.json}"
+PIHOLE_HEALTH_TIMEOUT_SECONDS="${PIHOLE_HEALTH_TIMEOUT_SECONDS:-180}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=tests/scripts/pihole-service-health.sh
+source "${SCRIPT_DIR}/pihole-service-health.sh"
 
 # State variables for result JSON
 STATUS="failure"
@@ -122,39 +127,43 @@ verify_health() {
   local apparmor_check="success"
   local overall_success=0
   
-  # 1. Wait for FTL to become active
-  local ftl_active=0
-  for _ in $(seq 1 60); do
-    if snap services "$SNAP_NAME.pihole-ftl" 2>/dev/null | grep -qw active; then
-      ftl_active=1
-      break
-    fi
-    sleep 1
-  done
-  
-  if [ "$ftl_active" -ne 1 ]; then
-    status_check="failure"
-    REASON="ftl-not-active"
-    record_error "ftl-not-active"
-    overall_success=1
+  # 1. Wait for the shared service-availability probe used by CI smoke tests.
+  local ftl_ready=0
+  if wait_for_pihole_service_availability "$SNAP_NAME" "$PIHOLE_HEALTH_TIMEOUT_SECONDS"; then
+    ftl_ready=1
   fi
   
-  # 2. CLI status check
-  if [ "$overall_success" -eq 0 ]; then
-    if ! sudo "$SNAP_NAME.pihole" status >/dev/null 2>&1; then
+  if [ "$ftl_ready" -ne 1 ]; then
+    # Perform one-off checks to record the exact failure reason
+    if ! pihole_service_is_active "$SNAP_NAME"; then
+      status_check="failure"
+      REASON="ftl-not-active"
+      record_error "ftl-not-active"
+      overall_success=1
+    elif ! pihole_gravity_db_ready "$SNAP_NAME"; then
+      status_check="failure"
+      REASON="gravity-db-not-ready"
+      record_error "gravity-db-not-ready"
+      overall_success=1
+    elif ! pihole_first_run_gravity_idle; then
+      status_check="failure"
+      REASON="gravity-still-running"
+      record_error "gravity-still-running"
+      overall_success=1
+    elif ! pihole_cli_ready "$SNAP_NAME"; then
       status_check="failure"
       REASON="pihole-status-failed"
       record_error "pihole-status-failed"
       overall_success=1
-    fi
-  fi
-  
-  # 3. Verify DNS resolution
-  if [ "$overall_success" -eq 0 ]; then
-    if ! (dig +short +time=1 +tries=1 @127.0.0.1 pi.hole >/dev/null 2>&1 || dig +short +time=1 +tries=1 @127.0.0.1 . NS 2>/dev/null | grep -q '.'); then
+    elif ! pihole_dns_ready; then
       dns_check="failure"
       REASON="dns-failed"
       record_error "dns-failed"
+      overall_success=1
+    else
+      status_check="failure"
+      REASON="service-not-ready"
+      record_error "service-not-ready"
       overall_success=1
     fi
   fi

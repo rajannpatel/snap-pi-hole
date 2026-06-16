@@ -65,6 +65,7 @@ EOF
 
     mkdir -p "${TEST_TMPDIR}/var/snap/${SNAP_NAME}/current/etc/pihole"
     mkdir -p "${TEST_TMPDIR}/var/snap/${SNAP_NAME}/common/snapshots"
+    echo "gravity" > "${TEST_TMPDIR}/var/snap/${SNAP_NAME}/current/etc/pihole/gravity.db"
 }
 
 teardown() {
@@ -637,4 +638,43 @@ EOF
     [ "$output" = "failure" ]
     run jq -r '.reason' "$CHANNEL_SWITCH_RESULT"
     [ "$output" = "could-not-parse-snap-info" ]
+}
+
+@test "shared service availability rejects missing gravity database" {
+    source "${REPO_ROOT}/tests/scripts/pihole-service-health.sh"
+    rm -f "${TEST_TMPDIR}/var/snap/${SNAP_NAME}/current/etc/pihole/gravity.db"
+
+    cat > "${MOCK_BIN}/snap" <<'EOF'
+#!/bin/sh
+if [ "$1" = "services" ]; then echo "active"; else exit 0; fi
+EOF
+    chmod +x "${MOCK_BIN}/snap"
+
+    run pihole_service_available "$SNAP_NAME"
+    [ "$status" -ne 0 ]
+}
+
+@test "shared service availability waits while first-run gravity is active" {
+    source "${REPO_ROOT}/tests/scripts/pihole-service-health.sh"
+
+    cat > "${MOCK_BIN}/snap" <<'EOF'
+#!/bin/sh
+if [ "$1" = "services" ]; then echo "active"; else exit 0; fi
+EOF
+    chmod +x "${MOCK_BIN}/snap"
+
+    cat > "${MOCK_BIN}/pgrep" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+    chmod +x "${MOCK_BIN}/pgrep"
+
+    cat > "${MOCK_BIN}/dig" <<'EOF'
+#!/bin/sh
+echo "pi.hole"
+EOF
+    chmod +x "${MOCK_BIN}/dig"
+
+    run pihole_service_available "$SNAP_NAME"
+    [ "$status" -ne 0 ]
 }
