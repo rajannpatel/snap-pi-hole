@@ -197,7 +197,31 @@ verify_health() {
       overall_success=1
     fi
   fi
-  
+    # Print diagnostics if health check failed and not in unit test mode
+  if [ "$overall_success" -ne 0 ] && [ "${CHANNEL_SWITCH_TEST_MODE:-0}" != "1" ]; then
+    echo "=== HEALTH CHECK FAILED ===" >&2
+    echo "snap services:" >&2
+    snap services "$SNAP_NAME" >&2 || true
+    echo "systemctl status:" >&2
+    systemctl status "snap.${SNAP_NAME}.pihole-ftl.service" >&2 || true
+    echo "journalctl logs for FTL:" >&2
+    sudo journalctl -n 50 -u "snap.${SNAP_NAME}.pihole-ftl.service" >&2 || true
+    
+    for log_path in "/var/snap/${SNAP_NAME}/common/var/log/pihole/pihole-FTL.log" \
+                    "/var/snap/${SNAP_NAME}/common/var/log/pihole/FTL.log"; do
+      if sudo test -f "$log_path"; then
+        echo "FTL log ($log_path):" >&2
+        sudo tail -n 100 "$log_path" >&2 || true
+      fi
+    done
+    
+    if [ "$apparmor_check" = "failure" ]; then
+      echo "AppArmor denials:" >&2
+      sudo dmesg | grep -F 'apparmor="DENIED"' | grep "snap.${SNAP_NAME}" || true
+    fi
+    echo "==========================" >&2
+  fi
+
   CHECKS_JSON=$(jq -n \
     --arg status "$status_check" \
     --arg dns "$dns_check" \

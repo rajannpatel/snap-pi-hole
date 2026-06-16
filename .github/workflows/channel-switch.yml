@@ -62,6 +62,7 @@ jobs:
         run: |
           sudo mkdir -p /etc/systemd/resolved.conf.d
           printf '[Resolve]\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
+          sudo systemctl daemon-reload
           sudo systemctl restart systemd-resolved
 
       - name: Run channel switch smoke test
