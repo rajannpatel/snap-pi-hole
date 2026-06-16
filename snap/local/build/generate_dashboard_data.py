@@ -524,6 +524,22 @@ def collect_channel_switch_status(client, branch="main"):
         }
 
     target_run = runs[0]
+    jobs = []
+    artifacts = []
+
+    active_states = {"in_progress", "queued", "requested", "waiting", "pending", "running"}
+    if target_run.get("status") not in active_states:
+        target_run = None
+        for candidate in runs:
+            candidate_run_id = candidate.get("id")
+            candidate_artifacts = collect_workflow_artifacts(client, candidate_run_id)
+            if candidate_artifacts:
+                target_run = candidate
+                artifacts = candidate_artifacts
+                break
+        if target_run is None:
+            target_run = runs[0]
+
     run_id = target_run.get("id")
     run_number = target_run.get("run_number")
     html_url = target_run.get("html_url", "")
@@ -533,7 +549,8 @@ def collect_channel_switch_status(client, branch="main"):
     jobs_data = client.get_json_or_empty(jobs_url, params={"per_page": 100})
     jobs = jobs_data.get("jobs", [])
 
-    artifacts = collect_workflow_artifacts(client, run_id)
+    if not artifacts:
+        artifacts = collect_workflow_artifacts(client, run_id)
     
     arches = ["arm64"]
     rows = []

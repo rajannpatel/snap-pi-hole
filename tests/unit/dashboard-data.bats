@@ -690,7 +690,31 @@ res = dashboard.collect_channel_switch_status(client)
 assert res["status"] == "in_progress", res
 assert res["rows"][0]["updated_at"] == "2026-06-15T13:00:00Z", res["rows"][0]
 
-# Test 6: corrupt artifact is ignored
+# Test 6: newest completed run without an artifact does not hide latest artifact result
+mock_response_latest_artifact = MagicMock()
+mock_response_latest_artifact.__enter__.return_value = mock_response_latest_artifact
+mock_response_latest_artifact.read.return_value = zip_content
+
+with patch("urllib.request.urlopen", return_value=mock_response_latest_artifact):
+    client = FakeClient(
+        runs={"workflow_runs": [
+            {"id": 18, "run_number": 52, "status": "completed", "conclusion": "failure", "updated_at": "2026-06-15T14:00:00Z"},
+            {"id": 17, "run_number": 51, "status": "completed", "conclusion": "success", "updated_at": "2026-06-15T13:30:00Z"}
+        ]},
+        jobs={
+            18: {"jobs": [{"name": "Channel Switch Smoke (arm64)", "status": "completed", "conclusion": "failure"}]},
+            17: {"jobs": [{"name": "Channel Switch Smoke (arm64)", "status": "completed", "conclusion": "success"}]},
+        },
+        artifacts={
+            18: {"artifacts": []},
+            17: {"artifacts": [{"name": "channel-switch-result-arm64", "archive_download_url": "http://download/latest-success"}]},
+        }
+    )
+    res = dashboard.collect_channel_switch_status(client)
+    assert res["status"] == "success", res
+    assert res["run_number"] == 51, res
+
+# Test 7: corrupt artifact is ignored
 mock_response_corrupt = MagicMock()
 mock_response_corrupt.__enter__.return_value = mock_response_corrupt
 mock_response_corrupt.read.return_value = b"corrupt zip data"
@@ -705,7 +729,7 @@ with patch("urllib.request.urlopen", return_value=mock_response_corrupt):
     assert res["status"] == "success", res
     assert res["rows"][0]["reason"] == "", res["rows"][0]
 
-# Test 7: duration label is humanized
+# Test 8: duration label is humanized
 assert dashboard.human_duration(90) == "1m 30s"
 assert dashboard.human_duration(3600) == "1h 0m"
 PYEOF

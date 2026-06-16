@@ -838,6 +838,8 @@ assert.match(source, /function applyLiveChannelSwitch\(latestByWorkflow\)/);
 assert.match(source, /await applyLiveChannelSwitch\(latestByWorkflow\)/);
 assert.match(source, /lastChannelSwitchRunId:\s*null/);
 assert.match(source, /channelSwitchJobs:\s*null/);
+assert.doesNotMatch(source, /latestCicdJobs/);
+assert.doesNotMatch(source, /latestCicdRun/);
 assert.match(source, /function renderChannelSwitchTimeline\(cs\)/);
 assert.match(source, /function channelSwitchPathSteps\(cs\)/);
 assert.match(source, /function channelRevisionChipHtml\(point\)/);
