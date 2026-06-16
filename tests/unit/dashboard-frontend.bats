@@ -889,6 +889,7 @@ assert.match(source, /renderChannelSwitch\(data\.channel_switch\)/);
 assert.match(source, /function applyLiveChannelSwitch\(latestByWorkflow\)/);
 assert.match(source, /await applyLiveChannelSwitch\(latestByWorkflow\)/);
 assert.match(source, /lastChannelSwitchRunId:\s*null/);
+assert.match(source, /lastChannelSwitchRunUpdatedAt:\s*null/);
 assert.match(source, /channelSwitchJobs:\s*null/);
 assert.doesNotMatch(source, /latestCicdJobs/);
 assert.doesNotMatch(source, /latestCicdRun/);
@@ -923,6 +924,9 @@ assert.match(source, /const isBuilding = isBuildingStatus\(row\.status\)/);
 assert.match(source, /const statusBadge = liveStatusChip\(row\.status, "running"\)/);
 assert.match(source, /latestByWorkflow\["channel-switch\.yml"\]/);
 assert.match(source, /name\.includes\("channel switch"\) && name\.includes\("arm64"\)/);
+assert.match(source, /const cachedJobsBuilding = \(liveState\.channelSwitchJobs \|\| \[\]\)\.some/);
+assert.match(source, /const runUpdated = run\.updated_at && run\.updated_at !== liveState\.lastChannelSwitchRunUpdatedAt/);
+assert.match(source, /runBuilding \|\| cachedJobsBuilding \|\| runUpdated/);
 assert.match(source, /const building = matrixBuilding \|\| buildBuilding \|\| lpBuildingStatus \|\| trackBuildingStatus \|\| channelSwitchBuilding/);
 assert.doesNotMatch(source, /label:\s*"Passing"/);
 JS

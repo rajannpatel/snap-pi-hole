@@ -563,7 +563,7 @@
     const LIVE_RATE_FLOOR = 8;
 
     // Core live application state variables
-    const liveState = { rateRemaining: null, pollTimer: null, releaseLagDone: false, releaseLagDue: false, lastCicdRunId: null, lastLpRunId: null, lastChannelSwitchRunId: null, channelSwitchJobs: null, trackUpstreamRunId: null, trackUpstreamJobUrl: null, trackUpstreamJobDurationSeconds: null, trackUpstreamJobStatus: null, cicdJobs: null, cicdRun: null, lpJobs: null, lpRun: null, snapOverlayInFlight: false, snapOverlayLastFetch: 0 };
+    const liveState = { rateRemaining: null, pollTimer: null, releaseLagDone: false, releaseLagDue: false, lastCicdRunId: null, lastLpRunId: null, lastChannelSwitchRunId: null, lastChannelSwitchRunUpdatedAt: null, channelSwitchJobs: null, trackUpstreamRunId: null, trackUpstreamJobUrl: null, trackUpstreamJobDurationSeconds: null, trackUpstreamJobStatus: null, cicdJobs: null, cicdRun: null, lpJobs: null, lpRun: null, snapOverlayInFlight: false, snapOverlayLastFetch: 0 };
     const matrixState = { rows: [], failedLinks: [] };
 
     // Snap Store Gist integration (workaround for lack of CORS support on api.snapcraft.io)
@@ -2308,11 +2308,14 @@
 
       const runStatus = run.status === "completed" ? (run.conclusion || "unknown") : (run.status || "queued");
       const runBuilding = isBuildingStatus(runStatus);
-      const shouldFetchJobs = runBuilding || run.id !== liveState.lastChannelSwitchRunId || !liveState.channelSwitchJobs;
+      const cachedJobsBuilding = (liveState.channelSwitchJobs || []).some((candidate) => isBuildingStatus(normalizedLiveStatus(candidate)));
+      const runUpdated = run.updated_at && run.updated_at !== liveState.lastChannelSwitchRunUpdatedAt;
+      const shouldFetchJobs = runBuilding || cachedJobsBuilding || runUpdated || run.id !== liveState.lastChannelSwitchRunId || !liveState.channelSwitchJobs;
       let jobs = liveState.channelSwitchJobs;
       if (shouldFetchJobs) {
         jobs = await fetchRunJobs(run.id);
         liveState.lastChannelSwitchRunId = run.id;
+        liveState.lastChannelSwitchRunUpdatedAt = run.updated_at || null;
         liveState.channelSwitchJobs = jobs;
       }
 
@@ -2917,6 +2920,7 @@
       liveState.lastCicdRunId = null;
       liveState.lastLpRunId = null;
       liveState.lastChannelSwitchRunId = null;
+      liveState.lastChannelSwitchRunUpdatedAt = null;
       liveState.channelSwitchJobs = null;
       liveState.cicdJobs = null;
       liveState.cicdRun = null;
