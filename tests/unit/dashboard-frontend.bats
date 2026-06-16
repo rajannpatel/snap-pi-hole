@@ -82,9 +82,11 @@ assert.match(details, /Health checks passed/);
 assert.match(details, /sudo snap refresh pihole-by-rajannpatel --channel=latest\/edge/);
 assert.match(details, /snap list pihole-by-rajannpatel/);
 assert.match(details, /0\.0\.0\.0/);
+assert.match(details, /p-code-snippet is-wrapped/);
 assert.match(details, /p-code-snippet__block--icon/);
 assert.match(details, /p-code-snippet__block/);
 assert.match(details, /p-chip--positive/);
+assert.doesNotMatch(details, /<code>\$ sudo/);
 assert.doesNotMatch(details, /<script>/);
 
 const failedDetails = channelSwitch.channelSwitchEvidenceHtml({
@@ -93,8 +95,10 @@ const failedDetails = channelSwitch.channelSwitchEvidenceHtml({
 });
 assert.match(failedDetails, /p-chip--negative/);
 assert.match(failedDetails, /p-chip__value">fail<\/span>/);
+assert.match(failedDetails, /p-code-snippet is-wrapped/);
 assert.match(failedDetails, /p-code-snippet__block--icon/);
 assert.match(failedDetails, /p-code-snippet__block/);
+assert.doesNotMatch(failedDetails, /<code>\$ dig/);
 
 const waiting = channelSwitch.channelSwitchTimelineHtml({ status: "in_progress", path: "roundtrip" });
 assert.match(waiting, /Waiting for runner result/);
