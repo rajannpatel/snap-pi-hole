@@ -458,6 +458,105 @@ def collect_snap_workflow_jobs(client, branch="main"):
 
 CHANNEL_SWITCH_WORKFLOW = "channel-switch.yml"
 CHANNEL_SWITCH_NAME = "Channel Switch Smoke"
+CHANNEL_SWITCH_STATUSES = {
+    "success",
+    "failure",
+    "skipped",
+    "queued",
+    "in_progress",
+    "requested",
+    "waiting",
+    "pending",
+    "running",
+    "timed_out",
+    "action_required",
+    "startup_failure",
+    "cancelled",
+    "no_data",
+    "unknown",
+}
+CHANNEL_SWITCH_PATHS = {"roundtrip", "stable-to-edge", "edge-to-stable"}
+CHANNEL_SWITCH_ARCHES = {"arm64"}
+
+
+def require_channel_switch_string(data, key, allow_empty=False):
+    value = data.get(key)
+    if not isinstance(value, str):
+        raise ValueError(f"channel switch artifact field {key!r} must be a string")
+    if not allow_empty and not value.strip():
+        raise ValueError(f"channel switch artifact field {key!r} must not be empty")
+    return value
+
+
+def validate_channel_switch_artifact(artifact):
+    if not isinstance(artifact, dict):
+        raise ValueError("channel switch artifact must be a JSON object")
+
+    schema_version = artifact.get("schema_version")
+    if schema_version != 1:
+        raise ValueError("channel switch artifact schema_version must be 1")
+
+    status = require_channel_switch_string(artifact, "status")
+    if status not in CHANNEL_SWITCH_STATUSES:
+        raise ValueError(f"unsupported channel switch status: {status}")
+
+    conclusion = require_channel_switch_string(artifact, "conclusion", allow_empty=True)
+    if conclusion and conclusion not in CHANNEL_SWITCH_STATUSES:
+        raise ValueError(f"unsupported channel switch conclusion: {conclusion}")
+
+    path = require_channel_switch_string(artifact, "path")
+    if path not in CHANNEL_SWITCH_PATHS:
+        raise ValueError(f"unsupported channel switch path: {path}")
+
+    arch = require_channel_switch_string(artifact, "arch")
+    if arch not in CHANNEL_SWITCH_ARCHES:
+        raise ValueError(f"unsupported channel switch architecture: {arch}")
+
+    require_channel_switch_string(artifact, "snap_name")
+    require_channel_switch_string(artifact, "started_at")
+    require_channel_switch_string(artifact, "completed_at")
+    require_channel_switch_string(artifact, "reason", allow_empty=True)
+
+    duration = artifact.get("duration_seconds")
+    if not isinstance(duration, (int, float)) or isinstance(duration, bool) or duration < 0:
+        raise ValueError("channel switch duration_seconds must be a non-negative number")
+
+    channels = artifact.get("channels")
+    if not isinstance(channels, dict):
+        raise ValueError("channel switch channels must be an object")
+    for name in ("stable", "edge"):
+        channel = channels.get(name)
+        if not isinstance(channel, dict):
+            raise ValueError(f"channel switch channels.{name} must be an object")
+        for key in ("channel", "revision", "version", "tracking"):
+            if key not in channel or not isinstance(channel.get(key), str):
+                raise ValueError(f"channel switch channels.{name}.{key} must be a string")
+
+    transitions = artifact.get("transitions")
+    if not isinstance(transitions, list):
+        raise ValueError("channel switch transitions must be a list")
+    for index, transition in enumerate(transitions):
+        if not isinstance(transition, dict):
+            raise ValueError(f"channel switch transition {index} must be an object")
+        for key in ("from", "to", "from_revision", "to_revision", "status"):
+            if key in transition and not isinstance(transition.get(key), str):
+                raise ValueError(f"channel switch transition {index}.{key} must be a string")
+        if transition.get("status") and transition["status"] not in CHANNEL_SWITCH_STATUSES:
+            raise ValueError(f"unsupported channel switch transition status: {transition['status']}")
+
+    for key in ("errors", "warnings"):
+        value = artifact.get(key)
+        if not isinstance(value, list):
+            raise ValueError(f"channel switch {key} must be a list")
+
+    workflow = artifact.get("workflow")
+    if not isinstance(workflow, dict):
+        raise ValueError("channel switch workflow must be an object")
+    for key in ("run_id", "run_number", "url"):
+        if key not in workflow or not isinstance(workflow.get(key), str):
+            raise ValueError(f"channel switch workflow.{key} must be a string")
+
+    return artifact
 
 
 def collect_workflow_artifacts(client, run_id):
@@ -489,7 +588,7 @@ def collect_workflow_artifacts(client, run_id):
                         if filename.endswith(".json"):
                             try:
                                 item = json.loads(z.read(filename).decode("utf-8"))
-                                results.append(item)
+                                results.append(validate_channel_switch_artifact(item))
                             except Exception:
                                 pass
             except Exception:

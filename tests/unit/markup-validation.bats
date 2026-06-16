@@ -211,9 +211,13 @@ import pathlib
 import sys
 
 html_path = pathlib.Path("${REPO_ROOT}/snap/local/assets/dashboard.html")
+module_path = pathlib.Path("${REPO_ROOT}/snap/local/assets/dashboard-channel-switch.js")
 assert html_path.exists()
+assert module_path.exists()
 
 text = html_path.read_text(encoding="utf-8")
+module_text = module_path.read_text(encoding="utf-8")
+combined_text = text + "\n" + module_text
 
 # 1. Assert Release Health heading and Section ID exist
 assert 'id="channel-switch-section"' in text, "Missing channel-switch-section"
@@ -244,9 +248,10 @@ assert 'id="channel-switch-matrix-body"' in text, "Missing channel-switch-matrix
 assert 'id="channel-switch-timeline"' in text, "Missing channel-switch-timeline"
 assert 'class="p-list-timeline"' in text, "Missing timeline list"
 assert 'class="p-list-timeline__item"' in text, "Missing timeline item"
-assert 'channel-switch-revision-chip' in text, "Missing channel revision chip markup"
-assert 'channel-switch-revision-badge' in text, "Missing channel revision badge markup"
-assert 'p-icon--chevron-right' in text, "Missing channel transition chevron icon"
+assert 'dashboard-channel-switch.js' in text, "Dashboard should load channel switch JS module"
+assert 'channel-switch-revision-chip' in combined_text, "Missing channel revision chip markup"
+assert 'channel-switch-revision-badge' in combined_text, "Missing channel revision badge markup"
+assert 'p-icon--chevron-right' in combined_text, "Missing channel transition chevron icon"
 assert 'channel-switch-details-row' in text, "Missing details row markup"
 assert 'channel-switch-explanation--contained' in text, "Missing contained details explanation markup"
 assert 'GitHub runner' in text, "Missing GitHub runner chip label"

@@ -1,0 +1,127 @@
+(function (root, factory) {
+  const moduleApi = factory();
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = moduleApi;
+  }
+  root.DashboardChannelSwitch = moduleApi;
+}(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  const BUILDING_STATES = new Set(["queued", "in_progress", "requested", "waiting", "pending", "running", "building"]);
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "\"": "&quot;",
+      "'": "&#39;",
+    }[ch]));
+  }
+
+  function isBuildingStatus(status) {
+    return BUILDING_STATES.has(String(status || "").toLowerCase());
+  }
+
+  function channelSwitchDetailsText(row) {
+    if (!row) return "No details available";
+    if (row.reason) return row.reason;
+    if (row.status === "success") return "Health checks passed";
+    if (row.status === "skipped") return "No channel delta to test";
+    if (row.status === "in_progress" || row.status === "queued") return "Workflow running";
+    return row.summary || "No details available";
+  }
+
+  function channelSwitchPathSteps(cs) {
+    const state = cs || {};
+    const path = state.path || "roundtrip";
+    const stableRevision = state.stable_revision || state.channels?.stable?.revision || "";
+    const edgeRevision = state.edge_revision || state.channels?.edge?.revision || "";
+    if (!stableRevision || !edgeRevision) {
+      const waiting = isBuildingStatus(state.status) || state.status === "no_data";
+      return [
+        {
+          title: waiting ? "Waiting for runner result" : "Runner result missing revisions",
+          meta: [],
+          description: waiting
+            ? "Channel revisions will appear after the GitHub runner uploads the channel-switch result artifact."
+            : "The GitHub runner result did not include stable and edge revision evidence for the refresh path.",
+        },
+      ];
+    }
+
+    const stablePoint = { channel: "stable", revision: stableRevision };
+    const edgePoint = { channel: "edge", revision: edgeRevision };
+    if (state.status === "skipped") {
+      return [
+        {
+          title: "No channel transition required",
+          meta: [stablePoint, edgePoint],
+          description: state.reason || "The workflow skipped because there is no channel delta to test.",
+        },
+      ];
+    }
+    if (path === "stable-to-edge") {
+      return [
+        {
+          title: "Stable to edge",
+          meta: [stablePoint, edgePoint],
+          description: state.status === "failure" ? (state.reason || "Transition failed") : "Refresh completed and health checks passed.",
+        },
+      ];
+    }
+    if (path === "edge-to-stable") {
+      return [
+        {
+          title: "Edge to stable",
+          meta: [edgePoint, stablePoint],
+          description: state.status === "failure" ? (state.reason || "Transition failed") : "Refresh completed and health checks passed.",
+        },
+      ];
+    }
+    return [
+      {
+        title: "Stable to edge",
+        meta: [stablePoint, edgePoint],
+        description: state.status === "failure" ? (state.reason || "Transition failed before round trip completed") : "Edge refresh completed and health checks passed.",
+      },
+      {
+        title: "Edge to stable",
+        meta: [edgePoint, stablePoint],
+        description: state.status === "failure" ? (state.summary || "Stable rollback did not complete cleanly") : "Stable rollback completed and health checks passed.",
+      },
+    ];
+  }
+
+  function channelRevisionChipHtml(point) {
+    const channel = point?.channel || "channel";
+    const revision = point?.revision || "?";
+    return `<span class="p-chip channel-switch-revision-chip"><span class="p-chip__value">${escapeHtml(channel)}</span><span class="channel-switch-revision-badge">r${escapeHtml(revision)}</span></span>`;
+  }
+
+  function channelSwitchMetaHtml(points) {
+    const list = Array.isArray(points) ? points : [];
+    if (!list.length) return "";
+    return list.map(channelRevisionChipHtml).join('<i class="p-icon--chevron-right channel-switch-chevron" aria-hidden="true"></i>');
+  }
+
+  function channelSwitchTimelineHtml(cs) {
+    return channelSwitchPathSteps(cs).map((step) => `
+        <li class="p-list-timeline__item">
+          <div class="p-list-timeline__node"></div>
+          <div class="p-list-timeline__content">
+            <h4 class="p-list-timeline__title">${escapeHtml(step.title)}</h4>
+            <div class="p-list-timeline__meta channel-switch-path">${channelSwitchMetaHtml(step.meta)}</div>
+            <p class="p-list-timeline__description">${escapeHtml(step.description)}</p>
+          </div>
+        </li>
+      `).join("");
+  }
+
+  return {
+    channelRevisionChipHtml,
+    channelSwitchDetailsText,
+    channelSwitchMetaHtml,
+    channelSwitchPathSteps,
+    channelSwitchTimelineHtml,
+    escapeHtml,
+  };
+}));

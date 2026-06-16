@@ -557,6 +557,7 @@ import sys
 import io
 import zipfile
 import json
+import pathlib
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
 import generate_dashboard_data as dashboard
 
@@ -588,21 +589,9 @@ res = dashboard.collect_channel_switch_status(client)
 assert res["status"] == "no_data", res
 
 # Test 2: success from artifact
-artifact_data = {
-    "schema_version": 1,
-    "status": "success",
-    "conclusion": "success",
-    "reason": "",
-    "path": "roundtrip",
-    "arch": "arm64",
-    "channels": {
-        "stable": {"revision": "123", "version": "v6.4.2"},
-        "edge": {"revision": "124", "version": "v6.4.2+git.abc"}
-    },
-    "transitions": [
-        {"from": "latest/stable", "to": "latest/edge", "from_revision": "123", "to_revision": "124", "status": "success", "checks": {}}
-    ]
-}
+fixture_path = pathlib.Path("${REPO_ROOT}/tests/fixtures/channel-switch-result-roundtrip.json")
+artifact_data = json.loads(fixture_path.read_text(encoding="utf-8"))
+assert dashboard.validate_channel_switch_artifact(artifact_data)["status"] == "success"
 
 zip_buffer = io.BytesIO()
 with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
@@ -623,10 +612,10 @@ with patch("urllib.request.urlopen", return_value=mock_response):
     )
     res = dashboard.collect_channel_switch_status(client)
     assert res["status"] == "success", res
-    assert res["summary"] == "stable r123 -> edge r124 -> stable r123", res["summary"]
-    assert res["rows"][0]["updated_at"] == "2026-06-15T12:00:00Z", res["rows"][0]
-    assert res["stable_revision"] == "123", res
-    assert res["edge_revision"] == "124", res
+    assert res["summary"] == "stable r840 -> edge r838 -> stable r840", res["summary"]
+    assert res["rows"][0]["updated_at"] == "2026-06-16T02:25:17Z", res["rows"][0]
+    assert res["stable_revision"] == "840", res
+    assert res["edge_revision"] == "838", res
 
 # Test 3: arm64 failure is reported
 artifact_data_arm64 = artifact_data.copy()
@@ -659,7 +648,7 @@ artifact_data_skipped = copy.deepcopy(artifact_data)
 artifact_data_skipped["status"] = "skipped"
 artifact_data_skipped["conclusion"] = "skipped"
 artifact_data_skipped["reason"] = "stable-and-edge-same-revision"
-artifact_data_skipped["channels"]["edge"]["revision"] = "123"
+artifact_data_skipped["channels"]["edge"]["revision"] = "840"
 
 zip_buffer_skipped = io.BytesIO()
 with zipfile.ZipFile(zip_buffer_skipped, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
@@ -677,7 +666,7 @@ with patch("urllib.request.urlopen", return_value=mock_response_skipped):
     )
     res = dashboard.collect_channel_switch_status(client)
     assert res["status"] == "skipped", res
-    assert "both serve r123" in res["summary"], res["summary"]
+    assert "both serve r840" in res["summary"], res["summary"]
 
 # Test 5: running run beats older completed run
 client = FakeClient(
@@ -731,11 +720,39 @@ with patch("urllib.request.urlopen", return_value=mock_response_corrupt):
     assert res["status"] == "success", res
     assert res["rows"][0]["reason"] == "", res["rows"][0]
 
-# Test 8: duration label is humanized
+# Test 8: semantically invalid artifact is ignored
+invalid_artifact = copy.deepcopy(artifact_data)
+invalid_artifact["path"] = "bad-path"
+try:
+    dashboard.validate_channel_switch_artifact(invalid_artifact)
+    raise AssertionError("invalid path should fail schema validation")
+except ValueError as exc:
+    assert "path" in str(exc), str(exc)
+
+zip_buffer_invalid = io.BytesIO()
+with zipfile.ZipFile(zip_buffer_invalid, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+    zip_file.writestr("result.json", json.dumps(invalid_artifact))
+
+mock_response_invalid = MagicMock()
+mock_response_invalid.__enter__.return_value = mock_response_invalid
+mock_response_invalid.read.return_value = zip_buffer_invalid.getvalue()
+
+with patch("urllib.request.urlopen", return_value=mock_response_invalid):
+    client = FakeClient(
+        runs={"workflow_runs": [{"id": 19, "run_number": 53, "updated_at": "2026-06-15T12:00:00Z"}]},
+        jobs={19: {"jobs": [{"name": "Channel Switch Smoke (arm64)", "status": "completed", "conclusion": "success"}]}},
+        artifacts={19: {"artifacts": [{"name": "channel-switch-result-arm64", "archive_download_url": "http://download/invalid"}]}}
+    )
+    res = dashboard.collect_channel_switch_status(client)
+    assert res["status"] == "success", res
+    assert res["stable_revision"] == "", res
+    assert res["edge_revision"] == "", res
+
+# Test 9: duration label is humanized
 assert dashboard.human_duration(90) == "1m 30s"
 assert dashboard.human_duration(3600) == "1h 0m"
 
-# Test 9: missing channel fields are derived from runner artifact transitions
+# Test 10: missing channel fields are derived from runner artifact transitions
 artifact_without_channels = {
     "transitions": [
         {"from": "latest/stable", "to": "latest/edge", "from_revision": "840", "to_revision": "838"}

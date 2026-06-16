@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "status": "success",
+  "conclusion": "success",
+  "reason": "",
+  "snap_name": "pihole-by-rajannpatel",
+  "path": "roundtrip",
+  "arch": "arm64",
+  "started_at": "2026-06-16T02:23:43Z",
+  "completed_at": "2026-06-16T02:25:17Z",
+  "duration_seconds": 94,
+  "channels": {
+    "stable": {
+      "channel": "latest/stable",
+      "revision": "840",
+      "version": "v6.4.2",
+      "tracking": "latest/stable"
+    },
+    "edge": {
+      "channel": "latest/edge",
+      "revision": "838",
+      "version": "v6.4.2+git.841976c",
+      "tracking": "latest/edge"
+    }
+  },
+  "transitions": [
+    {
+      "from": "latest/stable",
+      "to": "latest/edge",
+      "from_revision": "840",
+      "to_revision": "838",
+      "status": "success",
+      "checks": {
+        "dns": "success"
+      }
+    },
+    {
+      "from": "latest/edge",
+      "to": "latest/stable",
+      "from_revision": "838",
+      "to_revision": "840",
+      "status": "success",
+      "checks": {
+        "dns": "success"
+      }
+    }
+  ],
+  "errors": [],
+  "warnings": [],
+  "workflow": {
+    "run_id": "27592659388",
+    "run_number": "7",
+    "url": "https://github.com/rajannpatel/snap-pi-hole/actions/runs/27592659388"
+  }
+}

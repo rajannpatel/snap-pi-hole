@@ -749,6 +749,7 @@ jobs:
           python3 snap/local/build/render_report_template.py snap/local/assets/dashboard.html docs/index.html
           python3 snap/local/build/render_report_template.py snap/local/assets/sbom-explorer.html docs/sbom/index.html
           cp snap/local/assets/dashboard.css docs/dashboard.css
+          cp snap/local/assets/dashboard-channel-switch.js docs/dashboard-channel-switch.js
           cp snap/local/assets/sbom-explorer.css docs/sbom/sbom-explorer.css
 
           # Copy native Pi-hole logo for header display

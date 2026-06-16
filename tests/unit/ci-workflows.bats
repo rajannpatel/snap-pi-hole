@@ -350,6 +350,7 @@ run = organize["run"]
 select_idx = run.index("python3 snap/local/build/select_snapcraft_upstream.py stable")
 generate_idx = run.index("python3 snap/local/build/generate_dashboard_data.py")
 assert select_idx < generate_idx, run
+assert "cp snap/local/assets/dashboard-channel-switch.js docs/dashboard-channel-switch.js" in run, run
 assert organize.get("env", {}).get("GITHUB_TOKEN") is not None, organize
 PYEOF
 }

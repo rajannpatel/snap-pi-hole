@@ -15,6 +15,7 @@
     }
   </script>
   <link rel="stylesheet" href="dashboard.css">
+  <script src="dashboard-channel-switch.js"></script>
 </head>
 
 <body>
@@ -1998,7 +1999,7 @@
             const testedOn = githubRunnerChipHtml();
             const path = escapeHtml(row.path || "roundtrip");
             const updated = escapeHtml(formatDate(row.updated_at || cs.updated_at));
-            const details = escapeHtml(channelSwitchDetailsText(row));
+            const details = escapeHtml(DashboardChannelSwitch.channelSwitchDetailsText(row));
 
             const wfButton = workflowButtonHtml(row.url || "", row.duration_seconds, "Workflow run", isBuilding);
 
@@ -2032,100 +2033,10 @@
       return `<span class="status-chip status-neutral status-chip--github-builder">${githubLogoSvg}GitHub runner</span>`;
     }
 
-    function channelSwitchDetailsText(row) {
-      if (!row) return "No details available";
-      if (row.reason) return row.reason;
-      if (row.status === "success") return "Health checks passed";
-      if (row.status === "skipped") return "No channel delta to test";
-      if (row.status === "in_progress" || row.status === "queued") return "Workflow running";
-      return row.summary || "No details available";
-    }
-
-    function channelSwitchPathSteps(cs) {
-      const path = cs.path || "roundtrip";
-      const stableRevision = cs.stable_revision || cs.channels?.stable?.revision || "";
-      const edgeRevision = cs.edge_revision || cs.channels?.edge?.revision || "";
-      if (!stableRevision || !edgeRevision) {
-        const waiting = isBuildingStatus(cs.status) || cs.status === "no_data";
-        return [
-          {
-            title: waiting ? "Waiting for runner result" : "Runner result missing revisions",
-            meta: [],
-            description: waiting
-              ? "Channel revisions will appear after the GitHub runner uploads the channel-switch result artifact."
-              : "The GitHub runner result did not include stable and edge revision evidence for the refresh path.",
-          },
-        ];
-      }
-      const stablePoint = { channel: "stable", revision: stableRevision };
-      const edgePoint = { channel: "edge", revision: edgeRevision };
-      if (cs.status === "skipped") {
-        return [
-          {
-            title: "No channel transition required",
-            meta: [stablePoint, edgePoint],
-            description: cs.reason || "The workflow skipped because there is no channel delta to test.",
-          },
-        ];
-      }
-      if (path === "stable-to-edge") {
-        return [
-          {
-            title: "Stable to edge",
-            meta: [stablePoint, edgePoint],
-            description: cs.status === "failure" ? (cs.reason || "Transition failed") : "Refresh completed and health checks passed.",
-          },
-        ];
-      }
-      if (path === "edge-to-stable") {
-        return [
-          {
-            title: "Edge to stable",
-            meta: [edgePoint, stablePoint],
-            description: cs.status === "failure" ? (cs.reason || "Transition failed") : "Refresh completed and health checks passed.",
-          },
-        ];
-      }
-      return [
-        {
-          title: "Stable to edge",
-          meta: [stablePoint, edgePoint],
-          description: cs.status === "failure" ? (cs.reason || "Transition failed before round trip completed") : "Edge refresh completed and health checks passed.",
-        },
-        {
-          title: "Edge to stable",
-          meta: [edgePoint, stablePoint],
-          description: cs.status === "failure" ? (cs.summary || "Stable rollback did not complete cleanly") : "Stable rollback completed and health checks passed.",
-        },
-      ];
-    }
-
-    function channelRevisionChipHtml(point) {
-      const channel = point?.channel || "channel";
-      const revision = point?.revision || "?";
-      return `<span class="p-chip channel-switch-revision-chip"><span class="p-chip__value">${escapeHtml(channel)}</span><span class="channel-switch-revision-badge">r${escapeHtml(revision)}</span></span>`;
-    }
-
-    function channelSwitchMetaHtml(points) {
-      const list = Array.isArray(points) ? points : [];
-      if (!list.length) return "";
-      return list.map(channelRevisionChipHtml).join('<i class="p-icon--chevron-right channel-switch-chevron" aria-hidden="true"></i>');
-    }
-
     function renderChannelSwitchTimeline(cs) {
       const timeline = document.getElementById("channel-switch-timeline");
       if (!timeline) return;
-      const steps = channelSwitchPathSteps(cs);
-      timeline.innerHTML = steps.map((step) => `
-        <li class="p-list-timeline__item">
-          <div class="p-list-timeline__node"></div>
-          <div class="p-list-timeline__content">
-            <h4 class="p-list-timeline__title">${escapeHtml(step.title)}</h4>
-            <div class="p-list-timeline__meta channel-switch-path">${channelSwitchMetaHtml(step.meta)}</div>
-            <p class="p-list-timeline__description">${escapeHtml(step.description)}</p>
-          </div>
-        </li>
-      `).join("");
+      timeline.innerHTML = DashboardChannelSwitch.channelSwitchTimelineHtml(cs);
       setText("channel-switch-summary", cs.summary || "No data available");
     }
 

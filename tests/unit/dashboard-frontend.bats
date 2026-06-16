@@ -45,6 +45,52 @@ JS
     done
 }
 
+@test "frontend: channel switch module renders fixture timeline and escapes values" {
+    run_node - "${REPO_ROOT}" <<'JS'
+const fs = require("fs");
+const path = require("path");
+const assert = require("assert");
+
+const repo = process.argv[2];
+const channelSwitch = require(path.join(repo, "snap/local/assets/dashboard-channel-switch.js"));
+const artifact = JSON.parse(fs.readFileSync(path.join(repo, "tests/fixtures/channel-switch-result-roundtrip.json"), "utf8"));
+const html = channelSwitch.channelSwitchTimelineHtml({
+  status: artifact.status,
+  path: artifact.path,
+  stable_revision: artifact.channels.stable.revision,
+  edge_revision: artifact.channels.edge.revision,
+  summary: "stable r840 -> edge r838 -> stable r840",
+});
+
+assert.match(html, /Stable to edge/);
+assert.match(html, /Edge to stable/);
+assert.match(html, /channel-switch-revision-chip/);
+assert.match(html, /channel-switch-revision-badge">r840<\/span>/);
+assert.match(html, /channel-switch-revision-badge">r838<\/span>/);
+assert.match(html, /p-icon--chevron-right channel-switch-chevron/);
+assert.ok(html.indexOf("r840") < html.indexOf("r838"), "stable revision should render before edge revision");
+assert.doesNotMatch(html, /Waiting for runner result/);
+assert.doesNotMatch(html, /Runner result missing revisions/);
+
+const waiting = channelSwitch.channelSwitchTimelineHtml({ status: "in_progress", path: "roundtrip" });
+assert.match(waiting, /Waiting for runner result/);
+assert.match(waiting, /uploads the channel-switch result artifact/);
+assert.doesNotMatch(waiting, /channel-switch-revision-chip/);
+
+const missing = channelSwitch.channelSwitchTimelineHtml({ status: "success", path: "roundtrip" });
+assert.match(missing, /Runner result missing revisions/);
+
+const escaped = channelSwitch.channelRevisionChipHtml({
+  channel: "stable<script>",
+  revision: "123\"><img src=x onerror=alert(1)>",
+});
+assert.match(escaped, /stable&lt;script&gt;/);
+assert.match(escaped, /123&quot;&gt;&lt;img src=x onerror=alert\(1\)&gt;/);
+assert.doesNotMatch(escaped, /<script>/);
+assert.doesNotMatch(escaped, /onerror=alert\(1\)>/);
+JS
+}
+
 @test "frontend: formatDate returns 'Unknown' for empty and echoes unparseable input" {
     for html in "${HTML_FILES[@]}"; do
         run_node - "$HELPER" "$html" <<'JS'
@@ -820,6 +866,8 @@ JS
         run_node - "$html" <<'JS'
 const fs = require("fs");
 const source = fs.readFileSync(process.argv[2], "utf8");
+const moduleSource = fs.readFileSync(process.argv[2].replace("dashboard.html", "dashboard-channel-switch.js"), "utf8");
+const combinedSource = `${source}\n${moduleSource}`;
 const assert = require("assert");
 
 // 1. Assert channel-switch elements exist in the html source
@@ -833,6 +881,7 @@ assert.match(source, /Test details/);
 assert.doesNotMatch(source, /Architecture details/);
 assert.doesNotMatch(source, /channel-switch-summary-grid/);
 assert.doesNotMatch(source, /channel-switch-status-chip/);
+assert.match(source, /dashboard-channel-switch\.js/);
 
 // 2. Assert renderChannelSwitch function exists in the Javascript
 assert.match(source, /function renderChannelSwitch\(cs\)/);
@@ -844,17 +893,19 @@ assert.match(source, /channelSwitchJobs:\s*null/);
 assert.doesNotMatch(source, /latestCicdJobs/);
 assert.doesNotMatch(source, /latestCicdRun/);
 assert.match(source, /function renderChannelSwitchTimeline\(cs\)/);
-assert.match(source, /function channelSwitchPathSteps\(cs\)/);
-assert.match(source, /Waiting for runner result/);
-assert.match(source, /Runner result missing revisions/);
-assert.match(source, /uploads the channel-switch result artifact/);
-assert.match(source, /did not include stable and edge revision evidence/);
-assert.doesNotMatch(source, /channelSwitchStoreRevision/);
-assert.match(source, /function channelRevisionChipHtml\(point\)/);
-assert.match(source, /function channelSwitchMetaHtml\(points\)/);
-assert.match(source, /channel-switch-revision-chip/);
-assert.match(source, /channel-switch-revision-badge/);
-assert.match(source, /p-icon--chevron-right/);
+assert.match(source, /DashboardChannelSwitch\.channelSwitchTimelineHtml\(cs\)/);
+assert.match(source, /DashboardChannelSwitch\.channelSwitchDetailsText\(row\)/);
+assert.match(moduleSource, /function channelSwitchPathSteps\(cs\)/);
+assert.match(moduleSource, /Waiting for runner result/);
+assert.match(moduleSource, /Runner result missing revisions/);
+assert.match(moduleSource, /uploads the channel-switch result artifact/);
+assert.match(moduleSource, /did not include stable and edge revision evidence/);
+assert.doesNotMatch(combinedSource, /channelSwitchStoreRevision/);
+assert.match(moduleSource, /function channelRevisionChipHtml\(point\)/);
+assert.match(moduleSource, /function channelSwitchMetaHtml\(points\)/);
+assert.match(moduleSource, /channel-switch-revision-chip/);
+assert.match(moduleSource, /channel-switch-revision-badge/);
+assert.match(moduleSource, /p-icon--chevron-right/);
 assert.match(source, /channel-switch-details-row/);
 assert.match(source, /channel-switch-explanation--contained/);
 assert.match(source, /function githubRunnerChipHtml\(\)/);
