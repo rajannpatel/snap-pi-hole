@@ -8,10 +8,11 @@
 setup() {
     REPO_ROOT="$(git rev-parse --show-toplevel)"
     HELPER="${REPO_ROOT}/tests/helpers/extract-js-funcs.js"
-    # Both shipped copies must stay in sync; tests run against each.
+    # The dashboard source template is rendered to docs/index.html during the
+    # Pages deployment. Keep tests on the source template to avoid maintaining
+    # generated HTML in the repository.
     HTML_FILES=(
         "${REPO_ROOT}/snap/local/assets/dashboard.html"
-        "${REPO_ROOT}/docs/index.html"
     )
 }
 

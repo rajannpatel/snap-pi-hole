@@ -65,7 +65,7 @@ import pathlib
 import re
 
 repo = pathlib.Path("${REPO_ROOT}")
-for rel in ("docs/dashboard.css", "snap/local/assets/dashboard.css"):
+for rel in ("snap/local/assets/dashboard.css",):
     text = (repo / rel).read_text(encoding="utf-8")
     match = re.search(r"\\.status-caution\\s*\\{([^}]+)\\}", text, re.S)
     assert match, f"{rel} does not define .status-caution"
@@ -82,7 +82,6 @@ import re
 
 repo = pathlib.Path("${REPO_ROOT}")
 checks = {
-    "docs/index.html": "dashboard.css",
     "snap/local/assets/dashboard.html": "dashboard.css",
     "snap/local/assets/sbom-explorer.html": "sbom-explorer.css",
 }
@@ -112,7 +111,7 @@ PYEOF
 import pathlib
 
 repo = pathlib.Path("${REPO_ROOT}")
-for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
+for rel in ("snap/local/assets/dashboard.html",):
     text = (repo / rel).read_text(encoding="utf-8")
     assert "status-chip--github-builder" in text, f"{rel} missing GitHub builder chip class"
     assert "status-chip--launchpad-builder" in text, f"{rel} missing Launchpad builder chip class"
@@ -130,7 +129,7 @@ PYEOF
     python3 - <<PYEOF
 import pathlib
 repo = pathlib.Path("${REPO_ROOT}")
-for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
+for rel in ("snap/local/assets/dashboard.html",):
     text = (repo / rel).read_text(encoding="utf-8")
     assert "<th>Test duration</th>" in text, f"{rel} missing test duration column"
     assert "<th>Sync duration</th>" in text, f"{rel} missing sync duration column"
@@ -155,7 +154,7 @@ PYEOF
     python3 - <<PYEOF
 import pathlib
 repo = pathlib.Path("${REPO_ROOT}")
-for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
+for rel in ("snap/local/assets/dashboard.html",):
     text = (repo / rel).read_text(encoding="utf-8")
     assert "<h2>Vulnerability summary</h2>" in text, f"{rel} missing vulnerability summary heading"
     assert "<th>Action needed</th>" in text, f"{rel} missing action-needed column"
@@ -173,7 +172,7 @@ PYEOF
     python3 - <<PYEOF
 import pathlib
 repo = pathlib.Path("${REPO_ROOT}")
-for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
+for rel in ("snap/local/assets/dashboard.html",):
     text = (repo / rel).read_text(encoding="utf-8")
     assert 'id="channel-scope-summary"' in text, f"{rel} missing channel scope summary"
     assert 'id="current-activity"' in text, f"{rel} missing current activity strip"
@@ -186,7 +185,7 @@ PYEOF
     python3 - <<PYEOF
 import pathlib
 repo = pathlib.Path("${REPO_ROOT}")
-for rel in ("docs/index.html", "snap/local/assets/dashboard.html"):
+for rel in ("snap/local/assets/dashboard.html",):
     text = (repo / rel).read_text(encoding="utf-8")
     assert 'class="report-action-grid"' in text, f"{rel} missing report action grid"
     assert 'id="report-vuln-summary"' in text, f"{rel} missing vulnerability report summary target"

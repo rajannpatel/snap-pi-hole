@@ -439,6 +439,33 @@ if missing:
 PYEOF
 }
 
+@test "generated GitHub Pages artifacts are not tracked source files" {
+    python3 - <<PYEOF
+import pathlib
+import subprocess
+
+root = pathlib.Path("${REPO_ROOT}")
+generated = {
+    "docs/index.html",
+    "docs/dashboard-data.json",
+    "docs/dashboard.css",
+    "docs/pihole.png",
+    "docs/snapcraft-dashboard-data.json",
+}
+
+tracked = set(subprocess.check_output(
+    ["git", "-C", str(root), "ls-files"],
+    text=True,
+).splitlines())
+unexpected = sorted(path for path in generated if path in tracked and (root / path).exists())
+assert not unexpected, f"generated Pages artifacts are tracked: {unexpected}"
+
+ignore_text = (root / ".gitignore").read_text(encoding="utf-8")
+missing = sorted(path for path in generated if f"/{path}" not in ignore_text)
+assert not missing, f"generated Pages artifacts are not ignored: {missing}"
+PYEOF
+}
+
 # 8. Shell script integrity
 
 @test "shell scripts exist on disk" {
