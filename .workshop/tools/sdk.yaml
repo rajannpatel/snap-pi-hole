@@ -1,0 +1,18 @@
+---
+name: tools
+summary: snap-pi-hole development tools
+description: |
+  Project-local SDK that installs the snap-pi-hole build and test toolchain
+  and exposes service tunnels for local Pi-hole verification.
+version: "0.1"
+
+slots:
+  admin-web:
+    interface: tunnel
+    endpoint: localhost:80/tcp
+  dns-tcp:
+    interface: tunnel
+    endpoint: localhost:53/tcp
+  dns-udp:
+    interface: tunnel
+    endpoint: localhost:53/udp

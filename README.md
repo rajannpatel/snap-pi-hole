@@ -48,5 +48,6 @@ This documentation follows the [Diátaxis](https://diataxis.fr/) framework, whic
 The Pi-hole snap is an open-source project. Community contributions, suggestions, bug reports, and feedback are welcome.
 
 * [CI/CD Reports](https://rajannpatel.github.io/snap-pi-hole/) – Live operational status for build, security, dependencies, compatibility, and release health
+* [Contributing guide](./CONTRIBUTING.md) – Workshop-based setup and development actions for contributors
 * [Submit a bug report](https://github.com/rajannpatel/snap-pi-hole/issues)
 * [Contribute to the wiki](https://github.com/rajannpatel/snap-pi-hole/wiki/How-to:-contribute-to-the-wiki)

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd /project
+
+if [ -d .git ] && [ -f .pre-commit-config.yaml ]; then
+  pre-commit install
+fi

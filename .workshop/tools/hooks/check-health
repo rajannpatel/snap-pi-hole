@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+missing=()
+for tool in bats dig kcov node pre-commit shellcheck snap snapcraft yamllint yq; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    missing+=("$tool")
+  fi
+done
+
+if [ "${#missing[@]}" -gt 0 ]; then
+  workshopctl set-health error "missing required tools: ${missing[*]}"
+  exit 1
+fi
+
+workshopctl set-health okay

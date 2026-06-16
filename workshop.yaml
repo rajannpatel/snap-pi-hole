@@ -1,0 +1,138 @@
+---
+name: snap-pi-hole
+base: ubuntu@26.04
+
+sdks:
+  - name: uv
+    channel: latest/stable
+  - name: project-tools
+  - name: system
+    plugs:
+      admin-web:
+        interface: tunnel
+        endpoint: localhost:8080/tcp
+      dns-tcp:
+        interface: tunnel
+        endpoint: localhost:5300/tcp
+      dns-udp:
+        interface: tunnel
+        endpoint: localhost:5300/udp
+
+connections:
+  - plug: system:admin-web
+    slot: tools:admin-web
+  - plug: system:dns-tcp
+    slot: tools:dns-tcp
+  - plug: system:dns-udp
+    slot: tools:dns-udp
+
+actions:
+  doctor: |
+    echo "==> Toolchain"
+    command -v snapcraft
+    command -v bats
+    command -v shellcheck
+    command -v yamllint
+    command -v pre-commit
+    command -v kcov
+    command -v node
+    command -v dig
+    echo "==> Snapcraft"
+    snapcraft version
+    echo "==> snapd"
+    snap version
+
+  context: |
+    echo "==> Repository"
+    git status --short
+    echo
+    echo "==> Snap metadata"
+    yq '.name, .base, .confinement, (.apps | keys)' snap/snapcraft.yaml
+    echo
+    echo "==> Useful actions"
+    printf '%s\n' \
+      doctor \
+      context \
+      lint \
+      shellcheck \
+      yamllint \
+      test \
+      coverage \
+      build \
+      clean \
+      install \
+      smoke \
+      logs \
+      debug \
+      uninstall
+
+  lint: |
+    pre-commit run --all-files
+
+  shellcheck: |
+    git ls-files \
+      | file --mime-type -Nnf- \
+      | awk -F: '$2 ~ /shellscript/ { print $1 }' \
+      | xargs --no-run-if-empty shellcheck --check-sourced --external-sources
+
+  yamllint: |
+    yamllint .
+
+  test: |
+    bats -r "${@:-tests/unit}"
+
+  coverage: |
+    tests/scripts/local-preview.sh kcov
+
+  build: |
+    snapcraft --destructive-mode --verbosity=brief "$@"
+
+  clean: |
+    snapcraft clean "$@"
+
+  install: |
+    snap_file="${1:-}"
+    if [ -z "$snap_file" ]; then
+      snap_file="$(ls -t ./*.snap 2>/dev/null | head -n 1 || true)"
+    fi
+    if [ -z "$snap_file" ]; then
+      echo "No .snap file found. Run: workshop run snap-pi-hole -- build"
+      exit 1
+    fi
+
+    sudo snap remove --purge pihole-by-rajannpatel || true
+    sudo snap install "$snap_file" --dangerous
+
+    for plug in \
+      firewall-control \
+      hardware-observe \
+      mount-observe \
+      network \
+      network-bind \
+      network-control \
+      network-observe \
+      process-control \
+      shared-memory \
+      system-observe \
+      time-control
+    do
+      sudo snap connect "pihole-by-rajannpatel:${plug}" || true
+    done
+
+    sudo snap alias pihole-by-rajannpatel.pihole pihole || true
+    sudo snap start --enable pihole-by-rajannpatel.pihole-ftl
+    sudo snap services pihole-by-rajannpatel
+
+  smoke: |
+    sudo snap services pihole-by-rajannpatel
+    pihole status || true
+    dig @127.0.0.1 -p 53 example.com +time=2 +tries=1
+
+  logs: |
+    sudo snap logs pihole-by-rajannpatel.pihole-ftl --last="${1:-100}"
+
+  debug: |
+    sudo pihole-by-rajannpatel.snap-debug || true
+
+  uninstall: |
+    sudo snap remove --purge pihole-by-rajannpatel

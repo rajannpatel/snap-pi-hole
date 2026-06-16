@@ -35,6 +35,7 @@ __pycache__/
 
 # Local scratchpads and AI configs
 .claude/
+.workshop.lock
 scratch/
 network-cache/
 
