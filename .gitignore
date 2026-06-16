@@ -39,10 +39,7 @@ scratch/
 network-cache/
 
 # Local preview reports
-local-coverage/
+local-*/
 coverage/
-local-sbom/
 local-sbom.json
-local-extracted-snap/
 .deckwork/
-local-vulnerabilities/*
