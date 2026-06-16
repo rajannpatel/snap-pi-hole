@@ -236,6 +236,13 @@ EOF
     [ "$output" = "latest/edge" ]
     run jq -r '.transitions[1].to' "$CHANNEL_SWITCH_RESULT"
     [ "$output" = "latest/stable" ]
+
+    run jq -r '.transitions[0].evidence[] | select(.command == "sudo snap refresh pihole-by-rajannpatel --channel=latest/edge") | .status' "$CHANNEL_SWITCH_RESULT"
+    [ "$output" = "success" ]
+    run jq -r '.transitions[0].evidence[] | select(.command == "snap list pihole-by-rajannpatel") | .title' "$CHANNEL_SWITCH_RESULT"
+    [ "$output" = "Installed snap revision after refresh" ]
+    run jq -r '.transitions[0].evidence[] | select(.command == "dig +short +time=1 +tries=1 @127.0.0.1 pi.hole") | .output' "$CHANNEL_SWITCH_RESULT"
+    [ "$output" = "pi.hole" ]
 }
 
 @test "stable-to-edge schedules one transition" {

@@ -642,6 +642,10 @@ with patch("urllib.request.urlopen", return_value=mock_response):
     assert res["rows"][0]["updated_at"] == "2026-06-16T02:25:17Z", res["rows"][0]
     assert res["stable_revision"] == "840", res
     assert res["edge_revision"] == "838", res
+    evidence = res["rows"][0]["evidence"]
+    assert any(item["command"] == "sudo snap refresh pihole-by-rajannpatel --channel=latest/edge" for item in evidence), evidence
+    assert any("snap list pihole-by-rajannpatel" in item["command"] for item in evidence), evidence
+    assert any("0.0.0.0" in item["output"] for item in evidence), evidence
 
 # Test 3: arm64 failure is reported
 artifact_data_arm64 = artifact_data.copy()

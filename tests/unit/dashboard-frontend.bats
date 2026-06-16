@@ -74,6 +74,17 @@ assert.ok(html.indexOf("r840") < html.indexOf("r838"), "stable revision should r
 assert.doesNotMatch(html, /Waiting for runner result/);
 assert.doesNotMatch(html, /Runner result missing revisions/);
 
+const details = channelSwitch.channelSwitchEvidenceHtml({
+  status: artifact.status,
+  evidence: artifact.transitions.flatMap((transition) => transition.evidence || []),
+});
+assert.match(details, /Health checks passed/);
+assert.match(details, /sudo snap refresh pihole-by-rajannpatel --channel=latest\/edge/);
+assert.match(details, /snap list pihole-by-rajannpatel/);
+assert.match(details, /0\.0\.0\.0/);
+assert.match(details, /channel-switch-evidence__output/);
+assert.doesNotMatch(details, /<script>/);
+
 const waiting = channelSwitch.channelSwitchTimelineHtml({ status: "in_progress", path: "roundtrip" });
 assert.match(waiting, /Waiting for runner result/);
 assert.match(waiting, /uploads the channel-switch result artifact/);
@@ -284,7 +295,8 @@ const cssPath = htmlPath.endsWith(path.join("docs", "index.html"))
   : path.join(path.dirname(htmlPath), "dashboard.css");
 const cssSource = fs.readFileSync(cssPath, "utf8");
 assert.match(cssSource, /\.workflow-btn \{[\s\S]*display: inline-flex !important;[\s\S]*gap: 0\.35rem;[\s\S]*justify-content: flex-start !important;[\s\S]*text-align: left !important;/);
-assert.match(cssSource, /\.workflow-btn \.workflow-btn__label \{[\s\S]*flex: 1 1 auto;[\s\S]*text-align: left;/);
+assert.match(cssSource, /\.workflow-btn \{[\s\S]*min-width: 7\.25rem;[\s\S]*overflow: hidden;[\s\S]*text-align: left !important;/);
+assert.match(cssSource, /\.workflow-btn \.workflow-btn__label \{[\s\S]*flex: 0 0 4\.25rem;[\s\S]*min-width: 4\.25rem;[\s\S]*white-space: nowrap;/);
 assert.match(cssSource, /\.workflow-btn \.button-icon \{[\s\S]*align-self: center;[\s\S]*flex: 0 0 1rem;[\s\S]*height: 1rem;[\s\S]*width: 1rem;/);
 assert.match(source, /id="latest-run-link" class="p-button workflow-btn u-no-margin--bottom"/);
 assert.match(source, /<span class="workflow-btn__label">Pipeline run<\/span>/);
@@ -967,7 +979,8 @@ assert.doesNotMatch(source, /latestCicdJobs/);
 assert.doesNotMatch(source, /latestCicdRun/);
 assert.match(source, /function renderChannelSwitchTimeline\(cs\)/);
 assert.match(source, /DashboardChannelSwitch\.channelSwitchTimelineHtml\(cs\)/);
-assert.match(source, /DashboardChannelSwitch\.channelSwitchDetailsText\(row\)/);
+assert.match(source, /DashboardChannelSwitch\.channelSwitchEvidenceHtml\(row\)/);
+assert.match(moduleSource, /function channelSwitchEvidenceHtml\(row\)/);
 assert.match(moduleSource, /function channelSwitchPathSteps\(cs\)/);
 assert.match(moduleSource, /Waiting for runner result/);
 assert.match(moduleSource, /Runner result missing revisions/);

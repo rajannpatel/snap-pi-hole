@@ -87,7 +87,7 @@ checks = {
 }
 for rel, css_href in checks.items():
     text = (repo / rel).read_text(encoding="utf-8")
-    assert f'rel="stylesheet" href="{css_href}"' in text, f"{rel} missing {css_href} link"
+    assert re.search(rf'rel="stylesheet" href="{re.escape(css_href)}(?:\?[^"]+)?"', text), f"{rel} missing {css_href} link"
     assert "<style" not in text.lower(), f"{rel} should not contain inline <style> blocks"
     assert not re.search(r"\\sstyle\\s*=", text, re.I), f"{rel} should not contain style attributes"
 PYEOF

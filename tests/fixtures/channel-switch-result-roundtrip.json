@@ -32,7 +32,27 @@
       "status": "success",
       "checks": {
         "dns": "success"
-      }
+      },
+      "evidence": [
+        {
+          "title": "Snap refresh latest/stable to latest/edge",
+          "command": "sudo snap refresh pihole-by-rajannpatel --channel=latest/edge",
+          "status": "success",
+          "output": "pihole-by-rajannpatel v6.4.2+git.841976c from Rajan Patel refreshed"
+        },
+        {
+          "title": "Installed snap revision after refresh",
+          "command": "snap list pihole-by-rajannpatel",
+          "status": "success",
+          "output": "Name                    Version                Rev  Tracking     Publisher     Notes\npihole-by-rajannpatel   v6.4.2+git.841976c    838  latest/edge  rajannpatel   -"
+        },
+        {
+          "title": "DNS query through local FTL",
+          "command": "dig +short +time=1 +tries=1 @127.0.0.1 pi.hole",
+          "status": "success",
+          "output": "0.0.0.0"
+        }
+      ]
     },
     {
       "from": "latest/edge",
@@ -42,7 +62,15 @@
       "status": "success",
       "checks": {
         "dns": "success"
-      }
+      },
+      "evidence": [
+        {
+          "title": "Snap refresh latest/edge to latest/stable",
+          "command": "sudo snap refresh pihole-by-rajannpatel --channel=latest/stable",
+          "status": "success",
+          "output": "pihole-by-rajannpatel v6.4.2 from Rajan Patel refreshed"
+        }
+      ]
     }
   ],
   "errors": [],

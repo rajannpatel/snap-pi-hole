@@ -14,8 +14,8 @@
       document.head.appendChild(link);
     }
   </script>
-  <link rel="stylesheet" href="dashboard.css">
-  <script src="dashboard-channel-switch.js"></script>
+  <link rel="stylesheet" href="dashboard.css?v=20260616-channel-switch-evidence">
+  <script src="dashboard-channel-switch.js?v=20260616-channel-switch-evidence"></script>
 </head>
 
 <body>
@@ -1999,7 +1999,7 @@
             const testedOn = githubRunnerChipHtml();
             const path = escapeHtml(row.path || "roundtrip");
             const updated = escapeHtml(formatDate(row.updated_at || cs.updated_at));
-            const details = escapeHtml(DashboardChannelSwitch.channelSwitchDetailsText(row));
+            const details = DashboardChannelSwitch.channelSwitchEvidenceHtml(row);
 
             const wfButton = workflowButtonHtml(row.url || "", row.duration_seconds, "Workflow run", isBuilding);
 
@@ -2017,7 +2017,7 @@
                 <div class="channel-switch-details-grid">
                   <div class="channel-switch-explanation channel-switch-explanation--contained">
                     <h4 class="channel-switch-explanation__title">Details</h4>
-                    <p class="channel-switch-explanation__body">${details}</p>
+                    ${details}
                   </div>
                 </div>
               </td>

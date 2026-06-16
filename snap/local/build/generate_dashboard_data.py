@@ -544,6 +544,17 @@ def validate_channel_switch_artifact(artifact):
                 raise ValueError(f"channel switch transition {index}.{key} must be a string")
         if transition.get("status") and transition["status"] not in CHANNEL_SWITCH_STATUSES:
             raise ValueError(f"unsupported channel switch transition status: {transition['status']}")
+        evidence = transition.get("evidence", [])
+        if evidence is not None and not isinstance(evidence, list):
+            raise ValueError(f"channel switch transition {index}.evidence must be a list")
+        for evidence_index, item in enumerate(evidence or []):
+            if not isinstance(item, dict):
+                raise ValueError(f"channel switch transition {index}.evidence {evidence_index} must be an object")
+            for key in ("title", "command", "status", "output"):
+                if key in item and not isinstance(item.get(key), str):
+                    raise ValueError(
+                        f"channel switch transition {index}.evidence {evidence_index}.{key} must be a string"
+                    )
 
     for key in ("errors", "warnings"):
         value = artifact.get(key)
@@ -777,6 +788,16 @@ def collect_channel_switch_status(client, branch="main"):
                     summary = f"{trans} failed: {reason}"
                 else:
                     summary = trans
+            evidence = []
+            for transition in art.get("transitions", []) or []:
+                for item in transition.get("evidence", []) or []:
+                    if isinstance(item, dict):
+                        evidence.append({
+                            "title": str(item.get("title", "")),
+                            "command": str(item.get("command", "")),
+                            "status": str(item.get("status", "")),
+                            "output": str(item.get("output", "")),
+                        })
         else:
             status = summarize_state(job)
             conclusion = job.get("conclusion") if job else "no_data"
@@ -786,6 +807,7 @@ def collect_channel_switch_status(client, branch="main"):
             url = job.get("html_url") if job else html_url
             updated = job.get("completed_at") or job.get("started_at") or updated_at if job else updated_at
             summary = f"Job {status}" if status != "success" else "stable -> edge -> stable"
+            evidence = []
             
         rows.append({
             "arch": arch,
@@ -797,7 +819,8 @@ def collect_channel_switch_status(client, branch="main"):
             "duration_label": human_duration(duration),
             "updated_at": updated,
             "url": url,
-            "reason": reason
+            "reason": reason,
+            "evidence": evidence,
         })
 
     row_statuses = [r["status"] for r in rows]

@@ -23,6 +23,7 @@ TRANSITIONS_JSON="[]"
 ERRORS_JSON="[]"
 WARNINGS_JSON="[]"
 CHECKS_JSON="{}"
+EVIDENCE_JSON="[]"
 
 STABLE_VER=""
 STABLE_REV=""
@@ -90,6 +91,49 @@ record_warning() {
   WARNINGS_JSON=$(echo "$WARNINGS_JSON" | jq --arg warn "$warn" '. + [$warn]' 2>/dev/null || echo "$WARNINGS_JSON")
 }
 
+truncate_output() {
+  awk 'NR <= 24 { print } NR == 25 { print "... output truncated ..." }'
+}
+
+append_evidence() {
+  local title="$1"
+  local command="$2"
+  local status="$3"
+  local output="$4"
+
+  EVIDENCE_JSON=$(echo "$EVIDENCE_JSON" | jq \
+    --arg title "$title" \
+    --arg command "$command" \
+    --arg status "$status" \
+    --arg output "$output" \
+    '. + [{
+      title: $title,
+      command: $command,
+      status: $status,
+      output: $output
+    }]')
+}
+
+capture_command() {
+  local title="$1"
+  shift
+
+  local output
+  local rc
+  local tmp_output
+  tmp_output="$(mktemp)"
+  set +e
+  "$@" >"$tmp_output" 2>&1
+  rc=$?
+  set -e
+  output=$(truncate_output < "$tmp_output")
+  rm -f "$tmp_output"
+
+  append_evidence "$title" "$*" "$([ "$rc" -eq 0 ] && echo success || echo failure)" "$output"
+  printf '%s' "$output"
+  return "$rc"
+}
+
 # Helper to append a transition to the result list
 append_transition() {
   local from="$1"
@@ -98,6 +142,7 @@ append_transition() {
   local to_rev="$4"
   local trans_status="$5"
   local checks_json="$6"
+  local evidence_json="$7"
   
   TRANSITIONS_JSON=$(echo "$TRANSITIONS_JSON" | jq \
     --arg from "$from" \
@@ -106,13 +151,15 @@ append_transition() {
     --arg to_rev "$to_rev" \
     --arg trans_status "$trans_status" \
     --argjson checks "$checks_json" \
+    --argjson evidence "$evidence_json" \
     '. + [{
       from: $from,
       to: $to,
       from_revision: $from_rev,
       to_revision: $to_rev,
       status: $trans_status,
-      checks: $checks
+      checks: $checks,
+      evidence: $evidence
     }]')
 }
 
@@ -176,10 +223,14 @@ verify_health() {
       overall_success=1
     fi
   fi
+
+  capture_command "Snap service status" snap services "${SNAP_NAME}.pihole-ftl" >/dev/null || true
+  capture_command "Pi-hole CLI status" sudo "${SNAP_NAME}.pihole" status >/dev/null || true
+  capture_command "DNS query through local FTL" dig +short +time=1 +tries=1 @127.0.0.1 pi.hole >/dev/null || true
   
   # 5. Verify sentinel config persists
   if [ "$overall_success" -eq 0 ] && [ "$is_post_refresh" -eq 1 ]; then
-    if ! sudo grep -E '8123' "/var/snap/${SNAP_NAME}/current/etc/pihole/pihole.toml" >/dev/null 2>&1; then
+    if ! capture_command "Sentinel web port persisted" sudo grep -E '8123' "/var/snap/${SNAP_NAME}/current/etc/pihole/pihole.toml" >/dev/null; then
       sentinel_check="failure"
       REASON="sentinel-config-missing"
       record_error "sentinel-config-missing"
@@ -189,7 +240,7 @@ verify_health() {
   
   # 6. Verify refresh snapshot exists
   if [ "$overall_success" -eq 0 ] && [ "$is_post_refresh" -eq 1 ]; then
-    if ! sudo ls "/var/snap/${SNAP_NAME}/common/snapshots"/pihole-backup-*.tar.gz >/dev/null 2>&1; then
+    if ! capture_command "Refresh snapshot created" sudo ls "/var/snap/${SNAP_NAME}/common/snapshots"/pihole-backup-*.tar.gz >/dev/null; then
       snapshot_check="failure"
       REASON="refresh-snapshot-missing"
       record_error "refresh-snapshot-missing"
@@ -200,10 +251,13 @@ verify_health() {
   # 7. Check for fatal AppArmor denials
   if [ "$overall_success" -eq 0 ]; then
     if ! check_apparmor_denials; then
+      capture_command "Fatal AppArmor denials" bash -c "sudo dmesg | grep -F 'apparmor=\"DENIED\"' | grep 'snap.${SNAP_NAME}'" >/dev/null || true
       apparmor_check="failure"
       REASON="fatal-apparmor-denial"
       record_error "fatal-apparmor-denial"
       overall_success=1
+    else
+      append_evidence "Fatal AppArmor denials" "sudo dmesg | grep 'snap.${SNAP_NAME}'" "success" "No unexpected AppArmor denials recorded for snap.${SNAP_NAME}."
     fi
   fi
     # Print diagnostics if health check failed and not in unit test mode
@@ -228,7 +282,7 @@ verify_health() {
       echo "AppArmor denials:" >&2
       sudo dmesg | grep -F 'apparmor="DENIED"' | grep "snap.${SNAP_NAME}" || true
     fi
-    echo "==========================" >&2
+    echo "End health check diagnostics" >&2
   fi
 
   CHECKS_JSON=$(jq -n \
@@ -350,9 +404,10 @@ run_transition() {
   
   local trans_status="success"
   local snap_refresh_check="success"
+  EVIDENCE_JSON="[]"
   
   # Run snap refresh
-  if ! sudo snap refresh "$SNAP_NAME" --channel="$to_channel"; then
+  if ! capture_command "Snap refresh ${from_channel} to ${to_channel}" sudo snap refresh "$SNAP_NAME" --channel="$to_channel"; then
     snap_refresh_check="failure"
     trans_status="failure"
     REASON="snap-refresh-failed"
@@ -360,10 +415,11 @@ run_transition() {
   fi
   
   local final_checks_json="{}"
+  local final_evidence_json="$EVIDENCE_JSON"
   if [ "$trans_status" = "success" ]; then
     # Record current info
-    snap list "$SNAP_NAME" || true
-    snap info "$SNAP_NAME" || true
+    capture_command "Installed snap revision after refresh" snap list "$SNAP_NAME" >/dev/null || true
+    capture_command "Published channel revisions" bash -c "snap info '${SNAP_NAME}' | grep -E 'latest/(stable|edge):'" >/dev/null || true
     
     # Run post-refresh health check
     set +e
@@ -372,6 +428,7 @@ run_transition() {
     set -e
     
     final_checks_json="$CHECKS_JSON"
+    final_evidence_json="$EVIDENCE_JSON"
     if [ "$rc" -ne 0 ]; then
       trans_status="failure"
     fi
@@ -394,7 +451,7 @@ run_transition() {
   # Add snap_refresh check to checks JSON
   final_checks_json=$(echo "$final_checks_json" | jq --arg sr "$snap_refresh_check" '. + {snap_refresh: $sr}')
   
-  append_transition "$from_channel" "$to_channel" "$from_rev" "$to_rev" "$trans_status" "$final_checks_json"
+  append_transition "$from_channel" "$to_channel" "$from_rev" "$to_rev" "$trans_status" "$final_checks_json" "$final_evidence_json"
   
   if [ "$trans_status" != "success" ]; then
     return 1

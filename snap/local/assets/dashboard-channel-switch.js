@@ -30,6 +30,32 @@
     return row.summary || "No details available";
   }
 
+  function channelSwitchEvidenceHtml(row) {
+    const evidence = Array.isArray(row?.evidence) ? row.evidence : [];
+    if (!evidence.length) {
+      return `<p class="channel-switch-explanation__body">${escapeHtml(channelSwitchDetailsText(row))}</p>`;
+    }
+    const intro = `<p class="channel-switch-explanation__body">${escapeHtml(channelSwitchDetailsText(row))}</p>`;
+    const blocks = evidence.map((item) => {
+      const title = item?.title || "Check";
+      const status = item?.status || "unknown";
+      const command = item?.command || "";
+      const output = item?.output || "";
+      const statusClass = status === "success" ? "is-success" : (status === "failure" ? "is-failure" : "is-unknown");
+      return `
+        <div class="channel-switch-evidence">
+          <div class="channel-switch-evidence__header">
+            <span class="channel-switch-evidence__title">${escapeHtml(title)}</span>
+            <span class="channel-switch-evidence__status ${statusClass}">${escapeHtml(status)}</span>
+          </div>
+          ${command ? `<code class="channel-switch-evidence__command">$ ${escapeHtml(command)}</code>` : ""}
+          ${output ? `<pre class="channel-switch-evidence__output"><code>${escapeHtml(output)}</code></pre>` : ""}
+        </div>
+      `;
+    }).join("");
+    return intro + blocks;
+  }
+
   function channelSwitchPathSteps(cs) {
     const state = cs || {};
     const path = state.path || "roundtrip";
@@ -124,6 +150,7 @@
 
   return {
     channelRevisionChipHtml,
+    channelSwitchEvidenceHtml,
     channelSwitchDetailsText,
     channelSwitchMetaHtml,
     channelSwitchPathSteps,

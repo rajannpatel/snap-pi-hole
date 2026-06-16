@@ -557,6 +557,9 @@ td .report-button-group {
   gap: 0.35rem;
   justify-content: flex-start !important;
   margin-bottom: 0;
+  max-width: 100%;
+  min-width: 7.25rem;
+  overflow: hidden;
   text-align: left !important;
 }
 
@@ -586,9 +589,11 @@ td .workflow-btn .p-icon--spinner {
 }
 
 .workflow-btn .workflow-btn__label {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 0 0 4.25rem;
+  min-width: 4.25rem;
+  overflow: visible;
   text-align: left;
+  white-space: nowrap;
 }
 
 td .workflow-buttons {
@@ -698,7 +703,70 @@ td .os-badge {
 
 .channel-switch-explanation__body {
   color: #333;
-  margin-bottom: 0;
+  margin-bottom: 0.75rem;
+}
+
+.channel-switch-evidence {
+  border-top: 1px solid #e5e5e5;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.channel-switch-evidence__header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.channel-switch-evidence__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.channel-switch-evidence__status {
+  border-radius: 2px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  text-transform: uppercase;
+}
+
+.channel-switch-evidence__status.is-success {
+  background: #e8f5e9;
+  color: #0b6b0b;
+}
+
+.channel-switch-evidence__status.is-failure {
+  background: #fae6e8;
+  color: #c7162b;
+}
+
+.channel-switch-evidence__status.is-unknown {
+  background: #f2f2f2;
+  color: #555;
+}
+
+.channel-switch-evidence__command {
+  display: block;
+  margin-bottom: 0.35rem;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.channel-switch-evidence__output {
+  background: #111;
+  border-radius: 4px;
+  color: #f7f7f7;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  margin: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 0.75rem;
+  white-space: pre;
 }
 
 .p-list-timeline {
