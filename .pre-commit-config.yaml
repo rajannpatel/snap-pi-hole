@@ -20,4 +20,4 @@ repos:
         entry: '(={4,}|-{4,}|\*{4,}|_{4,})'
         language: pygrep
         files: \.(sh|py|bats|yaml|yml)$
-
+        exclude: ^\.vale/

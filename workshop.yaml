@@ -33,6 +33,7 @@ actions:
     command -v bats
     command -v shellcheck
     command -v yamllint
+    command -v yq
     command -v pre-commit
     command -v kcov
     command -v node
@@ -43,6 +44,7 @@ actions:
     snap version
 
   context: |
+    set -euo pipefail
     echo "==> Repository"
     git status --short
     echo
@@ -50,33 +52,22 @@ actions:
     yq '.name, .base, .confinement, (.apps | keys)' snap/snapcraft.yaml
     echo
     echo "==> Useful actions"
-    printf '%s\n' \
-      doctor \
-      context \
-      lint \
-      shellcheck \
-      yamllint \
-      test \
-      coverage \
-      build \
-      clean \
-      install \
-      smoke \
-      logs \
-      debug \
-      uninstall
+    yq -r '.actions | keys | .[]' workshop.yaml
 
   lint: |
     pre-commit run --all-files
 
   shellcheck: |
+    set -euo pipefail
     git ls-files \
-      | file --mime-type -Nnf- \
+      | xargs -r file --mime-type -Nnf- \
       | awk -F: '$2 ~ /shellscript/ { print $1 }' \
-      | xargs --no-run-if-empty shellcheck --check-sourced --external-sources
+      | xargs -r shellcheck --check-sourced --external-sources
 
   yamllint: |
-    yamllint .
+    yamllint -d "{extends: relaxed, rules: {line-length: disable}}" \
+      snap/snapcraft.yaml \
+      workshop.yaml
 
   test: |
     bats -r "${@:-tests/unit}"
@@ -85,19 +76,22 @@ actions:
     tests/scripts/local-preview.sh kcov
 
   build: |
-    snapcraft --destructive-mode --verbosity=brief "$@"
+    sudo snapcraft --destructive-mode --verbosity=brief "$@"
 
   clean: |
-    snapcraft clean "$@"
+    sudo snapcraft clean "$@"
 
   install: |
+    set -eu
     snap_file="${1:-}"
     if [ -z "$snap_file" ]; then
-      snap_file="$(ls -t ./*.snap 2>/dev/null | head -n 1 || true)"
-    fi
-    if [ -z "$snap_file" ]; then
-      echo "No .snap file found. Run: workshop run snap-pi-hole -- build"
-      exit 1
+      shopt -s nullglob
+      snaps=(*.snap)
+      if [ ${#snaps[@]} -eq 0 ]; then
+        echo "No .snap file found. Run: workshop run snap-pi-hole -- build"
+        exit 1
+      fi
+      snap_file="${snaps[0]}"
     fi
 
     sudo snap remove --purge pihole-by-rajannpatel || true
@@ -129,7 +123,7 @@ actions:
     dig @127.0.0.1 -p 53 example.com +time=2 +tries=1
 
   logs: |
-    sudo snap logs pihole-by-rajannpatel.pihole-ftl --last="${1:-100}"
+    sudo snap logs pihole-by-rajannpatel.pihole-ftl -n="${1:-100}"
 
   debug: |
     sudo pihole-by-rajannpatel.snap-debug || true

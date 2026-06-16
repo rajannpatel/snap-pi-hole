@@ -3,6 +3,7 @@
 parts/
 prime/
 stage/
+.craft/
 .snapcraft/
 snap/.snapcraft/
 
@@ -35,7 +36,9 @@ __pycache__/
 
 # Local scratchpads and AI configs
 .claude/
+.workshop-local/
 .workshop.lock
+workshop.local.*
 scratch/
 network-cache/
 
