@@ -49,8 +49,8 @@
             <span class="channel-switch-evidence__title">${escapeHtml(title)}</span>
             <span class="p-chip ${chipClass}"><span class="p-chip__value">${escapeHtml(statusLabel)}</span></span>
           </div>
-          ${command ? `<div class="p-code-snippet is-wrapped"><pre class="p-code-snippet__block--icon"><code>${escapeHtml(command)}</code></pre></div>` : ""}
-          ${output ? `<div class="p-code-snippet is-wrapped"><pre class="p-code-snippet__block"><code>${escapeHtml(output)}</code></pre></div>` : ""}
+          ${command ? `<div class="p-code-snippet"><pre class="p-code-snippet__block--icon is-wrapped"><code>${escapeHtml(command)}</code></pre></div>` : ""}
+          ${output ? `<div class="p-code-snippet"><pre class="p-code-snippet__block is-wrapped"><code>${escapeHtml(output)}</code></pre></div>` : ""}
         </div>
       `;
     }).join("");

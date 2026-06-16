@@ -668,6 +668,7 @@ td .os-badge {
 .channel-switch-details-cell {
   border-bottom: 1px solid #e0e0e0;
   padding: 1rem 1.5rem !important;
+  white-space: normal !important;
 }
 
 .channel-switch-details-row {
@@ -684,7 +685,7 @@ td .os-badge {
 
 .channel-switch-explanation {
   flex: 1;
-  min-width: 280px;
+  min-width: min(280px, 100%);
   padding-left: 1rem;
 }
 
