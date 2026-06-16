@@ -962,6 +962,10 @@ uses = [step.get("uses", "") for step in job["steps"]]
 assert "gh run list" in run_blocks and "--workflow cicd.yml" in run_blocks, run_blocks
 assert "gh run download" in run_blocks and "code-coverage-report" in run_blocks, run_blocks
 assert "--pattern \"sbom-*\"" in run_blocks, run_blocks
+assert "--pattern \"channel-switch-result-*\"" in run_blocks, run_blocks
+envs = [step.get("env", {}) for step in job["steps"]]
+assert any(env.get("CHANNEL_SWITCH_RESULT_DIR") == "channel-switch-artifacts" for env in envs), envs
+assert any("CHANNEL_SWITCH_RESULT_RUN_ID" in env for env in envs), envs
 assert "vulnerability-reports" in run_blocks, run_blocks
 assert "generate_dashboard_data.py . docs/dashboard-data.json" in run_blocks, run_blocks
 assert "generate_dashboard_data.py --snapcraft-only" in run_blocks, run_blocks

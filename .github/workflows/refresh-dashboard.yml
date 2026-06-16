@@ -69,6 +69,16 @@ jobs:
           gh run download "${{ steps.cicd.outputs.run_id }}" --pattern "sbom-*" --dir sbom-artifacts
           gh run download "${{ steps.cicd.outputs.run_id }}" --name vulnerability-reports --dir vulnerability-reports
 
+      - name: Download channel switch result artifact
+        if: ${{ github.event_name == 'workflow_run' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p channel-switch-artifacts
+          gh run download "${{ github.event.workflow_run.id }}" \
+            --pattern "channel-switch-result-*" \
+            --dir channel-switch-artifacts
+
       - name: Fetch Snapcraft revisions
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
@@ -89,6 +99,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PUBLISH_RESULT: not_waited
+          CHANNEL_SWITCH_RESULT_DIR: channel-switch-artifacts
+          CHANNEL_SWITCH_RESULT_RUN_ID: ${{ github.event.workflow_run.id || '' }}
         run: |
           mkdir -p docs/coverage docs/sbom docs/vulnerabilities
 
@@ -120,6 +132,8 @@ jobs:
       - name: Generate gist payload
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          CHANNEL_SWITCH_RESULT_DIR: channel-switch-artifacts
+          CHANNEL_SWITCH_RESULT_RUN_ID: ${{ github.event.workflow_run.id || '' }}
         run: |
           python3 snap/local/build/generate_dashboard_data.py --snapcraft-only . "${GIST_DATA_FILE}"
 

@@ -523,9 +523,22 @@ mock_snap_package = {
     "channels": [
         {
             "architecture": "AMD64",
+            "channel": "stable",
             "build_source": "github",
             "full_version": "v6.4.2",
             "revision": 123
+        }
+    ],
+    "all_channels": [
+        {
+            "architecture": "ARM64",
+            "channel": "stable",
+            "revision": 867
+        },
+        {
+            "architecture": "ARM64",
+            "channel": "edge",
+            "revision": 869
         }
     ]
 }
@@ -539,8 +552,10 @@ test_argv = ["generate_dashboard_data.py", "--snapcraft-only", "${REPO_ROOT}", s
 mock_channel_switch = {
     "status": "success",
     "updated_at": "2026-06-10T12:05:00Z",
-    "stable_revision": "840",
-    "edge_revision": "838",
+    "path": "roundtrip",
+    "stable_revision": "",
+    "edge_revision": "",
+    "rows": [{"arch": "arm64", "status": "success", "summary": "stable -> edge -> stable"}],
 }
 
 with patch("sys.argv", test_argv), \
@@ -556,7 +571,9 @@ with open(out_path, "r", encoding="utf-8") as f:
 assert "generated_at" in data
 assert data["data_last_updated"] == "2026-06-10T12:05:00Z"
 assert data["snap_package"] == mock_snap_package
-assert data["channel_switch"] == mock_channel_switch
+assert data["channel_switch"]["stable_revision"] == "867", data["channel_switch"]
+assert data["channel_switch"]["edge_revision"] == "869", data["channel_switch"]
+assert data["channel_switch"]["summary"] == "stable r867 -> edge r869 -> stable r867", data["channel_switch"]
 PYEOF
 }
 
@@ -770,5 +787,52 @@ artifact_without_channels = {
 stable_rev, edge_rev = dashboard.channel_switch_revisions_from_artifact(artifact_without_channels)
 assert stable_rev == "840", stable_rev
 assert edge_rev == "838", edge_rev
+
+# Test 11: missing channel switch revisions are filled from ARM64 snap package channel data
+filled = dashboard.fill_channel_switch_revisions(
+    {
+        "status": "success",
+        "conclusion": "success",
+        "path": "roundtrip",
+        "stable_revision": "",
+        "edge_revision": "",
+        "rows": [{"arch": "arm64", "status": "success", "summary": "stable -> edge -> stable"}],
+    },
+    {
+        "all_channels": [
+            {"architecture": "ARM64", "channel": "stable", "revision": 867},
+            {"architecture": "ARM64", "channel": "edge", "revision": 869},
+        ]
+    },
+)
+assert filled["stable_revision"] == "867", filled
+assert filled["edge_revision"] == "869", filled
+assert filled["summary"] == "stable r867 -> edge r869 -> stable r867", filled
+
+# Test 12: local channel switch artifacts can be consumed without the GitHub artifact ZIP API
+local_dir = pathlib.Path("${TEST_TMPDIR}/channel-switch-artifacts/channel-switch-result-arm64")
+local_dir.mkdir(parents=True)
+local_artifact = json.loads(fixture_path.read_text(encoding="utf-8"))
+(local_dir / "channel-switch-result-arm64.json").write_text(json.dumps(local_artifact), encoding="utf-8")
+
+import os
+old_dir = os.environ.get("CHANNEL_SWITCH_RESULT_DIR")
+old_run = os.environ.get("CHANNEL_SWITCH_RESULT_RUN_ID")
+os.environ["CHANNEL_SWITCH_RESULT_DIR"] = str(local_dir.parent)
+os.environ["CHANNEL_SWITCH_RESULT_RUN_ID"] = "123"
+try:
+    local_results = dashboard.collect_local_channel_switch_artifacts(123)
+    assert len(local_results) == 1, local_results
+    assert local_results[0]["arch"] == "arm64", local_results
+    assert dashboard.collect_local_channel_switch_artifacts(456) == []
+finally:
+    if old_dir is None:
+        os.environ.pop("CHANNEL_SWITCH_RESULT_DIR", None)
+    else:
+        os.environ["CHANNEL_SWITCH_RESULT_DIR"] = old_dir
+    if old_run is None:
+        os.environ.pop("CHANNEL_SWITCH_RESULT_RUN_ID", None)
+    else:
+        os.environ["CHANNEL_SWITCH_RESULT_RUN_ID"] = old_run
 PYEOF
 }

@@ -11,6 +11,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+from copy import deepcopy
 
 from resolve_upstream_version import latest_release_versions
 
@@ -562,6 +563,10 @@ def validate_channel_switch_artifact(artifact):
 def collect_workflow_artifacts(client, run_id):
     """Query workflow run artifacts, download ZIPs starting with
     channel-switch-result-, and read their JSON files."""
+    local_artifacts = collect_local_channel_switch_artifacts(run_id)
+    if local_artifacts:
+        return local_artifacts
+
     url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run_id}/artifacts"
     data = client.get_json_or_empty(url)
     artifacts = data.get("artifacts", [])
@@ -596,6 +601,28 @@ def collect_workflow_artifacts(client, run_id):
     return results
 
 
+def collect_local_channel_switch_artifacts(run_id):
+    artifact_dir = os.environ.get("CHANNEL_SWITCH_RESULT_DIR", "")
+    expected_run_id = os.environ.get("CHANNEL_SWITCH_RESULT_RUN_ID", "")
+    if not artifact_dir:
+        return []
+    if expected_run_id and str(run_id) != str(expected_run_id):
+        return []
+
+    base = pathlib.Path(artifact_dir)
+    if not base.exists():
+        return []
+
+    results = []
+    for path in sorted(base.rglob("channel-switch-result-*.json")):
+        try:
+            item = json.loads(path.read_text(encoding="utf-8"))
+            results.append(validate_channel_switch_artifact(item))
+        except Exception:
+            pass
+    return results
+
+
 def channel_switch_revisions_from_artifact(artifact):
     stable_rev = artifact.get("channels", {}).get("stable", {}).get("revision", "")
     edge_rev = artifact.get("channels", {}).get("edge", {}).get("revision", "")
@@ -611,6 +638,53 @@ def channel_switch_revisions_from_artifact(artifact):
         if not edge_rev and to_channel.endswith("/edge"):
             edge_rev = transition.get("to_revision", "")
     return str(stable_rev or ""), str(edge_rev or "")
+
+
+def channel_revision_from_snap_package(snap_package, channel, arch="ARM64"):
+    for row in snap_package.get("all_channels", []) or []:
+        if row.get("channel") == channel and row.get("architecture") == arch:
+            revision = row.get("revision", "")
+            return str(revision or "")
+    for row in snap_package.get("channels", []) or []:
+        if row.get("channel") == channel and row.get("architecture") == arch:
+            revision = row.get("revision", "")
+            return str(revision or "")
+    return ""
+
+
+def fill_channel_switch_revisions(channel_switch, snap_package):
+    result = deepcopy(channel_switch)
+    stable_rev = result.get("stable_revision") or channel_revision_from_snap_package(snap_package, "stable")
+    edge_rev = result.get("edge_revision") or channel_revision_from_snap_package(snap_package, "edge")
+    if not stable_rev or not edge_rev:
+        return result
+
+    result["stable_revision"] = stable_rev
+    result["edge_revision"] = edge_rev
+
+    path = result.get("path", "roundtrip")
+    status = result.get("status", "")
+    conclusion = result.get("conclusion", "")
+    reason = result.get("reason", "")
+    if status == "skipped":
+        result["summary"] = f"stable and edge both serve r{stable_rev}"
+    elif status in {"success", "failure"} or conclusion in {"success", "failure"}:
+        if path == "stable-to-edge":
+            trans = f"stable r{stable_rev} -> edge r{edge_rev}"
+        elif path == "edge-to-stable":
+            trans = f"edge r{edge_rev} -> stable r{stable_rev}"
+        else:
+            trans = f"stable r{stable_rev} -> edge r{edge_rev} -> stable r{stable_rev}"
+        result["summary"] = f"{trans} failed: {reason}" if status == "failure" or conclusion == "failure" else trans
+
+    for row in result.get("rows", []) or []:
+        if row.get("arch") == "arm64":
+            row.setdefault("stable_revision", stable_rev)
+            row.setdefault("edge_revision", edge_rev)
+            if row.get("status") == "success":
+                row["summary"] = result.get("summary", row.get("summary", ""))
+
+    return result
 
 
 def collect_channel_switch_status(client, branch="main"):
@@ -1419,7 +1493,10 @@ def dt_to_iso(value):
 
 def build_snapcraft_payload(client, repo_root):
     snap_package = collect_snap_package_data(client, repo_root)
-    channel_switch = collect_channel_switch_status(client, "main")
+    channel_switch = fill_channel_switch_revisions(
+        collect_channel_switch_status(client, "main"),
+        snap_package,
+    )
     source_updates = [
         value
         for value in (
@@ -1474,7 +1551,10 @@ def main():
     snap_package = collect_snap_package_data(client, repo_root)
     auto_update = collect_track_upstream_status(client)
     schedule = extract_track_upstream_cron(repo_root / ".github" / "workflows" / "track-upstream-releases.yml")
-    channel_switch = collect_channel_switch_status(client, "main")
+    channel_switch = fill_channel_switch_revisions(
+        collect_channel_switch_status(client, "main"),
+        snap_package,
+    )
 
     timestamps = [
         parse_iso(build_status_stable["latest_run"].get("updated_at")),
