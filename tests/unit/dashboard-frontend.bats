@@ -145,8 +145,8 @@ return { applyLiveChannelSwitch, liveState, rendered, getFetchCount: () => fetch
   assert.strictEqual(api.getFetchCount(), 2);
   assert.strictEqual(api.liveState.lastChannelSwitchRunUpdatedAt, "2026-06-16T04:42:49Z");
   assert.deepStrictEqual(api.rendered.map((item) => item.rows[0].status), ["in_progress", "success"]);
-  assert.strictEqual(api.rendered.at(-1).stable_revision, "");
-  assert.strictEqual(api.rendered.at(-1).edge_revision, "");
+  assert.strictEqual(api.rendered.at(-1).stable_revision, "old-stable");
+  assert.strictEqual(api.rendered.at(-1).edge_revision, "old-edge");
 })().catch((error) => {
   console.error(error);
   process.exit(1);
@@ -954,6 +954,7 @@ assert.match(source, /globalDashboardData\.channel_switch = payload\.channel_swi
 assert.match(source, /renderChannelSwitch\(payload\.channel_switch\)/);
 assert.match(source, /function renderBakedSections\(data, options = \{\}\)/);
 assert.match(source, /renderBakedSections\(snapshot, \{ renderChannelSwitchSection: false \}\)/);
+assert.match(source, /globalDashboardData = snapshot;/);
 assert.match(source, /if \(renderChannelSwitchSection\) \{\s*renderChannelSwitch\(data\.channel_switch\);\s*\}/);
 assert.match(source, /function applyLiveChannelSwitch\(latestByWorkflow\)/);
 assert.match(source, /await applyLiveChannelSwitch\(latestByWorkflow\)/);
@@ -996,6 +997,8 @@ assert.match(source, /name\.includes\("channel switch"\) && name\.includes\("arm
 assert.match(source, /const cachedJobsBuilding = \(liveState\.channelSwitchJobs \|\| \[\]\)\.some/);
 assert.match(source, /const runUpdated = run\.updated_at && run\.updated_at !== liveState\.lastChannelSwitchRunUpdatedAt/);
 assert.match(source, /runBuilding \|\| cachedJobsBuilding \|\| runUpdated/);
+assert.match(source, /const snapshotHasRevisions = Boolean\(snapshot\.stable_revision && snapshot\.edge_revision\)/);
+assert.match(source, /const keepSnapshotRevisionEvidence = snapshotMatchesRun \|\| snapshotHasRevisions/);
 assert.match(source, /const building = matrixBuilding \|\| buildBuilding \|\| lpBuildingStatus \|\| trackBuildingStatus \|\| channelSwitchBuilding/);
 assert.doesNotMatch(source, /label:\s*"Passing"/);
 JS

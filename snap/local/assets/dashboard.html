@@ -2329,8 +2329,10 @@
       const snapshot = globalDashboardData?.channel_switch || {};
       const snapshotRow = (snapshot.rows || []).find((row) => row.arch === "arm64") || {};
       const snapshotMatchesRun = String(snapshot.run_id || "") === String(run.id || "");
-      const snapshotRunData = snapshotMatchesRun ? snapshot : {};
-      const snapshotRowData = snapshotMatchesRun ? snapshotRow : {};
+      const snapshotHasRevisions = Boolean(snapshot.stable_revision && snapshot.edge_revision);
+      const keepSnapshotRevisionEvidence = snapshotMatchesRun || snapshotHasRevisions;
+      const snapshotRunData = keepSnapshotRevisionEvidence ? snapshot : {};
+      const snapshotRowData = keepSnapshotRevisionEvidence ? snapshotRow : {};
       const liveChannelSwitch = {
         ...snapshot,
         stable_revision: snapshotRunData.stable_revision || "",
@@ -2565,6 +2567,7 @@
     async function refreshLiveData() {
       try {
         const snapshot = await loadDashboardData();
+        globalDashboardData = snapshot;
         renderBakedSections(snapshot, { renderChannelSwitchSection: false });
       } catch (error) {
         // Fallback to screen state if offline

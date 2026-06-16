@@ -24,6 +24,71 @@ env:
   GIST_DESCRIPTION: "snap-pi-hole dashboard data (auto-updated hourly; do not edit)"
 
 jobs:
+  publish-gist:
+    name: Publish gist payload
+    runs-on: ubuntu-26.04
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.event == 'workflow_run'
+      )
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download channel switch result artifact
+        if: ${{ github.event_name == 'workflow_run' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p channel-switch-artifacts
+          gh run download "${{ github.event.workflow_run.id }}" \
+            --pattern "channel-switch-result-*" \
+            --dir channel-switch-artifacts
+
+      - name: Generate gist payload
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CHANNEL_SWITCH_RESULT_DIR: channel-switch-artifacts
+          CHANNEL_SWITCH_RESULT_RUN_ID: ${{ github.event.workflow_run.id || '' }}
+        run: |
+          python3 snap/local/build/generate_dashboard_data.py --snapcraft-only . "${GIST_DATA_FILE}"
+
+      - name: Publish gist payload
+        env:
+          GH_TOKEN: ${{ secrets.GIST_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::GIST_TOKEN is not set; skipping gist update."
+            exit 0
+          fi
+
+          python3 - "${GIST_DATA_FILE}" "${GIST_DESCRIPTION}" > body.json <<'PY'
+          import json, sys
+          data_file, description = sys.argv[1], sys.argv[2]
+          with open(data_file, encoding="utf-8") as handle:
+              content = handle.read()
+          print(json.dumps({
+              "description": description,
+              "public": True,
+              "files": {data_file: {"content": content}},
+          }))
+          PY
+
+          gist_id="$(gh api --paginate /gists \
+            --jq ".[] | select(.files[\"${GIST_DATA_FILE}\"]) | select(.description == \"${GIST_DESCRIPTION}\") | .id" \
+            | head -n1)"
+
+          if [ -n "${gist_id}" ]; then
+            gh api --method PATCH "/gists/${gist_id}" --input body.json \
+              --jq '"Updated " + .html_url'
+          else
+            gh api --method POST /gists --input body.json \
+              --jq '"Created " + .html_url + " (id " + .id + ")"'
+          fi
+
   refresh:
     name: Regenerate dashboard after channel switch
     runs-on: ubuntu-26.04
