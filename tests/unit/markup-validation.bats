@@ -211,9 +211,9 @@ text = html_path.read_text(encoding="utf-8")
 
 # 1. Assert Release Health heading and Section ID exist
 assert 'id="channel-switch-section"' in text, "Missing channel-switch-section"
-assert 'Release health' in text, "Missing Release health label"
-assert 'Channel switch smoke test' in text, "Missing Channel switch smoke test label"
-assert 'Channel switch smoke tests' not in text, "Channel switch label should be singular"
+assert 'Safe data migration' in text, "Missing Safe data migration label"
+assert 'channel switch smoke test' in text, "Missing channel switch smoke test label"
+assert 'channel switch smoke tests' not in text, "Channel switch label should be singular"
 assert '<p class="p-heading--4">Store-channel refresh path' in text, "Missing p-heading--4 section description"
 assert text.rfind('id="channel-switch-section"') > text.rfind('class="sync-tracking-table"'), "Channel switch section should be the last main-page section"
 assert 'channel-switch-summary-grid' not in text, "Channel switch summary grid should be removed"
