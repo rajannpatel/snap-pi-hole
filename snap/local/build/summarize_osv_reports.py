@@ -1087,13 +1087,19 @@ def query_vulnerability_info(cve_id, package_name, version, details="", model=No
 
 
 
-SEVERITY_ICONS = {
-    "critical": "https://assets.ubuntu.com/v1/c96f27b9-CVE-Priority-icon-Critical.svg",
-    "high": "https://assets.ubuntu.com/v1/3887354e-CVE-Priority-icon-High.svg",
-    "medium": "https://assets.ubuntu.com/v1/8010f9e0-CVE-Priority-icon-Medium.svg",
-    "low": "https://assets.ubuntu.com/v1/03ac6f86-CVE-Priority-icon-Low.svg",
-    "negligible": "https://assets.ubuntu.com/v1/f6820eae-CVE-Priority-icon-Negligible.svg",
-    "unknown": "https://assets.ubuntu.com/v1/e85d00c8-CVE-Priority-icon-Unknown.svg",
+VANILLA_ADDITIONAL_ICONS_CSS_URL = (
+    "https://vanillaframework.io/static/build/css/standalone/"
+    "patterns_icons-additional.css"
+)
+
+
+SEVERITY_CHIP_VARIANTS = {
+    "critical": ("p-chip--negative", "p-icon--priority-critical"),
+    "high": ("p-chip--caution", "p-icon--priority-high"),
+    "medium": ("p-chip--caution", "p-icon--priority-medium"),
+    "low": ("p-chip--positive", "p-icon--priority-low"),
+    "negligible": ("p-chip--positive", "p-icon--priority-negligible"),
+    "unknown": ("p-chip--information", "p-icon--priority-unknown"),
 }
 
 
@@ -1224,16 +1230,21 @@ def severity_priority(severity):
     return "unknown"
 
 
+def priority_label(priority):
+    value = str(priority or "unknown").strip().lower()
+    return " ".join(part.capitalize() for part in value.split("-")) or "Unknown"
+
+
 def status_chip(text, priority, alt):
-    icon_priority = priority if priority in SEVERITY_ICONS else "unknown"
+    chip_class, icon_class = SEVERITY_CHIP_VARIANTS.get(
+        priority,
+        SEVERITY_CHIP_VARIANTS["unknown"],
+    )
     visible_text = text.upper()
     return (
-        '<span class="p-chip vulnerability-severity">'
+        f'<span class="{chip_class} vulnerability-severity is-read-only">'
+        f'<i class="{icon_class}" title="{html.escape(alt)}"></i>'
         '<span class="p-chip__value">'
-        f'<img src="{SEVERITY_ICONS[icon_priority]}" '
-        f'alt="{html.escape(alt)}" '
-        f'title="{html.escape(text)}" '
-        'class="vulnerability-severity-icon">'
         f'{html.escape(visible_text)}'
         '</span>'
         '</span>'
@@ -1299,6 +1310,43 @@ def channel_chip(channel):
         f'<span class="p-chip__value">{html.escape(str(channel).strip().lower())}</span>'
         "</span>"
     )
+
+
+def summary_breakdown_chip(priority, count, label):
+    chip_class, icon_class = SEVERITY_CHIP_VARIANTS.get(
+        priority,
+        SEVERITY_CHIP_VARIANTS["unknown"],
+    )
+    title = f"{count} {label} issue{'s' if count != 1 else ''}"
+    return (
+        f'<span class="{chip_class} vulnerability-summary-breakdown-chip is-read-only" '
+        f'title="{html.escape(title)}">'
+        f'<i class="{icon_class}" aria-hidden="true"></i>'
+        f'<span class="p-chip__value">{html.escape(label)}: {count}</span>'
+        '</span>'
+    )
+
+
+def summary_breakdown_cell(counts, labeler):
+    ordered = ["critical", "high", "medium", "low", "negligible", "none", "unknown"]
+    chips = []
+    for priority in ordered:
+        count = int(counts.get(priority, 0) or 0)
+        if count:
+            chips.append(summary_breakdown_chip(priority, count, labeler(priority)))
+    return " ".join(chips) or '<span class="security-count-note">None</span>'
+
+
+def report_breakdowns(packages):
+    cvss_counts = {}
+    priority_counts = {}
+    for package in packages:
+        for vulnerability in package["vulnerabilities"]:
+            severity_key = severity_priority(vulnerability.get("severity", ""))
+            priority_key = severity_priority(vulnerability.get("priority", ""))
+            cvss_counts[severity_key] = cvss_counts.get(severity_key, 0) + 1
+            priority_counts[priority_key] = priority_counts.get(priority_key, 0) + 1
+    return cvss_counts, priority_counts
 
 
 def vulnerability_entry(vulnerability, patchable):
@@ -1484,6 +1532,7 @@ def collect_reports(reports_dir):
                     "vulnerabilities": package_vulns,
                 })
 
+        cvss3_severity_counts, priority_counts = report_breakdowns(entries)
         summary["reports"].append({
             "channel": channel,
             "architecture": arch,
@@ -1494,6 +1543,8 @@ def collect_reports(reports_dir):
             "actionableAffectedPackages": actionable_affected_packages,
             "actionableVulnerabilities": actionable_vulnerabilities,
             "confinedMitigationVulnerabilities": confined_mitigation_vulnerabilities,
+            "cvss3SeverityCounts": cvss3_severity_counts,
+            "priorityCounts": priority_counts,
             "packages": entries,
         })
 
@@ -1916,6 +1967,14 @@ def write_html(summary, output_path):
             f'<strong class="security-count">{confined_mitigations}</strong>'
             f'<span class="security-count-note">confined / report-only</span>'
         )
+        cvss3_cell = summary_breakdown_cell(
+            report.get("cvss3SeverityCounts", {}),
+            priority_label,
+        )
+        priority_cell = summary_breakdown_cell(
+            report.get("priorityCounts", {}),
+            priority_label,
+        )
 
         report_time = (
             f'<time datetime="{html.escape(report["generatedAt"]["datetime"])}">'
@@ -1940,6 +1999,8 @@ def write_html(summary, output_path):
             f'<td>{actionable_cell}</td>'
             f'<td>{raw_matches_cell}</td>'
             f'<td>{confined_cell}</td>'
+            f'<td>{cvss3_cell}</td>'
+            f'<td>{priority_cell}</td>'
             f'<td>{report_cell}</td>'
             f'</tr>'
         )
@@ -2083,7 +2144,7 @@ def write_html(summary, output_path):
         detail_rows.append(detail_row_html)
 
     summary_table_rows = "\n".join(summary_rows) or (
-        '<tr><td colspan="5">No OSV reports were generated.</td></tr>'
+        '<tr><td colspan="8">No OSV reports were generated.</td></tr>'
     )
     detail_body_rows = "\n".join(detail_rows) or (
         '<tr><td colspan="9">No unpatched vulnerabilities reported by OSV-Scanner.</td></tr>'
@@ -2098,6 +2159,7 @@ def write_html(summary, output_path):
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vulnerability Reports - snap Pi-hole</title>
 {vanilla_framework_css_link()}
+  <link rel="stylesheet" href="{VANILLA_ADDITIONAL_ICONS_CSS_URL}">
   <link rel="stylesheet" href="vulnerability-report.css">
 </head>
 <body>
@@ -2148,6 +2210,8 @@ def write_html(summary, output_path):
                   <th>Published Fixes (USN)</th>
                   <th>CVE Matches</th>
                   <th>Confined Mitigations</th>
+                  <th>CVSS 3 Severity</th>
+                  <th>Ubuntu Priority</th>
                   <th>Report</th>
                 </tr>
               </thead>

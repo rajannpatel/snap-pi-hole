@@ -82,21 +82,9 @@ main.p-strip {
 /* ==========================================================================
    6. Spinners & Animations
    ========================================================================== */
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.spinner {
-  display: inline-block;
-  width: 1.5rem;
-  height: 1.5rem;
-  border: 3px solid rgba(0, 0, 0, .1);
-  border-radius: 50%;
-  border-top-color: #e95420;
-  animation: spin 1s ease-in-out infinite;
-  vertical-align: middle;
+#sbom-loading .p-icon--spinner {
   margin-right: 0.5rem;
+  vertical-align: middle;
 }
 
 /* ==========================================================================

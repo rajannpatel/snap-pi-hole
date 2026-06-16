@@ -755,7 +755,7 @@
 
     function workflowButtonHtml(url, durationSeconds, contextLabel, isBuilding = false) {
       const showSpinner = isBuilding || durationSeconds === null || durationSeconds === undefined;
-      const spinnerHtml = `<span class="workflow-btn__spinner" aria-hidden="true"></span>`;
+      const spinnerHtml = `<i class="p-icon--spinner u-animation--spin" aria-hidden="true"></i>`;
 
       let contentHtml;
       let accessibleLabel;

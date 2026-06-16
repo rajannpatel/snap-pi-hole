@@ -60,7 +60,9 @@ EOF
       .confinedMitigationVulnerabilities == 1 and
       ([.reports[].vulnerabilities] == [2, 2]) and
       ([.reports[].actionableVulnerabilities] == [1, 1]) and
-      ([.reports[].confinedMitigationVulnerabilities] == [1, 1])
+      ([.reports[].confinedMitigationVulnerabilities] == [1, 1]) and
+      ([.reports[].cvss3SeverityCounts.unknown] == [2, 2]) and
+      ([.reports[].priorityCounts.unknown] == [2, 2])
     ' "${REPORT_DIR}/osv-summary.json"
     [ "$status" -eq 0 ]
 }
@@ -216,7 +218,13 @@ html = Path("${REPORT_DIR}/index.html").read_text()
 css = Path("${REPORT_DIR}/vulnerability-report.css").read_text()
 assert '<span class="p-chip vulnerability-channel">' in html, html
 assert 'rel="stylesheet" href="vulnerability-report.css"' in html, html
+assert 'patterns_icons-additional.css' in html, html
+assert 'p-icon--priority-unknown' in html, html
+assert '<th>CVSS 3 Severity</th>' in html, html
+assert '<th>Ubuntu Priority</th>' in html, html
+assert 'vulnerability-summary-breakdown-chip' in html, html
 assert ".vulnerability-channel .p-chip__value" in css, css
+assert "CVE-Priority-icon-Unknown.svg" in css, css
 assert "font-size: 12px;" in css, css
 PYEOF
 }
@@ -1795,4 +1803,3 @@ with mock.patch("summarize_osv_reports.time.sleep") as mock_sleep:
 print("Batch and individual skip on absurd cooldown unit test passed successfully.")
 PYEOF
 }
-

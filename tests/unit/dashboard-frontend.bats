@@ -272,7 +272,7 @@ assert.match(buttonHtml, /href="https:\/\/example\.test\/run\?x=1&amp;y=2"/);
 
 const pendingHtml = workflowButtonHtml("", null, "Publish job");
 assert.match(pendingHtml, /aria-disabled="true"/);
-assert.match(pendingHtml, /class="workflow-btn__spinner"/);
+assert.match(pendingHtml, /class="p-icon--spinner u-animation--spin"/);
 assert.doesNotMatch(pendingHtml, /href=/);
 
 const fs = require("fs");
@@ -289,7 +289,7 @@ assert.match(cssSource, /\.workflow-btn \.button-icon \{[\s\S]*align-self: cente
 assert.match(source, /id="latest-run-link" class="p-button workflow-btn u-no-margin--bottom"/);
 assert.match(source, /<span class="workflow-btn__label">Pipeline run<\/span>/);
 assert.match(cssSource, /td \.workflow-buttons \{[\s\S]*display: flex;[\s\S]*justify-content: flex-start;[\s\S]*width: 100%;/);
-assert.match(cssSource, /td \.workflow-btn \.workflow-btn__spinner \{[\s\S]*border-radius: 50%;[\s\S]*box-sizing: border-box;[\s\S]*flex: 0 0 0\.75rem;[\s\S]*height: 0\.75rem;[\s\S]*width: 0\.75rem;/);
+assert.match(cssSource, /td \.workflow-btn \.p-icon--spinner \{[\s\S]*flex: 0 0 0\.75rem;[\s\S]*height: 0\.75rem;[\s\S]*width: 0\.75rem;/);
 assert.match(cssSource, /\.workflow-btn \.status-chip-logo \{[\s\S]*flex: 0 0 0\.875rem;[\s\S]*height: 0\.875rem;[\s\S]*width: 0\.875rem;/);
 assert.match(source, /btn\.querySelector\("\.workflow-btn__label"\)/);
 

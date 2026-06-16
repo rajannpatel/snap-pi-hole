@@ -458,9 +458,6 @@ section[aria-label] {
   animation: dashboard-pulse 1.2s ease-in-out infinite;
 }
 
-@keyframes dashboard-spin {
-  to { transform: rotate(360deg); }
-}
 
 /* ==========================================================================
    8. Trend Charts & Matrix Controls
@@ -580,13 +577,8 @@ td .report-button-group {
   width: 1rem;
 }
 
-td .workflow-btn .workflow-btn__spinner {
-  animation: dashboard-spin 0.9s linear infinite;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  border-top-color: transparent;
-  box-sizing: border-box;
-  display: block;
+td .workflow-btn .p-icon--spinner {
+  align-self: center;
   flex: 0 0 0.75rem;
   height: 0.75rem;
   margin-right: 0;
