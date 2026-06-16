@@ -18,7 +18,8 @@ documentation for platform details.
 > [!IMPORTANT]
 > **Cross-Platform Compatibility (macOS & Windows)**:
 > Canonical Workshop and LXD require Linux container primitives and cannot run natively on macOS or Windows.
-> - **Windows**: Use Ubuntu on WSL2 with systemd enabled. Install LXD and Workshop inside WSL2. Open VS Code on Windows and use the **WSL** extension, or use Zed's WSL remote workflow. Do not run project verification from PowerShell or `cmd.exe`.
+> - **Windows**: Install [Git for Windows](https://git-scm.com/download/win) first so Git Bash is available. Most commands in this repository's documentation are Bash commands; use Git Bash for Windows host commands, and use the Ubuntu WSL terminal when a step runs inside WSL2. Do not run project verification from PowerShell or `cmd.exe` unless a command block is explicitly labelled `powershell`.
+> - **Windows Workshop setup**: Use Ubuntu on WSL2 with systemd enabled. Install LXD and Workshop inside WSL2. Open VS Code on Windows and use the **WSL** extension, or use Zed's WSL remote workflow.
 > - **macOS**: Launch a Linux virtual machine, for example with [Multipass](https://canonical.com/multipass/install), install LXD and Workshop inside the VM, and use your IDE's remote development feature such as VS Code **Remote - SSH** or Zed SSH remoting.
 > 
 > For step-by-step instructions on setting up your IDE (VS Code or Zed) and configuring AI coding agents, refer to the [IDE and AI Agent Integration Guide](https://github.com/rajannpatel/snap-pi-hole/wiki/How-to:-IDE-and-AI-agent-integration).
