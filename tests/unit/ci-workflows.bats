@@ -819,3 +819,119 @@ PYEOF
     # Test Web edge
     [ "$(run_web_tag_logic "12ab34c")" = "v6.5.1+git.12ab34c" ]
 }
+
+@test "channel-switch workflow exists" {
+    [ -f "${REPO_ROOT}/.github/workflows/channel-switch.yml" ]
+}
+
+@test "channel-switch workflow has manual and workflow_run triggers" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/channel-switch.yml") as f:
+    wf = yaml.safe_load(f)
+on_val = wf.get("on") or wf.get(True) or {}
+assert "workflow_dispatch" in on_val, on_val
+assert "workflow_run" in on_val, on_val
+wfs = on_val["workflow_run"]["workflows"]
+assert wfs == ["CI/CD Pipeline"], wfs
+PYEOF
+}
+
+@test "channel-switch workflow is optional and not a PR gate" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/channel-switch.yml") as f:
+    wf = yaml.safe_load(f)
+on_val = wf.get("on") or wf.get(True) or {}
+assert "pull_request" not in on_val, on_val
+
+cond = wf["jobs"]["run-smoke"]["if"]
+assert "github.event_name == 'workflow_dispatch'" in cond, cond
+assert "github.event.workflow_run.conclusion == 'success'" in cond, cond
+assert "github.event.workflow_run.event == 'push'" in cond, cond
+assert "github.event.workflow_run.head_branch == 'main'" in cond, cond
+
+# Ensure existing cicd.yml required jobs do not 'need' channel-switch
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    cicd = yaml.safe_load(f)
+for job_name, job_data in cicd.get("jobs", {}).items():
+    needs = job_data.get("needs", [])
+    if isinstance(needs, str):
+        needs = [needs]
+    assert "run-smoke" not in needs, job_name
+    assert "channel-switch" not in needs, job_name
+PYEOF
+}
+
+@test "channel-switch workflow uploads result artifact on failure" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/channel-switch.yml") as f:
+    wf = yaml.safe_load(f)
+steps = wf["jobs"]["run-smoke"]["steps"]
+upload_step = next(s for s in steps if s.get("uses", "").startswith("actions/upload-artifact"))
+assert upload_step.get("if") == "always()", upload_step
+assert upload_step.get("with", {}).get("if-no-files-found") == "error", upload_step
+PYEOF
+}
+
+@test "channel-switch workflow tests store channels not local artifacts" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/channel-switch.yml") as f:
+    wf = yaml.safe_load(f)
+steps = wf["jobs"]["run-smoke"]["steps"]
+# Assert we don't download local snap package artifacts
+assert not any("download-artifact" in s.get("uses", "") for s in steps), "Should not download local snap package"
+
+# Assert the script tests snap store channel install, not local file install
+with open("${REPO_ROOT}/tests/scripts/channel-switch-smoke.sh") as f:
+    script = f.read()
+assert "snap install" in script
+assert "--channel=" in script
+assert ".snap" not in script
+PYEOF
+}
+
+@test "channel-switch workflow includes stable and edge channel names" {
+    python3 - <<PYEOF
+with open("${REPO_ROOT}/.github/workflows/channel-switch.yml") as f:
+    wf = f.read()
+assert "latest/stable" in wf or "stable-to-edge" in wf or "edge-to-stable" in wf
+with open("${REPO_ROOT}/tests/scripts/channel-switch-smoke.sh") as f:
+    script = f.read()
+assert "latest/stable" in script
+assert "latest/edge" in script
+PYEOF
+}
+
+@test "channel-switch workflow uses Ubuntu 26.04 runner labels" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/channel-switch.yml") as f:
+    wf = yaml.safe_load(f)
+jobs = wf["jobs"]
+for job_name, job_data in jobs.items():
+    runs_on = job_data.get("runs-on", "")
+    if isinstance(runs_on, str) and runs_on.startswith("\${{"):
+        matrix = job_data.get("strategy", {}).get("matrix", {})
+        includes = matrix.get("include", [])
+        for entry in includes:
+            runner = entry.get("runner", "")
+            assert "ubuntu-latest" not in runner, runner
+            assert "ubuntu-26.04" in runner, runner
+    else:
+        assert "ubuntu-latest" not in runs_on, runs_on
+        assert "ubuntu-26.04" in runs_on, runs_on
+PYEOF
+}
+
+@test "channel-switch workflow runs only on the arm64 GitHub runner" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/channel-switch.yml") as f:
+    wf = yaml.safe_load(f)
+matrix = wf["jobs"]["run-smoke"]["strategy"]["matrix"]["include"]
+assert matrix == [{"arch": "arm64", "runner": "ubuntu-26.04-arm"}], matrix
+PYEOF
+}

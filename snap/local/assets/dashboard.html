@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,6 +16,7 @@
   </script>
   <link rel="stylesheet" href="dashboard.css">
 </head>
+
 <body>
   <div class="l-site">
     <header id="navigation" class="p-navigation is-dark">
@@ -45,7 +47,10 @@
           <div class="col-12">
             <div class="p-muted-heading-container">
               <h3 class="p-muted-heading">Reports</h3>
-              <span class="freshness-chip freshness-chip--inline" data-freshness="build" title="Page publishing snapshot from the generated dashboard data, refreshed when this page is deployed."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Page publishing</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+              <span class="freshness-chip freshness-chip--inline" data-freshness="build"
+                title="Page publishing snapshot from the generated dashboard data, refreshed when this page is deployed."><span
+                  class="freshness-chip__dot"></span><span class="freshness-chip__label">Page publishing</span><span
+                  class="freshness-chip__detail" data-freshness-detail>—</span></span>
             </div>
           </div>
         </div>
@@ -54,7 +59,8 @@
             <div class="report-action-grid" aria-label="Available generated reports">
               <article class="p-card report-card report-card--security">
                 <h2 class="p-heading--4">Vulnerability reports</h2>
-                <p class="report-card__summary" id="report-vuln-summary">OSV and confinement analysis for generated SBOMs.</p>
+                <p class="report-card__summary" id="report-vuln-summary">OSV and confinement analysis for generated
+                  SBOMs.</p>
                 <p class="report-card__meta">Security findings, VEX documents, and per-architecture JSON.</p>
                 <div class="report-card__actions">
                   <a class="p-button--positive" href="vulnerabilities/">Open vulnerability reports</a>
@@ -62,7 +68,8 @@
               </article>
               <article class="p-card report-card">
                 <h2 class="p-heading--4">Coverage reports</h2>
-                <p class="report-card__summary" id="report-coverage-summary">Coverage tracks statement and execution health for every CI run.</p>
+                <p class="report-card__summary" id="report-coverage-summary">Coverage tracks statement and execution
+                  health for every CI run.</p>
                 <p class="report-card__meta">Kcov output from the latest pipeline build.</p>
                 <div class="report-card__actions">
                   <a class="p-button" href="coverage/">Open coverage reports</a>
@@ -70,7 +77,8 @@
               </article>
               <article class="p-card report-card">
                 <h2 class="p-heading--4">SBOM explorer</h2>
-                <p class="report-card__summary" id="report-sbom-summary">SBOM data captures architecture-specific dependency composition and version drift.</p>
+                <p class="report-card__summary" id="report-sbom-summary">SBOM data captures architecture-specific
+                  dependency composition and version drift.</p>
                 <p class="report-card__meta">CycloneDX package inventory by architecture.</p>
                 <div class="report-card__actions">
                   <a class="p-button" href="sbom/">Open SBOM explorer</a>
@@ -86,7 +94,10 @@
           <div class="col-12">
             <div class="p-muted-heading-container">
               <h3 class="p-muted-heading" id="security-title">Security</h3>
-              <span class="freshness-chip freshness-chip--inline" data-freshness="build" title="CI-baked dashboard data, refreshed when this page is deployed."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Build snapshot</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+              <span class="freshness-chip freshness-chip--inline" data-freshness="build"
+                title="CI-baked dashboard data, refreshed when this page is deployed."><span
+                  class="freshness-chip__dot"></span><span class="freshness-chip__label">Build snapshot</span><span
+                  class="freshness-chip__detail" data-freshness-detail>—</span></span>
             </div>
           </div>
         </div>
@@ -94,17 +105,20 @@
           <div class="col-12">
             <div class="security-panel" aria-label="Security summary">
               <h2>Security posture</h2>
-              <p>Outstanding OSV-Scanner findings from the generated SBOMs, separated by actionable USN exposure and confinement-mitigated report-only findings.</p>
+              <p>Outstanding OSV-Scanner findings from the generated SBOMs, separated by actionable USN exposure and
+                confinement-mitigated report-only findings.</p>
               <div class="security-spotlight" aria-label="Security summary spotlight">
                 <div class="security-spotlight__metric">
                   <hr class="p-rule--highlight security-spotlight__rule">
                   <p class="p-heading--1 u-no-margin u-no-padding"><span id="security-total-vulns">--</span></p>
-                  <p class="security-spotlight__label p-text--small u-no-margin u-no-padding">Actionable USN vulnerabilities</p>
+                  <p class="security-spotlight__label p-text--small u-no-margin u-no-padding">Actionable USN
+                    vulnerabilities</p>
                 </div>
                 <div class="security-spotlight__metric">
                   <hr class="p-rule--highlight security-spotlight__rule">
                   <p class="p-heading--1 u-no-margin u-no-padding"><span id="security-confined-vulns">--</span></p>
-                  <p class="security-spotlight__label p-text--small u-no-margin u-no-padding">Mitigated by confinement</p>
+                  <p class="security-spotlight__label p-text--small u-no-margin u-no-padding">Mitigated by confinement
+                  </p>
                 </div>
               </div>
             </div>
@@ -130,13 +144,18 @@
                     </tr>
                   </thead>
                   <tbody id="security-arch-body">
-                    <tr><td colspan="6">Loading vulnerability summary...</td></tr>
+                    <tr>
+                      <td colspan="6">Loading vulnerability summary...</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
             </div>
             <p class="p-text--small security-policy">
-              <strong>Security Policy:</strong> All available upstream security updates are automatically applied during compilation at build time. These dashboard totals count only outstanding vulnerability matches with a corresponding Ubuntu Security Notice (USN). Non-USN OSV matches remain visible in the detailed report as confined-mitigation findings and are report-only unless a dedicated workflow gate is added.
+              <strong>Security Policy:</strong> All available upstream security updates are automatically applied during
+              compilation at build time. These dashboard totals count only outstanding vulnerability matches with a
+              corresponding Ubuntu Security Notice (USN). Non-USN OSV matches remain visible in the detailed report as
+              confined-mitigation findings and are report-only unless a dedicated workflow gate is added.
             </p>
           </div>
         </div>
@@ -150,31 +169,42 @@
               <nav class="p-tabs" aria-label="Select channel scope">
                 <ul class="p-tabs__list" role="tablist">
                   <li class="p-tabs__item" role="presentation">
-                    <button class="p-tabs__link is-active" id="btn-stable" type="button" role="tab" aria-selected="true">Stable (upstream branch)</button>
+                    <button class="p-tabs__link is-active" id="btn-stable" type="button" role="tab"
+                      aria-selected="true">Stable (upstream branch)</button>
                   </li>
                   <li class="p-tabs__item" role="presentation">
-                    <button class="p-tabs__link" id="btn-edge" type="button" role="tab" aria-selected="false" tabindex="-1">Edge (upstream dev)</button>
+                    <button class="p-tabs__link" id="btn-edge" type="button" role="tab" aria-selected="false"
+                      tabindex="-1">Edge (upstream dev)</button>
                   </li>
                 </ul>
               </nav>
             </div>
-            <p class="channel-scope-summary" id="channel-scope-summary">Viewing stable: upstream stable branch commits, stable Snap Store publication, and stable install tests.</p>
+            <p class="channel-scope-summary" id="channel-scope-summary">Viewing stable: upstream stable branch commits,
+              stable Snap Store publication, and stable install tests.</p>
             <div class="activity-strip" id="current-activity" aria-label="Current release activity">
-              <div class="activity-item"><span class="activity-item__label">Upstream</span><span class="activity-item__value">Loading...</span></div>
-              <div class="activity-item"><span class="activity-item__label">Build</span><span class="activity-item__value">Loading...</span></div>
-              <div class="activity-item"><span class="activity-item__label">Store</span><span class="activity-item__value">Loading...</span></div>
-              <div class="activity-item"><span class="activity-item__label">Install</span><span class="activity-item__value">Loading...</span></div>
+              <div class="activity-item"><span class="activity-item__label">Upstream</span><span
+                  class="activity-item__value">Loading...</span></div>
+              <div class="activity-item"><span class="activity-item__label">Build</span><span
+                  class="activity-item__value">Loading...</span></div>
+              <div class="activity-item"><span class="activity-item__label">Store</span><span
+                  class="activity-item__value">Loading...</span></div>
+              <div class="activity-item"><span class="activity-item__label">Install</span><span
+                  class="activity-item__value">Loading...</span></div>
             </div>
             <div class="p-muted-heading-container u-no-margin--bottom">
               <h3 class="p-muted-heading" id="build-status-title">Build and test</h3>
-              <span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+              <span class="freshness-chip freshness-chip--inline" data-freshness="live"
+                title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span
+                  class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span
+                  class="freshness-chip__detail" data-freshness-detail>—</span></span>
             </div>
           </div>
         </div>
         <div class="row u-equal-height dashboard-row">
           <div class="col-6">
             <div class="dashboard-card dashboard-card--padded">
-              <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/run-command.png" alt="Run command icon">
+              <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/run-command.png"
+                alt="Run command icon">
               <hr class="u-sv1">
               <h3 class="dashboard-card-title">Latest pipeline run</h3>
               <table class="dashboard-details-table table--vertical-center">
@@ -200,7 +230,13 @@
                 </tbody>
               </table>
               <div class="dashboard-card-action">
-                <a id="latest-run-link" class="p-button u-no-margin--bottom" href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" target="_blank" rel="noopener noreferrer"><svg class="button-icon" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>Pipeline run</a>
+                <a id="latest-run-link" class="p-button u-no-margin--bottom"
+                  href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" target="_blank"
+                  rel="noopener noreferrer"><svg class="button-icon" viewBox="0 0 16 16" width="12" height="12"
+                    fill="currentColor">
+                    <path
+                      d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8" />
+                  </svg>Pipeline run</a>
               </div>
             </div>
           </div>
@@ -235,7 +271,10 @@
             <div class="col-12">
               <div class="p-muted-heading-container u-no-padding--top u-no-margin--bottom">
                 <h3 class="p-muted-heading">Compatibility</h3>
-                <span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+                <span class="freshness-chip freshness-chip--inline" data-freshness="live"
+                  title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span
+                    class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span
+                    class="freshness-chip__detail" data-freshness-detail>—</span></span>
               </div>
               <h2>Test status matrix</h2>
             </div>
@@ -255,7 +294,9 @@
                     </tr>
                   </thead>
                   <tbody id="compatibility-matrix-body">
-                    <tr><td colspan="5">Loading matrix...</td></tr>
+                    <tr>
+                      <td colspan="5">Loading matrix...</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -270,14 +311,18 @@
           <div class="col-12">
             <div class="p-muted-heading-container u-no-padding--top u-no-margin--bottom">
               <h3 class="p-muted-heading">Publish and store</h3>
-              <span class="freshness-chip freshness-chip--inline" data-freshness="snap" title="Snap Store package metadata, refreshed hourly via a published gist (api.snapcraft.io is not reachable from the browser)."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">Snap Store</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+              <span class="freshness-chip freshness-chip--inline" data-freshness="snap"
+                title="Snap Store package metadata, refreshed hourly via a published gist (api.snapcraft.io is not reachable from the browser)."><span
+                  class="freshness-chip__dot"></span><span class="freshness-chip__label">Snap Store</span><span
+                  class="freshness-chip__detail" data-freshness-detail>—</span></span>
             </div>
             <h2 id="snap-packages-title">Stable channel snap packages</h2>
           </div>
         </div>
         <div class="row">
           <div class="col-12">
-            <p class="p-heading--4">Latest Snap Store revision per architecture. A row can show store lag while a newer build is still running, uploaded but not selected, or waiting for store propagation.</p>
+            <p class="p-heading--4">Latest Snap Store revision per architecture. A row can show store lag while a newer
+              build is still running, uploaded but not selected, or waiting for store propagation.</p>
             <div id="snap-package-freshness" hidden></div>
             <div class="table-container">
               <table class="p-table snap-package-table table--vertical-center">
@@ -294,7 +339,9 @@
                   </tr>
                 </thead>
                 <tbody id="snap-package-rows">
-                  <tr><td colspan="8">Loading package metadata...</td></tr>
+                  <tr>
+                    <td colspan="8">Loading package metadata...</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -314,7 +361,8 @@
         </div>
         <div class="row">
           <div class="col-12">
-            <p id="components-section-desc" class="p-heading--4">Bundled FTL, Core, and Web sources compared with the selected upstream track.</p>
+            <p id="components-section-desc" class="p-heading--4">Bundled FTL, Core, and Web sources compared with the
+              selected upstream track.</p>
             <div class="table-container">
               <table class="p-table components-table table--vertical-center">
                 <thead>
@@ -327,11 +375,14 @@
                   </tr>
                 </thead>
                 <tbody id="dependency-rows">
-                  <tr><td colspan="5">Loading dependency comparisons...</td></tr>
+                  <tr>
+                    <td colspan="5">Loading dependency comparisons...</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
-            <p class="p-text--small u-text--muted schedule-note">Next scheduled auto-rebuild check: <span id="release-tracking-schedule-note" class="mono">--</span></p>
+            <p class="p-text--small u-text--muted schedule-note">Next scheduled auto-rebuild check: <span
+                id="release-tracking-schedule-note" class="mono">--</span></p>
           </div>
         </div>
       </section>
@@ -345,7 +396,10 @@
           <div class="col-12">
             <div class="p-muted-heading-container">
               <h3 class="p-muted-heading" id="release-tracking-title">Release tracking and sync</h3>
-              <span class="freshness-chip freshness-chip--inline" data-freshness="live" title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span class="freshness-chip__detail" data-freshness-detail>—</span></span>
+              <span class="freshness-chip freshness-chip--inline" data-freshness="live"
+                title="Build, test matrix, durations and run timestamps, pulled live from the GitHub API in your browser."><span
+                  class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub API</span><span
+                  class="freshness-chip__detail" data-freshness-detail>—</span></span>
             </div>
           </div>
         </div>
@@ -353,7 +407,8 @@
         <div class="row">
           <div class="col-12">
             <div class="dashboard-card dashboard-card--padded">
-              <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/pull-request.png" alt="Pull request icon">
+              <img class="p-card__thumbnail" src="https://img.icons8.com/wired/96/000000/pull-request.png"
+                alt="Pull request icon">
               <hr class="u-sv1">
               <h3 class="dashboard-card-title">Upstream tracking</h3>
               <div class="table-container">
@@ -393,6 +448,65 @@
         </div>
       </section>
 
+      <section class="p-section dashboard-section--spacing" aria-label="Channel switch status"
+        id="channel-switch-section">
+        <div class="row">
+          <div class="col-12">
+            <hr class="p-rule">
+          </div>
+          <div class="col-12">
+            <div class="p-muted-heading-container u-no-padding--top u-no-margin--bottom">
+              <h3 class="p-muted-heading">Safe data migration</h3>
+              <span class="freshness-chip freshness-chip--inline" data-freshness="live"
+                title="Channel switch test status, pulled from workflow runs."><span
+                  class="freshness-chip__dot"></span><span class="freshness-chip__label">GitHub Actions</span><span
+                  class="freshness-chip__detail" data-freshness-detail>—</span></span>
+            </div>
+            <h2>snap channel switch smoke test</h2>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-12">
+            <h3 class="p-heading--4">Refresh path</h3>
+            <ul class="p-list-timeline" id="channel-switch-timeline">
+              <li class="p-list-timeline__item">
+                <div class="p-list-timeline__node"></div>
+                <div class="p-list-timeline__content">
+                  <h4 class="p-list-timeline__title">Waiting for channel switch data</h4>
+                  <p class="p-list-timeline__meta">No workflow result loaded yet</p>
+                  <p class="p-list-timeline__description" id="channel-switch-summary">Loading...</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-12">
+            <h3 class="p-heading--4">Test details</h3>
+            <div class="table-container">
+              <table class="p-table matrix-table table--vertical-center" id="channel-switch-details-table">
+                <caption class="u-off-screen">Test details for channel switch test</caption>
+                <thead>
+                  <tr>
+                    <th>Architecture</th>
+                    <th>Tested on</th>
+                    <th>Path</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                    <th>Test duration</th>
+                  </tr>
+                </thead>
+                <tbody id="channel-switch-matrix-body">
+                  <tr>
+                    <td colspan="6">Loading details...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
 
     </main>
 
@@ -402,15 +516,18 @@
           <h2 class="p-heading--5">Project Resources</h2>
           <ul class="p-list">
             <li><a href="https://github.com/rajannpatel/snap-pi-hole" class="is-dark">GitHub Repository</a></li>
-            <li><a href="https://github.com/rajannpatel/snap-pi-hole/wiki" class="is-dark">Project Wiki Documentation</a></li>
+            <li><a href="https://github.com/rajannpatel/snap-pi-hole/wiki" class="is-dark">Project Wiki
+                Documentation</a></li>
             <li><a href="https://snapcraft.io/pihole-by-rajannpatel" class="is-dark">Snap Store listing</a></li>
           </ul>
         </div>
         <div class="col-4">
           <h2 class="p-heading--5">CI/CD Pipeline</h2>
           <ul class="p-list">
-            <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions" class="is-dark">Workflow Execution History</a></li>
-            <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml" class="is-dark">Pipeline Definition (YAML)</a></li>
+            <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions" class="is-dark">Workflow Execution
+                History</a></li>
+            <li><a href="https://github.com/rajannpatel/snap-pi-hole/actions/workflows/cicd.yml"
+                class="is-dark">Pipeline Definition (YAML)</a></li>
             <li><a href="sbom/" class="is-dark">Software Bill of Materials (SBOM)</a></li>
             <li><a href="vulnerabilities/" class="is-dark">Vulnerability Reports</a></li>
             <li><a href="coverage/" class="is-dark">Code Coverage Reports</a></li>
@@ -419,7 +536,8 @@
         <div class="col-4">
           <h2 class="p-heading--5">Security & Confinement</h2>
           <p class="p-text--small">
-            Built securely on Ubuntu builders. Packaged as a strictly confined snap, ensuring isolated execution and sandboxed system interactions for Pi-hole Core services.
+            Built securely on Ubuntu builders. Packaged as a strictly confined snap, ensuring isolated execution and
+            sandboxed system interactions for Pi-hole Core services.
           </p>
         </div>
       </div>
@@ -444,7 +562,7 @@
     const LIVE_RATE_FLOOR = 8;
 
     // Core live application state variables
-    const liveState = { rateRemaining: null, pollTimer: null, releaseLagDone: false, releaseLagDue: false, lastCicdRunId: null, lastLpRunId: null, trackUpstreamRunId: null, trackUpstreamJobUrl: null, trackUpstreamJobDurationSeconds: null, trackUpstreamJobStatus: null, cicdJobs: null, cicdRun: null, lpJobs: null, lpRun: null, snapOverlayInFlight: false, snapOverlayLastFetch: 0 };
+    const liveState = { rateRemaining: null, pollTimer: null, releaseLagDone: false, releaseLagDue: false, lastCicdRunId: null, lastLpRunId: null, lastChannelSwitchRunId: null, channelSwitchJobs: null, trackUpstreamRunId: null, trackUpstreamJobUrl: null, trackUpstreamJobDurationSeconds: null, trackUpstreamJobStatus: null, cicdJobs: null, cicdRun: null, lpJobs: null, lpRun: null, snapOverlayInFlight: false, snapOverlayLastFetch: 0 };
     const matrixState = { rows: [], failedLinks: [] };
 
     // Snap Store Gist integration (workaround for lack of CORS support on api.snapcraft.io)
@@ -637,7 +755,7 @@
     function workflowButtonHtml(url, durationSeconds, contextLabel, isBuilding = false) {
       const showSpinner = isBuilding || durationSeconds === null || durationSeconds === undefined;
       const spinnerHtml = `<span class="workflow-btn__spinner" aria-hidden="true"></span>`;
-      
+
       let contentHtml;
       let accessibleLabel;
       let dataAttrs = "";
@@ -1112,7 +1230,7 @@
         const statusVal = building ? "building" : (latest.status || "unknown");
         const statusText = statusVal.replace("_", " ");
         const statusClassStr = building ? "status-chip status-building is-building" : `status-chip ${statusClass(latest.status)}`;
-        
+
         chip.parentElement.innerHTML = `<span id="latest-run-status-chip" class="${statusClassStr}" aria-label="Status: ${statusText}">${statusIconSvg(statusVal)}<span class="status-text-full">${statusText}</span><span class="status-text-short">${statusText}</span></span>`;
       }
       const latestLink = document.getElementById("latest-run-link");
@@ -1192,7 +1310,7 @@
         `;
         tbody.appendChild(tr);
       });
-       
+
       // Equalize workflow button widths based on the widest button
       setTimeout(() => {
         const buttons = tbody.querySelectorAll('.workflow-btn');
@@ -1243,7 +1361,7 @@
           : `<span class="status-chip status-success" aria-label="No actionable USN vulnerabilities">${checkIconSvg}<span class="status-text-full" aria-hidden="true">No USN action</span><span class="status-text-short" aria-hidden="true">clear</span></span>`;
         const osvUrl = row.report ? `vulnerabilities/${row.report}` : "";
         const vexUrl = architecture ? `vulnerabilities/vex-${channelLabel}-${architecture}.cdx.json` : "";
-        
+
         let datePart = "Unknown";
         let timePart = "";
         if (row.generated_at) {
@@ -1856,6 +1974,149 @@
       );
     }
 
+    // Renders the channel switch post-publish release-health test summary and matrix
+    function renderChannelSwitch(cs) {
+      if (!cs) {
+        cs = { status: "no_data", summary: "No data available", duration_label: "Unknown", updated_at: "", html_url: "", rows: [] };
+      }
+      renderChannelSwitchTimeline(cs);
+
+      const body = document.getElementById("channel-switch-matrix-body");
+      if (body) {
+        body.innerHTML = "";
+        const rows = cs.rows || [];
+        if (!rows.length) {
+          body.innerHTML = '<tr><td colspan="6">No channel switch runs recorded.</td></tr>';
+        } else {
+          rows.forEach(row => {
+            const tr = document.createElement("tr");
+            const detailsTr = document.createElement("tr");
+            const isBuilding = isBuildingStatus(row.status);
+            const statusBadge = liveStatusChip(row.status, "running");
+
+            const arch = escapeHtml(row.arch || "unknown");
+            const testedOn = githubRunnerChipHtml();
+            const path = escapeHtml(row.path || "roundtrip");
+            const updated = escapeHtml(formatDate(row.updated_at || cs.updated_at));
+            const details = escapeHtml(channelSwitchDetailsText(row));
+
+            const wfButton = workflowButtonHtml(row.url || "", row.duration_seconds, "Workflow run", isBuilding);
+
+            tr.innerHTML = `
+              <td class="mono font-weight-bold">${arch}</td>
+              <td>${testedOn}</td>
+              <td class="mono">${path}</td>
+              <td>${statusBadge}</td>
+              <td class="mono">${updated}</td>
+              <td>${wfButton}</td>
+            `;
+            detailsTr.className = "channel-switch-details-row";
+            detailsTr.innerHTML = `
+              <td class="channel-switch-details-cell" colspan="6">
+                <div class="channel-switch-details-grid">
+                  <div class="channel-switch-explanation channel-switch-explanation--contained">
+                    <h4 class="channel-switch-explanation__title">Details</h4>
+                    <p class="channel-switch-explanation__body">${details}</p>
+                  </div>
+                </div>
+              </td>
+            `;
+            body.appendChild(tr);
+            body.appendChild(detailsTr);
+          });
+        }
+      }
+    }
+
+    function githubRunnerChipHtml() {
+      return `<span class="status-chip status-neutral status-chip--github-builder">${githubLogoSvg}GitHub runner</span>`;
+    }
+
+    function channelSwitchDetailsText(row) {
+      if (!row) return "No details available";
+      if (row.reason) return row.reason;
+      if (row.status === "success") return "Health checks passed";
+      if (row.status === "skipped") return "No channel delta to test";
+      if (row.status === "in_progress" || row.status === "queued") return "Workflow running";
+      return row.summary || "No details available";
+    }
+
+    function channelSwitchPathSteps(cs) {
+      const stableRevision = cs.stable_revision || cs.channels?.stable?.revision || "";
+      const edgeRevision = cs.edge_revision || cs.channels?.edge?.revision || "";
+      const stablePoint = { channel: "stable", revision: stableRevision || "?" };
+      const edgePoint = { channel: "edge", revision: edgeRevision || "?" };
+      const path = cs.path || "roundtrip";
+      if (cs.status === "skipped") {
+        return [
+          {
+            title: "No channel transition required",
+            meta: [stablePoint, edgePoint],
+            description: cs.reason || "The workflow skipped because there is no channel delta to test.",
+          },
+        ];
+      }
+      if (path === "stable-to-edge") {
+        return [
+          {
+            title: "Stable to edge",
+            meta: [stablePoint, edgePoint],
+            description: cs.status === "failure" ? (cs.reason || "Transition failed") : "Refresh completed and health checks passed.",
+          },
+        ];
+      }
+      if (path === "edge-to-stable") {
+        return [
+          {
+            title: "Edge to stable",
+            meta: [edgePoint, stablePoint],
+            description: cs.status === "failure" ? (cs.reason || "Transition failed") : "Refresh completed and health checks passed.",
+          },
+        ];
+      }
+      return [
+        {
+          title: "Stable to edge",
+          meta: [stablePoint, edgePoint],
+          description: cs.status === "failure" ? (cs.reason || "Transition failed before round trip completed") : "Edge refresh completed and health checks passed.",
+        },
+        {
+          title: "Edge to stable",
+          meta: [edgePoint, stablePoint],
+          description: cs.status === "failure" ? (cs.summary || "Stable rollback did not complete cleanly") : "Stable rollback completed and health checks passed.",
+        },
+      ];
+    }
+
+    function channelRevisionChipHtml(point) {
+      const channel = point?.channel || "channel";
+      const revision = point?.revision || "?";
+      return `<span class="p-chip channel-switch-revision-chip"><span class="p-chip__value">${escapeHtml(channel)} r${escapeHtml(revision)}</span></span>`;
+    }
+
+    function channelSwitchMetaHtml(points) {
+      const list = Array.isArray(points) ? points : [];
+      if (!list.length) return "";
+      return list.map(channelRevisionChipHtml).join('<i class="p-icon--chevron-right channel-switch-chevron" aria-hidden="true"></i>');
+    }
+
+    function renderChannelSwitchTimeline(cs) {
+      const timeline = document.getElementById("channel-switch-timeline");
+      if (!timeline) return;
+      const steps = channelSwitchPathSteps(cs);
+      timeline.innerHTML = steps.map((step) => `
+        <li class="p-list-timeline__item">
+          <div class="p-list-timeline__node"></div>
+          <div class="p-list-timeline__content">
+            <h4 class="p-list-timeline__title">${escapeHtml(step.title)}</h4>
+            <div class="p-list-timeline__meta channel-switch-path">${channelSwitchMetaHtml(step.meta)}</div>
+            <p class="p-list-timeline__description">${escapeHtml(step.description)}</p>
+          </div>
+        </li>
+      `).join("");
+      setText("channel-switch-summary", cs.summary || "No data available");
+    }
+
     // 4. TIME & FRESHNESS CLOCKS
 
     // Returns a relative time description (e.g. "5m ago")
@@ -1970,12 +2231,12 @@
         if (Number.isNaN(startTime)) return;
         const elapsed = Math.max(0, Math.round((Date.now() - startTime) / 1000));
         const durationLabel = humanDuration(elapsed);
-        
+
         const textSpan = btn.querySelector(".workflow-btn__label");
         if (textSpan) {
           textSpan.textContent = durationLabel;
         }
-        
+
         const contextLabel = btn.getAttribute("data-context-label") || "Workflow";
         const newAccessibleLabel = `${contextLabel} active, duration: ${durationLabel}`;
         btn.setAttribute("aria-label", newAccessibleLabel);
@@ -2112,6 +2373,60 @@
       renderMatrixRows();
       renderFailedLogs({ failed_links: liveFailedLinks });
       return { matched: true, building };
+    }
+
+    async function applyLiveChannelSwitch(latestByWorkflow) {
+      const run = latestByWorkflow["channel-switch.yml"];
+      if (!run || run.head_branch !== "main") return false;
+
+      const runStatus = run.status === "completed" ? (run.conclusion || "unknown") : (run.status || "queued");
+      const runBuilding = isBuildingStatus(runStatus);
+      const shouldFetchJobs = runBuilding || run.id !== liveState.lastChannelSwitchRunId || !liveState.channelSwitchJobs;
+      let jobs = liveState.channelSwitchJobs;
+      if (shouldFetchJobs) {
+        jobs = await fetchRunJobs(run.id);
+        liveState.lastChannelSwitchRunId = run.id;
+        liveState.channelSwitchJobs = jobs;
+      }
+
+      const job = (jobs || []).find((candidate) => {
+        const name = String(candidate.name || "").toLowerCase();
+        return name.includes("channel switch") && name.includes("arm64");
+      }) || null;
+
+      const rowStatus = job ? normalizedLiveStatus(job) : runStatus;
+      const durationSeconds = (job ? liveJobDurationSeconds(job) : null) ?? liveRunDurationSeconds(run);
+      const snapshot = globalDashboardData?.channel_switch || {};
+      const snapshotRow = (snapshot.rows || []).find((row) => row.arch === "arm64") || {};
+      const liveChannelSwitch = {
+        ...snapshot,
+        status: rowStatus,
+        conclusion: job?.conclusion || (run.status === "completed" ? (run.conclusion || "unknown") : run.status),
+        run_number: run.run_number ?? snapshot.run_number,
+        run_id: run.id ?? snapshot.run_id,
+        html_url: run.html_url || snapshot.html_url || "",
+        updated_at: job?.completed_at || job?.started_at || run.updated_at || snapshot.updated_at || "",
+        duration_seconds: durationSeconds,
+        duration_label: humanDuration(durationSeconds),
+        rows: [
+          {
+            ...snapshotRow,
+            arch: "arm64",
+            status: rowStatus,
+            conclusion: job?.conclusion || (run.status === "completed" ? (run.conclusion || "unknown") : run.status),
+            path: snapshotRow.path || snapshot.path || "roundtrip",
+            summary: snapshotRow.summary || snapshot.summary || "stable -> edge -> stable",
+            updated_at: job?.completed_at || job?.started_at || run.updated_at || snapshotRow.updated_at || snapshot.updated_at || "",
+            duration_seconds: durationSeconds,
+            duration_label: humanDuration(durationSeconds),
+            url: job?.html_url || run.html_url || snapshotRow.url || snapshot.html_url || "",
+            reason: snapshotRow.reason || snapshot.reason || "",
+          },
+        ],
+      };
+
+      renderChannelSwitch(liveChannelSwitch);
+      return isBuildingStatus(rowStatus);
     }
 
     // Reconstructs and redraws the main CI/CD build status block metrics
@@ -2270,7 +2585,7 @@
         // Also update the components/dependencies status and workflow cells with live job data.
         renderDependencies();
       }
-      
+
       if (stableWorkflowEl) stableWorkflowEl.innerHTML = workflowHtml;
       if (edgeWorkflowEl) edgeWorkflowEl.innerHTML = workflowHtml;
 
@@ -2400,10 +2715,17 @@
       }
       applyLiveSnapStatus(latestCicdJobs, latestCicdRun, lpJobs, lpRun);
 
+      let channelSwitchBuilding = false;
+      try {
+        channelSwitchBuilding = await applyLiveChannelSwitch(latestByWorkflow);
+      } catch (error) {
+        channelSwitchBuilding = false;
+      }
+
       const lpBuildingStatus = latestLp && BUILDING_STATES.has((latestLp.status || "").toLowerCase());
       const trackBuildingStatus = latestByWorkflow["track-upstream-releases.yml"] && BUILDING_STATES.has((latestByWorkflow["track-upstream-releases.yml"].status || "").toLowerCase());
 
-      const building = matrixBuilding || buildBuilding || lpBuildingStatus || trackBuildingStatus;
+      const building = matrixBuilding || buildBuilding || lpBuildingStatus || trackBuildingStatus || channelSwitchBuilding;
       const anyRunning = runs.some((run) => BUILDING_STATES.has((run.status || "").toLowerCase()));
       freshnessState.live.status = building ? "building" : (anyRunning ? "active" : "idle");
 
@@ -2668,6 +2990,8 @@
     function resetLiveWorkflowCache() {
       liveState.lastCicdRunId = null;
       liveState.lastLpRunId = null;
+      liveState.lastChannelSwitchRunId = null;
+      liveState.channelSwitchJobs = null;
       liveState.cicdJobs = null;
       liveState.cicdRun = null;
       liveState.lpJobs = null;
@@ -2718,6 +3042,7 @@
       renderSecurity(data.security || {});
       renderReleaseInfo(data);
       renderReportSummaries(data);
+      renderChannelSwitch(data.channel_switch);
       dependencyRows = data.release_info?.components || [];
       renderDependencies();
       renderFreshnessChips();
@@ -2767,4 +3092,5 @@
     initDashboard();
   </script>
 </body>
+
 </html>

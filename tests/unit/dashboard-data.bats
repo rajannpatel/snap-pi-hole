@@ -550,3 +550,163 @@ assert data["data_last_updated"] == "2026-06-10T12:00:00Z"
 assert data["snap_package"] == mock_snap_package
 PYEOF
 }
+
+@test "dashboard data: channel switch tests" {
+    python3 - <<PYEOF
+import sys
+import io
+import zipfile
+import json
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+class FakeClient:
+    def __init__(self, runs=None, jobs=None, artifacts=None):
+        self.runs = runs or {}
+        self.jobs = jobs or {}
+        self.artifacts = artifacts or {}
+
+    def get_json_or_empty(self, url, headers=None, params=None):
+        if url.endswith("/actions/workflows/channel-switch.yml/runs"):
+            return self.runs
+        if "/actions/runs/" in url and url.endswith("/jobs"):
+            parts = url.split("/")
+            run_id = int(parts[parts.index("runs") + 1])
+            return self.jobs.get(run_id, {"jobs": []})
+        if "/actions/runs/" in url and url.endswith("/artifacts"):
+            parts = url.split("/")
+            run_id = int(parts[parts.index("runs") + 1])
+            return self.artifacts.get(run_id, {"artifacts": []})
+        raise AssertionError(f"Unexpected url: {url}")
+
+    def get_json(self, url, headers=None, params=None):
+        return self.get_json_or_empty(url, headers, params)
+
+# Test 1: no runs returns no_data
+client = FakeClient(runs={"workflow_runs": []})
+res = dashboard.collect_channel_switch_status(client)
+assert res["status"] == "no_data", res
+
+# Test 2: success from artifact
+artifact_data = {
+    "schema_version": 1,
+    "status": "success",
+    "conclusion": "success",
+    "reason": "",
+    "path": "roundtrip",
+    "arch": "arm64",
+    "channels": {
+        "stable": {"revision": "123", "version": "v6.4.2"},
+        "edge": {"revision": "124", "version": "v6.4.2+git.abc"}
+    },
+    "transitions": [
+        {"from": "latest/stable", "to": "latest/edge", "from_revision": "123", "to_revision": "124", "status": "success", "checks": {}}
+    ]
+}
+
+zip_buffer = io.BytesIO()
+with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+    zip_file.writestr("result.json", json.dumps(artifact_data))
+zip_content = zip_buffer.getvalue()
+
+from unittest.mock import patch, MagicMock
+
+mock_response = MagicMock()
+mock_response.__enter__.return_value = mock_response
+mock_response.read.return_value = zip_content
+
+with patch("urllib.request.urlopen", return_value=mock_response):
+    client = FakeClient(
+        runs={"workflow_runs": [{"id": 11, "run_number": 45, "updated_at": "2026-06-15T12:00:00Z"}]},
+        jobs={11: {"jobs": [{"name": "Channel Switch Smoke (arm64)", "status": "completed", "conclusion": "success"}]}},
+        artifacts={11: {"artifacts": [{"name": "channel-switch-result-arm64", "archive_download_url": "http://download"}]}}
+    )
+    res = dashboard.collect_channel_switch_status(client)
+    assert res["status"] == "success", res
+    assert res["summary"] == "stable r123 -> edge r124 -> stable r123", res["summary"]
+    assert res["rows"][0]["updated_at"] == "2026-06-15T12:00:00Z", res["rows"][0]
+
+# Test 3: arm64 failure is reported
+artifact_data_arm64 = artifact_data.copy()
+artifact_data_arm64["status"] = "failure"
+artifact_data_arm64["conclusion"] = "failure"
+artifact_data_arm64["reason"] = "ftl-not-active"
+artifact_data_arm64["arch"] = "arm64"
+    
+zip_buffer_arm64 = io.BytesIO()
+with zipfile.ZipFile(zip_buffer_arm64, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+    zip_file.writestr("result.json", json.dumps(artifact_data_arm64))
+
+mock_response_arm64_failure = MagicMock()
+mock_response_arm64_failure.__enter__.return_value = mock_response_arm64_failure
+mock_response_arm64_failure.read.return_value = zip_buffer_arm64.getvalue()
+
+with patch("urllib.request.urlopen", return_value=mock_response_arm64_failure):
+    client = FakeClient(
+        runs={"workflow_runs": [{"id": 12, "run_number": 46, "updated_at": "2026-06-15T12:00:00Z"}]},
+        jobs={12: {"jobs": [{"name": "Channel Switch Smoke (arm64)", "status": "completed", "conclusion": "failure"}]}},
+        artifacts={12: {"artifacts": [{"name": "channel-switch-result-arm64", "archive_download_url": "http://download/arm64"}]}}
+    )
+    res = dashboard.collect_channel_switch_status(client)
+    assert res["status"] == "failure", res
+    assert "failed on arm64" in res["summary"], res["summary"]
+
+# Test 4: skipped returns skipped
+import copy
+artifact_data_skipped = copy.deepcopy(artifact_data)
+artifact_data_skipped["status"] = "skipped"
+artifact_data_skipped["conclusion"] = "skipped"
+artifact_data_skipped["reason"] = "stable-and-edge-same-revision"
+artifact_data_skipped["channels"]["edge"]["revision"] = "123"
+
+zip_buffer_skipped = io.BytesIO()
+with zipfile.ZipFile(zip_buffer_skipped, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+    zip_file.writestr("result.json", json.dumps(artifact_data_skipped))
+
+mock_response_skipped = MagicMock()
+mock_response_skipped.__enter__.return_value = mock_response_skipped
+mock_response_skipped.read.return_value = zip_buffer_skipped.getvalue()
+
+with patch("urllib.request.urlopen", return_value=mock_response_skipped):
+    client = FakeClient(
+        runs={"workflow_runs": [{"id": 13, "run_number": 47, "updated_at": "2026-06-15T12:00:00Z"}]},
+        jobs={13: {"jobs": [{"name": "Channel Switch Smoke (arm64)", "status": "completed", "conclusion": "success"}]}},
+        artifacts={13: {"artifacts": [{"name": "channel-switch-result-arm64", "archive_download_url": "http://download"}]}}
+    )
+    res = dashboard.collect_channel_switch_status(client)
+    assert res["status"] == "skipped", res
+    assert "both serve r123" in res["summary"], res["summary"]
+
+# Test 5: running run beats older completed run
+client = FakeClient(
+    runs={"workflow_runs": [
+        {"id": 15, "run_number": 49, "status": "in_progress", "updated_at": "2026-06-15T13:00:00Z"},
+        {"id": 14, "run_number": 48, "status": "completed", "conclusion": "success", "updated_at": "2026-06-15T12:00:00Z"}
+    ]},
+    jobs={15: {"jobs": [{"name": "Channel Switch Smoke (arm64)", "status": "in_progress", "conclusion": None}]}},
+    artifacts={15: {"artifacts": []}}
+)
+res = dashboard.collect_channel_switch_status(client)
+assert res["status"] == "in_progress", res
+assert res["rows"][0]["updated_at"] == "2026-06-15T13:00:00Z", res["rows"][0]
+
+# Test 6: corrupt artifact is ignored
+mock_response_corrupt = MagicMock()
+mock_response_corrupt.__enter__.return_value = mock_response_corrupt
+mock_response_corrupt.read.return_value = b"corrupt zip data"
+
+with patch("urllib.request.urlopen", return_value=mock_response_corrupt):
+    client = FakeClient(
+        runs={"workflow_runs": [{"id": 16, "run_number": 50, "updated_at": "2026-06-15T12:00:00Z"}]},
+        jobs={16: {"jobs": [{"name": "Channel Switch Smoke (arm64)", "status": "completed", "conclusion": "success"}]}},
+        artifacts={16: {"artifacts": [{"name": "channel-switch-result-arm64", "archive_download_url": "http://download"}]}}
+    )
+    res = dashboard.collect_channel_switch_status(client)
+    assert res["status"] == "success", res
+    assert res["rows"][0]["reason"] == "", res["rows"][0]
+
+# Test 7: duration label is humanized
+assert dashboard.human_duration(90) == "1m 30s"
+assert dashboard.human_duration(3600) == "1h 0m"
+PYEOF
+}

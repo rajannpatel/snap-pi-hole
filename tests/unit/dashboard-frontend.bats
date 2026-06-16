@@ -172,11 +172,11 @@ const cssPath = htmlPath.endsWith(path.join("docs", "index.html"))
   ? path.join(path.dirname(htmlPath), "dashboard.css")
   : path.join(path.dirname(htmlPath), "dashboard.css");
 const cssSource = fs.readFileSync(cssPath, "utf8");
-assert.match(cssSource, /td \.workflow-btn \{[\s\S]*display: inline-flex !important;[\s\S]*gap: 0\.35rem;[\s\S]*justify-content: flex-start !important;[\s\S]*text-align: left !important;/);
-assert.match(cssSource, /td \.workflow-btn \.workflow-btn__label \{[\s\S]*flex: 1 1 auto;[\s\S]*text-align: left;/);
+assert.match(cssSource, /\.workflow-btn \{[\s\S]*display: inline-flex !important;[\s\S]*gap: 0\.35rem;[\s\S]*justify-content: flex-start !important;[\s\S]*text-align: left !important;/);
+assert.match(cssSource, /\.workflow-btn \.workflow-btn__label \{[\s\S]*flex: 1 1 auto;[\s\S]*text-align: left;/);
 assert.match(cssSource, /td \.workflow-buttons \{[\s\S]*display: flex;[\s\S]*justify-content: flex-start;[\s\S]*width: 100%;/);
 assert.match(cssSource, /td \.workflow-btn \.workflow-btn__spinner \{[\s\S]*border-radius: 50%;[\s\S]*box-sizing: border-box;[\s\S]*flex: 0 0 0\.75rem;[\s\S]*height: 0\.75rem;[\s\S]*width: 0\.75rem;/);
-assert.match(cssSource, /td \.workflow-btn \.status-chip-logo \{[\s\S]*flex: 0 0 0\.875rem;[\s\S]*height: 0\.875rem;[\s\S]*width: 0\.875rem;/);
+assert.match(cssSource, /\.workflow-btn \.status-chip-logo \{[\s\S]*flex: 0 0 0\.875rem;[\s\S]*height: 0\.875rem;[\s\S]*width: 0\.875rem;/);
 assert.match(source, /btn\.querySelector\("\.workflow-btn__label"\)/);
 
 assert.strictEqual(liveJobDurationSeconds(null), null);
@@ -808,6 +808,61 @@ global.freshnessState.snap = {
 };
 Date.now = () => new Date("2026-06-14T14:00:00Z").getTime();
 assert.strictEqual(freshnessDetail("snap"), "build-time snapshot · next 60:00");
+JS
+    done
+}
+
+@test "frontend: channel switch rendering maps statuses and sets fields" {
+    for html in "${HTML_FILES[@]}"; do
+        run_node - "$html" <<'JS'
+const fs = require("fs");
+const source = fs.readFileSync(process.argv[2], "utf8");
+const assert = require("assert");
+
+// 1. Assert channel-switch elements exist in the html source
+assert.match(source, /id="channel-switch-section"/);
+assert.match(source, /id="channel-switch-summary"/);
+assert.match(source, /id="channel-switch-matrix-body"/);
+assert.match(source, /id="channel-switch-timeline"/);
+assert.match(source, /Channel switch smoke test/);
+assert.doesNotMatch(source, /Channel switch smoke tests/);
+assert.match(source, /Test details/);
+assert.doesNotMatch(source, /Architecture details/);
+assert.doesNotMatch(source, /channel-switch-summary-grid/);
+assert.doesNotMatch(source, /channel-switch-status-chip/);
+
+// 2. Assert renderChannelSwitch function exists in the Javascript
+assert.match(source, /function renderChannelSwitch\(cs\)/);
+assert.match(source, /renderChannelSwitch\(data\.channel_switch\)/);
+assert.match(source, /function applyLiveChannelSwitch\(latestByWorkflow\)/);
+assert.match(source, /await applyLiveChannelSwitch\(latestByWorkflow\)/);
+assert.match(source, /lastChannelSwitchRunId:\s*null/);
+assert.match(source, /channelSwitchJobs:\s*null/);
+assert.match(source, /function renderChannelSwitchTimeline\(cs\)/);
+assert.match(source, /function channelSwitchPathSteps\(cs\)/);
+assert.match(source, /function channelRevisionChipHtml\(point\)/);
+assert.match(source, /function channelSwitchMetaHtml\(points\)/);
+assert.match(source, /channel-switch-revision-chip/);
+assert.match(source, /p-icon--chevron-right/);
+assert.match(source, /channel-switch-details-row/);
+assert.match(source, /channel-switch-explanation--contained/);
+assert.match(source, /function githubRunnerChipHtml\(\)/);
+assert.match(source, /GitHub runner/);
+assert.match(source, /colspan="6"/);
+assert.match(source, /<th>Tested on<\/th>/);
+assert.match(source, /<th>Status<\/th>/);
+assert.doesNotMatch(source, /<th>Result<\/th>/);
+assert.match(source, /<th>Updated<\/th>/);
+assert.match(source, /<th>Test duration<\/th>/);
+assert.match(source, /workflowButtonHtml\(row\.url \|\| "", row\.duration_seconds, "Workflow run", isBuilding\)/);
+assert.doesNotMatch(source, /const duration = escapeHtml\(row\.duration_label/);
+assert.match(source, /formatDate\(row\.updated_at \|\| cs\.updated_at\)/);
+assert.match(source, /const isBuilding = isBuildingStatus\(row\.status\)/);
+assert.match(source, /const statusBadge = liveStatusChip\(row\.status, "running"\)/);
+assert.match(source, /latestByWorkflow\["channel-switch\.yml"\]/);
+assert.match(source, /name\.includes\("channel switch"\) && name\.includes\("arm64"\)/);
+assert.match(source, /const building = matrixBuilding \|\| buildBuilding \|\| lpBuildingStatus \|\| trackBuildingStatus \|\| channelSwitchBuilding/);
+assert.doesNotMatch(source, /label:\s*"Passing"/);
 JS
     done
 }

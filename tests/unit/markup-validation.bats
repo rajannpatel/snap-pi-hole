@@ -198,3 +198,55 @@ for rel in ("snap/local/assets/dashboard.html",):
     assert 'id="btn-edge" type="button" role="tab" aria-selected="false"' in text, f"{rel} edge channel is not an unselected tab"
 PYEOF
 }
+
+@test "dashboard exposes channel switch release-health section and matrix table" {
+    python3 - <<PYEOF
+import pathlib
+import sys
+
+html_path = pathlib.Path("${REPO_ROOT}/snap/local/assets/dashboard.html")
+assert html_path.exists()
+
+text = html_path.read_text(encoding="utf-8")
+
+# 1. Assert Release Health heading and Section ID exist
+assert 'id="channel-switch-section"' in text, "Missing channel-switch-section"
+assert 'Release health' in text, "Missing Release health label"
+assert 'Channel switch smoke test' in text, "Missing Channel switch smoke test label"
+assert 'Channel switch smoke tests' not in text, "Channel switch label should be singular"
+assert '<p class="p-heading--4">Store-channel refresh path' in text, "Missing p-heading--4 section description"
+assert text.rfind('id="channel-switch-section"') > text.rfind('class="sync-tracking-table"'), "Channel switch section should be the last main-page section"
+assert 'channel-switch-summary-grid' not in text, "Channel switch summary grid should be removed"
+
+# 2. Assert table is present and has correct headers
+assert 'id="channel-switch-details-table"' in text, "Missing channel-switch-details-table"
+assert 'Test details' in text, "Missing Test details heading"
+assert 'Architecture details' not in text, "Architecture details should be renamed"
+assert '<th>Architecture</th>' in text, "Missing Architecture header"
+assert '<th>Tested on</th>' in text, "Missing Tested on header"
+assert '<th>Path</th>' in text, "Missing Path header"
+assert '<th>Status</th>' in text, "Missing Status header"
+assert '<th>Result</th>' not in text, "Result header should be renamed to Status"
+assert '<th>Updated</th>' in text, "Missing Updated header"
+assert '<th>Test duration</th>' in text, "Missing Test duration header"
+assert '<th>Duration</th>' not in text, "Channel switch table duration header should be Test duration"
+assert '<th>Details</th>' not in text, "Details should render as its own row, not a table column"
+assert 'colspan="6">Loading details...' in text, "Loading row should span six summary columns"
+
+# 3. Assert matrix body target exists
+assert 'id="channel-switch-matrix-body"' in text, "Missing channel-switch-matrix-body"
+assert 'id="channel-switch-timeline"' in text, "Missing channel-switch-timeline"
+assert 'class="p-list-timeline"' in text, "Missing timeline list"
+assert 'class="p-list-timeline__item"' in text, "Missing timeline item"
+assert 'channel-switch-revision-chip' in text, "Missing channel revision chip markup"
+assert 'p-icon--chevron-right' in text, "Missing channel transition chevron icon"
+assert 'channel-switch-details-row' in text, "Missing details row markup"
+assert 'channel-switch-explanation--contained' in text, "Missing contained details explanation markup"
+assert 'GitHub runner' in text, "Missing GitHub runner chip label"
+
+# 4. Assert status chip text is not icon-only
+assert 'id="channel-switch-status-chip"' not in text, "Standalone channel switch status chip should be removed"
+assert '<span class="status-text-full" aria-hidden="true">' in text, "Missing status-text-full hidden span"
+assert '<span class="status-text-short" aria-hidden="true">' in text, "Missing status-text-short hidden span"
+PYEOF
+}

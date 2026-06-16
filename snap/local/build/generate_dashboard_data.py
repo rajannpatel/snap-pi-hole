@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+import io
 import json
 import os
 import pathlib
+import zipfile
 import re
 import subprocess
 import sys
@@ -452,6 +454,226 @@ def collect_snap_workflow_jobs(client, branch="main"):
             job = find_snap_build_job(launchpad_jobs, arch, channel, False)
             workflows[(arch, channel)] = workflow_job_details(launchpad_run, job)
     return workflows
+
+
+CHANNEL_SWITCH_WORKFLOW = "channel-switch.yml"
+CHANNEL_SWITCH_NAME = "Channel Switch Smoke"
+
+
+def collect_workflow_artifacts(client, run_id):
+    """Query workflow run artifacts, download ZIPs starting with
+    channel-switch-result-, and read their JSON files."""
+    url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run_id}/artifacts"
+    data = client.get_json_or_empty(url)
+    artifacts = data.get("artifacts", [])
+    results = []
+    for artifact in artifacts:
+        name = artifact.get("name", "")
+        if name.startswith("channel-switch-result-"):
+            download_url = artifact.get("archive_download_url")
+            if not download_url:
+                continue
+            try:
+                headers = {
+                    "Accept": "application/vnd.github+json",
+                    "User-Agent": "snap-pi-hole-dashboard-builder",
+                }
+                token = getattr(client, "token", None)
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
+                req = urllib.request.Request(download_url, headers=headers)
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    content = response.read()
+                with zipfile.ZipFile(io.BytesIO(content)) as z:
+                    for filename in z.namelist():
+                        if filename.endswith(".json"):
+                            try:
+                                item = json.loads(z.read(filename).decode("utf-8"))
+                                results.append(item)
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+    return results
+
+
+def collect_channel_switch_status(client, branch="main"):
+    runs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/workflows/{CHANNEL_SWITCH_WORKFLOW}/runs"
+    runs_data = client.get_json_or_empty(
+        runs_url,
+        params={"per_page": 10, "branch": branch},
+    )
+    runs = runs_data.get("workflow_runs", [])
+    if not runs:
+        return {
+            "status": "no_data",
+            "conclusion": "no_data",
+            "workflow": CHANNEL_SWITCH_WORKFLOW,
+            "run_number": None,
+            "run_id": None,
+            "html_url": "",
+            "updated_at": "",
+            "duration_seconds": None,
+            "duration_label": "Unknown",
+            "summary": "No runs",
+            "path": "",
+            "reason": "",
+            "stable_revision": "",
+            "edge_revision": "",
+            "rows": []
+        }
+
+    target_run = runs[0]
+    run_id = target_run.get("id")
+    run_number = target_run.get("run_number")
+    html_url = target_run.get("html_url", "")
+    updated_at = target_run.get("updated_at", "")
+    
+    jobs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run_id}/jobs"
+    jobs_data = client.get_json_or_empty(jobs_url, params={"per_page": 100})
+    jobs = jobs_data.get("jobs", [])
+
+    artifacts = collect_workflow_artifacts(client, run_id)
+    
+    arches = ["arm64"]
+    rows = []
+    
+    for arch in arches:
+        art = next((a for a in artifacts if a.get("arch") == arch), None)
+        job = next((j for j in jobs if f"({arch})" in j.get("name", "").lower() or arch in j.get("name", "").lower()), None)
+        
+        if not job and not art:
+            continue
+            
+        if art:
+            status = art.get("status", "unknown")
+            conclusion = art.get("conclusion", "unknown")
+            path = art.get("path", "roundtrip")
+            reason = art.get("reason", "")
+            duration = art.get("duration_seconds")
+            url = art.get("workflow", {}).get("url") or html_url
+            updated = art.get("completed_at") or art.get("started_at") or updated_at
+            
+            stable_rev = art.get("channels", {}).get("stable", {}).get("revision", "unknown")
+            edge_rev = art.get("channels", {}).get("edge", {}).get("revision", "unknown")
+            if status == "skipped":
+                summary = f"stable and edge both serve r{stable_rev}"
+            else:
+                if path == "stable-to-edge":
+                    trans = f"stable r{stable_rev} -> edge r{edge_rev}"
+                elif path == "edge-to-stable":
+                    trans = f"edge r{edge_rev} -> stable r{stable_rev}"
+                else:
+                    trans = f"stable r{stable_rev} -> edge r{edge_rev} -> stable r{stable_rev}"
+                if status == "failure" or conclusion == "failure":
+                    summary = f"{trans} failed: {reason}"
+                else:
+                    summary = trans
+        else:
+            status = summarize_state(job)
+            conclusion = job.get("conclusion") if job else "no_data"
+            path = "roundtrip"
+            reason = "missing-artifact" if status == "failure" else ""
+            duration = job_duration_seconds(job) if job else None
+            url = job.get("html_url") if job else html_url
+            updated = job.get("completed_at") or job.get("started_at") or updated_at if job else updated_at
+            summary = f"Job {status}" if status != "success" else "stable -> edge -> stable"
+            
+        rows.append({
+            "arch": arch,
+            "status": status,
+            "conclusion": conclusion,
+            "path": path,
+            "summary": summary,
+            "duration_seconds": duration,
+            "duration_label": human_duration(duration),
+            "updated_at": updated,
+            "url": url,
+            "reason": reason
+        })
+
+    row_statuses = [r["status"] for r in rows]
+    failure_states = {"failure", "timed_out", "action_required", "startup_failure"}
+    building_states = {"in_progress", "queued", "requested", "waiting", "pending", "running"}
+    
+    if any(s in failure_states for s in row_statuses):
+        top_status = "failure"
+        top_conclusion = "failure"
+    elif any(s in building_states for s in row_statuses):
+        top_status = "in_progress"
+        top_conclusion = "in_progress"
+    elif all(s == "skipped" for s in row_statuses) and row_statuses:
+        top_status = "skipped"
+        top_conclusion = "skipped"
+    elif any(s == "success" for s in row_statuses):
+        top_status = "success"
+        top_conclusion = "success"
+    else:
+        top_status = "no_data"
+        top_conclusion = "no_data"
+
+    art = next((a for a in artifacts if a.get("status") != "no_data"), None)
+    if art:
+        stable_rev = art.get("channels", {}).get("stable", {}).get("revision", "")
+        edge_rev = art.get("channels", {}).get("edge", {}).get("revision", "")
+        path = art.get("path", "roundtrip")
+        reason = art.get("reason", "")
+    else:
+        stable_rev = ""
+        edge_rev = ""
+        path = target_run.get("inputs", {}).get("path", "roundtrip") if target_run else "roundtrip"
+        reason = ""
+
+    if top_status == "skipped":
+        if stable_rev and edge_rev and stable_rev == edge_rev:
+            top_summary = f"stable and edge both serve r{stable_rev}"
+        else:
+            top_summary = f"Skipped: {reason}" if reason else "Skipped"
+    elif top_status == "failure":
+        failed_arches = [r["arch"] for r in rows if r["status"] in failure_states]
+        if stable_rev and edge_rev:
+            if path == "stable-to-edge":
+                trans = f"stable r{stable_rev} -> edge r{edge_rev}"
+            elif path == "edge-to-stable":
+                trans = f"edge r{edge_rev} -> stable r{stable_rev}"
+            else:
+                trans = f"stable r{stable_rev} -> edge r{edge_rev}"
+            top_summary = f"{trans} failed on {', '.join(failed_arches)}"
+        else:
+            top_summary = f"Channel switch failed on {', '.join(failed_arches)}"
+    elif top_status == "in_progress":
+        top_summary = "Channel switch check in progress"
+    elif top_status == "success":
+        if stable_rev and edge_rev:
+            if path == "stable-to-edge":
+                top_summary = f"stable r{stable_rev} -> edge r{edge_rev}"
+            elif path == "edge-to-stable":
+                top_summary = f"edge r{edge_rev} -> stable r{stable_rev}"
+            else:
+                top_summary = f"stable r{stable_rev} -> edge r{edge_rev} -> stable r{stable_rev}"
+        else:
+            top_summary = "stable -> edge -> stable"
+    else:
+        top_summary = "No data available"
+
+    total_duration = run_duration_seconds(target_run)
+    return {
+        "status": top_status,
+        "conclusion": top_conclusion,
+        "workflow": CHANNEL_SWITCH_WORKFLOW,
+        "run_number": run_number,
+        "run_id": run_id,
+        "html_url": html_url,
+        "updated_at": updated_at,
+        "duration_seconds": total_duration,
+        "duration_label": human_duration(total_duration),
+        "summary": top_summary,
+        "path": path,
+        "reason": reason,
+        "stable_revision": stable_rev,
+        "edge_revision": edge_rev,
+        "rows": rows
+    }
 
 
 def collect_distro_matrix(client, branch="main", channel="stable"):
@@ -1109,6 +1331,7 @@ def main():
     snap_package = collect_snap_package_data(client, repo_root)
     auto_update = collect_track_upstream_status(client)
     schedule = extract_track_upstream_cron(repo_root / ".github" / "workflows" / "track-upstream-releases.yml")
+    channel_switch = collect_channel_switch_status(client, "main")
 
     timestamps = [
         parse_iso(build_status_stable["latest_run"].get("updated_at")),
@@ -1118,6 +1341,7 @@ def main():
         parse_iso(releases.get("last_updated")),
         parse_iso(snap_package.get("last_updated")),
         parse_iso(auto_update["latest_success_run"].get("updated_at")),
+        parse_iso(channel_switch.get("updated_at")),
     ]
     data_last_updated = max([t for t in timestamps if t], default=None)
 
@@ -1146,6 +1370,7 @@ def main():
                 "failed_links": distro_matrix_edge["failed_links"],
             }
         },
+        "channel_switch": channel_switch,
         "snap_package": snap_package,
         "auto_update": {
             "frequency": schedule,

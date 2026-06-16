@@ -1,0 +1,88 @@
+name: Channel Switch Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      path:
+        description: "Switch path to test"
+        required: false
+        default: "roundtrip"
+        type: choice
+        options:
+          - roundtrip
+          - stable-to-edge
+          - edge-to-stable
+      fail_on_error:
+        description: "Fail the workflow when the channel switch check fails"
+        required: false
+        default: true
+        type: boolean
+  workflow_run:
+    workflows:
+      - CI/CD Pipeline
+    types:
+      - completed
+
+concurrency:
+  group: channel-switch-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  run-smoke:
+    name: Channel Switch Smoke (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: ubuntu-26.04-arm
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dnsutils iproute2 jq
+          sudo snap install snapd || sudo snap refresh snapd
+          sudo snap install core26 || true
+
+      - name: Free port 53
+        run: |
+          sudo mkdir -p /etc/systemd/resolved.conf.d
+          printf '[Resolve]\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf
+          sudo systemctl restart systemd-resolved
+
+      - name: Run channel switch smoke test
+        env:
+          SNAP_NAME: pihole-by-rajannpatel
+          CHANNEL_SWITCH_PATH: ${{ inputs.path || 'roundtrip' }}
+          CHANNEL_SWITCH_RESULT: channel-switch-result-${{ matrix.arch }}.json
+        run: |
+          ./tests/scripts/channel-switch-smoke.sh
+
+      - name: Upload channel switch result
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: channel-switch-result-${{ matrix.arch }}
+          path: channel-switch-result-${{ matrix.arch }}.json
+          if-no-files-found: error
+
+      - name: Summarize and evaluate result
+        if: always()
+        run: |
+          python3 tests/scripts/channel-switch-result-summary.py \
+            channel-switch-result-${{ matrix.arch }}.json \
+            ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.fail_on_error == 'false') && '--allow-failure' || '' }}

@@ -1,5 +1,7 @@
 name: CI/CD Pipeline
 
+# Note: On success, this workflow triggers the post-publish Channel Switch Smoke check (channel-switch.yml)
+
 on:
   push:
     branches: [main]

@@ -381,8 +381,12 @@ section[aria-label] {
 }
 
 .status-chip-logo {
-  display: block;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 0.875rem;
   margin-right: 0.35rem;
+  vertical-align: -0.125rem;
+  width: 0.875rem;
 }
 
 #snap-package-freshness {
@@ -550,7 +554,7 @@ td .report-button-group {
   align-items: flex-start;
 }
 
-td .workflow-btn {
+.workflow-btn {
   display: inline-flex !important;
   align-items: center;
   gap: 0.35rem;
@@ -559,7 +563,7 @@ td .workflow-btn {
   text-align: left !important;
 }
 
-td .workflow-btn .status-chip-logo {
+.workflow-btn .status-chip-logo {
   display: block;
   flex: 0 0 0.875rem;
   height: 0.875rem;
@@ -580,7 +584,7 @@ td .workflow-btn .workflow-btn__spinner {
   width: 0.75rem;
 }
 
-td .workflow-btn .workflow-btn__label {
+.workflow-btn .workflow-btn__label {
   flex: 1 1 auto;
   min-width: 0;
   text-align: left;
@@ -650,6 +654,122 @@ td .os-badge {
 .schedule-note {
   margin-bottom: 1rem;
   margin-top: 1rem;
+}
+
+/* ==========================================================================
+   9.5 Channel Switch Details
+   ========================================================================== */
+.channel-switch-details-cell {
+  border-bottom: 1px solid #e0e0e0;
+  padding: 1rem 1.5rem !important;
+}
+
+.channel-switch-details-row {
+  background-color: #fafafa;
+}
+
+.channel-switch-details-grid {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: space-between;
+}
+
+.channel-switch-explanation {
+  flex: 1;
+  min-width: 280px;
+  padding-left: 1rem;
+}
+
+.channel-switch-explanation--contained {
+  border-left: 4px solid #1976d2;
+}
+
+.channel-switch-explanation__title {
+  color: #1976d2;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.channel-switch-explanation__body {
+  color: #333;
+  margin-bottom: 0;
+}
+
+.p-list-timeline {
+  list-style: none;
+  margin: 0 0 2rem;
+  padding: 0;
+  position: relative;
+}
+
+.p-list-timeline::before {
+  background-color: #d9d9d9;
+  bottom: 0;
+  content: "";
+  left: 15px;
+  position: absolute;
+  top: 0;
+  width: 2px;
+}
+
+.p-list-timeline__item {
+  margin-bottom: 1.5rem;
+  min-height: 2.5rem;
+  padding-left: 45px;
+  position: relative;
+}
+
+.p-list-timeline__item:last-child {
+  margin-bottom: 0;
+}
+
+.p-list-timeline__node {
+  background-color: #0b6bc5;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  height: 16px;
+  left: 8px;
+  position: absolute;
+  top: 1.10rem;
+  width: 16px;
+  z-index: 1;
+}
+
+.p-list-timeline__title {
+  font-size: 1rem;
+  margin-bottom: 0.15rem;
+}
+
+.p-list-timeline__meta {
+  color: #666;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.channel-switch-path {
+  align-items: center;
+  color: inherit;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.channel-switch-revision-chip {
+  margin-bottom: 0;
+}
+
+.channel-switch-chevron {
+  flex: 0 0 auto;
+  margin-right: 0.25rem;
+}
+
+.p-list-timeline__description {
+  margin-bottom: 0;
 }
 
 /* ==========================================================================
