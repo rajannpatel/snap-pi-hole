@@ -14,6 +14,12 @@
     "running",
     "building",
   ]);
+  const FAILURE_STATES = new Set(["failure", "timed_out", "action_required", "startup_failure"]);
+  const checkIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg>`;
+  const warningIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.5a.552.552 0 0 1-1.1 0l-.35-3.5z"/></svg>`;
+  const errorIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>`;
+  const clockIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M8 3.5a.75.75 0 0 1 .75.75v3.25h3.25a.75.75 0 0 1 0 1.5h-4a.75.75 0 0 1-.75-.75v-4A.75.75 0 0 1 8 3.5z"/></svg>`;
+  const skippedIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M4.25 7.25h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5z"/></svg>`;
 
   function escapeHtml(value) {
     return String(value ?? "").replace(
@@ -31,6 +37,15 @@
 
   function isBuildingStatus(status) {
     return BUILDING_STATES.has(String(status || "").toLowerCase());
+  }
+
+  function statusIconSvg(status) {
+    const normalized = String(status || "unknown").toLowerCase();
+    if (normalized === "success") return checkIconSvg;
+    if (FAILURE_STATES.has(normalized)) return errorIconSvg;
+    if (BUILDING_STATES.has(normalized)) return clockIconSvg;
+    if (normalized === "skipped" || normalized === "cancelled") return skippedIconSvg;
+    return warningIconSvg;
   }
 
   function channelSwitchDetailsText(row) {
@@ -52,21 +67,23 @@
     const blocks = evidence
       .map((item) => {
         const title = item?.title || "Check";
-        const status = item?.status || "unknown";
+        const status = String(item?.status || "unknown").toLowerCase();
         const command = item?.command || "";
         const output = item?.output || "";
         const chipClass =
           status === "success"
-            ? "p-chip--positive"
+            ? "status-success"
             : status === "failure"
-              ? "p-chip--negative"
-              : "";
-        const statusLabel = status === "failure" ? "fail" : status;
+              ? "status-failure"
+              : isBuildingStatus(status)
+                ? "status-building is-building"
+                : "status-neutral";
+        const statusLabel = status === "failure" ? "fail" : status.replace(/_/g, " ");
         return `
         <div class="channel-switch-evidence">
           <div class="channel-switch-evidence__header">
             <span class="channel-switch-evidence__title">${escapeHtml(title)}</span>
-            <span class="p-chip ${chipClass}"><span class="p-chip__value">${escapeHtml(statusLabel)}</span></span>
+            <span class="status-chip ${chipClass}" aria-label="Status: ${escapeHtml(statusLabel)}">${statusIconSvg(status)}<span class="status-text-full" aria-hidden="true">${escapeHtml(statusLabel)}</span><span class="status-text-short" aria-hidden="true">${escapeHtml(statusLabel)}</span></span>
           </div>
           ${command ? `<div class="p-code-snippet"><pre class="p-code-snippet__block--icon is-wrapped"><code>${escapeHtml(command)}</code></pre></div>` : ""}
           ${output ? `<div class="p-code-snippet"><pre class="p-code-snippet__block is-wrapped"><code>${escapeHtml(output)}</code></pre></div>` : ""}

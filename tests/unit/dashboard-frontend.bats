@@ -86,7 +86,9 @@ assert.match(details, /snap list pihole-by-rajannpatel/);
 assert.match(details, /0\.0\.0\.0/);
 assert.match(details, /p-code-snippet__block--icon is-wrapped/);
 assert.match(details, /p-code-snippet__block is-wrapped/);
-assert.match(details, /p-chip--positive/);
+assert.match(details, /status-chip status-success/);
+assert.match(details, /status-chip-logo/);
+assert.match(details, /status-text-full" aria-hidden="true">success<\/span>/);
 assert.doesNotMatch(details, /<code>\$ sudo/);
 assert.doesNotMatch(details, /<script>/);
 
@@ -94,8 +96,8 @@ const failedDetails = channelSwitch.channelSwitchEvidenceHtml({
   status: "failure",
   evidence: [{ title: "DNS query", status: "failure", command: "dig @127.0.0.1 pi.hole", output: "connection timed out" }],
 });
-assert.match(failedDetails, /p-chip--negative/);
-assert.match(failedDetails, /p-chip__value">fail<\/span>/);
+assert.match(failedDetails, /status-chip status-failure/);
+assert.match(failedDetails, /status-text-full" aria-hidden="true">fail<\/span>/);
 assert.match(failedDetails, /p-code-snippet__block--icon is-wrapped/);
 assert.match(failedDetails, /p-code-snippet__block is-wrapped/);
 assert.doesNotMatch(failedDetails, /<code>\$ dig/);
@@ -314,7 +316,9 @@ assert.match(cssSource, /\.workflow-btn \{[\s\S]*min-width: 7\.25rem;[\s\S]*over
 assert.match(cssSource, /\.workflow-btn \.workflow-btn__label \{[\s\S]*flex: 0 0 4\.25rem;[\s\S]*min-width: 4\.25rem;[\s\S]*white-space: nowrap;/);
 assert.match(cssSource, /\.workflow-btn \.button-icon \{[\s\S]*align-self: center;[\s\S]*flex: 0 0 1rem;[\s\S]*height: 1rem;[\s\S]*width: 1rem;/);
 assert.match(source, /id="latest-run-link" class="p-button workflow-btn u-no-margin--bottom"/);
-assert.match(source, /<span class="workflow-btn__label">Pipeline run<\/span>/);
+assert.match(source, /<span class="workflow-btn__label">Loading\.\.\.<\/span>/);
+assert.doesNotMatch(source, /Pipeline run/);
+assert.doesNotMatch(source, /id="latest-run-duration"/);
 assert.match(cssSource, /td \.workflow-buttons \{[\s\S]*display: flex;[\s\S]*justify-content: flex-start;[\s\S]*width: 100%;/);
 assert.match(cssSource, /td \.workflow-btn \.p-icon--spinner \{[\s\S]*flex: 0 0 0\.75rem;[\s\S]*height: 0\.75rem;[\s\S]*width: 0\.75rem;/);
 assert.match(cssSource, /\.workflow-btn \.status-chip-logo \{[\s\S]*flex: 0 0 0\.875rem;[\s\S]*height: 0\.875rem;[\s\S]*width: 0\.875rem;/);
