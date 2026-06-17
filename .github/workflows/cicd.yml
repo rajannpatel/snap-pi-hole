@@ -266,7 +266,6 @@ jobs:
           path: vulnerability-reports/
           if-no-files-found: error
 
-
   smoke:
     name: smoke test (${{ matrix.channel }}, ${{ matrix.arch }})
     needs: [build, lint]
@@ -572,8 +571,14 @@ jobs:
     environment: snap-publishing
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
+      fail-fast: false
+      max-parallel: 1
       matrix:
-        arch: [amd64, arm64]
+        # arch varies slowest so like architectures publish consecutively
+        # (arm64/stable -> arm64/edge -> amd64/stable -> amd64/edge), giving
+        # snapcraft sequential revision numbers per architecture. max-parallel: 1
+        # serializes the uploads so the revision order is deterministic.
+        arch: [arm64, amd64]
         channel: [stable, edge]
     steps:
       - uses: actions/checkout@v6
