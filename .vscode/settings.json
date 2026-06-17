@@ -1,0 +1,6 @@
+{
+  "github.copilot.chat.customInstructions": ".agent-rules.md",
+  "cline.customInstructions": ".agent-rules.md",
+  "claude.customInstructions": ".agent-rules.md",
+  "continue.customInstructions": ".agent-rules.md"
+}

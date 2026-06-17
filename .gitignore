@@ -10,6 +10,9 @@ snap/.snapcraft/
 
 # editor
 .vscode/
+!.vscode/
+.vscode/*
+!.vscode/settings.json
 .idea/
 *.swp
 
