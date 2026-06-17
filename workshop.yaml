@@ -18,13 +18,9 @@ sdks:
         interface: tunnel
         endpoint: localhost:5300/udp
 
-connections:
-  - plug: system:admin-web
-    slot: tools:admin-web
-  - plug: system:dns-tcp
-    slot: tools:dns-tcp
-  - plug: system:dns-udp
-    slot: tools:dns-udp
+# Workshop wires these tunnel plugs to matching tool slots by name. Keep the
+# plug names aligned with the expected tunnel names instead of duplicating them
+# in an explicit connections block.
 
 actions:
   doctor: |

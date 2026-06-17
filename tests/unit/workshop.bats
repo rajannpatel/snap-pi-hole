@@ -40,6 +40,33 @@ assert "gemini" not in names
 PYEOF
 }
 
+@test "workshop tunnels rely on matching plug and slot names" {
+    python3 - <<PYEOF
+import yaml
+
+with open("${REPO_ROOT}/workshop.yaml") as f:
+    doc = yaml.safe_load(f)
+
+system = next(sdk for sdk in doc["sdks"] if sdk.get("name") == "system")
+plugs = system["plugs"]
+
+assert "connections" not in doc, doc.get("connections")
+assert set(plugs) == {"admin-web", "dns-tcp", "dns-udp"}, plugs
+assert plugs["admin-web"] == {
+    "interface": "tunnel",
+    "endpoint": "localhost:8080/tcp",
+}, plugs["admin-web"]
+assert plugs["dns-tcp"] == {
+    "interface": "tunnel",
+    "endpoint": "localhost:5300/tcp",
+}, plugs["dns-tcp"]
+assert plugs["dns-udp"] == {
+    "interface": "tunnel",
+    "endpoint": "localhost:5300/udp",
+}, plugs["dns-udp"]
+PYEOF
+}
+
 @test "workshop.yaml exposes the expected contributor actions" {
     python3 - <<PYEOF
 import yaml
@@ -161,7 +188,7 @@ assert "--no-run-if-empty" not in shellcheck
 PYEOF
 }
 
-@test "workshop install action uses shell globbing instead of parsing ls" {
+@test "workshop install action uses shell filename expansion instead of parsing ls" {
     python3 - <<PYEOF
 import yaml
 
