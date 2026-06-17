@@ -64,6 +64,8 @@ const html = channelSwitch.channelSwitchTimelineHtml({
 
 assert.match(html, /sudo snap refresh pihole-by-rajannpatel --channel=latest\/edge/);
 assert.match(html, /sudo snap refresh pihole-by-rajannpatel --channel=latest\/stable/);
+assert.match(html, /p-code-snippet__block--icon is-wrapped/);
+assert.doesNotMatch(html, /<h4 class="p-list-timeline__title">sudo snap refresh/);
 assert.match(html, /Stable to edge: edge refresh completed and health checks passed\./);
 assert.match(html, /Edge to stable: stable rollback completed and health checks passed\./);
 assert.match(html, /channel-switch-revision-chip/);

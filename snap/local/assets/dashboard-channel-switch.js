@@ -4,17 +4,29 @@
     module.exports = moduleApi;
   }
   root.DashboardChannelSwitch = moduleApi;
-}(typeof globalThis !== "undefined" ? globalThis : this, function () {
-  const BUILDING_STATES = new Set(["queued", "in_progress", "requested", "waiting", "pending", "running", "building"]);
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  const BUILDING_STATES = new Set([
+    "queued",
+    "in_progress",
+    "requested",
+    "waiting",
+    "pending",
+    "running",
+    "building",
+  ]);
 
   function escapeHtml(value) {
-    return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      "\"": "&quot;",
-      "'": "&#39;",
-    }[ch]));
+    return String(value ?? "").replace(
+      /[&<>"']/g,
+      (ch) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[ch],
+    );
   }
 
   function isBuildingStatus(status) {
@@ -26,7 +38,8 @@
     if (row.reason) return row.reason;
     if (row.status === "success") return "Health checks passed";
     if (row.status === "skipped") return "No channel delta to test";
-    if (row.status === "in_progress" || row.status === "queued") return "Workflow running";
+    if (row.status === "in_progress" || row.status === "queued")
+      return "Workflow running";
     return row.summary || "No details available";
   }
 
@@ -36,14 +49,20 @@
       return `<p class="channel-switch-explanation__body">${escapeHtml(channelSwitchDetailsText(row))}</p>`;
     }
     const intro = `<p class="channel-switch-explanation__body">${escapeHtml(channelSwitchDetailsText(row))}</p>`;
-    const blocks = evidence.map((item) => {
-      const title = item?.title || "Check";
-      const status = item?.status || "unknown";
-      const command = item?.command || "";
-      const output = item?.output || "";
-      const chipClass = status === "success" ? "p-chip--positive" : (status === "failure" ? "p-chip--negative" : "");
-      const statusLabel = status === "failure" ? "fail" : status;
-      return `
+    const blocks = evidence
+      .map((item) => {
+        const title = item?.title || "Check";
+        const status = item?.status || "unknown";
+        const command = item?.command || "";
+        const output = item?.output || "";
+        const chipClass =
+          status === "success"
+            ? "p-chip--positive"
+            : status === "failure"
+              ? "p-chip--negative"
+              : "";
+        const statusLabel = status === "failure" ? "fail" : status;
+        return `
         <div class="channel-switch-evidence">
           <div class="channel-switch-evidence__header">
             <span class="channel-switch-evidence__title">${escapeHtml(title)}</span>
@@ -53,7 +72,8 @@
           ${output ? `<div class="p-code-snippet"><pre class="p-code-snippet__block is-wrapped"><code>${escapeHtml(output)}</code></pre></div>` : ""}
         </div>
       `;
-    }).join("");
+      })
+      .join("");
     return intro + blocks;
   }
 
@@ -63,20 +83,27 @@
     const snapName = state.snap_name || "pihole-by-rajannpatel";
     const stableToEdgeCommand = `sudo snap refresh ${snapName} --channel=latest/edge`;
     const edgeToStableCommand = `sudo snap refresh ${snapName} --channel=latest/stable`;
-    const stableRevision = state.stable_revision || state.channels?.stable?.revision || "";
-    const edgeRevision = state.edge_revision || state.channels?.edge?.revision || "";
+    const stableRevision =
+      state.stable_revision || state.channels?.stable?.revision || "";
+    const edgeRevision =
+      state.edge_revision || state.channels?.edge?.revision || "";
     if (!stableRevision || !edgeRevision) {
-      const waiting = isBuildingStatus(state.status) || state.status === "no_data";
+      const waiting =
+        isBuildingStatus(state.status) || state.status === "no_data";
       const succeeded = state.status === "success";
       return [
         {
-          title: waiting ? "Waiting for runner result" : (succeeded ? "Refresh path verified" : "Runner result missing revisions"),
+          title: waiting
+            ? "Waiting for runner result"
+            : succeeded
+              ? "Refresh path verified"
+              : "Runner result missing revisions",
           meta: [],
           description: waiting
             ? "Channel revisions will appear after the GitHub runner uploads the channel-switch result artifact."
-            : (succeeded
+            : succeeded
               ? "The GitHub runner completed successfully; channel revision evidence will appear after the dashboard data refresh reads the result artifact."
-              : "The GitHub runner result did not include stable and edge revision evidence for the refresh path."),
+              : "The GitHub runner result did not include stable and edge revision evidence for the refresh path.",
         },
       ];
     }
@@ -88,7 +115,9 @@
         {
           title: "No channel transition required",
           meta: [stablePoint, edgePoint],
-          description: state.reason || "The workflow skipped because there is no channel delta to test.",
+          description:
+            state.reason ||
+            "The workflow skipped because there is no channel delta to test.",
         },
       ];
     }
@@ -97,7 +126,10 @@
         {
           title: stableToEdgeCommand,
           meta: [stablePoint, edgePoint],
-          description: state.status === "failure" ? `Stable to edge: ${state.reason || "transition failed"}.` : "Stable to edge: edge refresh completed and health checks passed.",
+          description:
+            state.status === "failure"
+              ? `Stable to edge: ${state.reason || "transition failed"}.`
+              : "Stable to edge: edge refresh completed and health checks passed.",
         },
       ];
     }
@@ -106,7 +138,10 @@
         {
           title: edgeToStableCommand,
           meta: [edgePoint, stablePoint],
-          description: state.status === "failure" ? `Edge to stable: ${state.reason || "transition failed"}.` : "Edge to stable: stable rollback completed and health checks passed.",
+          description:
+            state.status === "failure"
+              ? `Edge to stable: ${state.reason || "transition failed"}.`
+              : "Edge to stable: stable rollback completed and health checks passed.",
         },
       ];
     }
@@ -114,12 +149,18 @@
       {
         title: stableToEdgeCommand,
         meta: [stablePoint, edgePoint],
-        description: state.status === "failure" ? `Stable to edge: ${state.reason || "transition failed before round trip completed"}.` : "Stable to edge: edge refresh completed and health checks passed.",
+        description:
+          state.status === "failure"
+            ? `Stable to edge: ${state.reason || "transition failed before round trip completed"}.`
+            : "Stable to edge: edge refresh completed and health checks passed.",
       },
       {
         title: edgeToStableCommand,
         meta: [edgePoint, stablePoint],
-        description: state.status === "failure" ? `Edge to stable: ${state.summary || "stable rollback did not complete cleanly"}.` : "Edge to stable: stable rollback completed and health checks passed.",
+        description:
+          state.status === "failure"
+            ? `Edge to stable: ${state.summary || "stable rollback did not complete cleanly"}.`
+            : "Edge to stable: stable rollback completed and health checks passed.",
       },
     ];
   }
@@ -133,20 +174,37 @@
   function channelSwitchMetaHtml(points) {
     const list = Array.isArray(points) ? points : [];
     if (!list.length) return "";
-    return list.map(channelRevisionChipHtml).join('<i class="p-icon--chevron-right channel-switch-chevron" aria-hidden="true"></i>');
+    return list
+      .map(channelRevisionChipHtml)
+      .join(
+        '<i class="p-icon--chevron-right channel-switch-chevron" aria-hidden="true"></i>',
+      );
+  }
+
+  function codeSnippetHtml(command) {
+    return `<div class="p-code-snippet"><pre class="p-code-snippet__block--icon is-wrapped"><code>${escapeHtml(command)}</code></pre></div>`;
   }
 
   function channelSwitchTimelineHtml(cs) {
-    return channelSwitchPathSteps(cs).map((step) => `
+    return channelSwitchPathSteps(cs)
+      .map((step) => {
+        const command = step.title?.startsWith("sudo snap refresh ")
+          ? step.title
+          : "";
+        const title = command ? "Refresh path" : escapeHtml(step.title);
+        return `
         <li class="p-list-timeline__item">
           <div class="p-list-timeline__node"></div>
           <div class="p-list-timeline__content">
-            <h4 class="p-list-timeline__title">${escapeHtml(step.title)}</h4>
+            <h4 class="p-list-timeline__title">${title}</h4>
             <div class="p-list-timeline__meta channel-switch-path">${channelSwitchMetaHtml(step.meta)}</div>
             <p class="p-list-timeline__description">${escapeHtml(step.description)}</p>
+            ${command ? codeSnippetHtml(command) : ""}
           </div>
         </li>
-      `).join("");
+      `;
+      })
+      .join("");
   }
 
   return {
@@ -158,4 +216,4 @@
     channelSwitchTimelineHtml,
     escapeHtml,
   };
-}));
+});
