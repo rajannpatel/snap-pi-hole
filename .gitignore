@@ -6,6 +6,7 @@ stage/
 .craft/
 .snapcraft/
 snap/.snapcraft/
+.tmp*
 
 # editor
 .vscode/
