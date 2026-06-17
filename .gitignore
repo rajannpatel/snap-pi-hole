@@ -46,6 +46,9 @@ workshop.local.*
 scratch/
 network-cache/
 
+# Local wiki clone for agent context
+.wiki/
+
 # Local preview reports
 local-*/
 coverage/
