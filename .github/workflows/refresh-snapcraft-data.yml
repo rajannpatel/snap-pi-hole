@@ -23,9 +23,13 @@ concurrency:
   cancel-in-progress: true
 
 # No repository write access is required: the only side effect is updating a
-# gist via the GIST_TOKEN secret.
+# gist via the GIST_TOKEN secret. `actions: read` is needed so the channel
+# switch result artifact (which carries the per-check command/output evidence
+# shown on the dashboard) can be downloaded from the latest Channel Switch
+# Smoke run.
 permissions:
   contents: read
+  actions: read
 
 env:
   DATA_FILE: snapcraft-dashboard-data.json
@@ -44,6 +48,13 @@ jobs:
           fetch-depth: 0
 
       - name: Generate snapcraft dashboard data
+        env:
+          # Required to download the channel-switch result artifact from the
+          # latest Channel Switch Smoke run. Without it the artifact download
+          # returns 401 and the dashboard's "Test details" evidence block is
+          # silently dropped from the gist, leaving only the "Health checks
+          # passed" summary line.
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           # Uses only the public api.snapcraft.io info endpoint plus local git
           # history, so no Snap Store credentials are required.

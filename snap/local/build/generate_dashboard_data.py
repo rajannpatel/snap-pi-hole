@@ -605,10 +605,26 @@ def collect_workflow_artifacts(client, run_id):
                             try:
                                 item = json.loads(z.read(filename).decode("utf-8"))
                                 results.append(validate_channel_switch_artifact(item))
-                            except Exception:
-                                pass
-            except Exception:
-                pass
+                            except Exception as inner:
+                                print(
+                                    f"::warning title=Channel switch artifact::Failed to parse {filename} from {name}: {inner}",
+                                    file=sys.stderr,
+                                )
+            except urllib.error.HTTPError as exc:
+                # Most common cause is a missing GITHUB_TOKEN: artifact downloads
+                # require authentication even on public repos. Surface this so
+                # the dashboard's evidence block does not silently disappear.
+                print(
+                    f"::warning title=Channel switch artifact::HTTP {exc.code} downloading {name} from run {run_id}. "
+                    "Set GITHUB_TOKEN so the channel-switch result artifact can be read; "
+                    "otherwise the dashboard will show only the channel-switch summary without per-check evidence.",
+                    file=sys.stderr,
+                )
+            except Exception as exc:
+                print(
+                    f"::warning title=Channel switch artifact::Failed to download {name} from run {run_id}: {exc}",
+                    file=sys.stderr,
+                )
     return results
 
 
