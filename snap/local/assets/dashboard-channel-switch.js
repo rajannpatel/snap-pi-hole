@@ -191,15 +191,16 @@
         const command = step.title?.startsWith("sudo snap refresh ")
           ? step.title
           : "";
-        const title = command ? "Refresh path" : escapeHtml(step.title);
+        const title = command
+          ? codeSnippetHtml(command)
+          : escapeHtml(step.title);
         return `
         <li class="p-list-timeline__item">
           <div class="p-list-timeline__node"></div>
           <div class="p-list-timeline__content">
-            <h4 class="p-list-timeline__title">${title}</h4>
+            ${title}
             <div class="p-list-timeline__meta channel-switch-path">${channelSwitchMetaHtml(step.meta)}</div>
             <p class="p-list-timeline__description">${escapeHtml(step.description)}</p>
-            ${command ? codeSnippetHtml(command) : ""}
           </div>
         </li>
       `;
