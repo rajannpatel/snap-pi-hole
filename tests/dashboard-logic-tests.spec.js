@@ -61,9 +61,7 @@ function loadDashboardAPI() {
     "pluralizeUnit",
   ];
 
-  const factory = new Function(
-    `"use strict"; ${code}; return { ${exports.join(", ")} };`,
-  );
+  const factory = new Function(`"use strict"; ${code}; return { ${exports.join(", ")} };`);
   return factory();
 }
 
@@ -235,10 +233,7 @@ describe("pluralizeUnit", () => {
 // ---------------------------------------------------------------------------
 describe("scheduledCheckLabel", () => {
   it("returns Unknown when target is null", () => {
-    assert.equal(
-      api.scheduledCheckLabel(null),
-      "Next scheduled auto-rebuild check: Unknown",
-    );
+    assert.equal(api.scheduledCheckLabel(null), "Next scheduled auto-rebuild check: Unknown");
   });
   it("includes the countdown and timezone-bearing scheduled time", () => {
     const now = 1_000_000_000_000;
@@ -246,14 +241,8 @@ describe("scheduledCheckLabel", () => {
     const label = api.scheduledCheckLabel(to, now);
     const scheduledAt = api.formatDateWithTimezone(new Date(to).toISOString());
 
-    assert(
-      label.includes("In 5 hours, 10 minutes, and 2 seconds"),
-      `got ${label}`,
-    );
-    assert(
-      label.includes("the next scheduled auto-rebuild check will occur, at"),
-      `got ${label}`,
-    );
+    assert(label.includes("In 5 hours, 10 minutes, and 2 seconds"), `got ${label}`);
+    assert(label.includes("the next scheduled auto-rebuild check will occur, at"), `got ${label}`);
     assert(label.includes(scheduledAt), `got ${label}`);
   });
 });
@@ -264,15 +253,11 @@ describe("scheduledCheckLabel", () => {
 describe("nextHourBoundary", () => {
   it("targets the expected hourly boundary", () => {
     assert.equal(
-      new Date(
-        api.nextHourBoundary(Date.parse("2026-06-12T22:00:00Z")),
-      ).toISOString(),
+      new Date(api.nextHourBoundary(Date.parse("2026-06-12T22:00:00Z"))).toISOString(),
       "2026-06-12T23:00:00.000Z",
     );
     assert.equal(
-      new Date(
-        api.nextHourBoundary(Date.parse("2026-06-12T22:59:59Z")),
-      ).toISOString(),
+      new Date(api.nextHourBoundary(Date.parse("2026-06-12T22:59:59Z"))).toISOString(),
       "2026-06-12T23:00:00.000Z",
     );
   });
@@ -312,16 +297,8 @@ describe("trendPointColor", () => {
 
     // Cancelled and skipped are not build failures, so they must read as
     // neutral grey — never RED or GREEN.
-    assert.equal(
-      api.trendPointColor("cancelled"),
-      GREY,
-      "cancelled should be grey",
-    );
-    assert.equal(
-      api.trendPointColor("skipped"),
-      GREY,
-      "skipped should be grey",
-    );
+    assert.equal(api.trendPointColor("cancelled"), GREY, "cancelled should be grey");
+    assert.equal(api.trendPointColor("skipped"), GREY, "skipped should be grey");
   });
 });
 
@@ -335,17 +312,11 @@ describe("trendTooltipDescriptor", () => {
     assert.equal(ok.titlePrefix, "");
 
     const cancelled = api.trendTooltipDescriptor("cancelled", false);
-    assert.equal(
-      cancelled.notificationClass,
-      "p-notification--caution is-inline",
-    );
+    assert.equal(cancelled.notificationClass, "p-notification--caution is-inline");
     assert.equal(cancelled.titlePrefix, "Cancelled ");
 
     const skipped = api.trendTooltipDescriptor("skipped", false);
-    assert.equal(
-      skipped.notificationClass,
-      "p-notification--caution is-inline",
-    );
+    assert.equal(skipped.notificationClass, "p-notification--caution is-inline");
     assert.equal(skipped.titlePrefix, "Skipped ");
   });
   it("flags suspiciously fast builds", () => {
@@ -449,17 +420,11 @@ describe("trackUpstreamJobFromJobs", () => {
       { name: "setup", html_url: "https://example.test/setup" },
       { name: "update-tags", html_url: "https://example.test/update-tags" },
     ];
-    assert.equal(
-      api.trackUpstreamJobFromJobs(jobs).html_url,
-      "https://example.test/update-tags",
-    );
+    assert.equal(api.trackUpstreamJobFromJobs(jobs).html_url, "https://example.test/update-tags");
   });
   it("falls back to first job", () => {
     const jobs = [{ name: "random", html_url: "https://example.test/random" }];
-    assert.equal(
-      api.trackUpstreamJobFromJobs(jobs).html_url,
-      "https://example.test/random",
-    );
+    assert.equal(api.trackUpstreamJobFromJobs(jobs).html_url, "https://example.test/random");
   });
 });
 
@@ -603,10 +568,7 @@ describe("normalizedLiveStatus", () => {
     );
   });
   it("returns queued for pending runs", () => {
-    assert.equal(
-      api.normalizedLiveStatus({ status: "in_progress" }),
-      "in_progress",
-    );
+    assert.equal(api.normalizedLiveStatus({ status: "in_progress" }), "in_progress");
     assert.equal(api.normalizedLiveStatus(null), "");
   });
 });

@@ -1,0 +1,33 @@
+# Generated and vendored build outputs
+.claude/
+.github/
+.vale/
+.workshop/
+.wiki/
+coverage/
+coverage-js/
+local-*/
+network-cache/
+parts/
+prime/
+stage/
+tests/node_modules/
+
+# Snap/build artifacts
+*.snap
+
+# Documentation and Vale/style rules are maintained by Vale and prose review;
+# Prettier can create noisy text wrapping diffs.
+*.md
+
+# Preserve hand-maintained or upstream patch formatting.
+*.patch
+
+# Existing non-JS dashboard assets use mixed legacy formatting. Keep them
+# guarded by EditorConfig and targeted tests until they are deliberately
+# reformatted as a separate change.
+snap/local/assets/*.css
+snap/local/assets/*.html
+
+# Existing YAML has hand-wrapped comments and Snapcraft-specific layout.
+snap/snapcraft.yaml

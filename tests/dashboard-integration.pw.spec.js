@@ -46,35 +46,21 @@ test.describe("dashboard.html semantic structure", () => {
   });
 
   test("has a distribution test status matrix", async ({ page }) => {
-    await expect(
-      page.getByRole("table", { name: "Distribution test status" }),
-    ).toBeVisible();
+    await expect(page.getByRole("table", { name: "Distribution test status" })).toBeVisible();
     await expect(page.locator("#compatibility-matrix-body")).toBeVisible();
 
-    await expect(
-      page.locator("#compatibility-matrix-body tr").first(),
-    ).toBeVisible();
+    await expect(page.locator("#compatibility-matrix-body tr").first()).toBeVisible();
   });
 
   test("has vulnerability summary sections", async ({ page }) => {
-    await expect(
-      page.getByRole("heading", { name: "Vulnerability summary" }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Vulnerability summary" })).toBeVisible();
     const table = page.getByRole("table", {
       name: /Vulnerability summary by architecture/,
     });
-    await expect(
-      table.getByRole("columnheader", { name: "Action needed" }),
-    ).toBeVisible();
-    await expect(
-      table.getByRole("columnheader", { name: "Report-only findings" }),
-    ).toBeVisible();
-    await expect(
-      table.getByRole("columnheader", { name: "CVE matches" }),
-    ).toBeVisible();
-    await expect(
-      table.getByRole("columnheader", { name: "Evidence" }),
-    ).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Action needed" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Report-only findings" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "CVE matches" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Evidence" })).toBeVisible();
   });
 
   test("vulnerability report CTA is visually distinct", async ({ page }) => {
@@ -99,9 +85,9 @@ test.describe("dashboard.html semantic structure", () => {
     await expect(page.locator("#channel-switch-matrix-body")).toBeVisible();
 
     // The channel-switch heading
-    await expect(page.locator('text=snap channel switch smoke test')).toBeVisible();
+    await expect(page.locator("text=snap channel switch smoke test")).toBeVisible();
     // Not the plural form
-    await expect(page.locator('text=snap channel switch smoke tests')).toHaveCount(0);
+    await expect(page.locator("text=snap channel switch smoke tests")).toHaveCount(0);
   });
 
   test("channel switch table has correct headers", async ({ page }) => {
@@ -122,14 +108,10 @@ test.describe("dashboard.html semantic structure", () => {
   test("workflow tables have duration columns", async ({ page }) => {
     // Duration columns in each major table
     await expect(
-      page
-        .getByLabel("Build and test")
-        .getByRole("columnheader", { name: "Test duration" }),
+      page.getByLabel("Build and test").getByRole("columnheader", { name: "Test duration" }),
     ).toBeVisible();
     await expect(
-      page
-        .locator(".components-table")
-        .getByRole("columnheader", { name: "Sync duration" }),
+      page.locator(".components-table").getByRole("columnheader", { name: "Sync duration" }),
     ).toBeVisible();
     await expect(
       page

@@ -53,8 +53,7 @@
     if (row.reason) return row.reason;
     if (row.status === "success") return "Health checks passed";
     if (row.status === "skipped") return "No channel delta to test";
-    if (row.status === "in_progress" || row.status === "queued")
-      return "Workflow running";
+    if (row.status === "in_progress" || row.status === "queued") return "Workflow running";
     return row.summary || "No details available";
   }
 
@@ -100,13 +99,10 @@
     const snapName = state.snap_name || "pihole-by-rajannpatel";
     const stableToEdgeCommand = `sudo snap refresh ${snapName} --channel=latest/edge`;
     const edgeToStableCommand = `sudo snap refresh ${snapName} --channel=latest/stable`;
-    const stableRevision =
-      state.stable_revision || state.channels?.stable?.revision || "";
-    const edgeRevision =
-      state.edge_revision || state.channels?.edge?.revision || "";
+    const stableRevision = state.stable_revision || state.channels?.stable?.revision || "";
+    const edgeRevision = state.edge_revision || state.channels?.edge?.revision || "";
     if (!stableRevision || !edgeRevision) {
-      const waiting =
-        isBuildingStatus(state.status) || state.status === "no_data";
+      const waiting = isBuildingStatus(state.status) || state.status === "no_data";
       const succeeded = state.status === "success";
       return [
         {
@@ -133,8 +129,7 @@
           title: "No channel transition required",
           meta: [stablePoint, edgePoint],
           description:
-            state.reason ||
-            "The workflow skipped because there is no channel delta to test.",
+            state.reason || "The workflow skipped because there is no channel delta to test.",
         },
       ];
     }
@@ -193,9 +188,7 @@
     if (!list.length) return "";
     return list
       .map(channelRevisionChipHtml)
-      .join(
-        '<i class="p-icon--chevron-right channel-switch-chevron" aria-hidden="true"></i>',
-      );
+      .join('<i class="p-icon--chevron-right channel-switch-chevron" aria-hidden="true"></i>');
   }
 
   function codeSnippetHtml(command) {
@@ -205,12 +198,8 @@
   function channelSwitchTimelineHtml(cs) {
     return channelSwitchPathSteps(cs)
       .map((step) => {
-        const command = step.title?.startsWith("sudo snap refresh ")
-          ? step.title
-          : "";
-        const title = command
-          ? codeSnippetHtml(command)
-          : escapeHtml(step.title);
+        const command = step.title?.startsWith("sudo snap refresh ") ? step.title : "";
+        const title = command ? codeSnippetHtml(command) : escapeHtml(step.title);
         return `
         <li class="p-list-timeline__item">
           <div class="p-list-timeline__node"></div>

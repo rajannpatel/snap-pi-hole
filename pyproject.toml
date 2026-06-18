@@ -1,0 +1,30 @@
+[tool.black]
+line-length = 120
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = [
+    ".wiki",
+    "coverage",
+    "coverage-js",
+    "local-*",
+    "parts",
+    "prime",
+    "stage",
+]
+
+[tool.ruff.format]
+indent-style = "space"
+line-ending = "lf"
+quote-style = "double"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "UP", "W"]
+ignore = [
+    # Keep line wrapping advisory through Black's line length rather than
+    # failing old generated strings and dashboard payload literals.
+    "E501",
+]
+

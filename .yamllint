@@ -1,0 +1,21 @@
+---
+extends: relaxed
+
+ignore: |
+  .wiki/
+  coverage/
+  coverage-js/
+  local-*/
+  parts/
+  prime/
+  stage/
+  tests/node_modules/
+
+rules:
+  document-start: disable
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
+  line-length: disable
+  truthy: disable
+
