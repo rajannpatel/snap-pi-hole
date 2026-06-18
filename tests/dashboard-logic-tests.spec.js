@@ -50,6 +50,7 @@ function loadDashboardAPI() {
     "upstreamCommitLinkHtml",
     "sourceVersionWithCommitHtml",
     "shouldApplySnapPayload",
+    "mergeChannelSwitchData",
     "trackUpstreamJobFromJobs",
     "componentStatusHtml",
     "statusClass",
@@ -391,6 +392,71 @@ describe("shouldApplySnapPayload", () => {
     assert.equal(api.shouldApplySnapPayload(null, olderGist), true);
     assert.equal(api.shouldApplySnapPayload(deployed, null), true);
     assert.equal(api.shouldApplySnapPayload("invalid-date", olderGist), true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// mergeChannelSwitchData
+// ---------------------------------------------------------------------------
+describe("mergeChannelSwitchData", () => {
+  it("keeps existing evidence when a newer same-run payload has none", () => {
+    const current = {
+      run_id: 123,
+      status: "success",
+      rows: [
+        {
+          arch: "arm64",
+          status: "success",
+          duration_seconds: 59,
+          evidence: [
+            {
+              title: "DNS query through local FTL",
+              command: "dig +short @127.0.0.1 pi.hole",
+              status: "success",
+              output: "127.0.0.1",
+            },
+          ],
+        },
+      ],
+    };
+    const incoming = {
+      run_id: 123,
+      status: "success",
+      rows: [
+        {
+          arch: "arm64",
+          status: "success",
+          duration_seconds: 89,
+          evidence: [],
+        },
+      ],
+    };
+
+    const merged = api.mergeChannelSwitchData(current, incoming);
+
+    assert.equal(merged.rows[0].duration_seconds, 89);
+    assert.deepEqual(merged.rows[0].evidence, current.rows[0].evidence);
+  });
+
+  it("does not carry evidence across different channel-switch runs", () => {
+    const current = {
+      run_id: 123,
+      rows: [
+        {
+          arch: "arm64",
+          evidence: [{ title: "Old run", status: "success" }],
+        },
+      ],
+    };
+    const incoming = {
+      run_id: 124,
+      rows: [{ arch: "arm64", evidence: [] }],
+    };
+
+    const merged = api.mergeChannelSwitchData(current, incoming);
+
+    assert.equal(merged.run_id, 124);
+    assert.deepEqual(merged.rows[0].evidence, []);
   });
 });
 

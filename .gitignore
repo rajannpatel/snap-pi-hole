@@ -25,15 +25,7 @@ __pycache__/
 *.log
 /implementation_plan.md
 /sbom-*.json
-/docs/coverage/
-/docs/dashboard-data.json
-/docs/dashboard.css
-/docs/index.html
-/docs/pihole.png
-/docs/sbom/
-/docs/sbom-explorer.html
-/docs/snapcraft-dashboard-data.json
-/docs/vulnerabilities/
+/docs/
 
 # OS
 .DS_Store

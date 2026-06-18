@@ -460,24 +460,15 @@ import pathlib
 import subprocess
 
 root = pathlib.Path("${REPO_ROOT}")
-generated = {
-    "docs/index.html",
-    "docs/dashboard-data.json",
-    "docs/dashboard.css",
-    "docs/pihole.png",
-    "docs/snapcraft-dashboard-data.json",
-}
-
-tracked = set(subprocess.check_output(
-    ["git", "-C", str(root), "ls-files"],
+tracked_docs = subprocess.check_output(
+    ["git", "-C", str(root), "ls-files", "docs"],
     text=True,
-).splitlines())
-unexpected = sorted(path for path in generated if path in tracked and (root / path).exists())
-assert not unexpected, f"generated Pages artifacts are tracked: {unexpected}"
+).splitlines()
+present_tracked_docs = sorted(path for path in tracked_docs if (root / path).exists())
+assert not present_tracked_docs, f"generated Pages artifacts are tracked: {present_tracked_docs}"
 
 ignore_text = (root / ".gitignore").read_text(encoding="utf-8")
-missing = sorted(path for path in generated if f"/{path}" not in ignore_text)
-assert not missing, f"generated Pages artifacts are not ignored: {missing}"
+assert "/docs/" in ignore_text.splitlines(), "generated docs/ output is not ignored"
 PYEOF
 }
 

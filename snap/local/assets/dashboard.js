@@ -2539,7 +2539,7 @@
                     duration_label: humanDuration(durationSeconds),
                     rows: [
                         {
-                            ...snapshotRow,
+                            ...snapshotRowData,
                             arch: "arm64",
                             status: rowStatus,
                             conclusion:
@@ -2548,18 +2548,18 @@
                                     ? run.conclusion || "unknown"
                                     : run.status),
                             path:
-                                snapshotRow.path ||
+                                snapshotRowData.path ||
                                 snapshotRunData.path ||
                                 "roundtrip",
                             summary:
-                                snapshotRow.summary ||
+                                snapshotRowData.summary ||
                                 snapshotRunData.summary ||
                                 "stable -> edge -> stable",
                             updated_at:
                                 job?.completed_at ||
                                 job?.started_at ||
                                 run.updated_at ||
-                                snapshotRow.updated_at ||
+                                snapshotRowData.updated_at ||
                                 snapshotRunData.updated_at ||
                                 "",
                             duration_seconds: durationSeconds,
@@ -2567,17 +2567,18 @@
                             url:
                                 job?.html_url ||
                                 run.html_url ||
-                                snapshotRow.url ||
+                                snapshotRowData.url ||
                                 snapshotRunData.html_url ||
                                 "",
                             reason:
-                                snapshotRow.reason ||
+                                snapshotRowData.reason ||
                                 snapshotRunData.reason ||
                                 "",
                             evidence:
-                                snapshotRow.evidence ||
-                                snapshotRunData.evidence ||
-                                [],
+                                snapshotMatchesRun &&
+                                hasChannelSwitchEvidence(snapshotRow)
+                                    ? snapshotRow.evidence
+                                    : [],
                         },
                     ],
                 };
@@ -3277,6 +3278,53 @@
                 return incomingMs >= currentMs;
             }
 
+            function hasChannelSwitchEvidence(row) {
+                return Array.isArray(row?.evidence) && row.evidence.length > 0;
+            }
+
+            function mergeChannelSwitchData(current, incoming) {
+                if (!incoming) return current;
+                if (!current) return incoming;
+                const sameRun =
+                    current.run_id &&
+                    incoming.run_id &&
+                    String(current.run_id) === String(incoming.run_id);
+                if (!sameRun) return incoming;
+
+                const currentRows = Array.isArray(current.rows)
+                    ? current.rows
+                    : [];
+                const incomingRows = Array.isArray(incoming.rows)
+                    ? incoming.rows
+                    : [];
+                const rows = incomingRows.length
+                    ? incomingRows.map((row) => {
+                          const previous = currentRows.find(
+                              (candidate) =>
+                                  String(candidate.arch || "") ===
+                                  String(row.arch || ""),
+                          );
+                          if (!previous || hasChannelSwitchEvidence(row)) {
+                              return row;
+                          }
+                          if (!hasChannelSwitchEvidence(previous)) {
+                              return row;
+                          }
+                          return {
+                              ...previous,
+                              ...row,
+                              evidence: previous.evidence,
+                          };
+                      })
+                    : currentRows;
+
+                return {
+                    ...current,
+                    ...incoming,
+                    rows,
+                };
+            }
+
             // Resolves and displays gist snap-store and channel-switch data
             function applySnapData(payload) {
                 if (!shouldApplySnapPayload(snapState.generatedAt, payload)) {
@@ -3285,8 +3333,12 @@
                 }
                 renderSnapPackage(payload.snap_package || {});
                 if (payload.channel_switch) {
-                    globalDashboardData.channel_switch = payload.channel_switch;
-                    renderChannelSwitch(payload.channel_switch);
+                    const channelSwitch = mergeChannelSwitchData(
+                        globalDashboardData.channel_switch,
+                        payload.channel_switch,
+                    );
+                    globalDashboardData.channel_switch = channelSwitch;
+                    renderChannelSwitch(channelSwitch);
                 }
                 applyLiveSnapStatus(
                     liveState.cicdJobs,
