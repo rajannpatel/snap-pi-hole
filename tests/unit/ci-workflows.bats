@@ -31,9 +31,19 @@ steps = doc["jobs"]["update-sources"]["steps"]
 run_steps = [s.get("run", "") for s in steps if s.get("run")]
 joined = "\n".join(run_steps)
 
-assert "yq -i \".parts.ftl.\\"source-commit\\"\"" in joined
-assert "yq -i \".parts.pi_hole.\\"source-commit\\"\"" in joined
-assert "yq -i \".parts.web.\\"source-commit\\"\"" in joined
+expected_updates = {
+    "ftl": chr(36) + "LATEST_FTL_COMMIT",
+    "pi_hole": chr(36) + "LATEST_PIHOLE_COMMIT",
+    "web": chr(36) + "LATEST_WEB_COMMIT",
+}
+quoted = chr(92) + chr(34)
+for part, variable in expected_updates.items():
+    command = (
+        f'yq -i ".parts.{part}.{quoted}source-commit{quoted} = {quoted}{variable}{quoted} '
+        f'| del(.parts.{part}.{quoted}source-tag{quoted}) '
+        f'| del(.parts.{part}.{quoted}source-branch{quoted})" snap/snapcraft.yaml'
+    )
+    assert command in joined, command
 assert "snap/local/build/stable-versions.json" not in joined
 assert "/commits/master" in joined
 assert "README.md" not in joined
