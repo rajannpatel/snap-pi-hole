@@ -6,3 +6,8 @@ cd /project
 if [ -d .git ] && [ -f .pre-commit-config.yaml ]; then
   pre-commit install
 fi
+
+if [ -f tests/package-lock.json ]; then
+  cd tests
+  npm ci
+fi

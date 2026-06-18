@@ -2,14 +2,23 @@
 set -euo pipefail
 
 missing=()
-for tool in bats dig kcov node pre-commit shellcheck snap snapcraft yamllint yq; do
+for tool in awk bats curl dig fd g++ gcc gh git jq kcov make node nodejs npm npx pre-commit python3 rg ruby sed shellcheck snap snapcraft tree uv wget yamllint yq; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     missing+=("$tool")
   fi
 done
 
+if ! dpkg-query -W -f='${Status}' build-essential 2>/dev/null | grep -qx "install ok installed"; then
+  missing+=("build-essential")
+fi
+
 if [ "${#missing[@]}" -gt 0 ]; then
   workshopctl set-health error "missing required tools: ${missing[*]}"
+  exit 1
+fi
+
+if [ ! -x /snap/bin/chromium ]; then
+  workshopctl set-health error "missing required tool: /snap/bin/chromium"
   exit 1
 fi
 

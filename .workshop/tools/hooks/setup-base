@@ -9,7 +9,11 @@ apt-get install -y \
   bind9-dnsutils \
   build-essential \
   cmake \
+  curl \
+  fd-find \
   file \
+  gawk \
+  gh \
   git \
   jq \
   kcov \
@@ -22,17 +26,29 @@ apt-get install -y \
   libssl-dev \
   libunistring-dev \
   libuv1-dev \
+  make \
   nettle-dev \
   nodejs \
+  npm \
   pre-commit \
   python3 \
   python3-pip \
   python3-venv \
+  ripgrep \
+  ruby \
+  sed \
   shellcheck \
   snapd \
   sudo \
+  tree \
   yamllint \
+  wget \
   yq
+
+ln -sf /usr/bin/fdfind /usr/local/bin/fd
+if command -v node >/dev/null 2>&1 && ! command -v nodejs >/dev/null 2>&1; then
+  ln -sf "$(command -v node)" /usr/local/bin/nodejs
+fi
 
 mkdir -p /etc/systemd/resolved.conf.d
 cat >/etc/systemd/resolved.conf.d/snap-pi-hole-workshop.conf <<'EOF'
@@ -52,4 +68,5 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 
+snap install chromium
 snap install snapcraft --channel=9.x/stable --classic

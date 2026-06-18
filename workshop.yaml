@@ -25,15 +25,36 @@ sdks:
 actions:
   doctor: |
     echo "==> Toolchain"
-    command -v snapcraft
+    command -v awk
     command -v bats
+    command -v curl
+    command -v dig
+    command -v fd
+    command -v g++
+    command -v gcc
+    command -v gh
+    command -v git
+    command -v jq
+    command -v kcov
+    command -v make
+    command -v node
+    command -v nodejs
+    command -v npm
+    command -v npx
+    command -v pre-commit
+    command -v python3
+    command -v rg
+    command -v ruby
+    command -v sed
     command -v shellcheck
+    command -v snapcraft
+    command -v tree
+    command -v uv
+    command -v wget
     command -v yamllint
     command -v yq
-    command -v pre-commit
-    command -v kcov
-    command -v node
-    command -v dig
+    dpkg-query -W -f='${Status}' build-essential | grep -qx "install ok installed"
+    test -x /snap/bin/chromium
     echo "==> Snapcraft"
     snapcraft version
     echo "==> snapd"
@@ -53,6 +74,18 @@ actions:
   lint: |
     pre-commit run --all-files
 
+  deps-js: |
+    cd tests
+    npm ci
+
+  lint-js: |
+    cd tests
+    npm run lint:js
+
+  format-check: |
+    cd tests
+    npm run format:check
+
   shellcheck: |
     set -euo pipefail
     git ls-files \
@@ -67,6 +100,14 @@ actions:
 
   test: |
     bats -r "${@:-tests/unit}"
+
+  test-jsdom: |
+    cd tests
+    npm run test:jsdom
+
+  test-playwright-snap: |
+    cd tests
+    npm run test:playwright:snap
 
   coverage: |
     tests/scripts/local-preview.sh kcov

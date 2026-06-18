@@ -78,9 +78,14 @@ expected = {
     "doctor",
     "context",
     "lint",
+    "deps-js",
+    "lint-js",
+    "format-check",
     "shellcheck",
     "yamllint",
     "test",
+    "test-jsdom",
+    "test-playwright-snap",
     "coverage",
     "build",
     "clean",
@@ -126,22 +131,96 @@ with open("${REPO_ROOT}/workshop.yaml") as f:
 
 doctor = actions["doctor"]
 required = {
-    "snapcraft",
+    "awk",
     "bats",
+    "curl",
+    "dig",
+    "fd",
+    "g++",
+    "gcc",
+    "gh",
+    "git",
+    "jq",
+    "kcov",
+    "make",
+    "node",
+    "nodejs",
+    "npm",
+    "npx",
+    "pre-commit",
+    "python3",
+    "rg",
+    "ruby",
+    "sed",
     "shellcheck",
+    "snapcraft",
+    "tree",
+    "uv",
+    "wget",
     "yamllint",
     "yq",
-    "pre-commit",
-    "kcov",
-    "node",
-    "dig",
 }
 declared = set(re.findall(r"^\\s*command -v ([A-Za-z0-9_.+-]+)\\s*$", doctor, re.MULTILINE))
 missing = sorted(required - declared)
 assert not missing, f"doctor is missing command checks for: {missing}"
+assert "dpkg-query -W -f='\${Status}' build-essential" in doctor
+assert "test -x /snap/bin/chromium" in doctor
 
-for action_name in ("context", "shellcheck", "yamllint", "test", "coverage", "build", "install", "smoke"):
+for action_name in (
+    "context",
+    "shellcheck",
+    "yamllint",
+    "deps-js",
+    "lint-js",
+    "format-check",
+    "test",
+    "test-jsdom",
+    "test-playwright-snap",
+    "coverage",
+    "build",
+    "install",
+    "smoke",
+):
     assert action_name in actions, f"missing action: {action_name}"
+PYEOF
+}
+
+@test "project-tools SDK installs and checks agent and JavaScript tooling" {
+    python3 - <<PYEOF
+from pathlib import Path
+
+setup_base = Path("${REPO_ROOT}/.workshop/tools/hooks/setup-base").read_text()
+setup_project = Path("${REPO_ROOT}/.workshop/tools/hooks/setup-project").read_text()
+check_health = Path("${REPO_ROOT}/.workshop/tools/hooks/check-health").read_text()
+
+assert "nodejs" in setup_base
+assert "npm" in setup_base
+for package in (
+    "build-essential",
+    "curl",
+    "fd-find",
+    "gawk",
+    "gh",
+    "git",
+    "jq",
+    "make",
+    "ripgrep",
+    "ruby",
+    "sed",
+    "tree",
+    "wget",
+    "yq",
+):
+    assert package in setup_base, f"setup-base missing package: {package}"
+assert "ln -sf /usr/bin/fdfind /usr/local/bin/fd" in setup_base
+assert "/usr/local/bin/nodejs" in setup_base
+assert "snap install chromium" in setup_base
+assert "tests/package-lock.json" in setup_project
+assert "npm ci" in setup_project
+for command in ("awk", "curl", "fd", "g++", "gcc", "gh", "git", "jq", "make", "node", "nodejs", "npm", "npx", "python3", "rg", "ruby", "sed", "tree", "uv", "wget", "yq"):
+    assert command in check_health, f"check-health missing command: {command}"
+assert "build-essential" in check_health
+assert "/snap/bin/chromium" in check_health
 PYEOF
 }
 
@@ -226,6 +305,42 @@ assert "snap logs pihole-by-rajannpatel.pihole-ftl" in logs, logs
 assert '-n="\${1:-100}"' in logs, logs
 assert "--last" not in logs, logs
 PYEOF
+}
+
+@test "editor task files expose Workshop preflight commands" {
+    python3 - <<PYEOF
+import json
+from pathlib import Path
+
+vscode = json.loads(Path("${REPO_ROOT}/.vscode/tasks.json").read_text())
+zed = json.loads(Path("${REPO_ROOT}/.zed/tasks.json").read_text())
+
+vscode_tasks = {task["label"]: task for task in vscode["tasks"]}
+zed_tasks = {task["label"]: task for task in zed}
+
+assert vscode_tasks["Workshop: Open Check"]["runOptions"]["runOn"] == "folderOpen"
+assert "workshop run snap-pi-hole -- doctor" in vscode_tasks["Workshop: Open Check"]["command"]
+assert vscode_tasks["Workshop: Launch"]["command"] == "workshop launch snap-pi-hole"
+assert vscode_tasks["Workshop: Doctor"]["command"] == "workshop run snap-pi-hole -- doctor"
+assert vscode_tasks["Workshop: Refresh"]["command"] == "workshop refresh snap-pi-hole"
+assert vscode_tasks["Workshop: Context"]["command"] == "workshop run snap-pi-hole -- context"
+
+expected_zed = {
+    "Workshop: Doctor": ["run", "snap-pi-hole", "--", "doctor"],
+    "Workshop: Launch": ["launch", "snap-pi-hole"],
+    "Workshop: Refresh": ["refresh", "snap-pi-hole"],
+    "Workshop: Context": ["run", "snap-pi-hole", "--", "context"],
+}
+
+for label, args in expected_zed.items():
+    task = zed_tasks[label]
+    assert task["command"] == "workshop"
+    assert task["args"] == args
+    assert task["cwd"] == "\$ZED_WORKTREE_ROOT"
+PYEOF
+
+    run git -C "${REPO_ROOT}" check-ignore .vscode/tasks.json
+    [ "$status" -eq 1 ]
 }
 
 @test "local Workshop customization paths are ignored" {

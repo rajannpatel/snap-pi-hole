@@ -1,0 +1,59 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Workshop: Open Check",
+      "type": "shell",
+      "command": "if ! command -v workshop >/dev/null 2>&1; then echo 'Workshop CLI is not installed or not on PATH.'; echo 'Install Workshop, then run: workshop launch snap-pi-hole'; exit 1; fi\nif ! workshop run snap-pi-hole -- doctor; then echo ''; echo 'Workshop is not ready for this checkout.'; echo 'Run: workshop launch snap-pi-hole'; echo 'If Workshop was already launched before recent SDK changes, run: workshop refresh snap-pi-hole'; exit 1; fi",
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "presentation": {
+        "clear": true,
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Launch",
+      "type": "shell",
+      "command": "workshop launch snap-pi-hole",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Doctor",
+      "type": "shell",
+      "command": "workshop run snap-pi-hole -- doctor",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Refresh",
+      "type": "shell",
+      "command": "workshop refresh snap-pi-hole",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Context",
+      "type": "shell",
+      "command": "workshop run snap-pi-hole -- context",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
