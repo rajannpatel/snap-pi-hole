@@ -27,15 +27,30 @@ setup() {
 # 1. Top-level snap metadata
 
 @test "snapcraft.yaml confinement is strict" {
-    grep -q "^confinement: strict" "${REPO_ROOT}/snap/snapcraft.yaml"
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+assert doc.get("confinement") == "strict"
+PYEOF
 }
 
 @test "snapcraft.yaml base is core26" {
-    grep -q "^base: core26" "${REPO_ROOT}/snap/snapcraft.yaml"
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+assert doc.get("base") == "core26"
+PYEOF
 }
 
 @test "snapcraft.yaml license is MIT" {
-    grep -q "^license: MIT" "${REPO_ROOT}/snap/snapcraft.yaml"
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+assert doc.get("license") == "MIT"
+PYEOF
 }
 
 @test "snapcraft.yaml epoch is defined (data migration safety)" {

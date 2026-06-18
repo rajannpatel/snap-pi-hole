@@ -23,20 +23,36 @@ teardown() {
 # track-upstream-releases.yml
 
 @test "track-upstream workflow updates snapcraft source commits only" {
-    local workflow="${REPO_ROOT}/.github/workflows/track-upstream-releases.yml"
-    grep -q 'yq -i ".parts.ftl.\\"source-commit\\"' "$workflow"
-    grep -q 'yq -i ".parts.pi_hole.\\"source-commit\\"' "$workflow"
-    grep -q 'yq -i ".parts.web.\\"source-commit\\"' "$workflow"
-    ! grep -q 'snap/local/build/stable-versions.json' "$workflow"
-    grep -q '/commits/master' "$workflow"
-    ! grep -q "README.md" "$workflow"
-    ! grep -q "sed -i" "$workflow"
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/track-upstream-releases.yml") as f:
+    doc = yaml.safe_load(f)
+steps = doc["jobs"]["update-sources"]["steps"]
+run_steps = [s.get("run", "") for s in steps if s.get("run")]
+joined = "\n".join(run_steps)
+
+assert "yq -i \".parts.ftl.\\"source-commit\\"\"" in joined
+assert "yq -i \".parts.pi_hole.\\"source-commit\\"\"" in joined
+assert "yq -i \".parts.web.\\"source-commit\\"\"" in joined
+assert "snap/local/build/stable-versions.json" not in joined
+assert "/commits/master" in joined
+assert "README.md" not in joined
+assert "sed -i" not in joined
+PYEOF
 }
 
 @test "track-upstream workflow does not use opaque inline scripts for README mutation" {
-    local workflow="${REPO_ROOT}/.github/workflows/track-upstream-releases.yml"
-    ! grep -q "python3 -c" "$workflow"
-    ! grep -q "re.sub" "$workflow"
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/track-upstream-releases.yml") as f:
+    doc = yaml.safe_load(f)
+steps = doc["jobs"]["update-sources"]["steps"]
+run_steps = [s.get("run", "") for s in steps if s.get("run")]
+joined = "\n".join(run_steps)
+
+assert "python3 -c" not in joined
+assert "re.sub" not in joined
+PYEOF
 }
 
 @test "track-upstream checkout does not persist credentials before create-pull-request" {
@@ -565,10 +581,19 @@ PYEOF
 }
 
 @test "cicd workflow distro tests reuse the matching channel amd64 snap artifact" {
-    local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
-    grep -q "^  distro-test:" "$workflow"
-    grep -q "uses: ./.github/workflows/reusable-distro-test.yml" "$workflow"
-    grep -q 'snap_artifact_name: pihole-snap-github-${{ matrix.channel }}-amd64' "$workflow"
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+
+assert "distro-test" in doc.get("jobs", {}), "no distro-test job"
+
+# Check the reusable workflow reference
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    content = f.read()
+assert "uses: ./.github/workflows/reusable-distro-test.yml" in content
+assert "snap_artifact_name: pihole-snap-github-\${{ matrix.channel }}-amd64" in content
+PYEOF
 }
 
 @test "cicd distro reusable-workflow caller grants required token permissions" {

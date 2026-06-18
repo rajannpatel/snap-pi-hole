@@ -52,5 +52,9 @@ network-cache/
 # Local preview reports
 local-*/
 coverage/
+coverage-js/
 local-sbom.json
 .deckwork/
+
+# Node.js
+node_modules/

@@ -13,6 +13,40 @@ env:
   SNAP_NAME: pihole-by-rajannpatel
 
 jobs:
+  changes:
+    name: detect snap-relevant changes
+    runs-on: ubuntu-26.04
+    outputs:
+      snap: ${{ steps.filter.outputs.snap }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            snap:
+              # Any change that affects the snap binary or how it is built.
+              - 'snap/snapcraft.yaml'
+              - 'snap/hooks/**'
+              - 'snap/local/runtime/**'
+              - 'snap/local/testing/**'
+              - 'snap/local/patches/**'
+              - 'snap/gui/**'
+              - 'tests/**'
+              - '.github/workflows/cicd.yml'
+              - '.github/workflows/launchpad-builds.yml'
+              - '.github/workflows/channel-switch.yml'
+              - '.github/workflows/track-upstream-releases.yml'
+              # Snapcraft build scripts (override-pull, override-build, override-prime).
+              - 'snap/local/build/ftl-override-pull.sh'
+              - 'snap/local/build/ftl-override-build.sh'
+              - 'snap/local/build/pi-hole-override-pull.sh'
+              - 'snap/local/build/pi-hole-override-build.sh'
+              - 'snap/local/build/web-override-build.sh'
+              - 'snap/local/build/filter_dpkg_status.py'
+              - 'snap/local/build/select_snapcraft_upstream.py'
+              - 'snap/local/build/resolve_upstream_version.py'
+
   lint:
     name: shellcheck + bats
     runs-on: ubuntu-26.04
@@ -75,6 +109,21 @@ jobs:
         run: |
           yamllint -d "{extends: relaxed, rules: {line-length: disable}}" snap/snapcraft.yaml
 
+      - name: Install Node.js dependencies
+        working-directory: tests
+        run: npm ci
+
+      - name: JSDOM dashboard logic unit tests
+        working-directory: tests
+        run: npx c8 --reporter=text --reporter=lcov --report-dir=../coverage-js node --test dashboard-logic-tests.spec.js
+
+      - name: Upload JS code coverage
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: js-code-coverage-report
+          path: coverage-js/
+
       - name: bats unit tests (with coverage)
         run: |
           mkdir -p coverage
@@ -91,6 +140,8 @@ jobs:
 
   build:
     name: build github (${{ matrix.channel }}, ${{ matrix.arch }})
+    needs: [changes]
+    if: needs.changes.outputs.snap == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-26.04-arm' || 'ubuntu-26.04' }}
     environment: snap-publishing
     strategy:
@@ -657,14 +708,18 @@ jobs:
 
   deploy-pages:
     name: Deploy reports to GitHub Pages
-    needs: [lint, build, smoke, vulnerability-scan]
+    needs: [lint, build, smoke, vulnerability-scan, changes]
     runs-on: ubuntu-26.04
     environment: snap-publishing
     if: |
       always() &&
       github.ref == 'refs/heads/main' && github.event_name == 'push' &&
-      needs.lint.result == 'success' && needs.build.result == 'success' &&
-      needs.smoke.result == 'success' && needs.vulnerability-scan.result == 'success'
+      needs.lint.result == 'success' &&
+      (
+        (needs.changes.outputs.snap == 'true' && needs.build.result == 'success' &&
+         needs.smoke.result == 'success' && needs.vulnerability-scan.result == 'success') ||
+        needs.changes.outputs.snap == 'false'
+      )
     permissions:
       contents: read
       pages: write
@@ -703,6 +758,7 @@ jobs:
           path: coverage-report
 
       - name: Download SBOMs
+        if: needs.changes.outputs.snap == 'true'
         uses: actions/download-artifact@v7
         with:
           pattern: sbom-*
@@ -710,6 +766,7 @@ jobs:
           merge-multiple: true
 
       - name: Download vulnerability reports
+        if: needs.changes.outputs.snap == 'true'
         uses: actions/download-artifact@v7
         with:
           name: vulnerability-reports
@@ -719,6 +776,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PUBLISH_RESULT: not_waited
+          SNAP_RELEVANT: ${{ needs.changes.outputs.snap }}
         run: |
           # Create docs directory structure
           mkdir -p docs/coverage docs/sbom docs/vulnerabilities
@@ -735,27 +793,36 @@ jobs:
           python3 snap/local/build/prettify_coverage.py docs/coverage
           find docs/coverage/ -name "*.css" -exec sh -c "cat snap/local/assets/kcov-override.css > {}" \;
 
-          # Copy SBOMs from all artifact directories
-          echo "Finding and copying SBOM files..."
-          find sbom-artifacts -name "sbom-*.json" -exec cp -v {} docs/sbom/ \;
-          cp -v docs/sbom/sbom-stable-amd64.json docs/sbom/sbom-amd64.json || true
-          cp -v docs/sbom/sbom-stable-arm64.json docs/sbom/sbom-arm64.json || true
+          # SBOMs and vulnerability reports only exist when snap-relevant files changed.
+          if [ "${SNAP_RELEVANT}" = "true" ]; then
+            echo "Finding and copying SBOM files..."
+            find sbom-artifacts -name "sbom-*.json" -exec cp -v {} docs/sbom/ \;
+            cp -v docs/sbom/sbom-stable-amd64.json docs/sbom/sbom-amd64.json || true
+            cp -v docs/sbom/sbom-stable-arm64.json docs/sbom/sbom-arm64.json || true
 
-          # Copy vulnerability reports generated from SBOM artifacts
-          cp -r vulnerability-reports/* docs/vulnerabilities/
+            # Copy vulnerability reports generated from SBOM artifacts
+            cp -r vulnerability-reports/* docs/vulnerabilities/
+          fi
 
           # Match the stable source refs used by build jobs before rendering dashboard data.
           python3 snap/local/build/select_snapcraft_upstream.py stable
 
-          # Build dashboard data model used by the interactive homepage
-          python3 snap/local/build/generate_dashboard_data.py . docs/dashboard-data.json vulnerability-reports/osv-summary.json
+          # Build dashboard data model used by the interactive homepage.
+          # When snap-relevant, include OSV summary; otherwise skip it.
+          if [ "${SNAP_RELEVANT}" = "true" ] && [ -f vulnerability-reports/osv-summary.json ]; then
+            python3 snap/local/build/generate_dashboard_data.py . docs/dashboard-data.json vulnerability-reports/osv-summary.json
+          else
+            python3 snap/local/build/generate_dashboard_data.py . docs/dashboard-data.json
+          fi
 
           # Render HTML templates from snap assets
           python3 snap/local/build/render_report_template.py snap/local/assets/dashboard.html docs/index.html
           python3 snap/local/build/render_report_template.py snap/local/assets/sbom-explorer.html docs/sbom/index.html
           cp snap/local/assets/dashboard.css docs/dashboard.css
           cp snap/local/assets/dashboard-channel-switch.js docs/dashboard-channel-switch.js
+          cp snap/local/assets/dashboard.js docs/dashboard.js
           cp snap/local/assets/sbom-explorer.css docs/sbom/sbom-explorer.css
+          cp snap/local/assets/sbom-explorer.js docs/sbom/sbom-explorer.js
 
           # Copy native Pi-hole logo for header display
           cp snap/gui/pihole.png docs/pihole.png
