@@ -371,6 +371,8 @@ import yaml
 with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
     doc = yaml.safe_load(f)
 steps = doc["jobs"]["deploy-pages"]["steps"]
+permissions = doc["jobs"]["deploy-pages"]["permissions"]
+assert permissions["actions"] == "read", permissions
 organize = next(step for step in steps if step.get("name") == "Organize files for GitHub Pages")
 run = organize["run"]
 select_idx = run.index("python3 snap/local/build/select_snapcraft_upstream.py stable")
