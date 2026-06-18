@@ -1,6 +1,9 @@
 // @ts-check
 import { defineConfig } from "@playwright/test";
 
+const chromiumExecutablePath =
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || null;
+
 export default defineConfig({
   testDir: ".",
   testMatch: "**/*.pw.spec.js",
@@ -13,7 +16,12 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { browserName: "chromium" },
+      use: {
+        browserName: "chromium",
+        ...(chromiumExecutablePath
+          ? { launchOptions: { executablePath: chromiumExecutablePath } }
+          : {}),
+      },
     },
   ],
 });

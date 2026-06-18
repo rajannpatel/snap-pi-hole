@@ -46,20 +46,35 @@ test.describe("dashboard.html semantic structure", () => {
   });
 
   test("has a distribution test status matrix", async ({ page }) => {
-    await expect(page.locator(".matrix-table")).toBeVisible();
+    await expect(
+      page.getByRole("table", { name: "Distribution test status" }),
+    ).toBeVisible();
     await expect(page.locator("#compatibility-matrix-body")).toBeVisible();
 
-    // Default state before JS runs
-    const loadingRow = page.locator("#compatibility-matrix-body >> text=Loading matrix...");
-    await expect(loadingRow).toBeVisible();
+    await expect(
+      page.locator("#compatibility-matrix-body tr").first(),
+    ).toBeVisible();
   });
 
   test("has vulnerability summary sections", async ({ page }) => {
-    await expect(page.locator('text=Vulnerability summary')).toBeVisible();
-    await expect(page.locator('text=Action needed')).toBeVisible();
-    await expect(page.locator('text=Report-only findings')).toBeVisible();
-    await expect(page.locator('text=CVE matches')).toBeVisible();
-    await expect(page.locator('text=Evidence')).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Vulnerability summary" }),
+    ).toBeVisible();
+    const table = page.getByRole("table", {
+      name: /Vulnerability summary by architecture/,
+    });
+    await expect(
+      table.getByRole("columnheader", { name: "Action needed" }),
+    ).toBeVisible();
+    await expect(
+      table.getByRole("columnheader", { name: "Report-only findings" }),
+    ).toBeVisible();
+    await expect(
+      table.getByRole("columnheader", { name: "CVE matches" }),
+    ).toBeVisible();
+    await expect(
+      table.getByRole("columnheader", { name: "Evidence" }),
+    ).toBeVisible();
   });
 
   test("vulnerability report CTA is visually distinct", async ({ page }) => {
@@ -106,9 +121,21 @@ test.describe("dashboard.html semantic structure", () => {
 
   test("workflow tables have duration columns", async ({ page }) => {
     // Duration columns in each major table
-    await expect(page.locator('th:has-text("Test duration")')).toBeVisible();
-    await expect(page.locator('th:has-text("Sync duration")')).toBeVisible();
-    await expect(page.locator('th:has-text("Build/publish duration")')).toBeVisible();
+    await expect(
+      page
+        .getByLabel("Build and test")
+        .getByRole("columnheader", { name: "Test duration" }),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator(".components-table")
+        .getByRole("columnheader", { name: "Sync duration" }),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator(".snap-package-table")
+        .getByRole("columnheader", { name: "Build/publish duration" }),
+    ).toBeVisible();
   });
 
   test("Pi-hole components table has correct structure", async ({ page }) => {

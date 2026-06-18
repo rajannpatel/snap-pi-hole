@@ -88,6 +88,7 @@
             let freshnessTimer = null;
             let dependencyRows = [];
             let durationTrendResizeHandler = null;
+            let releaseTrackingNextCheckMs = null;
 
             // Brand design assets
             const osBadgeByFamily = {
@@ -158,6 +159,38 @@
                 const date = new Date(value);
                 if (Number.isNaN(date.getTime())) return value;
                 return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+            }
+
+            // Translates date strings into formatted local dates/times with timezone
+            function formatDateWithTimezone(value) {
+                if (!value) return "Unknown";
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) return value;
+                return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZoneName: "short" })}`;
+            }
+
+            // Breaks a future event timestamp into hours, minutes and seconds remaining
+            function scheduledCheckCountdownParts(toMs, nowMs = Date.now()) {
+                if (!toMs) return null;
+                const totalSeconds = Math.max(0, Math.ceil((toMs - nowMs) / 1000));
+                return {
+                    hours: Math.floor(totalSeconds / 3600),
+                    minutes: Math.floor((totalSeconds % 3600) / 60),
+                    seconds: totalSeconds % 60,
+                };
+            }
+
+            // Pluralises a unit word (e.g. "1 hour" vs "2 hours")
+            function pluralizeUnit(value, unit) {
+                return `${value} ${unit}${value === 1 ? "" : "s"}`;
+            }
+
+            // Builds a countdown sentence for the next scheduled auto-rebuild check
+            function scheduledCheckLabel(toMs, nowMs = Date.now()) {
+                const parts = scheduledCheckCountdownParts(toMs, nowMs);
+                if (!parts) return "Next scheduled auto-rebuild check: Unknown";
+                const scheduledAt = formatDateWithTimezone(new Date(toMs).toISOString());
+                return `In ${pluralizeUnit(parts.hours, "hour")}, ${pluralizeUnit(parts.minutes, "minute")}, and ${pluralizeUnit(parts.seconds, "second")}, the next scheduled auto-rebuild check will occur, at ${scheduledAt}.`;
             }
 
             // Translates integer bytes into binary unit labels
@@ -1419,6 +1452,13 @@
                 el.hidden = false;
             }
 
+            // Writes the live countdown sentence for the next scheduled rebuild check
+            function renderReleaseTrackingScheduleNote() {
+                setText(
+                    "release-tracking-schedule-note",
+                    scheduledCheckLabel(releaseTrackingNextCheckMs),
+                );
+            }
             function getNextCronTime() {
                 const now = new Date();
                 const next = new Date(now);
@@ -1432,16 +1472,15 @@
             function renderReleaseInfo(data) {
                 const trackRun = data.auto_update?.latest_success_run || {};
                 const lastCheck = trackRun.updated_at;
-                const nextCheck = getNextCronTime().toISOString();
+                const nextCheckDate = getNextCronTime();
+                const nextCheck = nextCheckDate.toISOString();
 
                 setText("stable-track-updated", formatDate(lastCheck));
                 setText("edge-track-updated", formatDate(lastCheck));
                 setText("stable-track-next", formatDate(nextCheck));
                 setText("edge-track-next", formatDate(nextCheck));
-                setText(
-                    "release-tracking-schedule-note",
-                    formatDate(nextCheck),
-                );
+                releaseTrackingNextCheckMs = nextCheckDate.getTime();
+                renderReleaseTrackingScheduleNote();
 
                 // Calculate status for stable
                 const stableComponents = data.release_info?.components || [];
@@ -2268,6 +2307,7 @@
                 freshnessTimer = setInterval(() => {
                     renderFreshnessChips();
                     tickWorkflowButtons();
+                    renderReleaseTrackingScheduleNote();
                     if (snapState.nextAt && Date.now() >= snapState.nextAt) {
                         maybeRefreshSnap();
                     }
@@ -2795,15 +2835,14 @@
                         run.conclusion === "success"
                     ) {
                         const lastCheck = run.updated_at;
-                        const nextCheck = getNextCronTime().toISOString();
+                        const nextCheckDate = getNextCronTime();
+                        const nextCheck = nextCheckDate.toISOString();
                         setText("stable-track-updated", formatDate(lastCheck));
                         setText("edge-track-updated", formatDate(lastCheck));
                         setText("stable-track-next", formatDate(nextCheck));
                         setText("edge-track-next", formatDate(nextCheck));
-                        setText(
-                            "release-tracking-schedule-note",
-                            formatDate(nextCheck),
-                        );
+                        releaseTrackingNextCheckMs = nextCheckDate.getTime();
+                        renderReleaseTrackingScheduleNote();
                     }
                 }
 

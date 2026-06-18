@@ -23,6 +23,8 @@ __pycache__/
 
 # Local test output
 *.log
+/tests/test-results/
+/tests/playwright-report/
 /implementation_plan.md
 /sbom-*.json
 /docs/

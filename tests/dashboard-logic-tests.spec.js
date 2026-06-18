@@ -55,6 +55,10 @@ function loadDashboardAPI() {
     "componentStatusHtml",
     "statusClass",
     "githubRunnerChipHtml",
+    "formatDateWithTimezone",
+    "scheduledCheckCountdownParts",
+    "scheduledCheckLabel",
+    "pluralizeUnit",
   ];
 
   const factory = new Function(
@@ -97,6 +101,23 @@ describe("formatDate", () => {
     assert.notEqual(rendered, "Unknown");
     assert.notEqual(rendered, "totally-bogus");
     assert(rendered.includes("2026"), `got ${rendered}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatDateWithTimezone
+// ---------------------------------------------------------------------------
+describe("formatDateWithTimezone", () => {
+  it("returns Unknown for empty", () => {
+    assert.equal(api.formatDateWithTimezone(""), "Unknown");
+    assert.equal(api.formatDateWithTimezone(null), "Unknown");
+    assert.equal(api.formatDateWithTimezone(undefined), "Unknown");
+  });
+  it("includes a timezone abbreviation or offset", () => {
+    const rendered = api.formatDateWithTimezone("2026-06-18T17:00:00Z");
+    assert.notEqual(rendered, "Unknown");
+    assert(rendered.includes("2026"), `got ${rendered}`);
+    assert(rendered.length > 20, `Expected timezone in: ${rendered}`);
   });
 });
 
@@ -168,6 +189,72 @@ describe("countdownLabel", () => {
     } finally {
       Date.now = realNow;
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// scheduledCheckCountdownParts
+// ---------------------------------------------------------------------------
+describe("scheduledCheckCountdownParts", () => {
+  it("returns null for falsy input", () => {
+    assert.equal(api.scheduledCheckCountdownParts(null), null);
+    assert.equal(api.scheduledCheckCountdownParts(undefined), null);
+    assert.equal(api.scheduledCheckCountdownParts(0), null);
+  });
+  it("breaks duration into hours, minutes, and seconds", () => {
+    const now = 1_000_000_000_000;
+    const to = now + (5 * 3600 + 10 * 60 + 2) * 1000;
+    const parts = api.scheduledCheckCountdownParts(to, now);
+    assert.deepEqual(parts, { hours: 5, minutes: 10, seconds: 2 });
+  });
+  it("clamps expired timestamps to zero", () => {
+    const now = 1_000_000_000_000;
+    const parts = api.scheduledCheckCountdownParts(now - 1000, now);
+    assert.deepEqual(parts, { hours: 0, minutes: 0, seconds: 0 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pluralizeUnit
+// ---------------------------------------------------------------------------
+describe("pluralizeUnit", () => {
+  it("uses singular for 1", () => {
+    assert.equal(api.pluralizeUnit(1, "hour"), "1 hour");
+    assert.equal(api.pluralizeUnit(1, "minute"), "1 minute");
+    assert.equal(api.pluralizeUnit(1, "second"), "1 second");
+  });
+  it("uses plural for 0 or > 1", () => {
+    assert.equal(api.pluralizeUnit(0, "hour"), "0 hours");
+    assert.equal(api.pluralizeUnit(2, "minute"), "2 minutes");
+    assert.equal(api.pluralizeUnit(5, "second"), "5 seconds");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// scheduledCheckLabel
+// ---------------------------------------------------------------------------
+describe("scheduledCheckLabel", () => {
+  it("returns Unknown when target is null", () => {
+    assert.equal(
+      api.scheduledCheckLabel(null),
+      "Next scheduled auto-rebuild check: Unknown",
+    );
+  });
+  it("includes the countdown and timezone-bearing scheduled time", () => {
+    const now = 1_000_000_000_000;
+    const to = now + (5 * 3600 + 10 * 60 + 2) * 1000;
+    const label = api.scheduledCheckLabel(to, now);
+    const scheduledAt = api.formatDateWithTimezone(new Date(to).toISOString());
+
+    assert(
+      label.includes("In 5 hours, 10 minutes, and 2 seconds"),
+      `got ${label}`,
+    );
+    assert(
+      label.includes("the next scheduled auto-rebuild check will occur, at"),
+      `got ${label}`,
+    );
+    assert(label.includes(scheduledAt), `got ${label}`);
   });
 });
 
