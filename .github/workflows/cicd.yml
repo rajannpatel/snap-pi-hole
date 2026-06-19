@@ -35,6 +35,7 @@ jobs:
               - 'tests/**'
               - '.github/workflows/cicd.yml'
               - '.github/workflows/launchpad-builds.yml'
+              - '.github/workflows/launchpad-recovery.yml'
               - '.github/workflows/channel-switch.yml'
               - '.github/workflows/track-upstream-releases.yml'
               # Snapcraft build scripts (override-pull, override-build, override-prime).

@@ -1,0 +1,234 @@
+name: Launchpad Recovery
+
+on:
+  workflow_run:
+    workflows: ["Launchpad Builds"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref or SHA to recover against. Defaults to the selected branch.
+        required: false
+        type: string
+      publish_recovered:
+        description: Publish recovered snaps that pass the identity checks.
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  SNAP_NAME: pihole-by-rajannpatel
+
+jobs:
+  observe-and-recover:
+    name: observe launchpad recovery (${{ matrix.channel }}, ${{ matrix.arch }})
+    runs-on: ubuntu-26.04
+    environment: snap-publishing
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion != 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [armhf, ppc64el, riscv64, s390x]
+        channel: [stable, edge]
+    concurrency:
+      group: launchpad-recovery-${{ matrix.channel }}-${{ matrix.arch }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+
+      - name: Select upstream Pi-hole sources
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 snap/local/build/select_snapcraft_upstream.py ${{ matrix.channel }}
+
+      - name: Install snapcraft
+        run: sudo snap install snapcraft --classic --channel=9.x/stable
+
+      - name: Restore Launchpad credentials
+        env:
+          LAUNCHPAD_CREDENTIALS: ${{ secrets.LAUNCHPAD_CREDENTIALS }}
+        run: |
+          if [ -z "${LAUNCHPAD_CREDENTIALS:-}" ]; then
+            echo "::error title=Launchpad::LAUNCHPAD_CREDENTIALS secret is not set." >&2
+            exit 1
+          fi
+
+          install -d -m 700 ~/.local/share/snapcraft
+          printf '%s' "${LAUNCHPAD_CREDENTIALS}" | base64 -d \
+            > ~/.local/share/snapcraft/launchpad-credentials
+          chmod 600 ~/.local/share/snapcraft/launchpad-credentials
+
+      - name: Observe and recover interrupted Launchpad build
+        id: recover
+        run: |
+          set +e
+          snapcraft remote-build \
+            --recover \
+            --build-for ${{ matrix.arch }} \
+            --launchpad-accept-public-upload \
+            --launchpad-timeout 18000
+          rc=$?
+          set -e
+
+          echo "remote_build_exit=${rc}" >> "$GITHUB_OUTPUT"
+
+          if ls ${{ env.SNAP_NAME }}_*_${{ matrix.arch }}.snap 1>/dev/null 2>&1; then
+            echo "snap_downloaded=true" >> "$GITHUB_OUTPUT"
+            echo "Recovered and downloaded a Launchpad snap for ${{ matrix.arch }}."
+          else
+            echo "snap_downloaded=false" >> "$GITHUB_OUTPUT"
+            if [ "$rc" -eq 0 ]; then
+              echo "No interrupted Launchpad build was available to recover for ${{ matrix.arch }}."
+            else
+              echo "::notice title=Launchpad recovery::snapcraft remote-build --recover exited ${rc}; no snap was downloaded."
+            fi
+          fi
+
+      - name: Generate SBOM (CycloneDX)
+        if: steps.recover.outputs.snap_downloaded == 'true'
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          SNAP_FILE=$(ls ${{ env.SNAP_NAME }}_*_${{ matrix.arch }}.snap | head -n1)
+          rm -rf "extracted-${{ matrix.arch }}"
+          unsquashfs -d "extracted-${{ matrix.arch }}" "$SNAP_FILE"
+          syft scan "extracted-${{ matrix.arch }}" -o cyclonedx-json="sbom-${{ matrix.arch }}.json"
+          python3 snap/local/build/enrich_sbom.py "sbom-${{ matrix.arch }}.json" "extracted-${{ matrix.arch }}"
+
+      - name: Upload recovered snap artifact
+        if: steps.recover.outputs.snap_downloaded == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: pihole-snap-launchpad-recovered-${{ matrix.channel }}-${{ matrix.arch }}
+          path: ${{ env.SNAP_NAME }}_*_${{ matrix.arch }}.snap
+          if-no-files-found: error
+
+      - name: Upload recovered SBOM artifact
+        if: steps.recover.outputs.snap_downloaded == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: sbom-launchpad-recovered-${{ matrix.channel }}-${{ matrix.arch }}
+          path: sbom-${{ matrix.arch }}.json
+          if-no-files-found: error
+
+      - name: Get snap filename and release channel
+        if: steps.recover.outputs.snap_downloaded == 'true'
+        id: snap
+        run: |
+          SNAP_FILE=$(ls ${{ env.SNAP_NAME }}_*_${{ matrix.arch }}.snap | head -n1)
+          echo "file=${SNAP_FILE}" >> "$GITHUB_OUTPUT"
+
+          SNAP_VERSION=$(echo "$SNAP_FILE" | cut -d'_' -f2)
+          echo "version=${SNAP_VERSION}" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ matrix.channel }}" = "edge" ]; then
+            echo "channels=latest/edge" >> "$GITHUB_OUTPUT"
+          else
+            echo "channels=latest/stable" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decide publish eligibility
+        if: steps.recover.outputs.snap_downloaded == 'true'
+        id: publish_gate
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PUBLISH_RECOVERED: ${{ inputs.publish_recovered }}
+          SNAP_VERSION: ${{ steps.snap.outputs.version }}
+        run: |
+          publish_recovered="${INPUT_PUBLISH_RECOVERED:-true}"
+
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            publish_recovered="true"
+          fi
+
+          if [ "$publish_recovered" != "true" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Publishing disabled for this recovery run."
+            exit 0
+          fi
+
+          expected_core_short="$(
+            python3 - <<'PY'
+          import pathlib
+          import re
+
+          snapcraft = pathlib.Path("snap/snapcraft.yaml")
+          current_part = None
+          for line in snapcraft.read_text(encoding="utf-8").splitlines():
+              part = re.match(r"^  ([A-Za-z0-9_]+):\s*$", line)
+              if part:
+                  current_part = part.group(1)
+                  continue
+              if current_part == "pi_hole":
+                  commit = re.match(r'^    source-commit:\s*"?([0-9a-fA-F]+)"?\s*$', line)
+                  if commit:
+                      print(commit.group(1)[:7])
+                      raise SystemExit(0)
+          raise SystemExit("Could not find pi_hole source-commit in snap/snapcraft.yaml")
+          PY
+          )"
+
+          if [ -z "$expected_core_short" ]; then
+            echo "::error::Could not determine expected Pi-hole source commit."
+            exit 1
+          fi
+
+          if [[ "$SNAP_VERSION" != *"+git.${expected_core_short}"* ]]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Launchpad recovery::Recovered snap version ${SNAP_VERSION} does not match selected Pi-hole source commit ${expected_core_short}; leaving it as an artifact only."
+            exit 0
+          fi
+
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          echo "Recovered snap is eligible for publishing."
+
+      - name: Publish recovered snap to Snap Store
+        if: steps.publish_gate.outputs.publish == 'true'
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          if [ -n "${SNAPCRAFT_STORE_CREDENTIALS:-}" ]; then
+            while IFS= read -r line; do
+              if [ -n "$line" ]; then
+                echo "::add-mask::$line"
+              fi
+            done <<< "${SNAPCRAFT_STORE_CREDENTIALS}"
+          fi
+
+          MAX_ATTEMPTS=3
+          attempt=1
+          success=0
+
+          while [ $attempt -le $MAX_ATTEMPTS ]; do
+            echo "Uploading recovered snap (attempt $attempt of $MAX_ATTEMPTS)..."
+            set +e
+            UPLOAD_OUT=$(/snap/bin/snapcraft upload "${{ steps.snap.outputs.file }}" --release "${{ steps.snap.outputs.channels }}" 2>&1)
+            rc=$?
+            set -e
+
+            if [ $rc -eq 0 ]; then
+              echo "Upload succeeded."
+              success=1
+              break
+            fi
+
+            if echo "$UPLOAD_OUT" | grep -q "A file with this exact same content has already been uploaded"; then
+              echo "::notice::Snap with the same content is already uploaded. Skipping duplicate upload."
+              success=1
+              break
+            fi
+
+            echo "::warning::Snapcraft upload attempt $attempt failed with exit code $rc. Retrying in 15 seconds..."
+            attempt=$((attempt + 1))
+            sleep 15
+          done
+
+          if [ $success -ne 1 ]; then
+            echo "::error::Snapcraft upload failed after $MAX_ATTEMPTS attempts."
+            exit $rc
+          fi
