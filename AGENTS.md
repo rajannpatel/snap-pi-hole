@@ -62,6 +62,35 @@ Treat a failed editor preflight as a Workshop readiness problem. Do not fall
 back to host-side `npm`, `snapcraft`, `bats`, `shellcheck`, `yamllint`, or
 other project tools.
 
+## Model availability and role selection
+
+`AGENTS.md` cannot automatically inspect which AI models are enabled in a
+developer's IDE. Agents should not read secrets, API keys, or private provider
+configuration to discover model access. When a task benefits from multi-model
+delegation, ask the user or use an explicit model list supplied by the IDE,
+agent extension, agent CLI, inline assistant, model gateway, or local runtime.
+
+After model availability is known, propose assignments for these roles:
+
+- **Architect:** strongest planning and deep-reasoning model available.
+  Prefer models suited to architecture, complex refactors, long-horizon
+  debugging, and repository-level planning, such as Claude Opus-class models,
+  GPT-5/o-series-class models, Gemini Pro Deep Think-class models, or strong
+  reasoning open-weights models.
+- **Implementer:** reliable coding model that follows narrow instructions
+  cheaply and stops on blockers. Prefer models such as Claude Sonnet-class,
+  GPT coding models, Gemini Pro/Flash coding models, DeepSeek coding/reasoning
+  models, or similar reliable worker models.
+- **Reviewer:** strong reasoning model with good bug-finding behavior. It can
+  be the same model as Architect, but should run in a separate review pass.
+- **Inline assistant:** IDE-native completion/chat assistant for small local
+  edits under human control, commonly GitHub Copilot or the editor's built-in
+  inline model.
+
+If available models are unknown, use the default single-agent flow and include
+a short note asking the developer to provide their available model list before
+delegating work to a lower-cost implementer.
+
 ## Commands
 
 Run project tools through Workshop from the host:
@@ -149,18 +178,20 @@ Use `cd tests && npm run format:check` for a non-mutating check.
 ## Wiki repository (`snap-pi-hole.wiki`)
 
 The wiki is a separate repository at
-`https://github.com/rajannpatel/snap-pi-hole.wiki.git`. Clone it locally
-for agent context and editing:
+`https://github.com/rajannpatel/snap-pi-hole.wiki.git`. Clone it locally for
+current documentation context when needed. The main repository clone does not
+create `.wiki/` automatically:
 
 ```bash
 # One-time setup from the main repo root:
 git clone https://github.com/rajannpatel/snap-pi-hole.wiki.git .wiki
 ```
 
-`.wiki/` is gitignored. It is a full standalone git clone — you can open
-it as its own project in your editor.
+`.wiki/` is gitignored. It is a full standalone git clone, and main repository
+commits do not include wiki changes.
 
-**Before reading any wiki file, the agent must pull the latest version:**
+If `.wiki/` is missing and wiki context is required, clone it first. Before
+reading any wiki file, the agent must pull the latest version:
 
 ```bash
 git -C .wiki pull --ff-only
@@ -168,6 +199,12 @@ git -C .wiki pull --ff-only
 
 This ensures the agent always works from the current wiki content rather
 than a stale copy.
+
+Treat `.wiki/` as read-only context by default. If a code change needs
+documentation updates, prefer a wiki update proposal in the agent response
+unless the task explicitly says to edit the wiki. Direct wiki edits require a
+separate commit and push from inside `.wiki/`, and are usually a maintainer
+workflow rather than a normal contributor pull request.
 
 - **Vale** (documentation linter): `vale .wiki/How-to:-*.md`
 - **TOC checker**: `python3 .wiki/.hooks/check_toc.py .wiki/How-to:-*.md`

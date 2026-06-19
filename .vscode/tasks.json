@@ -54,6 +54,136 @@
         "reveal": "always"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Test",
+      "type": "shell",
+      "command": "workshop run snap-pi-hole -- test",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Lint",
+      "type": "shell",
+      "command": "workshop run snap-pi-hole -- lint",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Deps JS",
+      "type": "shell",
+      "command": "workshop run snap-pi-hole -- deps-js",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Test JSDOM",
+      "type": "shell",
+      "command": "workshop run snap-pi-hole -- test-jsdom",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Test Playwright Snap",
+      "type": "shell",
+      "command": "workshop run snap-pi-hole -- test-playwright-snap",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Lint JS",
+      "type": "shell",
+      "command": "workshop run snap-pi-hole -- lint-js",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Format Check",
+      "type": "shell",
+      "command": "workshop run snap-pi-hole -- format-check",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Build",
+      "type": "shell",
+      "command": "workshop run snap-pi-hole -- build",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Install",
+      "type": "shell",
+      "command": "workshop run snap-pi-hole -- install",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workshop: Smoke",
+      "type": "shell",
+      "command": "workshop run snap-pi-hole -- smoke",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Wiki: Pull Latest",
+      "type": "shell",
+      "command": "git -C .wiki pull --ff-only",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Wiki: Status",
+      "type": "shell",
+      "command": "git -C .wiki status --short",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Wiki: Diff",
+      "type": "shell",
+      "command": "git -C .wiki diff",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
     }
   ]
 }

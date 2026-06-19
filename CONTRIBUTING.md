@@ -42,6 +42,20 @@ git clone https://github.com/YOUR_USERNAME/snap-pi-hole.git
 cd snap-pi-hole
 ```
 
+The documentation wiki is not cloned with the main repository. It is a separate
+Git repository, and `.wiki/` is gitignored here. Clone it only when you need
+current user-facing documentation for context:
+
+```bash
+git clone https://github.com/rajannpatel/snap-pi-hole.wiki.git .wiki
+git -C .wiki pull --ff-only
+```
+
+Keep `.wiki/` read-only by default. Contributor pull requests should include a
+wiki update proposal when documentation needs to change. Direct wiki edits are
+a maintainer workflow and are committed from inside `.wiki/` separately from
+the main repository.
+
 Launch the workshop:
 
 ```bash
@@ -183,6 +197,22 @@ Good agent instructions for this repository should ask the agent to:
 4. Use `build`, `install`, and `smoke` for packaging or runtime changes.
 5. Keep generated local reports, coverage, and snap artifacts out of commits
    unless the task explicitly asks for them.
+
+For multi-model development, use the checked-in planner, implementer, and
+reviewer workflow in [.agents/README.md](.agents/README.md). The reusable role
+prompts and task packet templates live under `.agents/`.
+
+Repository instructions cannot automatically know which models are enabled in
+your IDE or provider account. When using Architect, Implementer, Reviewer, and
+Inline Assistant roles, provide the available model list from VS Code, Zed,
+your agent CLI, inline assistant, model gateway, or local model runtime, then
+let the workflow assign models by capability.
+
+The latest user-facing documentation is available from the optional,
+gitignored `.wiki/` checkout described above. Treat it as read-only context by
+default. Contributor changes that need documentation updates should include a
+wiki update proposal unless a maintainer explicitly asks for direct wiki edits,
+which are committed from inside `.wiki/` as a separate repository.
 
 ## Submitting Changes
 

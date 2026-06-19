@@ -42,5 +42,148 @@
     "reveal": "always",
     "hide": "never",
     "save": "none"
+  },
+  {
+    "label": "Workshop: Test",
+    "command": "workshop",
+    "args": ["run", "snap-pi-hole", "--", "test"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "save": "none"
+  },
+  {
+    "label": "Workshop: Lint",
+    "command": "workshop",
+    "args": ["run", "snap-pi-hole", "--", "lint"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "save": "none"
+  },
+  {
+    "label": "Workshop: Deps JS",
+    "command": "workshop",
+    "args": ["run", "snap-pi-hole", "--", "deps-js"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "save": "none"
+  },
+  {
+    "label": "Workshop: Test JSDOM",
+    "command": "workshop",
+    "args": ["run", "snap-pi-hole", "--", "test-jsdom"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "save": "none"
+  },
+  {
+    "label": "Workshop: Test Playwright Snap",
+    "command": "workshop",
+    "args": ["run", "snap-pi-hole", "--", "test-playwright-snap"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "save": "none"
+  },
+  {
+    "label": "Workshop: Lint JS",
+    "command": "workshop",
+    "args": ["run", "snap-pi-hole", "--", "lint-js"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "save": "none"
+  },
+  {
+    "label": "Workshop: Format Check",
+    "command": "workshop",
+    "args": ["run", "snap-pi-hole", "--", "format-check"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "save": "none"
+  },
+  {
+    "label": "Workshop: Build",
+    "command": "workshop",
+    "args": ["run", "snap-pi-hole", "--", "build"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "save": "none"
+  },
+  {
+    "label": "Workshop: Install",
+    "command": "workshop",
+    "args": ["run", "snap-pi-hole", "--", "install"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "save": "none"
+  },
+  {
+    "label": "Workshop: Smoke",
+    "command": "workshop",
+    "args": ["run", "snap-pi-hole", "--", "smoke"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "save": "none"
+  },
+  {
+    "label": "Wiki: Pull Latest",
+    "command": "git",
+    "args": ["-C", ".wiki", "pull", "--ff-only"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "save": "none"
+  },
+  {
+    "label": "Wiki: Status",
+    "command": "git",
+    "args": ["-C", ".wiki", "status", "--short"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "save": "none"
+  },
+  {
+    "label": "Wiki: Diff",
+    "command": "git",
+    "args": ["-C", ".wiki", "diff"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "save": "none"
   }
 ]
