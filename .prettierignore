@@ -12,6 +12,7 @@ parts/
 prime/
 stage/
 tests/node_modules/
+tests/test-results/
 
 # Snap/build artifacts
 *.snap
