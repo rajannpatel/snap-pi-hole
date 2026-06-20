@@ -424,6 +424,8 @@ required_docs = {
         "Role Selection",
         "private provider configuration",
         "templates/model-selection.md",
+        ".agents/local/model-selection.md",
+        "Do not commit personal model choices",
     ],
     ".agents/workflows/delegation.md": [
         "Operating Loop",
@@ -506,5 +508,17 @@ PYEOF
     grep -qxF "workshop.local.*" "${REPO_ROOT}/.gitignore"
 
     run git -C "${REPO_ROOT}" check-ignore .workshop-local/example.sh workshop.local.agents
+    [ "$status" -eq 0 ]
+}
+
+@test "personal agent model configuration paths are ignored" {
+    grep -qxF ".agents/local/" "${REPO_ROOT}/.gitignore"
+    grep -qxF ".agents/**/*.local.md" "${REPO_ROOT}/.gitignore"
+    grep -qxF ".agents/**/*.personal.md" "${REPO_ROOT}/.gitignore"
+
+    run git -C "${REPO_ROOT}" check-ignore \
+        .agents/local/model-selection.md \
+        .agents/models/selection.local.md \
+        .agents/models/selection.personal.md
     [ "$status" -eq 0 ]
 }

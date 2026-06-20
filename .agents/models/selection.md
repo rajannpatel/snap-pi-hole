@@ -30,3 +30,19 @@ single-agent flow and ask the developer for their available model list before
 delegating work to a lower-cost implementer.
 
 Use `.agents/templates/model-selection.md` when writing concrete assignments.
+
+## Personal Model Inventories
+
+Shared model-selection policy belongs in this file and is committed. Personal
+model inventories, filled assignment worksheets, provider notes, and local
+agent configuration do not belong in the repository.
+
+Provide available models in the prompt, or save local notes only under ignored
+paths such as:
+
+- `.agents/local/model-selection.md`
+- `.agents/models/selection.local.md`
+- `.agents/models/selection.personal.md`
+
+Do not commit personal model choices, account-specific provider names, API
+keys, private gateway URLs, local runtime endpoints, or tool-permission rules.

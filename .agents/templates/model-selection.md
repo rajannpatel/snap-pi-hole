@@ -5,6 +5,10 @@ Inline Assistant roles.
 
 Follow `.agents/models/selection.md`.
 
+Fill this template in a prompt or in an ignored personal file such as
+`.agents/local/model-selection.md`. Do not commit filled model inventories or
+account-specific model assignments.
+
 ## Available Models
 
 List only models the developer explicitly says are available or that the IDE
