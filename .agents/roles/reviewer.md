@@ -15,15 +15,14 @@ worker output like a pull request.
 
 - Inspect `git diff --stat` and `git diff`.
 - Verify that changed files match the packet scope.
-- Run the narrowest relevant Workshop verification.
+- Verify that the worker followed the selected agent UI mode and did not run
+  project shell commands directly on the host, per
+  `.agents/security/workshop-confinement.md`.
+- Verify scope and hygiene against `.agents/policies/scope-and-hygiene.md`.
+- Run the narrowest relevant Workshop verification from `tools/workshop-shell`
+  or through `workshop run snap-pi-hole -- ...`.
 - Use broader checks only when the change warrants them.
-- If reviewing wiki documentation context or wiki edits, run
-  `git -C .wiki pull --ff-only` before reading `.wiki/`, and confirm the packet
-  explicitly selected a documentation mode.
-- For wiki update proposals, review the proposal against current `.wiki/`
-  content but do not expect `.wiki/` changes in the main repo diff.
-- For direct wiki edits, inspect `git -C .wiki status --short` and
-  `git -C .wiki diff`; wiki commits are separate from main repository commits.
+- Review wiki work according to `.agents/docs/wiki-workflow.md`.
 
 ## Review Output
 

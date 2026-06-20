@@ -71,6 +71,17 @@ actions:
     echo "==> Useful actions"
     yq -r '.actions | keys | .[]' workshop.yaml
 
+  shell: |
+    set -euo pipefail
+    if [ "$#" -gt 0 ]; then
+      exec "$@"
+    fi
+
+    export PS1="(workshop:snap-pi-hole) \w \$ "
+    echo "Workshop shell for snap-pi-hole"
+    echo "Project commands run here inside the Workshop LXD container."
+    exec bash --noprofile --norc -i
+
   lint: |
     pre-commit run --all-files
 

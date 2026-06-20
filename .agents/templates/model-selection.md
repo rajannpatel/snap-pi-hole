@@ -3,6 +3,8 @@
 Use this before delegating work across Architect, Implementer, Reviewer, and
 Inline Assistant roles.
 
+Follow `.agents/models/selection.md`.
+
 ## Available Models
 
 List only models the developer explicitly says are available or that the IDE

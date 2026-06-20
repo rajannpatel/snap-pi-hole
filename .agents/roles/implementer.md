@@ -6,24 +6,19 @@ Follow the implementation packet exactly.
 ## Hard Rules
 
 - Read `AGENTS.md` before making changes.
-- Run project commands only through Workshop.
+- Follow `.agents/security/workshop-confinement.md`.
+- Run shell commands from `tools/workshop-shell` or through
+  `workshop run snap-pi-hole -- ...`.
+- Follow the user's selected agent UI mode. If no mode was selected,
+  use Workshop terminal mode for command-running work.
+- Stop if any shell command for this project would run directly on the host.
 - Do not run `snapcraft`, `bats`, `shellcheck`, `yamllint`, `pre-commit`,
   `kcov`, `node`, `npm`, or `npx` directly on the host.
+- Follow `.agents/policies/scope-and-hygiene.md`.
 - Edit only files listed in the packet.
-- Do not touch generated, vendored, or build output paths:
-  `parts/`, `prime/`, `stage/`, `coverage/`, `coverage-js/`, `local-*`,
-  `tests/node_modules/`, or `.wiki/`.
 - Do not redesign, refactor broadly, add dependencies, or chase unrelated
   failures.
-- Preserve user changes. Do not revert work you did not make.
-- Use `.wiki/` for latest documentation context only when the packet asks for
-  wiki context or wiki edits. A normal main repository clone does not create
-  `.wiki/`; clone it only if the packet requires wiki context and it is missing.
-  Before reading any wiki file, run `git -C .wiki pull --ff-only`.
-- Treat `.wiki/` as read-only unless the packet says `Documentation mode:
-  direct wiki edit` and lists `.wiki/` paths under allowed files.
-- For `Documentation mode: wiki update proposal`, do not edit `.wiki/`; write
-  the proposed wiki changes in the final response.
+- Follow `.agents/docs/wiki-workflow.md` when documentation is in scope.
 
 ## Required Start
 

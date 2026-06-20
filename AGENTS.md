@@ -1,10 +1,22 @@
 # Agent Execution Rules for snap-pi-hole
 
 ## Principle
-The editor and AI agent run in the host development environment, which may
-be Linux, Windows with WSL2, or macOS with a Linux VM. Project tools run in
-the Workshop LXD container. Never install or run project tools directly on
-the host.
+The editor process starts in the host development environment, which may be
+Linux, Windows with WSL2, or macOS with a Linux VM. Project tools and
+terminal-backed agent work must run in the Workshop LXD container.
+
+This repository supports two agent UI modes under one mandatory execution
+policy: every shell command an agent runs for this project must enter
+Workshop. The user chooses the UI mode and enforcement details in personal
+editor or agent preferences that are not committed. See
+[.agents/security/workshop-confinement.md](.agents/security/workshop-confinement.md).
+
+The committed `tools/workshop-shell` wrapper is the Workshop terminal entry
+point. It starts an interactive Workshop shell and routes ad hoc `-c` commands
+into Workshop. Treat any agent shell command that runs directly on the host as
+misconfigured and stop.
+
+Never install or run project tools directly on the host.
 
 On Windows with WSL2, shell scripts such as `.workshop-local/run.sh` can be
 run from the WSL terminal inside the editor, or from Windows using `bash`
@@ -35,8 +47,9 @@ in the host terminal.
    `pre-commit`, `kcov`, `node`, `npm`, or `npx` on the host. Always use
    Workshop.
 
-4. **Git operations** run on the host with normal git commands. Do not git
-   inside the Workshop container.
+4. **AI agent Git inspection** runs inside Workshop. Host-side Git mutation
+   such as commits, tags, and pushes is a maintainer operation unless the user
+   explicitly asks the agent to perform it.
 
 5. **Generated artifacts** (`.snap` files, coverage reports, local-*
    previews) stay out of commits unless the task explicitly asks for them.
@@ -46,6 +59,12 @@ in the host terminal.
 
 7. **Workshop must be launched before running actions:**
    `workshop launch snap-pi-hole`
+
+8. **Choose an agent UI mode in uncommitted personal preferences:**
+   Workshop terminal mode for command-running agents, or native panel mode
+   with raw terminal tools disabled, denied, or confirmation-gated. This
+   choice does not change the rule that shell commands must run through
+   Workshop. See `.agents/security/workshop-confinement.md`.
 
 ## Editor preflight
 
@@ -58,38 +77,20 @@ Zed does not run project tasks automatically when a folder opens. Use
 `task: spawn` and run `Workshop: Doctor` before project work. If it fails,
 run `Workshop: Launch` or `Workshop: Refresh`, then rerun `Workshop: Doctor`.
 
+VS Code and Zed provide committed `Workshop: Shell` tasks, but the default
+agent UI mode and tool permissions are personal preferences and must not be
+committed. Native Agent Panel tools or external agent integrations may have
+their own terminal execution path. If a raw terminal tool call is not clearly a
+Workshop command, reject it or switch to Workshop terminal mode.
+
 Treat a failed editor preflight as a Workshop readiness problem. Do not fall
 back to host-side `npm`, `snapcraft`, `bats`, `shellcheck`, `yamllint`, or
 other project tools.
 
 ## Model availability and role selection
 
-`AGENTS.md` cannot automatically inspect which AI models are enabled in a
-developer's IDE. Agents should not read secrets, API keys, or private provider
-configuration to discover model access. When a task benefits from multi-model
-delegation, ask the user or use an explicit model list supplied by the IDE,
-agent extension, agent CLI, inline assistant, model gateway, or local runtime.
-
-After model availability is known, propose assignments for these roles:
-
-- **Architect:** strongest planning and deep-reasoning model available.
-  Prefer models suited to architecture, complex refactors, long-horizon
-  debugging, and repository-level planning, such as Claude Opus-class models,
-  GPT-5/o-series-class models, Gemini Pro Deep Think-class models, or strong
-  reasoning open-weights models.
-- **Implementer:** reliable coding model that follows narrow instructions
-  cheaply and stops on blockers. Prefer models such as Claude Sonnet-class,
-  GPT coding models, Gemini Pro/Flash coding models, DeepSeek coding/reasoning
-  models, or similar reliable worker models.
-- **Reviewer:** strong reasoning model with good bug-finding behavior. It can
-  be the same model as Architect, but should run in a separate review pass.
-- **Inline assistant:** IDE-native completion/chat assistant for small local
-  edits under human control, commonly GitHub Copilot or the editor's built-in
-  inline model.
-
-If available models are unknown, use the default single-agent flow and include
-a short note asking the developer to provide their available model list before
-delegating work to a lower-cost implementer.
+Follow `.agents/models/selection.md`. Do not inspect secrets, API keys, or
+private provider configuration to discover model access.
 
 ## Commands
 
@@ -111,6 +112,7 @@ workshop run snap-pi-hole -- yamllint
 workshop run snap-pi-hole -- build
 workshop run snap-pi-hole -- install
 workshop run snap-pi-hole -- smoke
+workshop run snap-pi-hole -- shell
 ```
 
 ## Workshop agent tools
@@ -142,17 +144,7 @@ npx --yes prettier@3 --check . --ignore-path .prettierignore
 
 ## Do not touch
 
-Do not edit, format, or commit generated, vendored, or build output paths
-unless the task explicitly asks for them:
-
-- `parts/`
-- `prime/`
-- `stage/`
-- `coverage/`
-- `coverage-js/`
-- `local-*`
-- `tests/node_modules/`
-- `.wiki/`
+Follow `.agents/policies/scope-and-hygiene.md`.
 
 ## Formatting policy
 
@@ -170,41 +162,12 @@ Use `cd tests && npm run format:check` for a non-mutating check.
 
 ## Review checklist
 
-- Keep behavior changes separate from mechanical formatting.
-- Do not mix generated output with source changes.
-- If a file has unrelated user changes, preserve them.
+- Follow `.agents/policies/scope-and-hygiene.md`.
 - Run the narrowest relevant tests and report skipped tests.
 
 ## Wiki repository (`snap-pi-hole.wiki`)
 
-The wiki is a separate repository at
-`https://github.com/rajannpatel/snap-pi-hole.wiki.git`. Clone it locally for
-current documentation context when needed. The main repository clone does not
-create `.wiki/` automatically:
-
-```bash
-# One-time setup from the main repo root:
-git clone https://github.com/rajannpatel/snap-pi-hole.wiki.git .wiki
-```
-
-`.wiki/` is gitignored. It is a full standalone git clone, and main repository
-commits do not include wiki changes.
-
-If `.wiki/` is missing and wiki context is required, clone it first. Before
-reading any wiki file, the agent must pull the latest version:
-
-```bash
-git -C .wiki pull --ff-only
-```
-
-This ensures the agent always works from the current wiki content rather
-than a stale copy.
-
-Treat `.wiki/` as read-only context by default. If a code change needs
-documentation updates, prefer a wiki update proposal in the agent response
-unless the task explicitly says to edit the wiki. Direct wiki edits require a
-separate commit and push from inside `.wiki/`, and are usually a maintainer
-workflow rather than a normal contributor pull request.
+Follow `.agents/docs/wiki-workflow.md`.
 
 - **Vale** (documentation linter): `vale .wiki/How-to:-*.md`
 - **TOC checker**: `python3 .wiki/.hooks/check_toc.py .wiki/How-to:-*.md`

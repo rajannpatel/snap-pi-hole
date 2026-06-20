@@ -180,23 +180,33 @@ multipass delete --purge pihole-core-test
 
 ## Agentic Development Notes
 
-Workshop provides a shared, disposable project container. Coding agents and
-human contributors can use the same named actions instead of hand-rolling setup
-steps.
+Workshop provides a shared, disposable project container. Coding agents should
+use it for every project command in this repository.
 
 ### Execution Model
-* **Editor Context**: Your IDE (VS Code or Zed) and its AI agent extensions run on the host system (or inside the WSL/VM workspace).
-* **Execution Context**: The agent does not run inside the container itself. Instead, it executes commands from the editor terminal using the `workshop run` wrapper (e.g., `workshop run snap-pi-hole -- test`).
+* **Editor Context**: Your IDE (VS Code or Zed) starts on the host system (or inside the WSL/VM workspace).
+* **Execution Context**: Terminal-backed agent work should start from `tools/workshop-shell` or the `Workshop: Shell` task. That shell executes inside the Workshop LXD container. Choose whether to make this your default editor terminal in personal preferences, not committed project files.
 * **Workspace Mounting**: The workspace is bind-mounted into the Workshop container, meaning any file changes made by the agent on the host are instantly available inside the container.
+* **Agent Tooling**: Native Agent Panel tools and external agent integrations can have their own terminal execution path. Configure them in personal preferences, not committed project files.
+
+### Agent Security
+
+The agent security model lives in
+[.agents/security/workshop-confinement.md](.agents/security/workshop-confinement.md).
+Choose either Workshop terminal mode or native panel mode in uncommitted
+personal editor or agent preferences. Both modes share one execution rule:
+every shell command an agent runs for this project must enter Workshop.
 
 Good agent instructions for this repository should ask the agent to:
 
 1. Run `workshop run snap-pi-hole -- context` before planning.
-2. Use focused BATS tests while editing.
-3. Run `workshop run snap-pi-hole -- lint` before submitting broad changes.
-4. Use `build`, `install`, and `smoke` for packaging or runtime changes.
-5. Keep generated local reports, coverage, and snap artifacts out of commits
-   unless the task explicitly asks for them.
+2. Confirm which agent UI mode the user selected and follow
+   `.agents/security/workshop-confinement.md`.
+3. Follow `.agents/policies/scope-and-hygiene.md`.
+4. Follow `.agents/docs/wiki-workflow.md` when documentation is in scope.
+5. Use focused BATS tests while editing.
+6. Run `workshop run snap-pi-hole -- lint` before submitting broad changes.
+7. Use `build`, `install`, and `smoke` for packaging or runtime changes.
 
 For multi-model development, use the checked-in planner, implementer, and
 reviewer workflow in [.agents/README.md](.agents/README.md). The reusable role
@@ -206,13 +216,12 @@ Repository instructions cannot automatically know which models are enabled in
 your IDE or provider account. When using Architect, Implementer, Reviewer, and
 Inline Assistant roles, provide the available model list from VS Code, Zed,
 your agent CLI, inline assistant, model gateway, or local model runtime, then
-let the workflow assign models by capability.
+let the workflow assign models by capability using
+[.agents/models/selection.md](.agents/models/selection.md).
 
 The latest user-facing documentation is available from the optional,
-gitignored `.wiki/` checkout described above. Treat it as read-only context by
-default. Contributor changes that need documentation updates should include a
-wiki update proposal unless a maintainer explicitly asks for direct wiki edits,
-which are committed from inside `.wiki/` as a separate repository.
+gitignored `.wiki/` checkout. Follow
+[.agents/docs/wiki-workflow.md](.agents/docs/wiki-workflow.md).
 
 ## Submitting Changes
 

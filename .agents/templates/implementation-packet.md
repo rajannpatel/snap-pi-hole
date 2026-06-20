@@ -35,21 +35,18 @@ Forbidden paths:
 - Relevant current behavior:
 - Relevant tests:
 - Important project rule:
-- Wiki documentation context, if needed: `.wiki/` is not cloned automatically
-  with the main repository. Clone `snap-pi-hole.wiki` into `.wiki/` only when
-  wiki context is required, then run `git -C .wiki pull --ff-only` before
-  reading `.wiki/`; treat `.wiki/` as read-only unless documentation mode is
-  `direct wiki edit`.
+- Wiki documentation context, if needed: follow
+  `.agents/docs/wiki-workflow.md`.
 
 ## Documentation Mode
 
 Choose one when documentation is in scope:
 
-- `read-only context`: read current `.wiki/` content only.
-- `wiki update proposal`: do not edit `.wiki/`; include proposed wiki changes
-  in the final response.
-- `direct wiki edit`: maintainer-only; edit listed `.wiki/` files and report
-  separate `.wiki/` status.
+- `read-only context`
+- `wiki update proposal`
+- `direct wiki edit`
+
+Use `.agents/docs/wiki-workflow.md` for mode definitions.
 
 ## Implementation Constraints
 
@@ -59,6 +56,8 @@ Choose one when documentation is in scope:
 - Do not perform broad mechanical formatting.
 - Preserve unrelated user changes.
 - Run project commands only through Workshop.
+- Follow `.agents/security/workshop-confinement.md`.
+- Follow `.agents/policies/scope-and-hygiene.md`.
 
 ## Required Commands
 

@@ -77,6 +77,7 @@ with open("${REPO_ROOT}/workshop.yaml") as f:
 expected = {
     "doctor",
     "context",
+    "shell",
     "lint",
     "deps-js",
     "lint-js",
@@ -182,6 +183,21 @@ for action_name in (
     "smoke",
 ):
     assert action_name in actions, f"missing action: {action_name}"
+PYEOF
+}
+
+@test "workshop shell action provides an interactive container shell" {
+    python3 - <<PYEOF
+import yaml
+
+with open("${REPO_ROOT}/workshop.yaml") as f:
+    shell = yaml.safe_load(f)["actions"]["shell"]
+
+assert "set -euo pipefail" in shell
+assert 'if [ "\$#" -gt 0 ]; then' in shell
+assert 'exec "\$@"' in shell
+assert "Workshop shell for snap-pi-hole" in shell
+assert "exec bash --noprofile --norc -i" in shell
 PYEOF
 }
 
@@ -324,12 +340,14 @@ assert vscode_tasks["Workshop: Launch"]["command"] == "workshop launch snap-pi-h
 assert vscode_tasks["Workshop: Doctor"]["command"] == "workshop run snap-pi-hole -- doctor"
 assert vscode_tasks["Workshop: Refresh"]["command"] == "workshop refresh snap-pi-hole"
 assert vscode_tasks["Workshop: Context"]["command"] == "workshop run snap-pi-hole -- context"
+assert vscode_tasks["Workshop: Shell"]["command"] == "workshop run snap-pi-hole -- shell"
 
 expected_zed = {
     "Workshop: Doctor": ["run", "snap-pi-hole", "--", "doctor"],
     "Workshop: Launch": ["launch", "snap-pi-hole"],
     "Workshop: Refresh": ["refresh", "snap-pi-hole"],
     "Workshop: Context": ["run", "snap-pi-hole", "--", "context"],
+    "Workshop: Shell": ["run", "snap-pi-hole", "--", "shell"],
 }
 
 for label, args in expected_zed.items():
@@ -341,6 +359,146 @@ PYEOF
 
     run git -C "${REPO_ROOT}" check-ignore .vscode/tasks.json
     [ "$status" -eq 1 ]
+}
+
+@test "editor settings do not commit personal agent mode preferences" {
+    python3 - <<PYEOF
+import json
+from pathlib import Path
+
+vscode = json.loads(Path("${REPO_ROOT}/.vscode/settings.json").read_text())
+zed = json.loads(Path("${REPO_ROOT}/.zed/settings.json").read_text())
+
+for key in vscode:
+    assert not key.startswith("terminal.integrated."), key
+    assert "tool_permissions" not in key, key
+
+assert "terminal" not in zed
+assert "agent" not in zed
+PYEOF
+}
+
+@test "agent security docs define Workshop confinement policy" {
+    python3 - <<PYEOF
+from pathlib import Path
+
+security_dir = Path("${REPO_ROOT}/.agents/security")
+readme = security_dir / "README.md"
+confinement = security_dir / "workshop-confinement.md"
+
+assert readme.is_file(), readme
+assert confinement.is_file(), confinement
+
+readme_text = readme.read_text()
+confinement_text = confinement.read_text()
+
+for text in (readme_text, confinement_text):
+    assert "Workshop" in text
+    assert "personal" in text
+    assert "not commit" in text or "not committed" in text
+
+for required in (
+    "Every shell command an AI agent runs for this project must enter Workshop.",
+    "Workshop terminal mode",
+    "Native panel mode",
+    "tools/workshop-shell",
+    "workshop run snap-pi-hole -- ...",
+    "must not run arbitrary host shell commands",
+):
+    assert required in confinement_text, required
+PYEOF
+}
+
+@test "agent shared policy docs exist and are linked from prompts" {
+    python3 - <<PYEOF
+from pathlib import Path
+
+root = Path("${REPO_ROOT}")
+required_docs = {
+    ".agents/docs/wiki-workflow.md": [
+        "Documentation Modes",
+        "git -C .wiki pull --ff-only",
+        "Wiki update proposal",
+    ],
+    ".agents/models/selection.md": [
+        "Role Selection",
+        "private provider configuration",
+        "templates/model-selection.md",
+    ],
+    ".agents/workflows/delegation.md": [
+        "Operating Loop",
+        "Panel Role Assignment",
+        "If a panel cannot enforce Workshop-only shell commands",
+        "Worker Guardrails",
+        "Failure Handling",
+    ],
+    ".agents/policies/scope-and-hygiene.md": [
+        "Scope Control",
+        "Generated And Local Files",
+        "Preserve unrelated user changes",
+    ],
+}
+
+for rel, needles in required_docs.items():
+    path = root / rel
+    assert path.is_file(), rel
+    text = path.read_text()
+    for needle in needles:
+        assert needle in text, f"{rel} missing {needle!r}"
+
+references = {
+    ".agents/README.md": [
+        "security/workshop-confinement.md",
+        "models/selection.md",
+        "docs/wiki-workflow.md",
+        "workflows/delegation.md",
+        "panel-role-assignment",
+        "policies/scope-and-hygiene.md",
+    ],
+    ".agents/roles/architect.md": [
+        ".agents/security/workshop-confinement.md",
+        ".agents/docs/wiki-workflow.md",
+        ".agents/models/selection.md",
+        ".agents/policies/scope-and-hygiene.md",
+        ".agents/workflows/delegation.md",
+    ],
+    ".agents/roles/implementer.md": [
+        ".agents/security/workshop-confinement.md",
+        ".agents/policies/scope-and-hygiene.md",
+        ".agents/docs/wiki-workflow.md",
+    ],
+    ".agents/roles/reviewer.md": [
+        ".agents/security/workshop-confinement.md",
+        ".agents/policies/scope-and-hygiene.md",
+        ".agents/docs/wiki-workflow.md",
+    ],
+    ".agents/templates/implementation-packet.md": [
+        ".agents/security/workshop-confinement.md",
+        ".agents/policies/scope-and-hygiene.md",
+        ".agents/docs/wiki-workflow.md",
+    ],
+    ".agents/templates/model-selection.md": [
+        ".agents/models/selection.md",
+    ],
+}
+
+for rel, needles in references.items():
+    text = (root / rel).read_text()
+    for needle in needles:
+        assert needle in text, f"{rel} missing reference {needle!r}"
+PYEOF
+}
+
+@test "workshop-shell routes ad hoc commands through Workshop" {
+    shell="${REPO_ROOT}/tools/workshop-shell"
+    [ -x "${shell}" ]
+
+    run bash -n "${shell}"
+    [ "$status" -eq 0 ]
+
+    grep -qF 'workshop run "${project}" -- shell' "${shell}"
+    grep -qF 'run_command "${1:-}"' "${shell}"
+    grep -qF 'workshop\ run\ "${project}"\ --*' "${shell}"
 }
 
 @test "local Workshop customization paths are ignored" {
