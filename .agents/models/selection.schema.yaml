@@ -1,0 +1,69 @@
+schema_version: 1
+kind: agent-model-selection-schema
+description: Machine-readable contract for generated agent role assignments.
+source_policy: .agents/models/selection.md
+
+required_top_level:
+  - schema_version
+  - kind
+  - metadata
+  - model_access
+  - agent_surfaces
+  - assignments
+
+roles:
+  - architect
+  - implementer
+  - reviewer
+  - inline_assistant
+
+model_access_groups:
+  - direct_providers
+  - gateways
+  - local_runtimes
+
+surface_types:
+  - native_panel
+  - workshop_terminal
+  - terminal_tui
+  - desktop_agent
+  - inline_assistant
+
+command_execution_modes:
+  - disabled
+  - denied
+  - confirmation_gated
+  - workshop_entrypoints_only
+  - workshop_shell
+  - unknown
+
+safe_implementer_surface:
+  requires:
+    can_run_shell: true
+    workshop_routed: true
+  allowed_modes:
+    - workshop_entrypoints_only
+    - workshop_shell
+  allowed_entrypoints:
+    - tools/workshop-shell
+    - workshop run snap-pi-hole -- shell
+    - workshop run snap-pi-hole -- ...
+
+native_panel_rule:
+  allowed_for:
+    - architect
+    - reviewer
+    - inline_assistant
+  implementer_requires_workshop_routed_shell: true
+
+desktop_agent_rule:
+  implementer_requires_workshop_routed_shell: true
+  unsafe_when_terminal_execution_unknown: true
+
+forbidden_committed_fields:
+  - api_key
+  - token
+  - secret
+  - password
+  - private_endpoint
+  - account_id

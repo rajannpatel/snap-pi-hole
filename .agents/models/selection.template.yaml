@@ -1,0 +1,106 @@
+schema_version: 1
+kind: agent-model-selection
+metadata:
+  example: false
+  generated_by: ""
+  generated_at: ""
+  source_policy: .agents/models/selection.md
+  notes: >
+    Fill this in a prompt or save it only under an ignored personal path such
+    as .agents/local/model-selection.yaml. Do not commit filled personal model
+    inventories or account-specific assignments.
+
+model_access:
+  direct_providers: []
+  gateways: []
+  local_runtimes: []
+
+agent_surfaces:
+  - id: zed_agent_panel
+    label: Zed Agent Panel
+    type: native_panel
+    providers_or_gateways: []
+    models: []
+    command_execution:
+      can_run_shell: true
+      mode: confirmation_gated
+      workshop_routed: false
+      allowed_entrypoints:
+        - tools/workshop-shell
+        - workshop run snap-pi-hole -- ...
+  - id: vscode_extension_panel
+    label: VS Code extension panel
+    type: native_panel
+    providers_or_gateways: []
+    models: []
+    command_execution:
+      can_run_shell: false
+      mode: disabled
+      workshop_routed: false
+      allowed_entrypoints: []
+  - id: workshop_terminal_cli_tui
+    label: Workshop terminal CLI/TUI
+    type: workshop_terminal
+    providers_or_gateways: []
+    models: []
+    command_execution:
+      can_run_shell: true
+      mode: workshop_shell
+      workshop_routed: true
+      allowed_entrypoints:
+        - tools/workshop-shell
+        - workshop run snap-pi-hole -- shell
+  - id: opencode_terminal_tui
+    label: OpenCode terminal/TUI
+    type: terminal_tui
+    providers_or_gateways: []
+    models: []
+    command_execution:
+      can_run_shell: true
+      mode: workshop_shell
+      workshop_routed: true
+      allowed_entrypoints:
+        - tools/workshop-shell
+        - workshop run snap-pi-hole -- shell
+  - id: opencode_desktop
+    label: OpenCode desktop
+    type: desktop_agent
+    providers_or_gateways: []
+    models: []
+    command_execution:
+      can_run_shell: true
+      mode: unknown
+      workshop_routed: false
+      allowed_entrypoints: []
+  - id: inline_assistant
+    label: Inline assistant
+    type: inline_assistant
+    providers_or_gateways: []
+    models: []
+    command_execution:
+      can_run_shell: false
+      mode: disabled
+      workshop_routed: false
+      allowed_entrypoints: []
+
+assignments:
+  architect:
+    surface_id: null
+    model: null
+    provider_or_gateway: null
+    rationale: Strongest available planning and deep-reasoning model.
+  implementer:
+    surface_id: null
+    model: null
+    provider_or_gateway: null
+    rationale: Reliable coding model on a Workshop-routed command surface.
+  reviewer:
+    surface_id: null
+    model: null
+    provider_or_gateway: null
+    rationale: Strong independent bug-finding model.
+  inline_assistant:
+    surface_id: inline_assistant
+    model: null
+    provider_or_gateway: null
+    rationale: Human-steered small edits.

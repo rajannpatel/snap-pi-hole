@@ -38,6 +38,10 @@ __pycache__/
 .agents/local/
 .agents/**/*.local.md
 .agents/**/*.personal.md
+.agents/**/*.local.yaml
+.agents/**/*.personal.yaml
+.agents/**/*.local.yml
+.agents/**/*.personal.yml
 .workshop-local/
 .workshop.lock
 workshop.local.*

@@ -7,16 +7,29 @@ Repository files cannot determine which AI models are enabled in a developer's
 IDE, provider account, model gateway, or local runtime. Agents must not read
 secrets, API keys, or private provider configuration to infer model access.
 
-Use only an explicit model list supplied by the developer, the IDE model
+Use only explicit information supplied by the developer from the IDE model
 picker, an agent extension, an agent CLI, an inline assistant, a model gateway,
 or a local runtime.
+
+Separate model access from agent surfaces:
+
+- **Model access** identifies which providers, gateways, or local runtimes are
+  available, such as Anthropic, GitHub Copilot, OpenRouter, or local
+  open-weights runtimes.
+- **Agent surfaces** identify where those models can be used, such as Zed
+  Agent Panel, VS Code Copilot Chat, a Workshop terminal CLI, an inline
+  assistant, OpenCode terminal/TUI, OpenCode desktop, or another integration.
+
+Do not assume that a model visible in one surface is available in another
+surface. A gateway such as OpenRouter may expose many models, but each editor
+panel, extension, CLI, or TUI still needs to be configured to use that gateway.
 
 ## Role Selection
 
 | Role | Selection rule |
 | --- | --- |
-| Architect | Use the strongest planning and deep-reasoning model available. Prefer models suited to architecture, complex refactors, long-horizon debugging, and repository-level planning. |
-| Implementer | Use a reliable coding model that follows narrow instructions cheaply and stops on blockers. |
+| Architect | Use the strongest planning and deep-reasoning model available on a suitable surface. Prefer models suited to architecture, complex refactors, long-horizon debugging, and repository-level planning. |
+| Implementer | Use a reliable coding model on a surface that can run commands safely through Workshop. The model must follow narrow instructions and stop on blockers. |
 | Reviewer | Use a strong reasoning model with good bug-finding behavior. It can be the same model class as Architect, but should run in a separate review pass. |
 | Inline assistant | Use the editor-native completion/chat assistant for small local edits under human control. |
 
@@ -29,20 +42,38 @@ If model availability is unknown, do not invent assignments. Use the default
 single-agent flow and ask the developer for their available model list before
 delegating work to a lower-cost implementer.
 
-Use `.agents/templates/model-selection.md` when writing concrete assignments.
+If the strongest available model is only accessible through a native panel that
+cannot enforce Workshop-only shell commands, use it for Architect or Reviewer,
+not Implementer. Hand implementation to a terminal-backed agent launched inside
+Workshop.
+
+OpenCode and similar tools are agent surfaces. Treat OpenCode terminal/TUI as a
+Workshop terminal surface only when it is launched from `tools/workshop-shell`
+or `workshop run snap-pi-hole -- shell`. Treat OpenCode desktop like native
+panel mode unless its shell/tool execution is confirmed to route through
+Workshop.
+
+Use `.agents/models/selection.template.yaml` when generating concrete
+assignments, and compare against `.agents/models/selection.example.yaml` for a
+comprehensive example. The markdown template at
+`.agents/templates/model-selection.md` is only a human prompt note for this YAML
+workflow.
 
 ## Personal Model Inventories
 
 Shared model-selection policy belongs in this file and is committed. Personal
-model inventories, filled assignment worksheets, provider notes, and local
-agent configuration do not belong in the repository.
+model inventories, surface capability maps, filled assignment worksheets,
+provider notes, and local agent configuration do not belong in the repository.
 
 Provide available models in the prompt, or save local notes only under ignored
 paths such as:
 
 - `.agents/local/model-selection.md`
+- `.agents/local/model-selection.yaml`
 - `.agents/models/selection.local.md`
 - `.agents/models/selection.personal.md`
+- `.agents/models/selection.local.yaml`
+- `.agents/models/selection.personal.yaml`
 
 Do not commit personal model choices, account-specific provider names, API
 keys, private gateway URLs, local runtime endpoints, or tool-permission rules.

@@ -5,34 +5,23 @@ Inline Assistant roles.
 
 Follow `.agents/models/selection.md`.
 
-Fill this template in a prompt or in an ignored personal file such as
-`.agents/local/model-selection.md`. Do not commit filled model inventories or
-account-specific model assignments.
+Concrete model and surface assignments are YAML, not markdown:
 
-## Available Models
+- `.agents/models/selection.schema.yaml` defines the machine-readable contract.
+- `.agents/models/selection.template.yaml` is the file an AI agent should copy
+  into a prompt response or an ignored personal path before filling it.
+- `.agents/models/selection.example.yaml` is the comprehensive example covering
+  direct providers, OpenRouter, local runtimes, Zed, VS Code,
+  Workshop terminal CLI/TUI, OpenCode terminal/TUI, OpenCode desktop, and
+  inline assistants.
 
-List only models the developer explicitly says are available or that the IDE
-model picker/provider UI exposes. Do not inspect secrets or private provider
-configuration.
+Filled personal inventories belong only in ignored files such as
+`.agents/local/model-selection.yaml` or
+`.agents/models/selection.personal.yaml`.
 
-- VS Code:
-- Zed:
-- Agent CLI:
-- Inline assistant:
-- Model gateway:
-- Local/open-weights:
+Do not inspect secrets or private provider configuration. Use only models and
+surfaces the developer explicitly provides or that a visible model picker shows.
 
-## Assignments
-
-| Role | Selected model | Reason |
-| --- | --- | --- |
-| Architect |  | Strongest available planning and deep-reasoning model. |
-| Implementer |  | Reliable coding model for narrow implementation packets. |
-| Reviewer |  | Strong reasoning model for independent review. |
-| Inline assistant |  | IDE-native completion/chat model for human-steered edits. |
-
-## Fallback
-
-If model availability is unknown, do not delegate to a worker model. Use the
-current agent for planning, implementation, and review, then ask the developer
-for their available model list before the next delegated task.
+If availability is unknown, do not invent assignments. Use the current agent
+for planning, implementation, and review, then ask the developer for their
+available model list before the next delegated task.

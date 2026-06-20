@@ -423,8 +423,15 @@ required_docs = {
     ".agents/models/selection.md": [
         "Role Selection",
         "private provider configuration",
-        "templates/model-selection.md",
+        "Separate model access from agent surfaces",
+        "OpenRouter",
+        "OpenCode terminal/TUI",
+        "OpenCode desktop",
+        "surface that can run commands safely through Workshop",
+        "selection.template.yaml",
+        "selection.example.yaml",
         ".agents/local/model-selection.md",
+        ".agents/local/model-selection.yaml",
         "Do not commit personal model choices",
     ],
     ".agents/workflows/delegation.md": [
@@ -481,6 +488,14 @@ references = {
     ],
     ".agents/templates/model-selection.md": [
         ".agents/models/selection.md",
+        "selection.schema.yaml",
+        "selection.template.yaml",
+        "selection.example.yaml",
+        "OpenRouter",
+        "Workshop terminal CLI/TUI",
+        "OpenCode terminal/TUI",
+        "OpenCode desktop",
+        ".agents/local/model-selection.yaml",
     ],
 }
 
@@ -488,6 +503,110 @@ for rel, needles in references.items():
     text = (root / rel).read_text()
     for needle in needles:
         assert needle in text, f"{rel} missing reference {needle!r}"
+PYEOF
+}
+
+@test "agent model selection YAML files define a validated assignment contract" {
+    python3 - <<PYEOF
+from pathlib import Path
+import re
+import yaml
+
+root = Path("${REPO_ROOT}")
+schema = yaml.safe_load((root / ".agents/models/selection.schema.yaml").read_text())
+template = yaml.safe_load((root / ".agents/models/selection.template.yaml").read_text())
+example = yaml.safe_load((root / ".agents/models/selection.example.yaml").read_text())
+
+assert schema["kind"] == "agent-model-selection-schema"
+assert template["kind"] == "agent-model-selection"
+assert example["kind"] == "agent-model-selection"
+assert schema["schema_version"] == template["schema_version"] == example["schema_version"] == 1
+
+for top_level in schema["required_top_level"]:
+    assert top_level in template, f"template missing {top_level}"
+    assert top_level in example, f"example missing {top_level}"
+
+roles = set(schema["roles"])
+assert roles == set(template["assignments"]), template["assignments"].keys()
+assert roles == set(example["assignments"]), example["assignments"].keys()
+
+for group in schema["model_access_groups"]:
+    assert group in template["model_access"], group
+    assert group in example["model_access"], group
+
+allowed_surface_types = set(schema["surface_types"])
+allowed_modes = set(schema["command_execution_modes"])
+
+def assert_surface_shape(doc, *, allow_empty_models):
+    surfaces = doc["agent_surfaces"]
+    ids = [surface["id"] for surface in surfaces]
+    assert len(ids) == len(set(ids)), ids
+    assert {
+        "zed_agent_panel",
+        "vscode_extension_panel",
+        "workshop_terminal_cli_tui",
+        "opencode_terminal_tui",
+        "opencode_desktop",
+        "inline_assistant",
+    }.issubset(ids), ids
+
+    for surface in surfaces:
+        assert surface["type"] in allowed_surface_types, surface
+        assert isinstance(surface["providers_or_gateways"], list), surface
+        assert isinstance(surface["models"], list), surface
+        if not allow_empty_models:
+            assert surface["models"], surface["id"]
+        command = surface["command_execution"]
+        assert isinstance(command["can_run_shell"], bool), surface["id"]
+        assert isinstance(command["workshop_routed"], bool), surface["id"]
+        assert command["mode"] in allowed_modes, surface["id"]
+        assert isinstance(command["allowed_entrypoints"], list), surface["id"]
+
+assert_surface_shape(template, allow_empty_models=True)
+assert_surface_shape(example, allow_empty_models=False)
+
+surface_by_id = {surface["id"]: surface for surface in example["agent_surfaces"]}
+implementer = example["assignments"]["implementer"]
+implementer_surface = surface_by_id[implementer["surface_id"]]
+safe = schema["safe_implementer_surface"]
+
+assert implementer_surface["command_execution"]["can_run_shell"] == safe["requires"]["can_run_shell"]
+assert implementer_surface["command_execution"]["workshop_routed"] == safe["requires"]["workshop_routed"]
+assert implementer_surface["command_execution"]["mode"] in safe["allowed_modes"]
+assert set(implementer_surface["command_execution"]["allowed_entrypoints"]) & set(safe["allowed_entrypoints"])
+
+for role, assignment in example["assignments"].items():
+    assert assignment["surface_id"] in surface_by_id, role
+    assert assignment["model"], role
+    surface = surface_by_id[assignment["surface_id"]]
+    assert assignment["model"] in surface["models"], role
+
+assert implementer["surface_id"] != "opencode_desktop"
+assert surface_by_id["opencode_desktop"]["command_execution"]["workshop_routed"] is False
+assert surface_by_id["opencode_desktop"]["command_execution"]["mode"] == "unknown"
+assert "OpenRouter" in [gateway["name"] for gateway in example["model_access"]["gateways"]]
+assert "OpenRouter" not in surface_by_id["vscode_extension_panel"]["providers_or_gateways"]
+
+for surface_id in ("workshop_terminal_cli_tui", "opencode_terminal_tui"):
+    command = surface_by_id[surface_id]["command_execution"]
+    assert command["workshop_routed"] is True
+    assert "tools/workshop-shell" in command["allowed_entrypoints"]
+
+for surface_id in ("zed_agent_panel", "vscode_extension_panel"):
+    surface = surface_by_id[surface_id]
+    assert surface["type"] == "native_panel"
+    if surface_id == "vscode_extension_panel":
+        assert surface["command_execution"]["mode"] == "disabled"
+    else:
+        assert surface["command_execution"]["mode"] == "confirmation_gated"
+
+assert schema["forbidden_committed_fields"], "schema must define forbidden fields"
+
+for doc_name, doc in {"template": template, "example": example}.items():
+    dumped = yaml.safe_dump(doc)
+    for forbidden in schema["forbidden_committed_fields"]:
+        assert forbidden not in dumped.lower(), f"{doc_name} contains {forbidden}"
+    assert not re.search(r"(?i)(api[_-]?key|bearer\\s+[a-z0-9._-]+)", dumped), doc_name
 PYEOF
 }
 
@@ -515,10 +634,17 @@ PYEOF
     grep -qxF ".agents/local/" "${REPO_ROOT}/.gitignore"
     grep -qxF ".agents/**/*.local.md" "${REPO_ROOT}/.gitignore"
     grep -qxF ".agents/**/*.personal.md" "${REPO_ROOT}/.gitignore"
+    grep -qxF ".agents/**/*.local.yaml" "${REPO_ROOT}/.gitignore"
+    grep -qxF ".agents/**/*.personal.yaml" "${REPO_ROOT}/.gitignore"
+    grep -qxF ".agents/**/*.local.yml" "${REPO_ROOT}/.gitignore"
+    grep -qxF ".agents/**/*.personal.yml" "${REPO_ROOT}/.gitignore"
 
     run git -C "${REPO_ROOT}" check-ignore \
         .agents/local/model-selection.md \
+        .agents/local/model-selection.yaml \
         .agents/models/selection.local.md \
-        .agents/models/selection.personal.md
+        .agents/models/selection.personal.md \
+        .agents/models/selection.local.yaml \
+        .agents/models/selection.personal.yaml
     [ "$status" -eq 0 ]
 }
