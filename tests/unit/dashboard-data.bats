@@ -447,6 +447,61 @@ assert s390x["job_name"] == "build and publish launchpad (stable, s390x)", s390x
 PYEOF
 }
 
+@test "dashboard data: snap package omits workflow details when CI run has no package job" {
+    python3 - <<PYEOF
+import pathlib
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+def ch(track, risk, arch, version, revision, released, size):
+    return {
+        "channel": {"track": track, "risk": risk, "architecture": arch, "released-at": released},
+        "version": version,
+        "revision": revision,
+        "download": {"size": size, "url": f"https://example.test/{arch}.snap"},
+    }
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        if url == dashboard.SNAPCRAFT_INFO_URL:
+            return {
+                "channel-map": [
+                    ch("latest", "stable", "amd64", "v6.4.2", 1, "2026-06-10T17:00:00Z", 100),
+                ]
+            }
+        if url.endswith("/actions/workflows/cicd.yml/runs"):
+            return {"workflow_runs": [{
+                "id": 101,
+                "run_number": 55,
+                "status": "completed",
+                "conclusion": "success",
+                "run_started_at": "2026-06-10T17:00:00Z",
+                "updated_at": "2026-06-10T17:05:00Z",
+                "html_url": "https://example.test/run/markdown-only",
+            }]}
+        if url.endswith("/actions/runs/101/jobs"):
+            return {"jobs": [{
+                "name": "shellcheck + bats",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-06-10T17:01:00Z",
+                "completed_at": "2026-06-10T17:02:05Z",
+                "html_url": "https://example.test/job/lint",
+            }]}
+        if url.endswith("/actions/workflows/launchpad-builds.yml/runs"):
+            return {"workflow_runs": []}
+        return {}
+
+result = dashboard.collect_snap_package_data(FakeClient(), pathlib.Path("${TEST_TMPDIR}"))
+amd = result["channels"][0]["workflow_runs"]["stable"]
+assert amd["status"] == "no_data", amd
+assert amd["url"] == "", amd
+assert amd["job_name"] == "", amd
+assert amd["duration_label"] == "Unknown", amd
+PYEOF
+}
+
 @test "dashboard data: published channels cover candidate/beta, pick newest date, and flag stale arches" {
     python3 - <<PYEOF
 import pathlib

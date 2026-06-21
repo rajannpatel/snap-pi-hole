@@ -1503,7 +1503,7 @@ function applyLiveSnapStatus(cicdJobs, cicdRun, lpJobs, lpRun) {
 
     let statusHtml = null;
     let isBuilding = false;
-    const runUrl = (job && job.html_url) || (run && run.html_url) || "";
+    const runUrl = (job && job.html_url) || "";
 
     if (job) {
       const status = normalizedLiveStatus(job);
@@ -1515,19 +1515,13 @@ function applyLiveSnapStatus(cicdJobs, cicdRun, lpJobs, lpRun) {
       } else if (status === "success") {
         statusHtml = `<span class="status-chip status-success" aria-label="Status: Serving · ${selectedBranch}">${checkIconSvg}<span class="status-text-full" aria-hidden="true">Serving · ${selectedBranch}</span><span class="status-text-short" aria-hidden="true">serving</span></span>`;
       }
-    } else if (run && isBuildingStatus(run.status)) {
-      isBuilding = true;
-      statusHtml = liveStatusChip(run.status, isGitHub ? "building" : "publishing", true);
-    } else if (run && run.status === "completed" && run.conclusion === "success") {
-      statusHtml = `<span class="status-chip status-success" aria-label="Status: Serving · ${selectedBranch}">${checkIconSvg}<span class="status-text-full" aria-hidden="true">Serving · ${selectedBranch}</span><span class="status-text-short" aria-hidden="true">serving</span></span>`;
     }
 
     if (statusHtml) {
       tr.cells[6].innerHTML = statusHtml;
     }
 
-    const duration =
-      (job ? liveJobDurationSeconds(job) : null) ?? (run ? liveRunDurationSeconds(run) : null);
+    const duration = job ? liveJobDurationSeconds(job) : null;
     const workflowContext = job
       ? isGitHub
         ? "Build job"
@@ -1578,9 +1572,6 @@ function applyLiveSnapStatus(cicdJobs, cicdRun, lpJobs, lpRun) {
     });
     if (stableAmd64Publish) isStableSuccessful = true;
     if (edgeAmd64Publish) isEdgeSuccessful = true;
-  } else if (cicdRun && cicdRun.status === "completed" && cicdRun.conclusion === "success") {
-    isStableSuccessful = true;
-    isEdgeSuccessful = true;
   }
 
   const isChecking =

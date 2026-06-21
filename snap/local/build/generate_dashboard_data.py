@@ -450,10 +450,10 @@ def collect_snap_workflow_jobs(client, branch="main"):
     for channel in ("stable", "edge"):
         for arch in GITHUB_BUILD_ARCHES:
             job = find_snap_build_job(cicd_jobs, arch, channel, True)
-            workflows[(arch, channel)] = workflow_job_details(cicd_run, job)
+            workflows[(arch, channel)] = workflow_job_details(cicd_run if job else None, job)
         for arch in ("ARMHF", "PPC64EL", "RISCV64", "S390X"):
             job = find_snap_build_job(launchpad_jobs, arch, channel, False)
-            workflows[(arch, channel)] = workflow_job_details(launchpad_run, job)
+            workflows[(arch, channel)] = workflow_job_details(launchpad_run if job else None, job)
     return workflows
 
 

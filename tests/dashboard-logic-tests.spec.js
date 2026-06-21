@@ -13,6 +13,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DASHBOARD_JS = resolve(__dirname, "../snap/local/assets/dashboard.js");
+const DASHBOARD_CHANNEL_SWITCH_JS = resolve(
+  __dirname,
+  "../snap/local/assets/dashboard-channel-switch.js",
+);
 
 // Load the JS source and wrap constants/functions into a module
 function loadDashboardAPI() {
@@ -66,6 +70,16 @@ function loadDashboardAPI() {
 }
 
 const api = loadDashboardAPI();
+
+function loadChannelSwitchAPI() {
+  const src = readFileSync(DASHBOARD_CHANNEL_SWITCH_JS, "utf8");
+  const factory = new Function(
+    `"use strict"; const root = {}; const module = { exports: {} }; ${src}; return module.exports;`,
+  );
+  return factory();
+}
+
+const channelSwitchApi = loadChannelSwitchAPI();
 
 // ---------------------------------------------------------------------------
 // escapeHtml
@@ -509,6 +523,34 @@ describe("mergeChannelSwitchData", () => {
 
     assert.equal(merged.run_id, 124);
     assert.deepEqual(merged.rows[0].evidence, []);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// channelSwitchEvidenceHtml
+// ---------------------------------------------------------------------------
+describe("channelSwitchEvidenceHtml", () => {
+  it("shows success summary details when artifact evidence is unavailable", () => {
+    const html = channelSwitchApi.channelSwitchEvidenceHtml({
+      status: "success",
+      summary: "stable r840 -> edge r838 -> stable r840",
+      evidence: [],
+    });
+
+    assert.match(html, /Health checks passed/);
+    assert.match(html, /stable r840 -&gt; edge r838 -&gt; stable r840/);
+  });
+
+  it("shows success summary details when artifact evidence is available", () => {
+    const html = channelSwitchApi.channelSwitchEvidenceHtml({
+      status: "success",
+      summary: "stable r840 -> edge r838 -> stable r840",
+      evidence: [{ title: "Check 1", status: "success" }],
+    });
+
+    assert.match(html, /Health checks passed/);
+    assert.match(html, /stable r840 -&gt; edge r838 -&gt; stable r840/);
+    assert.match(html, /Check 1/);
   });
 });
 

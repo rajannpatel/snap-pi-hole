@@ -59,10 +59,16 @@
 
   function channelSwitchEvidenceHtml(row) {
     const evidence = Array.isArray(row?.evidence) ? row.evidence : [];
+    const detailText = channelSwitchDetailsText(row);
+    const summary = row?.summary && row.summary !== detailText ? row.summary : "";
+    const summaryHtml = summary
+      ? `<p class="channel-switch-explanation__body channel-switch-explanation__body--secondary">${escapeHtml(summary)}</p>`
+      : "";
+    const intro = `<p class="channel-switch-explanation__body">${escapeHtml(detailText)}</p>${summaryHtml}`;
+
     if (!evidence.length) {
-      return `<p class="channel-switch-explanation__body">${escapeHtml(channelSwitchDetailsText(row))}</p>`;
+      return intro;
     }
-    const intro = `<p class="channel-switch-explanation__body">${escapeHtml(channelSwitchDetailsText(row))}</p>`;
     const blocks = evidence
       .map((item) => {
         const title = item?.title || "Check";

@@ -293,6 +293,32 @@ for workflow in ("${REPO_ROOT}/.github/workflows/cicd.yml", "${REPO_ROOT}/.githu
 PYEOF
 }
 
+@test "cicd snap gate excludes markdown-only pushes from package publishing" {
+    python3 - <<PYEOF
+import yaml
+
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+
+jobs = doc["jobs"]
+changes = jobs["changes"]
+filter_step = next(step for step in changes["steps"] if step.get("id") == "filter")
+filters = filter_step["with"]["filters"]
+assert "README.md" not in filters, filters
+assert "'**/*.md'" not in filters, filters
+assert '"**/*.md"' not in filters, filters
+
+build = jobs["build"]
+assert "needs.changes.outputs.snap == 'true'" in build["if"], build["if"]
+
+publish = jobs["publish"]
+needs = publish["needs"]
+assert "changes" in needs, needs
+assert "smoke" in needs, needs
+assert "needs.changes.outputs.snap == 'true'" in publish["if"], publish["if"]
+PYEOF
+}
+
 @test "cicd publish releases GitHub builds to stable or edge" {
     python3 - <<PYEOF
 import yaml

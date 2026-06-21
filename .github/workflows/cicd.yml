@@ -618,10 +618,13 @@ jobs:
 
   publish:
     name: publish github (${{ matrix.channel }}, ${{ matrix.arch }})
-    needs: [smoke]
+    needs: [smoke, changes]
     runs-on: ubuntu-26.04
     environment: snap-publishing
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.changes.outputs.snap == 'true'
     strategy:
       fail-fast: false
       max-parallel: 1
