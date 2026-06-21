@@ -60,7 +60,16 @@
   function channelSwitchEvidenceHtml(row) {
     const evidence = Array.isArray(row?.evidence) ? row.evidence : [];
     const detailText = channelSwitchDetailsText(row);
-    const summary = row?.summary && row.summary !== detailText ? row.summary : "";
+    let summary = row?.summary && row.summary !== detailText ? row.summary : "";
+    if (row?.status === "success" && !summary) {
+      if (row.path === "stable-to-edge") {
+        summary = "stable -> edge";
+      } else if (row.path === "edge-to-stable") {
+        summary = "edge -> stable";
+      } else {
+        summary = "stable -> edge -> stable";
+      }
+    }
     const summaryHtml = summary
       ? `<p class="channel-switch-explanation__body channel-switch-explanation__body--secondary">${escapeHtml(summary)}</p>`
       : "";

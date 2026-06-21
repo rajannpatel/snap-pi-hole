@@ -323,19 +323,25 @@ function workflowButtonHtml(url, durationSeconds, contextLabel, isBuilding = fal
 
   if (showSpinner) {
     if (durationSeconds !== null && durationSeconds !== undefined) {
-      const durationLabel = humanDuration(durationSeconds);
+      const durationLabel =
+        typeof durationSeconds === "string" ? durationSeconds : humanDuration(durationSeconds);
       contentHtml = `${githubLogoSvg}${spinnerHtml}<span class="workflow-btn__label">${escapeHtml(durationLabel)}</span>`;
       accessibleLabel = `${contextLabel || "Workflow"} active, duration: ${durationLabel}`;
-      const startTime = Date.now() - durationSeconds * 1000;
+      const startTime =
+        Date.now() - (typeof durationSeconds === "number" ? durationSeconds * 1000 : 0);
       dataAttrs = ` data-start-time="${startTime}" data-context-label="${escapeHtml(contextLabel || "Workflow")}"`;
     } else {
       contentHtml = `${githubLogoSvg}${spinnerHtml}<span class="workflow-btn__label">&#8203;</span>`;
       accessibleLabel = `${contextLabel || "Workflow"} loading`;
     }
   } else {
-    const durationLabel = humanDuration(durationSeconds);
+    const durationLabel =
+      typeof durationSeconds === "string" ? durationSeconds : humanDuration(durationSeconds);
     contentHtml = `${githubLogoSvg}<span class="workflow-btn__label">${escapeHtml(durationLabel)}</span>`;
-    accessibleLabel = `${contextLabel || "Workflow"} duration: ${durationLabel}`;
+    accessibleLabel =
+      typeof durationSeconds === "string"
+        ? contextLabel
+        : `${contextLabel || "Workflow"} duration: ${durationLabel}`;
   }
 
   if (!url) {
@@ -1042,35 +1048,17 @@ function renderSecurity(security) {
 }
 
 function isLivePublishSuccess() {
-  if (selectedBranch === "stable") {
-    if (liveState.cicdJobs && liveState.cicdJobs.length) {
-      return liveState.cicdJobs.some((j) => {
-        const name = String(j.name || "").toLowerCase();
-        return (
-          name.startsWith("publish github (stable, amd64)") && normalizedLiveStatus(j) === "success"
-        );
-      });
-    }
-    return (
-      liveState.cicdRun &&
-      liveState.cicdRun.status === "completed" &&
-      liveState.cicdRun.conclusion === "success"
-    );
-  } else {
-    if (liveState.cicdJobs && liveState.cicdJobs.length) {
-      return liveState.cicdJobs.some((j) => {
-        const name = String(j.name || "").toLowerCase();
-        return (
-          name.startsWith("publish github (edge, amd64)") && normalizedLiveStatus(j) === "success"
-        );
-      });
-    }
-    return (
-      liveState.cicdRun &&
-      liveState.cicdRun.status === "completed" &&
-      liveState.cicdRun.conclusion === "success"
-    );
+  const channel = selectedBranch || "stable";
+  if (liveState.cicdJobs && liveState.cicdJobs.length) {
+    return liveState.cicdJobs.some((j) => {
+      const name = String(j.name || "").toLowerCase();
+      return (
+        name.startsWith(`publish github (${channel}, amd64)`) &&
+        normalizedLiveStatus(j) === "success"
+      );
+    });
   }
+  return false;
 }
 
 // Draws rows for component dependency local/upstream version grids
@@ -1254,7 +1242,15 @@ function renderSnapFreshness(snapPackage, rows) {
 
 // Writes the live countdown sentence for the next scheduled rebuild check
 function renderReleaseTrackingScheduleNote() {
-  setText("release-tracking-schedule-note", scheduledCheckLabel(releaseTrackingNextCheckMs));
+  const isRenovate = globalDashboardData?.auto_update?.frequency?.label === "Automated (Renovate)";
+  if (isRenovate) {
+    setText(
+      "release-tracking-schedule-note",
+      "Release tracking is managed automatically by Renovate Bot.",
+    );
+  } else {
+    setText("release-tracking-schedule-note", scheduledCheckLabel(releaseTrackingNextCheckMs));
+  }
 }
 function getNextCronTime() {
   const now = new Date();
@@ -1267,16 +1263,24 @@ function getNextCronTime() {
 
 // Aggregates and displays general snap store track updates and release indicators
 function renderReleaseInfo(data) {
+  const isRenovate = data.auto_update?.frequency?.label === "Automated (Renovate)";
   const trackRun = data.auto_update?.latest_success_run || {};
   const lastCheck = trackRun.updated_at;
-  const nextCheckDate = getNextCronTime();
-  const nextCheck = nextCheckDate.toISOString();
 
   setText("stable-track-updated", formatDate(lastCheck));
   setText("edge-track-updated", formatDate(lastCheck));
-  setText("stable-track-next", formatDate(nextCheck));
-  setText("edge-track-next", formatDate(nextCheck));
-  releaseTrackingNextCheckMs = nextCheckDate.getTime();
+
+  if (isRenovate) {
+    setText("stable-track-next", "Continuous");
+    setText("edge-track-next", "Continuous");
+    releaseTrackingNextCheckMs = null;
+  } else {
+    const nextCheckDate = getNextCronTime();
+    const nextCheck = nextCheckDate.toISOString();
+    setText("stable-track-next", formatDate(nextCheck));
+    setText("edge-track-next", formatDate(nextCheck));
+    releaseTrackingNextCheckMs = nextCheckDate.getTime();
+  }
   renderReleaseTrackingScheduleNote();
 
   // Calculate status for stable
@@ -1499,6 +1503,10 @@ function applyLiveSnapStatus(cicdJobs, cicdRun, lpJobs, lpRun) {
     } else {
       run = lpRun;
       job = findBuildJob(lpJobs, arch, selectedBranch, false);
+    }
+
+    if (!job) {
+      return;
     }
 
     let statusHtml = null;
@@ -2257,6 +2265,11 @@ async function applyLiveTrackUpstream(latestByWorkflow) {
     if (jobDetails.status) {
       isBuilding = isBuildingStatus(jobDetails.status);
     }
+  } else {
+    // Fallback to Renovate Bot baked data
+    const trackRun = globalDashboardData?.auto_update?.latest_success_run || {};
+    jobUrl = trackRun.url || "";
+    durationSeconds = trackRun.duration_seconds;
   }
 
   if (isBuilding) {

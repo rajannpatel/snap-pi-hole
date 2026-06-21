@@ -158,13 +158,16 @@ assert distro_job_key("plain.yml") == "plain"
 assert distro_job_key("test-arch") == "arch"
 
 daily = extract_track_upstream_cron(pathlib.Path("${TEST_TMPDIR}/track.yml"))
-assert daily == {"cron": "0 0 * * *", "label": "Daily at 00:00 UTC"}, daily
+assert daily == {"cron": "", "label": "Automated (Renovate)"}, daily
 
 weekly = extract_track_upstream_cron(pathlib.Path("${TEST_TMPDIR}/track-weekly.yml"))
-assert weekly == {"cron": "0 6 * * 1", "label": "Scheduled"}, weekly
+assert weekly == {"cron": "", "label": "Automated (Renovate)"}, weekly
 
 missing = extract_track_upstream_cron(pathlib.Path("${TEST_TMPDIR}/track-none.yml"))
-assert missing == {"cron": "", "label": "Unknown"}, missing
+assert missing == {"cron": "", "label": "Automated (Renovate)"}, missing
+
+none_val = extract_track_upstream_cron(None)
+assert none_val == {"cron": "", "label": "Automated (Renovate)"}, none_val
 PYEOF
 }
 

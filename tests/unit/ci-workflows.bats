@@ -20,83 +20,8 @@ teardown() {
     rm -rf "${TEST_WORKDIR}"
 }
 
-# track-upstream-releases.yml
+# track-upstream-releases.yml is replaced by Renovate Bot.
 
-@test "track-upstream workflow updates snapcraft source commits only" {
-    python3 - <<PYEOF
-import yaml
-with open("${REPO_ROOT}/.github/workflows/track-upstream-releases.yml") as f:
-    doc = yaml.safe_load(f)
-steps = doc["jobs"]["update-sources"]["steps"]
-run_steps = [s.get("run", "") for s in steps if s.get("run")]
-joined = "\n".join(run_steps)
-
-expected_updates = {
-    "ftl": chr(36) + "LATEST_FTL_COMMIT",
-    "pi_hole": chr(36) + "LATEST_PIHOLE_COMMIT",
-    "web": chr(36) + "LATEST_WEB_COMMIT",
-}
-quoted = chr(92) + chr(34)
-for part, variable in expected_updates.items():
-    command = (
-        f'yq -i ".parts.{part}.{quoted}source-commit{quoted} = {quoted}{variable}{quoted} '
-        f'| del(.parts.{part}.{quoted}source-tag{quoted}) '
-        f'| del(.parts.{part}.{quoted}source-branch{quoted})" snap/snapcraft.yaml'
-    )
-    assert command in joined, command
-assert "snap/local/build/stable-versions.json" not in joined
-assert "/commits/master" in joined
-assert "README.md" not in joined
-assert "sed -i" not in joined
-PYEOF
-}
-
-@test "track-upstream workflow does not use opaque inline scripts for README mutation" {
-    python3 - <<PYEOF
-import yaml
-with open("${REPO_ROOT}/.github/workflows/track-upstream-releases.yml") as f:
-    doc = yaml.safe_load(f)
-steps = doc["jobs"]["update-sources"]["steps"]
-run_steps = [s.get("run", "") for s in steps if s.get("run")]
-joined = "\n".join(run_steps)
-
-assert "python3 -c" not in joined
-assert "re.sub" not in joined
-PYEOF
-}
-
-@test "track-upstream checkout does not persist credentials before create-pull-request" {
-    python3 - <<PYEOF
-import yaml
-with open("${REPO_ROOT}/.github/workflows/track-upstream-releases.yml") as f:
-    doc = yaml.safe_load(f)
-steps = doc["jobs"]["update-sources"]["steps"]
-checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout@"))
-assert checkout.get("with", {}).get("persist-credentials") is False, checkout
-assert any(step.get("uses", "").startswith("peter-evans/create-pull-request@") for step in steps), steps
-PYEOF
-}
-
-@test "track-upstream yq source-commit updates mutate the expected snapcraft parts" {
-    if ! command -v yq >/dev/null 2>&1; then
-        skip "yq is not installed"
-    fi
-
-    # Verify if the installed yq is the Go-based yq (mikefarah/yq)
-    echo "test_key: value" > "${TEST_WORKDIR}/test.yaml"
-    if ! yq -i '.test_key = "new_value"' "${TEST_WORKDIR}/test.yaml" >/dev/null 2>&1; then
-        skip "Go-based yq (mikefarah/yq) is required for this test"
-    fi
-
-    local target="${TEST_WORKDIR}/snapcraft.yaml"
-    yq -i '.parts.ftl."source-commit" = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" | del(.parts.ftl."source-tag") | del(.parts.ftl."source-branch")' "$target"
-    yq -i '.parts.pi_hole."source-commit" = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" | del(.parts.pi_hole."source-tag") | del(.parts.pi_hole."source-branch")' "$target"
-    yq -i '.parts.web."source-commit" = "cccccccccccccccccccccccccccccccccccccccc" | del(.parts.web."source-tag") | del(.parts.web."source-branch")' "$target"
-
-    run yq -r '[.parts.ftl."source-commit", .parts.pi_hole."source-commit", .parts.web."source-commit"] | @tsv' "$target"
-    [ "$status" -eq 0 ]
-    [ "$output" = $'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\tbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\tcccccccccccccccccccccccccccccccccccccccc' ]
-}
 
 @test "vulnerability scan initializes llm cache file after cache restore" {
     python3 - <<PYEOF
@@ -716,16 +641,6 @@ PYEOF
     [ ! -e "${REPO_ROOT}/.github/workflows/promote.yml" ]
 }
 
-@test "track-upstream cron schedule is set to run every 3 hours" {
-    python3 - <<PYEOF
-import yaml
-with open("${REPO_ROOT}/.github/workflows/track-upstream-releases.yml") as f:
-    doc = yaml.safe_load(f)
-on = doc.get("on", doc.get(True, {}))
-cron = on["schedule"][0]["cron"]
-assert cron == "0 */3 * * *", f"Expected cron '0 */3 * * *', got '{cron}'"
-PYEOF
-}
 
 @test "upstream selector resolves release labels without writing version metadata" {
     python3 - <<PYEOF

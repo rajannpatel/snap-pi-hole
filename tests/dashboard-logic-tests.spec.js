@@ -378,6 +378,25 @@ describe("buildJobNamePrefixes", () => {
 });
 
 // ---------------------------------------------------------------------------
+// findBuildJob
+// ---------------------------------------------------------------------------
+describe("findBuildJob", () => {
+  it("returns null when no matching build/publish job exists (e.g. only lint run)", () => {
+    const jobs = [{ name: "shellcheck + bats", status: "completed", conclusion: "success" }];
+    assert.equal(api.findBuildJob(jobs, "amd64", "stable", true), null);
+  });
+  it("finds a matching build/publish job when it exists", () => {
+    const jobs = [
+      { name: "shellcheck + bats", status: "completed", conclusion: "success" },
+      { name: "build github (stable, amd64)", status: "completed", conclusion: "success" },
+    ];
+    const found = api.findBuildJob(jobs, "amd64", "stable", true);
+    assert.notEqual(found, null);
+    assert.equal(found.name, "build github (stable, amd64)");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // workflowButtonLabel
 // ---------------------------------------------------------------------------
 describe("workflowButtonLabel", () => {
@@ -539,6 +558,17 @@ describe("channelSwitchEvidenceHtml", () => {
 
     assert.match(html, /Health checks passed/);
     assert.match(html, /stable r840 -&gt; edge r838 -&gt; stable r840/);
+  });
+
+  it("shows fallback summary details for success when summary is empty and evidence is unavailable", () => {
+    const html = channelSwitchApi.channelSwitchEvidenceHtml({
+      status: "success",
+      path: "stable-to-edge",
+      evidence: [],
+    });
+
+    assert.match(html, /Health checks passed/);
+    assert.match(html, /stable -&gt; edge/);
   });
 
   it("shows success summary details when artifact evidence is available", () => {

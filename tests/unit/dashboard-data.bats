@@ -219,7 +219,7 @@ for row in rows:
 PYEOF
 }
 
-@test "dashboard data: track-upstream status includes latest run duration" {
+@test "dashboard data: track-upstream status includes latest Renovate PR update time" {
     python3 - <<PYEOF
 import sys
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
@@ -227,25 +227,22 @@ import generate_dashboard_data as dashboard
 
 class FakeClient:
     def get_json_or_empty(self, url, headers=None, params=None):
-        assert url.endswith("/actions/workflows/track-upstream-releases.yml/runs"), url
-        return {
-            "workflow_runs": [
-                {
-                    "status": "completed",
-                    "conclusion": "success",
-                    "run_number": 12,
-                    "run_started_at": "2026-06-14T02:14:33Z",
-                    "updated_at": "2026-06-14T02:14:48Z",
-                    "html_url": "https://example.test/run/12",
-                }
-            ]
-        }
+        assert url.endswith("/pulls"), url
+        return [
+            {
+                "number": 105,
+                "updated_at": "2026-06-14T02:14:48Z",
+                "html_url": "https://github.com/rajannpatel/snap-pi-hole/pull/105",
+                "user": {"login": "renovate[bot]"},
+            }
+        ]
 
 result = dashboard.collect_track_upstream_status(FakeClient())
 latest = result["latest_success_run"]
-assert latest["run_number"] == 12, latest
-assert latest["duration_seconds"] == 15, latest
-assert latest["duration_label"] == "15s", latest
+assert latest["run_number"] == 105, latest
+assert latest["updated_at"] == "2026-06-14T02:14:48Z", latest
+assert latest["url"] == "https://github.com/rajannpatel/snap-pi-hole/pull/105", latest
+assert latest["duration_seconds"] == "Renovate PRs", latest
 PYEOF
 }
 
