@@ -42,6 +42,13 @@ If model availability is unknown, do not invent assignments. Use the default
 single-agent flow and ask the developer for their available model list before
 delegating work to a lower-cost implementer.
 
+If the selected Implementer is unavailable, out of credits, or cannot be
+launched on a Workshop-routed command surface, delegated implementation is
+blocked. Do not silently fall back to the Architect, Reviewer, native panel, or
+a generic platform sub-agent. Ask the developer whether to update the local
+model-selection inventory, launch the Implementer later, or explicitly switch
+the task to single-agent mode.
+
 If the strongest available model is only accessible through a native panel that
 cannot enforce Workshop-only shell commands, use it for Architect or Reviewer,
 not Implementer. Hand implementation to a terminal-backed agent launched inside

@@ -13,6 +13,13 @@ Use only when this packet is part of a multi-model workflow:
 - Reviewer:
 - Inline assistant:
 
+Handoff rule:
+
+- The Architect stops after producing this packet.
+- Only the selected Implementer may apply this packet.
+- If the selected Implementer is unavailable, stop with a blocker report
+  instead of applying the packet from the Architect or Reviewer thread.
+
 ## Scope
 
 Allowed files:
@@ -58,6 +65,8 @@ Use `.agents/docs/wiki-workflow.md` for mode definitions.
 - Run project commands only through Workshop.
 - Follow `.agents/security/workshop-confinement.md`.
 - Follow `.agents/policies/scope-and-hygiene.md`.
+- Do not apply this packet from the Architect or Reviewer thread unless the
+  developer explicitly switches the task to single-agent mode.
 
 ## Required Commands
 

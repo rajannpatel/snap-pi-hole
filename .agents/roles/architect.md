@@ -40,6 +40,14 @@ If the task needs current project documentation, follow
 ## Delegation Rules
 
 - Delegate implementation only after the scope is clear.
+- When multi-model delegation is requested, stop after producing the packet.
+  Do not edit project files, run implementation commands, or substitute this
+  thread for the selected Implementer.
+- Treat platform sub-agents as non-compliant replacements unless they run on
+  the configured Implementer model and Workshop-routed surface.
+- If the selected Implementer is unavailable, out of credits, or cannot be
+  launched through Workshop, return a blocker report and ask whether to update
+  model selection, launch the Implementer later, or switch to single-agent mode.
 - Do not ask the worker to "investigate broadly", "improve quality", or
   "clean things up".
 - Split the work if the task crosses unrelated areas.
@@ -51,3 +59,5 @@ If the task needs current project documentation, follow
 
 Return a completed `.agents/templates/implementation-packet.md` packet.
 Do not include unrelated reasoning or optional improvements.
+After returning the packet, stop unless the developer explicitly cancels
+delegation and assigns this thread to continue in single-agent mode.

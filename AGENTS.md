@@ -92,6 +92,26 @@ other project tools.
 Follow `.agents/models/selection.md`. Do not inspect secrets, API keys, or
 private provider configuration to discover model access.
 
+## Multi-agent role enforcement
+
+When the user requests the repository multi-agent workflow, the current agent
+acts as Architect unless it is explicitly running on the selected Implementer
+surface from `.agents/local/model-selection.yaml` or another developer-supplied
+model-selection inventory.
+
+The Architect may inspect files and produce an implementation packet, but must
+stop before editing project files, running implementation commands, or
+substituting itself for the Implementer. Implementation begins only after a
+separate worker is launched on the selected Implementer surface and given the
+packet.
+
+A platform sub-agent, nested agent, or same-model worker is not the selected
+Implementer unless it is launched on the configured Implementer model and
+Workshop-routed surface. If the selected Implementer is unavailable, out of
+credits, or cannot be launched through Workshop, stop with a blocker report and
+ask whether to update model selection or explicitly switch to single-agent
+mode.
+
 ## Commands
 
 Run project tools through Workshop from the host:

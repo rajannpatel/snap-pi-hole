@@ -5,13 +5,30 @@ assisted development. The goal is to let a high-reasoning model own design,
 planning, and review while a lower-cost worker model performs narrowly scoped
 implementation.
 
+## Multi-Agent Enforcement
+
+When the user requests this workflow, the current planning thread is the
+Architect unless it is explicitly running as the selected Implementer. The
+Architect produces the implementation packet and stops. It does not edit files,
+run implementation commands, or substitute itself for the worker.
+
+The Implementer must be a separate thread on the selected Implementer model and
+Workshop-routed surface from the active model-selection inventory. A platform
+sub-agent, nested agent, or same-model worker is not a compliant replacement
+unless it is launched on that configured Implementer surface.
+
+If the selected Implementer is unavailable, out of credits, or cannot be
+launched through Workshop, the Architect returns a blocker report and asks the
+developer whether to update model selection, launch the Implementer later, or
+explicitly switch to single-agent mode.
+
 ## Operating Loop
 
 1. Start an architect planning thread.
 2. Give the architect model the request and ask it to use
    `.agents/roles/architect.md`.
 3. The architect reads relevant files and produces an implementation packet
-   using `.agents/templates/implementation-packet.md`.
+   using `.agents/templates/implementation-packet.md`, then stops.
 4. Start a separate worker thread with the selected implementer model.
 5. Give the worker only the implementation packet and
    `.agents/roles/implementer.md`.

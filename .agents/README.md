@@ -32,6 +32,23 @@ without reading the diff.
 For Zed Agent Panel and VS Code extension panel role assignments, follow
 [workflows/delegation.md#panel-role-assignment](workflows/delegation.md#panel-role-assignment).
 
+## Multi-Agent Enforcement
+
+When the user requests the repository multi-agent workflow, the planning thread
+is the Architect by default. The Architect writes one implementation packet and
+then stops. It must not apply the packet, edit project files, or substitute its
+own command-running tools for the selected Implementer.
+
+Implementation starts only in a separate thread on the selected Implementer
+surface from the local model-selection inventory. A platform sub-agent or
+same-model worker is not a replacement for that Implementer unless it is
+running on the configured Implementer model and Workshop-routed surface.
+
+If the selected Implementer is unavailable, out of credits, or cannot be
+launched through Workshop, delegation is blocked. Ask the developer whether to
+update `.agents/local/model-selection.yaml`, launch the Implementer later, or
+explicitly switch the task to single-agent mode.
+
 ## Repository Rules
 
 All agents must follow `AGENTS.md`.
