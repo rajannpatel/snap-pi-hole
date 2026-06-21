@@ -29,19 +29,24 @@ available model list before the next delegated task.
 ## Developer-Supplied Inventory Prompt
 
 Use this copy-paste prompt to create or update a local YAML model-selection
-inventory. Before sending it, choose exactly one output path and fill in the
-model access and agent surface lists from visible tools only.
+inventory. Before sending it, fill in the model access and per-surface model
+lists from visible tools only. Use `.agents/local/model-selection.yaml` unless
+there is a specific reason to choose another ignored local path.
 
 ```text
 Create or update one local YAML model-selection inventory.
 
 Output path:
-- Choose exactly one:
-  - `.agents/local/model-selection.yaml`
+- Use `.agents/local/model-selection.yaml` unless I explicitly provide a
+  different path.
+- Also acceptable when explicitly requested:
   - `.agents/models/selection.local.yaml`
   - `.agents/models/selection.personal.yaml`
 
-Use the chosen output path for this request: `<OUTPUT_PATH>`
+Use this output path for this request: `.agents/local/model-selection.yaml`
+
+I will provide model access and agent surface details below. Use only those
+details. Do not discover model access from local configuration.
 
 Read these checked-in files if they exist:
 - `.agents/models/selection.md`
@@ -93,13 +98,21 @@ Model access:
 - Model gateways:
 - Local/open-weight runtimes:
 
-Agent surfaces:
+Assume these agent surfaces are available unless I say otherwise:
+- Zed
+- VS Code
+- Inline assistant
+- Workshop terminal CLI/TUI
+
+Workshop terminal CLI/TUI command behavior is Workshop-routed by policy.
+
+For each surface, list only the models available there:
 - Zed:
 - VS Code:
+- Inline assistant:
 - Workshop terminal CLI/TUI:
 - OpenCode terminal/TUI:
 - OpenCode desktop:
-- Inline assistant:
 
 Assign:
 - Architect

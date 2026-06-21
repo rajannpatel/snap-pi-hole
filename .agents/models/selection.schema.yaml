@@ -15,6 +15,10 @@ allowed_inventory_output_paths:
   - .agents/local/model-selection.yaml
   - .agents/models/selection.local.yaml
   - .agents/models/selection.personal.yaml
+default_inventory_output_path: .agents/local/model-selection.yaml
+alternative_inventory_output_paths:
+  - .agents/models/selection.local.yaml
+  - .agents/models/selection.personal.yaml
 
 roles:
   - architect
@@ -66,11 +70,21 @@ desktop_agent_rule:
   unsafe_when_terminal_execution_unknown: true
 
 generation_rules:
-  choose_exactly_one_output_path: true
+  single_output_path_per_request: true
+  use_default_output_path_unless_explicitly_overridden: true
   use_template_as_starting_structure: .agents/models/selection.template.yaml
   validate_against_schema: .agents/models/selection.schema.yaml
   populate_only_from_user_supplied_model_access_and_surfaces: true
   preserve_exact_provider_model_surface_names: true
+  assume_surfaces_available_unless_user_says_otherwise:
+    - zed_agent_panel
+    - vscode_extension_panel
+    - inline_assistant
+    - workshop_terminal_cli_tui
+  workshop_terminal_cli_tui_command_behavior:
+    can_run_shell: true
+    mode: workshop_shell
+    workshop_routed: true
   do_not_invent:
     - providers
     - models

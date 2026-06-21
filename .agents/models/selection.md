@@ -60,8 +60,9 @@ comprehensive example. The markdown template at
 workflow.
 
 When asking an agent to create a personal model-selection inventory, use the
-copy-paste prompt in `.agents/templates/model-selection.md`. The developer must
-choose exactly one local output path before sending the prompt:
+copy-paste prompt in `.agents/templates/model-selection.md`. Use
+`.agents/local/model-selection.yaml` by default. Use an alternate local path
+only when the developer explicitly requests one:
 
 - `.agents/local/model-selection.yaml`
 - `.agents/models/selection.local.yaml`
@@ -73,6 +74,12 @@ runtimes, editor surfaces, command permissions, or role assignments. If a
 required schema field or role assignment cannot be populated from the supplied
 details, stop and ask for the missing details instead of inspecting local
 configuration.
+
+For inventory prompts, Zed, VS Code, Inline assistant, and Workshop terminal
+CLI/TUI may be treated as available surfaces unless the developer says
+otherwise. Workshop terminal CLI/TUI command behavior is Workshop-routed by
+policy. These assumptions do not imply model availability: list and use only
+the models the developer provides for each surface.
 
 ## Personal Model Inventories
 

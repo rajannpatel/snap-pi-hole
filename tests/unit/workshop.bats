@@ -432,7 +432,9 @@ required_docs = {
         "selection.example.yaml",
         ".agents/local/model-selection.md",
         ".agents/local/model-selection.yaml",
-        "choose exactly one local output path",
+        "by default",
+        "Zed, VS Code, Inline assistant, and Workshop terminal",
+        "Workshop terminal CLI/TUI command behavior is Workshop-routed",
         "must not invent providers, models, gateways, local",
         "stop and ask for the missing details",
         "Do not commit personal model choices",
@@ -495,7 +497,10 @@ references = {
         "selection.template.yaml",
         "selection.example.yaml",
         "Developer-Supplied Inventory Prompt",
-        "Choose exactly one",
+        "unless I explicitly provide",
+        "Assume these agent surfaces are available unless I say otherwise",
+        "Workshop terminal CLI/TUI command behavior is Workshop-routed",
+        "For each surface, list only the models available there",
         ".agents/models/selection.local.yaml",
         ".agents/models/selection.personal.yaml",
         "Do not invent providers, models, gateways, local",
@@ -536,12 +541,29 @@ assert schema["allowed_inventory_output_paths"] == [
     ".agents/models/selection.local.yaml",
     ".agents/models/selection.personal.yaml",
 ]
+assert schema["default_inventory_output_path"] == ".agents/local/model-selection.yaml"
+assert schema["alternative_inventory_output_paths"] == [
+    ".agents/models/selection.local.yaml",
+    ".agents/models/selection.personal.yaml",
+]
 generation_rules = schema["generation_rules"]
-assert generation_rules["choose_exactly_one_output_path"] is True
+assert generation_rules["single_output_path_per_request"] is True
+assert generation_rules["use_default_output_path_unless_explicitly_overridden"] is True
 assert generation_rules["use_template_as_starting_structure"] == ".agents/models/selection.template.yaml"
 assert generation_rules["validate_against_schema"] == ".agents/models/selection.schema.yaml"
 assert generation_rules["populate_only_from_user_supplied_model_access_and_surfaces"] is True
 assert generation_rules["preserve_exact_provider_model_surface_names"] is True
+assert generation_rules["assume_surfaces_available_unless_user_says_otherwise"] == [
+    "zed_agent_panel",
+    "vscode_extension_panel",
+    "inline_assistant",
+    "workshop_terminal_cli_tui",
+]
+assert generation_rules["workshop_terminal_cli_tui_command_behavior"] == {
+    "can_run_shell": True,
+    "mode": "workshop_shell",
+    "workshop_routed": True,
+}
 assert {
     "providers",
     "models",
