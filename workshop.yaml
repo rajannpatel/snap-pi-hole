@@ -6,6 +6,7 @@ sdks:
   - name: uv
     channel: latest/stable
   - name: project-tools
+  - name: try-agy
   - name: system
     plugs:
       admin-web:
@@ -96,6 +97,10 @@ actions:
   format-check: |
     cd tests
     npm run format:check
+
+  handoff-implementer: |
+    set -euo pipefail
+    exec tools/agent-handoff "${@:-}"
 
   shellcheck: |
     set -euo pipefail

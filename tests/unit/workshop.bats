@@ -8,6 +8,7 @@
 
 setup() {
     REPO_ROOT="$(git rev-parse --show-toplevel)"
+    TEST_TMPDIR=""
 }
 
 @test "workshop.yaml parses and declares the project workshop" {
@@ -32,7 +33,7 @@ with open("${REPO_ROOT}/workshop.yaml") as f:
     doc = yaml.safe_load(f)
 
 names = [sdk.get("name") for sdk in doc["sdks"]]
-assert names == ["uv", "project-tools", "system"], names
+assert names == ["uv", "project-tools", "try-agy", "system"], names
 assert "codex" not in names
 assert "copilot" not in names
 assert "claude-code" not in names
@@ -82,6 +83,7 @@ expected = {
     "deps-js",
     "lint-js",
     "format-check",
+    "handoff-implementer",
     "shellcheck",
     "yamllint",
     "test",
@@ -715,3 +717,173 @@ PYEOF
         .agents/models/selection.personal.yaml
     [ "$status" -eq 0 ]
 }
+
+teardown() {
+    if [ -n "${TEST_TMPDIR:-}" ] && [ -d "${TEST_TMPDIR}" ]; then
+        rm -rf "${TEST_TMPDIR}"
+    fi
+}
+
+@test "agent-handoff action uses the agent-handoff script" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/workshop.yaml") as f:
+    action = yaml.safe_load(f)["actions"]["handoff-implementer"]
+assert "exec tools/agent-handoff" in action, action
+PYEOF
+}
+
+@test "agent-handoff script validates arguments and exists" {
+    [ -x "${REPO_ROOT}/tools/agent-handoff" ]
+
+    run "${REPO_ROOT}/tools/agent-handoff"
+    [ "$status" -ne 0 ]
+    echo "$output" | grep -qF "Error: Exactly one packet path argument is required"
+
+    run "${REPO_ROOT}/tools/agent-handoff" non_existent_packet.md
+    [ "$status" -ne 0 ]
+    echo "$output" | grep -qF "Error: Packet file does not exist"
+}
+
+@test "agent-handoff script performs validation and launches agy" {
+    TEST_TMPDIR="$(mktemp -d)"
+
+    # 1. Create a dummy packet file
+    local test_packet="${TEST_TMPDIR}/packet.md"
+    echo "Implement the task described here." > "$test_packet"
+
+    # 2. Create a mock agy executable in PATH
+    local bin_dir="${TEST_TMPDIR}/bin"
+    mkdir -p "$bin_dir"
+    local mock_agy="${bin_dir}/agy"
+    cat <<'EOF' > "$mock_agy"
+#!/usr/bin/env bash
+echo "MOCK_AGY_CALLED"
+echo "ARGS: $*"
+EOF
+    chmod +x "$mock_agy"
+
+    # Add mock bin to PATH
+    local original_path="$PATH"
+    export PATH="${bin_dir}:${PATH}"
+
+    # 3. Test: Missing model selection file
+    export MODEL_SELECTION_PATH="${TEST_TMPDIR}/missing_model_selection.yaml"
+    run "${REPO_ROOT}/tools/agent-handoff" "$test_packet"
+    [ "$status" -ne 0 ]
+    echo "$output" | grep -qF "Error: Model selection file not found"
+
+    # 4. Test: Valid model selection
+    export MODEL_SELECTION_PATH="${TEST_TMPDIR}/valid_model_selection.yaml"
+    cat <<'EOF' > "$MODEL_SELECTION_PATH"
+schema_version: 1
+kind: agent-model-selection
+metadata: {}
+model_access: {}
+agent_surfaces:
+  - id: workshop_terminal_cli_tui
+    type: workshop_terminal
+    command_execution:
+      can_run_shell: true
+      mode: workshop_shell
+      workshop_routed: true
+      allowed_entrypoints:
+        - tools/workshop-shell
+assignments:
+  implementer:
+    surface_id: workshop_terminal_cli_tui
+    model: Gemini agy app
+    provider_or_gateway: Gemini agy app
+EOF
+
+    run "${REPO_ROOT}/tools/agent-handoff" "$test_packet"
+    [ "$status" -eq 0 ]
+    echo "$output" | grep -qF "MOCK_AGY_CALLED"
+    echo "$output" | grep -qF -- "--prompt-interactive"
+    echo "$output" | grep -qF "Read AGENTS.md and .agents/roles/implementer.md first."
+    echo "$output" | grep -qF "Implement the task described here."
+
+    # 5. Test: Invalid model selection - wrong surface_id
+    export MODEL_SELECTION_PATH="${TEST_TMPDIR}/invalid_surface.yaml"
+    cat <<'EOF' > "$MODEL_SELECTION_PATH"
+schema_version: 1
+kind: agent-model-selection
+metadata: {}
+model_access: {}
+agent_surfaces:
+  - id: other_surface
+    type: workshop_terminal
+    command_execution:
+      can_run_shell: true
+      mode: workshop_shell
+      workshop_routed: true
+      allowed_entrypoints:
+        - tools/workshop-shell
+assignments:
+  implementer:
+    surface_id: other_surface
+    model: Gemini agy app
+    provider_or_gateway: Gemini agy app
+EOF
+
+    run "${REPO_ROOT}/tools/agent-handoff" "$test_packet"
+    [ "$status" -ne 0 ]
+    echo "$output" | grep -qF "Error: Implementer surface_id must be"
+
+    # 6. Test: Invalid model selection - wrong model/provider
+    export MODEL_SELECTION_PATH="${TEST_TMPDIR}/invalid_model.yaml"
+    cat <<'EOF' > "$MODEL_SELECTION_PATH"
+schema_version: 1
+kind: agent-model-selection
+metadata: {}
+model_access: {}
+agent_surfaces:
+  - id: workshop_terminal_cli_tui
+    type: workshop_terminal
+    command_execution:
+      can_run_shell: true
+      mode: workshop_shell
+      workshop_routed: true
+      allowed_entrypoints:
+        - tools/workshop-shell
+assignments:
+  implementer:
+    surface_id: workshop_terminal_cli_tui
+    model: Other Model
+    provider_or_gateway: Gemini agy app
+EOF
+
+    run "${REPO_ROOT}/tools/agent-handoff" "$test_packet"
+    [ "$status" -ne 0 ]
+    echo "$output" | grep -qF "Error: Implementer model must be"
+
+    # 7. Test: Invalid model selection - not workshop-routed
+    export MODEL_SELECTION_PATH="${TEST_TMPDIR}/not_routed.yaml"
+    cat <<'EOF' > "$MODEL_SELECTION_PATH"
+schema_version: 1
+kind: agent-model-selection
+metadata: {}
+model_access: {}
+agent_surfaces:
+  - id: workshop_terminal_cli_tui
+    type: workshop_terminal
+    command_execution:
+      can_run_shell: true
+      mode: workshop_shell
+      workshop_routed: false
+      allowed_entrypoints:
+        - tools/workshop-shell
+assignments:
+  implementer:
+    surface_id: workshop_terminal_cli_tui
+    model: Gemini agy app
+    provider_or_gateway: Gemini agy app
+EOF
+
+    run "${REPO_ROOT}/tools/agent-handoff" "$test_packet"
+    [ "$status" -ne 0 ]
+    echo "$output" | grep -qF "Error: Implementer surface is not workshop-routed"
+
+    export PATH="$original_path"
+}
+

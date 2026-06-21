@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+#
+# Workshop-routed automatic handoff command to launch the configured agy Implementer.
+#
+set -euo pipefail
+
+# 1. Require exactly one packet path argument
+if [ "$#" -ne 1 ]; then
+    echo "Error: Exactly one packet path argument is required." >&2
+    echo "Usage: $0 <packet-path>" >&2
+    exit 1
+fi
+
+packet_path="$1"
+
+# 2. Reject missing packet files
+if [ ! -f "$packet_path" ]; then
+    echo "Error: Packet file does not exist: $packet_path" >&2
+    exit 1
+fi
+
+# 3. Read .agents/local/model-selection.yaml by default or MODEL_SELECTION_PATH override
+model_selection="${MODEL_SELECTION_PATH:-.agents/local/model-selection.yaml}"
+if [ ! -f "$model_selection" ]; then
+    echo "Error: Model selection file not found at: $model_selection" >&2
+    exit 1
+fi
+
+# 4. Verify agy is available in PATH
+if ! command -v agy >/dev/null 2>&1; then
+    echo "Error: agy is not available in PATH." >&2
+    exit 1
+fi
+
+# 5. Validate the model-selection yaml configuration
+if ! python3 - "$model_selection" <<'PYEOF'
+import sys
+import yaml
+
+model_selection_path = sys.argv[1]
+try:
+    with open(model_selection_path, "r") as f:
+        data = yaml.safe_load(f)
+except Exception as e:
+    print(f"Error: Failed to parse YAML file: {e}", file=sys.stderr)
+    sys.exit(1)
+
+if not isinstance(data, dict):
+    print("Error: Model selection file is not a valid YAML dictionary.", file=sys.stderr)
+    sys.exit(1)
+
+assignments = data.get("assignments", {})
+if not isinstance(assignments, dict):
+    print("Error: 'assignments' is missing or not a dictionary.", file=sys.stderr)
+    sys.exit(1)
+
+implementer = assignments.get("implementer", {})
+if not isinstance(implementer, dict):
+    print("Error: 'implementer' assignment is missing or not a dictionary.", file=sys.stderr)
+    sys.exit(1)
+
+# Verify the implementer assignment is for surface_id workshop_terminal_cli_tui
+surface_id = implementer.get("surface_id")
+if surface_id != "workshop_terminal_cli_tui":
+    print(f"Error: Implementer surface_id must be 'workshop_terminal_cli_tui', got '{surface_id}'", file=sys.stderr)
+    sys.exit(1)
+
+# Verify the implementer model and provider_or_gateway are Gemini agy app
+model = implementer.get("model")
+if model != "Gemini agy app":
+    print(f"Error: Implementer model must be 'Gemini agy app', got '{model}'", file=sys.stderr)
+    sys.exit(1)
+
+provider_or_gateway = implementer.get("provider_or_gateway")
+if provider_or_gateway != "Gemini agy app":
+    print(f"Error: Implementer provider_or_gateway must be 'Gemini agy app', got '{provider_or_gateway}'", file=sys.stderr)
+    sys.exit(1)
+
+# Verify that the referenced surface is workshop-routed and allows either tools/workshop-shell
+# or workshop run snap-pi-hole -- shell
+agent_surfaces = data.get("agent_surfaces", [])
+if not isinstance(agent_surfaces, list):
+    print("Error: 'agent_surfaces' is missing or not a list.", file=sys.stderr)
+    sys.exit(1)
+
+surface = None
+for s in agent_surfaces:
+    if isinstance(s, dict) and s.get("id") == surface_id:
+        surface = s
+        break
+
+if not surface:
+    print(f"Error: Reference surface with id '{surface_id}' not found.", file=sys.stderr)
+    sys.exit(1)
+
+command_execution = surface.get("command_execution", {})
+if not isinstance(command_execution, dict):
+    print("Error: 'command_execution' is missing or not a dictionary.", file=sys.stderr)
+    sys.exit(1)
+
+if not command_execution.get("workshop_routed"):
+    print("Error: Implementer surface is not workshop-routed.", file=sys.stderr)
+    sys.exit(1)
+
+allowed_entrypoints = command_execution.get("allowed_entrypoints", [])
+if not isinstance(allowed_entrypoints, list):
+    print("Error: 'allowed_entrypoints' is missing or not a list.", file=sys.stderr)
+    sys.exit(1)
+
+entrypoint_ok = ("tools/workshop-shell" in allowed_entrypoints) or ("workshop run snap-pi-hole -- shell" in allowed_entrypoints)
+if not entrypoint_ok:
+    print("Error: Allowed entrypoints must contain 'tools/workshop-shell' or 'workshop run snap-pi-hole -- shell'.", file=sys.stderr)
+    sys.exit(1)
+
+PYEOF
+then
+    exit 1
+fi
+
+# 6. Prepend clear instructions to read AGENTS.md and .agents/roles/implementer.md
+instructions="Read AGENTS.md and .agents/roles/implementer.md first."
+packet_content=$(cat "$packet_path")
+combined_prompt="${instructions}
+
+${packet_content}"
+
+# 7. Launch agy with --prompt-interactive and the combined prompt
+exec agy --prompt-interactive "$combined_prompt"
