@@ -59,6 +59,21 @@ comprehensive example. The markdown template at
 `.agents/templates/model-selection.md` is only a human prompt note for this YAML
 workflow.
 
+When asking an agent to create a personal model-selection inventory, use the
+copy-paste prompt in `.agents/templates/model-selection.md`. The developer must
+choose exactly one local output path before sending the prompt:
+
+- `.agents/local/model-selection.yaml`
+- `.agents/models/selection.local.yaml`
+- `.agents/models/selection.personal.yaml`
+
+The agent must populate the YAML only from model access and agent surfaces the
+developer supplies. It must not invent providers, models, gateways, local
+runtimes, editor surfaces, command permissions, or role assignments. If a
+required schema field or role assignment cannot be populated from the supplied
+details, stop and ask for the missing details instead of inspecting local
+configuration.
+
 ## Personal Model Inventories
 
 Shared model-selection policy belongs in this file and is committed. Personal

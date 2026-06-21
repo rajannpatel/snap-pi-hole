@@ -11,6 +11,11 @@ required_top_level:
   - agent_surfaces
   - assignments
 
+allowed_inventory_output_paths:
+  - .agents/local/model-selection.yaml
+  - .agents/models/selection.local.yaml
+  - .agents/models/selection.personal.yaml
+
 roles:
   - architect
   - implementer
@@ -59,6 +64,34 @@ native_panel_rule:
 desktop_agent_rule:
   implementer_requires_workshop_routed_shell: true
   unsafe_when_terminal_execution_unknown: true
+
+generation_rules:
+  choose_exactly_one_output_path: true
+  use_template_as_starting_structure: .agents/models/selection.template.yaml
+  validate_against_schema: .agents/models/selection.schema.yaml
+  populate_only_from_user_supplied_model_access_and_surfaces: true
+  preserve_exact_provider_model_surface_names: true
+  do_not_invent:
+    - providers
+    - models
+    - gateways
+    - local_runtimes
+    - editor_surfaces
+    - command_permissions
+    - role_assignments
+  stop_and_ask_if_missing:
+    - required_schema_field
+    - role_assignment
+    - command_routing_or_permission_behavior
+  do_not_inspect:
+    - secrets
+    - api_keys
+    - provider_configuration
+    - account_files
+    - private_settings
+    - private_gateway_configuration
+    - local_runtime_configuration
+    - editor_specific_tool_permissions
 
 forbidden_committed_fields:
   - api_key

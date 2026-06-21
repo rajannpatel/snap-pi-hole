@@ -432,6 +432,9 @@ required_docs = {
         "selection.example.yaml",
         ".agents/local/model-selection.md",
         ".agents/local/model-selection.yaml",
+        "choose exactly one local output path",
+        "must not invent providers, models, gateways, local",
+        "stop and ask for the missing details",
         "Do not commit personal model choices",
     ],
     ".agents/workflows/delegation.md": [
@@ -491,6 +494,12 @@ references = {
         "selection.schema.yaml",
         "selection.template.yaml",
         "selection.example.yaml",
+        "Developer-Supplied Inventory Prompt",
+        "Choose exactly one",
+        ".agents/models/selection.local.yaml",
+        ".agents/models/selection.personal.yaml",
+        "Do not invent providers, models, gateways, local",
+        "stop and ask me for the missing details",
         "OpenRouter",
         "Workshop terminal CLI/TUI",
         "OpenCode terminal/TUI",
@@ -521,6 +530,42 @@ assert schema["kind"] == "agent-model-selection-schema"
 assert template["kind"] == "agent-model-selection"
 assert example["kind"] == "agent-model-selection"
 assert schema["schema_version"] == template["schema_version"] == example["schema_version"] == 1
+
+assert schema["allowed_inventory_output_paths"] == [
+    ".agents/local/model-selection.yaml",
+    ".agents/models/selection.local.yaml",
+    ".agents/models/selection.personal.yaml",
+]
+generation_rules = schema["generation_rules"]
+assert generation_rules["choose_exactly_one_output_path"] is True
+assert generation_rules["use_template_as_starting_structure"] == ".agents/models/selection.template.yaml"
+assert generation_rules["validate_against_schema"] == ".agents/models/selection.schema.yaml"
+assert generation_rules["populate_only_from_user_supplied_model_access_and_surfaces"] is True
+assert generation_rules["preserve_exact_provider_model_surface_names"] is True
+assert {
+    "providers",
+    "models",
+    "gateways",
+    "local_runtimes",
+    "editor_surfaces",
+    "command_permissions",
+    "role_assignments",
+}.issubset(generation_rules["do_not_invent"])
+assert {
+    "required_schema_field",
+    "role_assignment",
+    "command_routing_or_permission_behavior",
+}.issubset(generation_rules["stop_and_ask_if_missing"])
+assert {
+    "secrets",
+    "api_keys",
+    "provider_configuration",
+    "account_files",
+    "private_settings",
+    "private_gateway_configuration",
+    "local_runtime_configuration",
+    "editor_specific_tool_permissions",
+}.issubset(generation_rules["do_not_inspect"])
 
 for top_level in schema["required_top_level"]:
     assert top_level in template, f"template missing {top_level}"
