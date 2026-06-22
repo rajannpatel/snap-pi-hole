@@ -118,7 +118,9 @@ then
 fi
 
 # 6. Prepend clear instructions to read AGENTS.md and .agents/roles/implementer.md
-instructions="Read AGENTS.md and .agents/roles/implementer.md first."
+instructions="You are the Implementer for snap-pi-hole. Read .agents/local/model-selection.yaml and act only within Implementer permissions.
+
+Read AGENTS.md and .agents/roles/implementer.md first."
 packet_content=$(cat "$packet_path")
 combined_prompt="${instructions}
 

@@ -24,10 +24,23 @@ provided by Git for Windows. On macOS, connect the editor to the Linux VM
 via SSH and run scripts inside that session. On Linux, run scripts directly
 in the host terminal.
 
+## Role bootstrap
+
+AI agents must identify their role at launch before planning or performing any work:
+- The Zed Architect prompt explicitly assigns the Architect role.
+- The Workshop Implementer prompt explicitly assigns the Implementer role.
+- If the role is not explicitly assigned at launch or is unknown, the agent must treat itself as unassigned/router.
+- An unassigned agent must stop immediately and ask the user to clarify its role before reading/editing files or implementing any changes.
+- All agents must run the role preflight command before planning:
+  `workshop run snap-pi-hole -- agent-role <role>`
+  (e.g., `workshop run snap-pi-hole -- agent-role architect` or `workshop run snap-pi-hole -- agent-role implementer`)
+  This command prints the assigned model, surface, and permissions, verifying the agent's environment context.
+
 ## Required workflow
 
-1. **Read context before planning:**
-   `workshop run snap-pi-hole -- context`
+1. **Verify role and read context before planning:**
+   - Run the role preflight check: `workshop run snap-pi-hole -- agent-role <role>`
+   - Run the project context check: `workshop run snap-pi-hole -- context`
 
 2. **Run all project checks through Workshop:**
    - Environment check:      `workshop run snap-pi-hole -- doctor`
@@ -117,6 +130,7 @@ mode.
 Run project tools through Workshop from the host:
 
 ```bash
+workshop run snap-pi-hole -- agent-role <role>
 workshop run snap-pi-hole -- context
 workshop run snap-pi-hole -- doctor
 workshop run snap-pi-hole -- test tests/unit/<file>.bats

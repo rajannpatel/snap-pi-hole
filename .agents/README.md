@@ -1,6 +1,6 @@
 # Agentic Development Workflow
 
-This repository supports a planner, implementer, and reviewer workflow for AI
+This repository supports an architect, planner, implementer, and reviewer workflow for AI
 assisted development. The goal is to let a high reasoning model own design,
 planning, and review while a lower cost worker model performs narrowly scoped
 implementation.
@@ -53,7 +53,7 @@ explicitly switch the task to single-agent mode.
 
 All agents must follow `AGENTS.md`.
 
-- Run `workshop run snap-pi-hole -- context` before planning or editing.
+- Identify agent role at launch, run `workshop run snap-pi-hole -- agent-role <role>` preflight verification, and run `workshop run snap-pi-hole -- context` before planning or editing.
 - Choose Workshop terminal mode or native panel mode in uncommitted personal
   preferences before starting agent work, following
   `.agents/security/workshop-confinement.md`.

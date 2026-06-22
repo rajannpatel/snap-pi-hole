@@ -25,6 +25,7 @@ Follow the implementation packet exactly.
 Run:
 
 ```bash
+workshop run snap-pi-hole -- agent-role implementer
 workshop run snap-pi-hole -- context
 ```
 

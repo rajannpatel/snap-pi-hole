@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+import sys
+import os
+import yaml
+
+def print_usage():
+    print("Usage: tools/agent-role <architect|implementer|reviewer>")
+    sys.exit(1)
+
+def find_model_selection():
+    env_path = os.environ.get("MODEL_SELECTION_PATH")
+    if env_path:
+        return env_path
+    
+    paths = [
+        ".agents/local/model-selection.yaml",
+        ".agents/models/selection.local.yaml",
+        ".agents/models/selection.personal.yaml"
+    ]
+    for p in paths:
+        if os.path.exists(p):
+            return p
+    return None
+
+def main():
+    if len(sys.argv) < 2:
+        print_usage()
+    
+    role = sys.argv[1].lower()
+    if role not in ["architect", "implementer", "reviewer"]:
+        print(f"Error: Unknown role '{role}'. Expected: architect, implementer, reviewer", file=sys.stderr)
+        print_usage()
+        
+    model_selection_path = find_model_selection()
+    if not model_selection_path:
+        print("Error: No model selection file found. Checked paths:", file=sys.stderr)
+        print("  - .agents/local/model-selection.yaml", file=sys.stderr)
+        print("  - .agents/models/selection.local.yaml", file=sys.stderr)
+        print("  - .agents/models/selection.personal.yaml", file=sys.stderr)
+        sys.exit(1)
+        
+    try:
+        with open(model_selection_path, "r") as f:
+            data = yaml.safe_load(f)
+    except Exception as e:
+        print(f"Error: Failed to parse YAML file '{model_selection_path}': {e}", file=sys.stderr)
+        sys.exit(1)
+        
+    assignments = data.get("assignments", {})
+    if role not in assignments:
+        print(f"Error: Role '{role}' not assigned in model selection at '{model_selection_path}'.", file=sys.stderr)
+        sys.exit(1)
+        
+    assignment = assignments[role]
+    surface_id = assignment.get("surface_id")
+    model = assignment.get("model")
+    
+    # Find surface details
+    agent_surfaces = data.get("agent_surfaces", [])
+    surface = None
+    for s in agent_surfaces:
+        if s.get("id") == surface_id:
+            surface = s
+            break
+            
+    print("=== Multi-Agent Role Verification ===")
+    print(f"Role:             {role.upper()}")
+    print(f"Assigned Model:   {model}")
+    print(f"Assigned Surface: {surface_id}")
+    
+    if surface:
+        cmd_exec = surface.get("command_execution", {})
+        print(f"Surface Type:     {surface.get('type')}")
+        print(f"Shell Allowed:    {cmd_exec.get('can_run_shell')}")
+        print(f"Execution Mode:   {cmd_exec.get('mode')}")
+        print(f"Workshop Routed:  {cmd_exec.get('workshop_routed')}")
+        print("Allowed Entrypoints:")
+        for ep in cmd_exec.get("allowed_entrypoints", []):
+            print(f"  - {ep}")
+    else:
+        print(f"Warning: Surface details for '{surface_id}' not found in agent_surfaces.", file=sys.stderr)
+    
+    print("\n=== Allowed Behavior ===")
+    role_file = f".agents/roles/{role}.md"
+    if os.path.exists(role_file):
+        with open(role_file, "r") as rf:
+            print(rf.read().strip())
+    else:
+        print(f"Warning: Role guideline file '{role_file}' not found.", file=sys.stderr)
+
+if __name__ == "__main__":
+    main()

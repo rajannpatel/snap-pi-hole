@@ -9,6 +9,7 @@ for a worker model.
 Before planning, run:
 
 ```bash
+workshop run snap-pi-hole -- agent-role architect
 workshop run snap-pi-hole -- context
 ```
 

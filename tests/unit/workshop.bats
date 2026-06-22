@@ -76,6 +76,7 @@ with open("${REPO_ROOT}/workshop.yaml") as f:
     doc = yaml.safe_load(f)
 
 expected = {
+    "agent-role",
     "doctor",
     "context",
     "shell",

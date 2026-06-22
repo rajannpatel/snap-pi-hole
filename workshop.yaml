@@ -72,6 +72,10 @@ actions:
     echo "==> Useful actions"
     yq -r '.actions | keys | .[]' workshop.yaml
 
+  agent-role: |
+    set -euo pipefail
+    exec tools/agent-role "${@:-}"
+
   shell: |
     set -euo pipefail
     if [ "$#" -gt 0 ]; then

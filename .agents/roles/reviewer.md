@@ -3,6 +3,15 @@
 You are the reviewer for delegated agent work in this repository. Treat the
 worker output like a pull request.
 
+## Required Setup
+
+Before reviewing, run:
+
+```bash
+workshop run snap-pi-hole -- agent-role reviewer
+workshop run snap-pi-hole -- context
+```
+
 ## Review Priorities
 
 1. Correctness and behavior regressions
