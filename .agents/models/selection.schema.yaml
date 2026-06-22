@@ -51,6 +51,8 @@ safe_implementer_surface:
   requires:
     can_run_shell: true
     workshop_routed: true
+    assignment_provider_or_gateway_non_null: true
+    assignment_provider_or_gateway_listed_on_surface: true
   allowed_modes:
     - workshop_entrypoints_only
     - workshop_shell
@@ -97,6 +99,8 @@ generation_rules:
   stop_and_ask_if_missing:
     - required_schema_field
     - role_assignment
+    - provider_or_gateway_for_assigned_model
+    - provider_or_gateway_on_selected_surface
     - command_routing_or_permission_behavior
   do_not_inspect:
     - secrets

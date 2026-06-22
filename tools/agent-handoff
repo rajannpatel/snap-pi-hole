@@ -26,7 +26,8 @@ if [ ! -f "$model_selection" ]; then
     exit 1
 fi
 
-# 4. Verify agy is available in PATH
+# 4. Verify agy is available in PATH. This handoff helper is intentionally
+# agy-specific because it launches the Implementer with `agy --prompt-interactive`.
 if ! command -v agy >/dev/null 2>&1; then
     echo "Error: agy is not available in PATH." >&2
     exit 1
@@ -65,15 +66,22 @@ if surface_id != "workshop_terminal_cli_tui":
     print(f"Error: Implementer surface_id must be 'workshop_terminal_cli_tui', got '{surface_id}'", file=sys.stderr)
     sys.exit(1)
 
-# Verify the implementer model and provider_or_gateway are Gemini agy app
+# Verify the implementer assignment is complete and uses the agy gateway. The
+# exact model is local inventory data; do not hard-code it here.
 model = implementer.get("model")
-if model != "Gemini agy app":
-    print(f"Error: Implementer model must be 'Gemini agy app', got '{model}'", file=sys.stderr)
+if not isinstance(model, str) or not model.strip():
+    print("Error: Implementer model must be set in the model-selection inventory.", file=sys.stderr)
     sys.exit(1)
 
 provider_or_gateway = implementer.get("provider_or_gateway")
-if provider_or_gateway != "Gemini agy app":
-    print(f"Error: Implementer provider_or_gateway must be 'Gemini agy app', got '{provider_or_gateway}'", file=sys.stderr)
+if provider_or_gateway != "agy":
+    print(f"Error: Implementer provider_or_gateway must be 'agy' for tools/agent-handoff, got '{provider_or_gateway}'", file=sys.stderr)
+    sys.exit(1)
+
+model_access = data.get("model_access", {})
+gateways = model_access.get("gateways", []) if isinstance(model_access, dict) else []
+if "agy" not in gateways:
+    print("Error: model_access.gateways must include 'agy' for tools/agent-handoff.", file=sys.stderr)
     sys.exit(1)
 
 # Verify that the referenced surface is workshop-routed and allows either tools/workshop-shell
@@ -91,6 +99,16 @@ for s in agent_surfaces:
 
 if not surface:
     print(f"Error: Reference surface with id '{surface_id}' not found.", file=sys.stderr)
+    sys.exit(1)
+
+surface_providers = surface.get("providers_or_gateways", [])
+if not isinstance(surface_providers, list) or "agy" not in surface_providers:
+    print(f"Error: Implementer surface '{surface_id}' must list 'agy' in providers_or_gateways.", file=sys.stderr)
+    sys.exit(1)
+
+surface_models = surface.get("models", [])
+if not isinstance(surface_models, list) or model not in surface_models:
+    print(f"Error: Implementer model '{model}' is not listed on surface '{surface_id}'.", file=sys.stderr)
     sys.exit(1)
 
 command_execution = surface.get("command_execution", {})
@@ -117,8 +135,27 @@ then
     exit 1
 fi
 
-# 6. Prepend clear instructions to read AGENTS.md and .agents/roles/implementer.md
+# 6. Read the configured Implementer assignment for prompt context.
+mapfile -t implementer_assignment < <(python3 - "$model_selection" <<'PYEOF'
+import sys
+import yaml
+
+with open(sys.argv[1], "r") as f:
+    data = yaml.safe_load(f)
+
+implementer = data["assignments"]["implementer"]
+print(implementer["model"])
+print(implementer["provider_or_gateway"])
+PYEOF
+)
+implementer_model="${implementer_assignment[0]}"
+implementer_provider="${implementer_assignment[1]}"
+
+# 7. Prepend clear instructions to read AGENTS.md and .agents/roles/implementer.md
 instructions="You are the Implementer for snap-pi-hole. Read .agents/local/model-selection.yaml and act only within Implementer permissions.
+
+Configured Implementer model: ${implementer_model}
+Configured Implementer provider/gateway: ${implementer_provider}
 
 Read AGENTS.md and .agents/roles/implementer.md first."
 packet_content=$(cat "$packet_path")
@@ -126,5 +163,5 @@ combined_prompt="${instructions}
 
 ${packet_content}"
 
-# 7. Launch agy with --prompt-interactive and the combined prompt
+# 8. Launch agy with --prompt-interactive and the combined prompt
 exec agy --prompt-interactive "$combined_prompt"

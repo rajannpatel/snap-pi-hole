@@ -41,6 +41,7 @@ agent_surfaces:
   - id: workshop_terminal_cli_tui
     label: Workshop terminal CLI/TUI
     type: workshop_terminal
+    # List the CLI, gateway, or runtime that exposes the models here, e.g. agy.
     providers_or_gateways: []
     models: []
     command_execution:
@@ -97,6 +98,8 @@ assignments:
   implementer:
     surface_id: null
     model: null
+    # Must be non-null when implementer is assigned, and must appear in the
+    # selected surface's providers_or_gateways list.
     provider_or_gateway: null
     rationale: Reliable coding model on a Workshop-routed command surface.
   reviewer:

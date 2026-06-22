@@ -90,6 +90,9 @@ Model availability rules:
   automatically available anywhere else.
 - A model visible in a gateway is not automatically configured in an editor
   panel or terminal UI.
+- For every assigned role, set `provider_or_gateway` to the provider, gateway,
+  or runtime that launches that model on the selected surface. The same value
+  must appear in the selected surface's `providers_or_gateways` list.
 - If a surface does not show command routing or permission behavior, do not
   use that surface for Implementer.
 

@@ -34,8 +34,17 @@ AI agents must identify their role at launch before planning or performing any w
   context commands for that role; the developer does not need to paste those
   commands into every role prompt.
 - If the role is not explicitly assigned at launch or is unknown, the agent must treat itself as a Router.
-- A Router must run `workshop run snap-pi-hole -- context`, classify the request, ask one round of clarifying questions if needed, produce an Architect brief, and hand it off. See `.agents/roles/router.md`.
-- A Router must not read source files, edit files, run build or test commands, or substitute itself for the Architect.
+- A Router must run `workshop run snap-pi-hole -- context`, classify the
+  request, and then answer a read-only informational question directly, route a
+  verification-only request to the appropriate Workshop command-running path,
+  coordinate a requested manual handoff, or hand an implementation-oriented
+  request to the Architect. See
+  `.agents/roles/router.md`.
+- A Router must not edit files, run implementation commands, or substitute
+  itself for the Architect. It may perform narrow read-only inspection when
+  needed to answer a factual repository question. It may run an existing
+  verification command only for a verification-only request and only when the
+  current surface is the configured Workshop-routed command-running surface.
 - All agents must run the role preflight command before planning:
   `workshop run snap-pi-hole -- agent-role <role>`
   (e.g., `workshop run snap-pi-hole -- agent-role router`, `workshop run snap-pi-hole -- agent-role architect`, or `workshop run snap-pi-hole -- agent-role implementer`)
@@ -120,20 +129,21 @@ private provider configuration to discover model access.
 
 When the user requests the repository multi-agent workflow, the current agent
 acts as Architect unless it is explicitly running on the selected Implementer
-surface from `.agents/local/model-selection.yaml` or another developer-supplied
-model-selection inventory.
+model, provider or gateway, and surface from `.agents/local/model-selection.yaml`
+or another developer-supplied model-selection inventory.
 
 The Architect may inspect files and produce an implementation packet, but must
 stop before editing project files, running implementation commands, or
 substituting itself for the Implementer. Implementation begins only after a
-separate worker is launched on the selected Implementer surface and given the
-packet.
+separate worker is launched on the selected Implementer model through the
+selected provider or gateway on the selected surface and given the packet.
 
 A platform sub-agent, nested agent, or same-model worker is not the selected
 Implementer unless it is launched on the configured Implementer model and
-Workshop-routed surface. If the selected Implementer is unavailable, out of
-credits, or cannot be launched through Workshop, stop with a blocker report and
-ask whether to update model selection or explicitly switch to single-agent
+provider or gateway on the Workshop-routed surface. If the selected Implementer
+is unavailable, out of credits, or cannot be launched through its configured
+provider or gateway inside Workshop, stop with a blocker report and ask whether
+to update model selection or explicitly switch to single-agent
 mode.
 
 ## Commands

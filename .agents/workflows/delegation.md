@@ -12,15 +12,17 @@ Architect unless it is explicitly running as the selected Implementer. The
 Architect produces the implementation packet and stops. It does not edit files,
 run implementation commands, or substitute itself for the worker.
 
-The Implementer must be a separate thread on the selected Implementer model and
-Workshop-routed surface from the active model-selection inventory. A platform
-sub-agent, nested agent, or same-model worker is not a compliant replacement
-unless it is launched on that configured Implementer surface.
+The Implementer must be a separate thread on the selected Implementer model,
+provider or gateway, and Workshop-routed surface from the active
+model-selection inventory. A platform sub-agent, nested agent, or same-model
+worker is not a compliant replacement unless it is launched through that
+configured Implementer provider or gateway on that configured surface.
 
 If the selected Implementer is unavailable, out of credits, or cannot be
-launched through Workshop, the Architect returns a blocker report and asks the
-developer whether to update model selection, launch the Implementer later, or
-explicitly switch to single-agent mode.
+launched through its configured provider or gateway inside Workshop, the
+Architect returns a blocker report and asks the developer whether to update
+model selection, launch the Implementer later, or explicitly switch to
+single-agent mode.
 
 ## Operating Loop
 

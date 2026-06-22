@@ -46,10 +46,12 @@ If the task needs current project documentation, follow
   Do not edit project files, run implementation commands, or substitute this
   thread for the selected Implementer.
 - Treat platform sub-agents as non-compliant replacements unless they run on
-  the configured Implementer model and Workshop-routed surface.
+  the configured Implementer model through the configured provider or gateway
+  on the configured Workshop-routed surface.
 - If the selected Implementer is unavailable, out of credits, or cannot be
-  launched through Workshop, return a blocker report and ask whether to update
-  model selection, launch the Implementer later, or switch to single-agent mode.
+  launched through its configured provider or gateway inside Workshop, return a
+  blocker report and ask whether to update model selection, launch the
+  Implementer later, or switch to single-agent mode.
 - Do not ask the worker to "investigate broadly", "improve quality", or
   "clean things up".
 - Split the work if the task crosses unrelated areas.

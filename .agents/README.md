@@ -26,7 +26,7 @@ matching role file.
 
 | Role | Recommended model | Responsibility |
 | --- | --- | --- |
-| Router | any available model | Receive unstructured requests, classify them, ask clarifying questions, and hand a brief to the Architect. |
+| Router | any available model | Receive unstructured requests, answer read-only repository questions directly, coordinate manual handoffs, route verification-only requests, and hand implementation-oriented work to the Architect. |
 | Architect | selected high-reasoning model | Inspect the repo, make design decisions, and write one implementation packet. |
 | Implementer | selected worker coding model | Apply the packet exactly, run listed Workshop checks, and stop. |
 | Reviewer | selected high-reasoning reviewer | Review the diff, verify scope, run checks, and create any follow-up packet. |
@@ -46,9 +46,10 @@ then stops. It must not apply the packet, edit project files, or substitute its
 own command-running tools for the selected Implementer.
 
 Implementation starts only in a separate thread on the selected Implementer
-surface from the local model-selection inventory. A platform sub-agent or
-same-model worker is not a replacement for that Implementer unless it is
-running on the configured Implementer model and Workshop-routed surface.
+model, provider or gateway, and surface from the local model-selection
+inventory. A platform sub-agent or same-model worker is not a replacement for
+that Implementer unless it is running through the configured provider or
+gateway on the configured Workshop-routed surface.
 
 If the selected Implementer is unavailable, out of credits, or cannot be
 launched through Workshop, delegation is blocked. Ask the developer whether to

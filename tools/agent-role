@@ -75,6 +75,7 @@ def main():
     assignment = assignments[role]
     surface_id = assignment.get("surface_id")
     model = assignment.get("model")
+    provider_or_gateway = assignment.get("provider_or_gateway")
     
     # Find surface details
     agent_surfaces = data.get("agent_surfaces", [])
@@ -87,11 +88,19 @@ def main():
     print("=== Multi-Agent Role Verification ===")
     print(f"Role:             {role.upper()}")
     print(f"Assigned Model:   {model}")
+    print(f"Provider/Gateway: {provider_or_gateway}")
     print(f"Assigned Surface: {surface_id}")
     
     if surface:
         cmd_exec = surface.get("command_execution", {})
         print(f"Surface Type:     {surface.get('type')}")
+        providers_or_gateways = surface.get("providers_or_gateways", [])
+        if providers_or_gateways:
+            print("Surface Providers/Gateways:")
+            for provider in providers_or_gateways:
+                print(f"  - {provider}")
+        elif role == "implementer":
+            print("Warning: Implementer surface does not list providers_or_gateways.", file=sys.stderr)
         print(f"Shell Allowed:    {cmd_exec.get('can_run_shell')}")
         print(f"Execution Mode:   {cmd_exec.get('mode')}")
         print(f"Workshop Routed:  {cmd_exec.get('workshop_routed')}")
@@ -100,6 +109,17 @@ def main():
             print(f"  - {ep}")
     else:
         print(f"Warning: Surface details for '{surface_id}' not found in agent_surfaces.", file=sys.stderr)
+
+    if role == "implementer":
+        if not provider_or_gateway:
+            print("Error: Implementer provider_or_gateway must be set.", file=sys.stderr)
+            sys.exit(1)
+        if surface and provider_or_gateway not in surface.get("providers_or_gateways", []):
+            print(
+                f"Error: Implementer provider_or_gateway '{provider_or_gateway}' is not listed on surface '{surface_id}'.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
     
     print("\n=== Allowed Behavior ===")
     role_file = f".agents/roles/{role}.md"

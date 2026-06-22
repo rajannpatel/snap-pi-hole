@@ -24,12 +24,18 @@ Do not assume that a model visible in one surface is available in another
 surface. A gateway such as OpenRouter may expose many models, but each editor
 panel, extension, CLI, or TUI still needs to be configured to use that gateway.
 
+For every non-null role assignment, `provider_or_gateway` must identify the
+direct provider, gateway, or runtime that launches that model on the selected
+surface. The same value must appear in the selected surface's
+`providers_or_gateways` list. A model name and Workshop-routed surface are not
+enough for delegation if the provider or gateway is ambiguous.
+
 ## Role Selection
 
 | Role | Selection rule |
 | --- | --- |
 | Architect | Use the strongest planning and deep-reasoning model available on a suitable surface. Prefer models suited to architecture, complex refactors, long-horizon debugging, and repository-level planning. |
-| Implementer | Use a reliable coding model on a surface that can run commands safely through Workshop. The model must follow narrow instructions and stop on blockers. |
+| Implementer | Use a reliable coding model on a surface that can run commands safely through Workshop. The selected model must have an explicit provider or gateway on that same surface. The model must follow narrow instructions and stop on blockers. |
 | Reviewer | Use a strong reasoning model with good bug-finding behavior. It can be the same model class as Architect, but should run in a separate review pass. |
 | Inline assistant | Use the editor-native completion/chat assistant for small local edits under human control. |
 
@@ -43,11 +49,11 @@ single-agent flow and ask the developer for their available model list before
 delegating work to a lower-cost implementer.
 
 If the selected Implementer is unavailable, out of credits, or cannot be
-launched on a Workshop-routed command surface, delegated implementation is
-blocked. Do not silently fall back to the Architect, Reviewer, native panel, or
-a generic platform sub-agent. Ask the developer whether to update the local
-model-selection inventory, launch the Implementer later, or explicitly switch
-the task to single-agent mode.
+launched through its configured provider or gateway on a Workshop-routed command
+surface, delegated implementation is blocked. Do not silently fall back to the
+Architect, Reviewer, native panel, or a generic platform sub-agent. Ask the
+developer whether to update the local model-selection inventory, launch the
+Implementer later, or explicitly switch the task to single-agent mode.
 
 If the strongest available model is only accessible through a native panel that
 cannot enforce Workshop-only shell commands, use it for Architect or Reviewer,
@@ -81,6 +87,10 @@ runtimes, editor surfaces, command permissions, or role assignments. If a
 required schema field or role assignment cannot be populated from the supplied
 details, stop and ask for the missing details instead of inspecting local
 configuration.
+
+When a model is supplied for a surface, also record which provider, gateway, or
+runtime exposes it on that surface. Use `provider_or_gateway: null` only for
+surface-agnostic roles or unassigned roles.
 
 For inventory prompts, Zed, VS Code, Inline assistant, and Workshop terminal
 CLI/TUI may be treated as available surfaces unless the developer says
