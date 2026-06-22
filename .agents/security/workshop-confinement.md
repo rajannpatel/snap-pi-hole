@@ -59,8 +59,12 @@ Do not let agents run project commands directly on the host, including:
 - project-local Python, Ruby, or shell test scripts
 
 Git inspection should also run inside Workshop for agent work. Host-side Git
-mutation, such as commits, tags, and pushes, is a maintainer operation unless
-the user explicitly assigns it.
+mutation, such as commits and tags, is a maintainer operation unless the user
+explicitly assigns it. Agents must never run `git push` from inside Workshop.
+If asked to push, stop before pushing and direct the user to push from the host
+or maintainer environment. Do not add SSH host keys, update `known_hosts`,
+configure Workshop SSH trust, or otherwise prepare Workshop credentials or
+trust solely to enable pushing from Workshop.
 
 ## Stop Conditions
 
