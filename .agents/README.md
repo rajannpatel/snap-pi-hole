@@ -42,6 +42,8 @@ without reading the diff.
   operating loop, panel role assignment, packet size, and failure handling.
 - [Editor preflight](workflows/editor-preflight.md): VS Code and Zed Workshop
   readiness checks.
+- [Agent skills](workflows/agent-skills.md): repo-local slash-command workflows
+  for `/tdd`, `/grill-with-docs`, and `/diagnose`.
 - [Wiki workflow](docs/wiki-workflow.md): documentation modes and wiki-specific
   checks.
 - [Model selection](models/selection.md): model and surface assignment.

@@ -35,6 +35,10 @@ __pycache__/
 
 # Local scratchpads and AI configs
 .claude/
+!.claude/
+.claude/*
+!.claude/commands/
+!.claude/commands/*.md
 .agents/local/
 .agents/**/*.local.md
 .agents/**/*.personal.md

@@ -25,6 +25,11 @@ workshop run snap-pi-hole -- smoke
 workshop run snap-pi-hole -- shell
 ```
 
+Repo-local slash commands such as `/tdd`, `/grill-with-docs`, and `/diagnose`
+are documented workflows, not Workshop actions. Their definitions live in
+`.claude/commands/` and their shared policy is summarized in
+`.agents/workflows/agent-skills.md`.
+
 `test-playwright-snap` is the existing Workshop-routed Playwright browser test
 action name. It uses Playwright-managed Chromium; it does not require snap
 Chromium.
