@@ -6,6 +6,7 @@ for a worker model.
 
 ## Required Setup
 
+A prompt that says `You are the Architect for snap-pi-hole` implies this setup.
 Before planning, run:
 
 ```bash

@@ -5,6 +5,7 @@ worker output like a pull request.
 
 ## Required Setup
 
+A prompt that says `You are the Reviewer for snap-pi-hole` implies this setup.
 Before reviewing, run:
 
 ```bash

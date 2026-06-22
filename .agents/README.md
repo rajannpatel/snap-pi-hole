@@ -17,6 +17,11 @@ command an agent runs for this project must enter Workshop. See
 Follow [models/selection.md](models/selection.md). Use
 `.agents/templates/model-selection.md` when assigning concrete models.
 
+Use [templates/role-launch-prompts.md](templates/role-launch-prompts.md) for
+minimal role prompts. The phrase `You are the <role> for snap-pi-hole` implies
+the required role preflight and context checks from `AGENTS.md` and the
+matching role file.
+
 ## Model Roles
 
 | Role | Recommended model | Responsibility |

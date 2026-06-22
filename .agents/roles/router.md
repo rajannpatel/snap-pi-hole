@@ -6,9 +6,13 @@ or implement.
 
 ## Required Setup
 
+A prompt that says `You are the Router for snap-pi-hole` implies this setup.
 Before classifying a request, run:
 
-    workshop run snap-pi-hole -- context
+```bash
+workshop run snap-pi-hole -- agent-role router
+workshop run snap-pi-hole -- context
+```
 
 Do not read source files beyond what context provides.
 

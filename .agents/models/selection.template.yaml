@@ -84,6 +84,11 @@ agent_surfaces:
       allowed_entrypoints: []
 
 assignments:
+  router:
+    surface_id: null
+    model: null
+    provider_or_gateway: null
+    rationale: Surface-agnostic intake role.
   architect:
     surface_id: null
     model: null

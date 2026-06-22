@@ -412,6 +412,22 @@ for required in (
 PYEOF
 }
 
+@test "AGENTS.md defines implied role preflight from role phrases" {
+    python3 - <<PYEOF
+from pathlib import Path
+
+text = Path("${REPO_ROOT}/AGENTS.md").read_text()
+for needle in (
+    "You are the <role> for snap-pi-hole",
+    "complete role assignment",
+    "role preflight",
+    "workshop run snap-pi-hole -- agent-role <role>",
+    "workshop run snap-pi-hole -- context",
+):
+    assert needle in text, needle
+PYEOF
+}
+
 @test "agent shared policy docs exist and are linked from prompts" {
     python3 - <<PYEOF
 from pathlib import Path
@@ -449,6 +465,13 @@ required_docs = {
         "Worker Guardrails",
         "Failure Handling",
     ],
+    ".agents/templates/role-launch-prompts.md": [
+        "You are the Router for snap-pi-hole",
+        "You are the Architect for snap-pi-hole",
+        "You are the Implementer for snap-pi-hole",
+        "You are the Reviewer for snap-pi-hole",
+        "role phrase implies the required setup",
+    ],
     ".agents/policies/scope-and-hygiene.md": [
         "Scope Control",
         "Generated And Local Files",
@@ -467,12 +490,20 @@ references = {
     ".agents/README.md": [
         "security/workshop-confinement.md",
         "models/selection.md",
+        "templates/role-launch-prompts.md",
+        "You are the <role> for snap-pi-hole",
         "docs/wiki-workflow.md",
         "workflows/delegation.md",
         "panel-role-assignment",
         "policies/scope-and-hygiene.md",
     ],
+    ".agents/roles/router.md": [
+        "You are the Router for snap-pi-hole",
+        "workshop run snap-pi-hole -- agent-role router",
+        "workshop run snap-pi-hole -- context",
+    ],
     ".agents/roles/architect.md": [
+        "You are the Architect for snap-pi-hole",
         ".agents/security/workshop-confinement.md",
         ".agents/docs/wiki-workflow.md",
         ".agents/models/selection.md",
@@ -480,11 +511,13 @@ references = {
         ".agents/workflows/delegation.md",
     ],
     ".agents/roles/implementer.md": [
+        "You are the Implementer for snap-pi-hole",
         ".agents/security/workshop-confinement.md",
         ".agents/policies/scope-and-hygiene.md",
         ".agents/docs/wiki-workflow.md",
     ],
     ".agents/roles/reviewer.md": [
+        "You are the Reviewer for snap-pi-hole",
         ".agents/security/workshop-confinement.md",
         ".agents/policies/scope-and-hygiene.md",
         ".agents/docs/wiki-workflow.md",
@@ -646,6 +679,10 @@ assert implementer_surface["command_execution"]["mode"] in safe["allowed_modes"]
 assert set(implementer_surface["command_execution"]["allowed_entrypoints"]) & set(safe["allowed_entrypoints"])
 
 for role, assignment in example["assignments"].items():
+    if role == "router":
+        assert assignment["surface_id"] is None, role
+        assert assignment["model"] is None, role
+        continue
     assert assignment["surface_id"] in surface_by_id, role
     assert assignment["model"], role
     surface = surface_by_id[assignment["surface_id"]]
@@ -887,4 +924,3 @@ EOF
 
     export PATH="$original_path"
 }
-

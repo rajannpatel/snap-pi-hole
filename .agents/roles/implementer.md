@@ -22,6 +22,9 @@ Follow the implementation packet exactly.
 
 ## Required Start
 
+A prompt that says `You are the Implementer for snap-pi-hole` implies this
+setup.
+
 Run:
 
 ```bash
