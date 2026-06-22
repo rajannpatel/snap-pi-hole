@@ -166,8 +166,8 @@
   },
   {
     "label": "Wiki: Pull Latest",
-    "command": "git",
-    "args": ["-C", ".wiki", "pull", "--ff-only"],
+    "command": "tools/workshop-shell",
+    "args": ["-c", "git -C .wiki pull --ff-only"],
     "cwd": "$ZED_WORKTREE_ROOT",
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
@@ -177,8 +177,8 @@
   },
   {
     "label": "Wiki: Status",
-    "command": "git",
-    "args": ["-C", ".wiki", "status", "--short"],
+    "command": "tools/workshop-shell",
+    "args": ["-c", "git -C .wiki status --short"],
     "cwd": "$ZED_WORKTREE_ROOT",
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
@@ -188,8 +188,8 @@
   },
   {
     "label": "Wiki: Diff",
-    "command": "git",
-    "args": ["-C", ".wiki", "diff"],
+    "command": "tools/workshop-shell",
+    "args": ["-c", "git -C .wiki diff"],
     "cwd": "$ZED_WORKTREE_ROOT",
     "use_new_terminal": false,
     "allow_concurrent_runs": false,

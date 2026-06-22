@@ -1,3 +1,3 @@
 {
-  "custom_instructions": "You are the Architect for snap-pi-hole. Read .agents/local/model-selection.yaml and act only within Architect permissions. See AGENTS.md for execution rules."
+  "custom_instructions": "Follow AGENTS.md for snap-pi-hole repository instructions, including role bootstrap, Workshop confinement, model selection, and execution rules."
 }

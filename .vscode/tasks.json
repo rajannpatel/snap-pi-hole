@@ -168,7 +168,7 @@
     {
       "label": "Wiki: Pull Latest",
       "type": "shell",
-      "command": "git -C .wiki pull --ff-only",
+      "command": "tools/workshop-shell -c \"git -C .wiki pull --ff-only\"",
       "presentation": {
         "panel": "dedicated",
         "reveal": "always"
@@ -178,7 +178,7 @@
     {
       "label": "Wiki: Status",
       "type": "shell",
-      "command": "git -C .wiki status --short",
+      "command": "tools/workshop-shell -c \"git -C .wiki status --short\"",
       "presentation": {
         "panel": "dedicated",
         "reveal": "always"
@@ -188,7 +188,7 @@
     {
       "label": "Wiki: Diff",
       "type": "shell",
-      "command": "git -C .wiki diff",
+      "command": "tools/workshop-shell -c \"git -C .wiki diff\"",
       "presentation": {
         "panel": "dedicated",
         "reveal": "always"
