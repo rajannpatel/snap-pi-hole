@@ -68,11 +68,27 @@ test.describe("dashboard.html semantic structure", () => {
     await expect(cta.first()).toBeVisible();
   });
 
-  test("has a channel selector with stable/edge tabs", async ({ page }) => {
-    await expect(page.locator("#btn-stable")).toBeVisible();
-    await expect(page.locator("#btn-edge")).toBeVisible();
-    await expect(page.locator("#btn-stable")).toHaveAttribute("aria-selected", "true");
-    await expect(page.locator("#btn-edge")).toHaveAttribute("aria-selected", "false");
+  test("has a keyboard-accessible channel selector button group", async ({ page }) => {
+    const group = page.getByRole("group", { name: "Channel scope" });
+    await expect(group).toBeVisible();
+
+    const stable = page.getByRole("button", { name: "Stable (upstream branch)" });
+    const edge = page.getByRole("button", { name: "Edge (upstream dev)" });
+    await expect(stable).toHaveAttribute("aria-pressed", "true");
+    await expect(edge).toHaveAttribute("aria-pressed", "false");
+
+    await stable.focus();
+    await page.keyboard.press("Tab");
+    await expect(edge).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(edge).toHaveAttribute("aria-pressed", "true");
+    await expect(stable).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("has a polite live region for dashboard status updates", async ({ page }) => {
+    const region = page.locator("#dashboard-live-status");
+    await expect(region).toHaveAttribute("aria-live", "polite");
+    await expect(region).toHaveAttribute("aria-atomic", "true");
   });
 
   test("has snap package rows table", async ({ page }) => {
@@ -118,6 +134,56 @@ test.describe("dashboard.html semantic structure", () => {
         .locator(".snap-package-table")
         .getByRole("columnheader", { name: "Build/publish duration" }),
     ).toBeVisible();
+  });
+
+  test("duration trend chart exposes generated SVG text alternatives", async ({ page }) => {
+    await page.evaluate(() => {
+      window.renderDurationTrendChart([
+        {
+          run_number: 102,
+          duration_seconds: 90,
+          duration_label: "1m 30s",
+          conclusion: "success",
+        },
+        {
+          run_number: 101,
+          duration_seconds: 120,
+          duration_label: "2m 0s",
+          conclusion: "failure",
+        },
+      ]);
+    });
+
+    const chart = page.locator("#duration-trend-chart");
+    await expect(chart).toHaveAttribute("aria-label", /Latest run #102 took 1m 30s/);
+    await expect(chart.locator("svg title")).toHaveText("Build duration trend chart");
+    await expect(chart.locator("svg desc")).toContainText("Durations range from 1m 30s to 2m 0s");
+  });
+
+  test("distribution logo column has a non-empty header", async ({ page }) => {
+    const table = page.getByRole("table", { name: "Distribution test status matrix" });
+    await expect(table.getByRole("columnheader", { name: "Distribution logo" })).toBeVisible();
+  });
+
+  test("disabled workflow placeholders are unfocusable non-button text", async ({ page }) => {
+    const role = await page.evaluate(() => {
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = window.workflowButtonHtml("", null, "Workflow");
+      const disabled = wrapper.querySelector(".workflow-btn");
+      return {
+        tagName: disabled?.tagName,
+        role: disabled?.getAttribute("role"),
+        tabIndex: disabled?.getAttribute("tabindex"),
+        ariaDisabled: disabled?.getAttribute("aria-disabled"),
+      };
+    });
+
+    expect(role).toEqual({
+      tagName: "SPAN",
+      role: null,
+      tabIndex: null,
+      ariaDisabled: "true",
+    });
   });
 
   test("Pi-hole components table has correct structure", async ({ page }) => {

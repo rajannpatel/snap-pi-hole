@@ -160,18 +160,19 @@
             <div class="channel-selector">
               <h2 class="channel-selector__label">Channel scope</h2>
               <nav class="p-tabs" aria-label="Select channel scope">
-                <ul class="p-tabs__list" role="tablist">
-                  <li class="p-tabs__item" role="presentation">
-                    <button class="p-tabs__link is-active" id="btn-stable" type="button" role="tab"
-                      aria-selected="true">Stable (upstream branch)</button>
+                <ul class="p-tabs__list" role="group" aria-label="Channel scope">
+                  <li class="p-tabs__item">
+                    <button class="p-tabs__link is-active" id="btn-stable" type="button"
+                      aria-pressed="true">Stable (upstream branch)</button>
                   </li>
-                  <li class="p-tabs__item" role="presentation">
-                    <button class="p-tabs__link" id="btn-edge" type="button" role="tab" aria-selected="false"
-                      tabindex="-1">Edge (upstream dev)</button>
+                  <li class="p-tabs__item">
+                    <button class="p-tabs__link" id="btn-edge" type="button"
+                      aria-pressed="false">Edge (upstream dev)</button>
                   </li>
                 </ul>
               </nav>
             </div>
+            <div id="dashboard-live-status" class="u-off-screen" aria-live="polite" aria-atomic="true"></div>
             <p class="channel-scope-summary" id="channel-scope-summary">Viewing stable: upstream stable branch commits,
               stable Snap Store publication, and stable install tests.</p>
             <div class="activity-strip" id="current-activity" aria-label="Current release activity">
@@ -281,7 +282,7 @@
                   <caption class="u-off-screen">Distribution test status matrix</caption>
                   <thead>
                     <tr>
-                      <th class="os-logo-col"></th>
+                      <th class="os-logo-col"><span class="u-off-screen">Distribution logo</span></th>
                       <th class="distribution-col">Distribution</th>
                       <th>Status</th>
                       <th>Updated</th>

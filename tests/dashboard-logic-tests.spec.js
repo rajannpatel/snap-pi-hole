@@ -38,6 +38,7 @@ function loadDashboardAPI() {
     "countdownLabel",
     "nextHourBoundary",
     "statusBadgeUrl",
+    "durationTrendDescription",
     "trendPointColor",
     "trendTooltipDescriptor",
     "snapStatusDescriptor",
@@ -163,6 +164,39 @@ describe("humanDuration", () => {
     assert.equal(api.humanDuration(45), "45s");
     assert.equal(api.humanDuration(90), "1m 30s");
     assert.equal(api.humanDuration(3661), "1h 1m");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// durationTrendDescription
+// ---------------------------------------------------------------------------
+describe("durationTrendDescription", () => {
+  it("summarizes the latest run and duration range", () => {
+    const description = api.durationTrendDescription([
+      {
+        run_number: 102,
+        duration_seconds: 90,
+        duration_label: "1m 30s",
+        conclusion: "success",
+      },
+      {
+        run_number: 101,
+        duration_seconds: 120,
+        duration_label: "2m 0s",
+        conclusion: "failure",
+      },
+    ]);
+
+    assert.match(description, /Build duration trend chart with 2 recent runs/);
+    assert.match(description, /Latest run #102 took 1m 30s/);
+    assert.match(description, /Durations range from 1m 30s to 2m 0s/);
+  });
+
+  it("describes an empty chart without data", () => {
+    assert.equal(
+      api.durationTrendDescription([]),
+      "Build duration trend chart. No duration data available.",
+    );
   });
 });
 
@@ -585,6 +619,22 @@ describe("channelSwitchEvidenceHtml", () => {
 });
 
 // ---------------------------------------------------------------------------
+// channel revision chips
+// ---------------------------------------------------------------------------
+describe("channelRevisionChipHtml", () => {
+  it("gives revision chips an accessible name", () => {
+    const html = channelSwitchApi.channelRevisionChipHtml({
+      channel: "stable",
+      revision: "840",
+    });
+
+    assert.match(html, /aria-label="stable revision 840"/);
+    assert.match(html, /aria-hidden="true">stable/);
+    assert.match(html, /aria-hidden="true">r840/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // liveJobDurationSeconds, liveRunDurationSeconds
 // ---------------------------------------------------------------------------
 describe("liveJobDurationSeconds", () => {
@@ -622,6 +672,27 @@ describe("statusClass", () => {
     assert.equal(api.statusClass("in_progress"), "status-in_progress");
     assert.equal(api.statusClass(null), "status-neutral");
     assert.equal(api.statusClass(undefined), "status-neutral");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generated status chip accessibility
+// ---------------------------------------------------------------------------
+describe("generated status chip accessibility", () => {
+  it("labels component status chips and hides decorative icon text", () => {
+    const pending = api.componentStatusHtml({ update_available: true });
+    assert.match(pending, /aria-label="Status: Stable commit pending"/);
+    assert.match(pending, /aria-hidden="true"/);
+
+    const behind = api.componentStatusHtml({ lag_days: 3 });
+    assert.match(behind, /aria-label="Status: 3 days behind"/);
+    assert.match(behind, /aria-hidden="true">3d behind/);
+  });
+
+  it("labels the GitHub runner builder chip", () => {
+    const html = api.githubRunnerChipHtml();
+    assert.match(html, /aria-label="Builder: GitHub runner"/);
+    assert.match(html, /aria-hidden="true">GitHub runner/);
   });
 });
 

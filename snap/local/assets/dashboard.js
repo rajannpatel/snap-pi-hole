@@ -42,6 +42,7 @@ const liveState = {
   lpRun: null,
   snapOverlayInFlight: false,
   snapOverlayLastFetch: 0,
+  lastDashboardAnnouncement: "",
 };
 const matrixState = { rows: [], failedLinks: [] };
 
@@ -98,14 +99,14 @@ const osBadgeByFamily = {
   Arch: "https://img.shields.io/badge/-%20-1793D1?style=flat-square&logo=archlinux&logoColor=white",
 };
 
-const githubLogoSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>`;
-const launchpadLogoSvg = `<svg class="status-chip-logo" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M1.518 7.088 2.68 5.351c.107-.158.175-.162.293-.106 2.556 1.476 4.848 1.685 7.212.662 2.35-1.019 3.763-2.82 4.445-5.659.072-.256.166-.254.231-.245l2.03.44c.343.086.33.18.322.25-.45 3.328-2.755 6.251-6.019 7.632-3.317 1.426-6.92 1.112-9.64-.84-.056-.048-.182-.177-.032-.397h-.003Zm10.115 16.798 2.081.114c.35.006.36-.087.369-.156.45-3.328-.999-6.758-3.779-8.953-2.82-2.256-6.378-2.91-9.519-1.749-.065.033-.222.123-.136.373l.659 1.984c.063.18.125.202.254.179 2.855-.744 5.12-.339 7.128 1.275 1.996 1.606 2.88 3.716 2.784 6.644.003.258.093.281.158.29l.001-.001Zm1.335-13.868a2.04 2.04 0 0 0-.28-.02c-.422 0-.82.132-1.146.38a1.907 1.907 0 0 0-.725 1.28c-.07.508.06 1.01.362 1.411.305.407.759.67 1.277.74a1.915 1.915 0 0 0 2.15-1.64 1.892 1.892 0 0 0-1.64-2.152l.002.001ZM23.36 6.525l-.966-1.85c-.137-.304-.247-.274-.36-.236-3.089 1.332-5.22 4.26-5.703 7.838-.483 3.58.797 6.973 3.426 9.075.059.052.117.07.182.065a.3.3 0 0 0 .2-.109l1.358-1.628c.125-.157.071-.238.006-.306-2.13-2.096-2.926-4.18-2.58-6.748.349-2.583 1.71-4.433 4.286-5.827.204-.123.17-.228.151-.276v.002Z"/></svg>`;
-const checkIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg>`;
-const warningIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.5a.552.552 0 0 1-1.1 0l-.35-3.5z"/></svg>`;
-const errorIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>`;
-const clockIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M8 3.5a.75.75 0 0 1 .75.75v3.25h3.25a.75.75 0 0 1 0 1.5h-4a.75.75 0 0 1-.75-.75v-4A.75.75 0 0 1 8 3.5z"/></svg>`;
-const skippedIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M4.25 7.25h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5z"/></svg>`;
-const cpuIconSvg = `<svg class="status-chip-logo" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="8" height="6" rx="0.5"/><line x1="6" y1="3" x2="6" y2="5"/><line x1="10" y1="3" x2="10" y2="5"/><line x1="6" y1="11" x2="6" y2="13"/><line x1="10" y1="11" x2="10" y2="13"/></svg>`;
+const githubLogoSvg = `<svg class="status-chip-logo" aria-hidden="true" focusable="false" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>`;
+const launchpadLogoSvg = `<svg class="status-chip-logo" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M1.518 7.088 2.68 5.351c.107-.158.175-.162.293-.106 2.556 1.476 4.848 1.685 7.212.662 2.35-1.019 3.763-2.82 4.445-5.659.072-.256.166-.254.231-.245l2.03.44c.343.086.33.18.322.25-.45 3.328-2.755 6.251-6.019 7.632-3.317 1.426-6.92 1.112-9.64-.84-.056-.048-.182-.177-.032-.397h-.003Zm10.115 16.798 2.081.114c.35.006.36-.087.369-.156.45-3.328-.999-6.758-3.779-8.953-2.82-2.256-6.378-2.91-9.519-1.749-.065.033-.222.123-.136.373l.659 1.984c.063.18.125.202.254.179 2.855-.744 5.12-.339 7.128 1.275 1.996 1.606 2.88 3.716 2.784 6.644.003.258.093.281.158.29l.001-.001Zm1.335-13.868a2.04 2.04 0 0 0-.28-.02c-.422 0-.82.132-1.146.38a1.907 1.907 0 0 0-.725 1.28c-.07.508.06 1.01.362 1.411.305.407.759.67 1.277.74a1.915 1.915 0 0 0 2.15-1.64 1.892 1.892 0 0 0-1.64-2.152l.002.001ZM23.36 6.525l-.966-1.85c-.137-.304-.247-.274-.36-.236-3.089 1.332-5.22 4.26-5.703 7.838-.483 3.58.797 6.973 3.426 9.075.059.052.117.07.182.065a.3.3 0 0 0 .2-.109l1.358-1.628c.125-.157.071-.238.006-.306-2.13-2.096-2.926-4.18-2.58-6.748.349-2.583 1.71-4.433 4.286-5.827.204-.123.17-.228.151-.276v.002Z"/></svg>`;
+const checkIconSvg = `<svg class="status-chip-logo" aria-hidden="true" focusable="false" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg>`;
+const warningIconSvg = `<svg class="status-chip-logo" aria-hidden="true" focusable="false" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.5a.552.552 0 0 1-1.1 0l-.35-3.5z"/></svg>`;
+const errorIconSvg = `<svg class="status-chip-logo" aria-hidden="true" focusable="false" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>`;
+const clockIconSvg = `<svg class="status-chip-logo" aria-hidden="true" focusable="false" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M8 3.5a.75.75 0 0 1 .75.75v3.25h3.25a.75.75 0 0 1 0 1.5h-4a.75.75 0 0 1-.75-.75v-4A.75.75 0 0 1 8 3.5z"/></svg>`;
+const skippedIconSvg = `<svg class="status-chip-logo" aria-hidden="true" focusable="false" viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M4.25 7.25h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5z"/></svg>`;
+const cpuIconSvg = `<svg class="status-chip-logo" aria-hidden="true" focusable="false" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="8" height="6" rx="0.5"/><line x1="6" y1="3" x2="6" y2="5"/><line x1="10" y1="3" x2="10" y2="5"/><line x1="6" y1="11" x2="6" y2="13"/><line x1="10" y1="11" x2="10" y2="13"/></svg>`;
 
 // Resolves appropriate status logo SVG icon based on status string
 function statusIconSvg(status) {
@@ -210,10 +211,43 @@ function humanDuration(seconds) {
   return `${hours}h ${mins}m`;
 }
 
+function durationTrendDescription(trendRows) {
+  const ordered = (trendRows || [])
+    .slice(0, 12)
+    .filter((row) => row.duration_seconds !== null && row.duration_seconds !== undefined)
+    .reverse();
+  if (!ordered.length) return "Build duration trend chart. No duration data available.";
+
+  const latest = ordered[ordered.length - 1];
+  const durations = ordered.map((row) => row.duration_seconds);
+  const minDuration = Math.min(...durations);
+  const maxDuration = Math.max(...durations);
+  const latestStatus = String(latest.conclusion || "unknown").replace(/_/g, " ");
+  return `Build duration trend chart with ${ordered.length} recent runs. Latest run #${latest.run_number || "unknown"} took ${latest.duration_label || humanDuration(latest.duration_seconds)} and finished with ${latestStatus}. Durations range from ${humanDuration(minDuration)} to ${humanDuration(maxDuration)}.`;
+}
+
 // Safely sets textContent of an element if it exists
 function setText(id, value) {
   const node = document.getElementById(id);
   if (node) node.textContent = value;
+}
+
+function announceDashboardStatus() {
+  const region = document.getElementById("dashboard-live-status");
+  if (!region) return;
+  const message = [
+    `Viewing ${selectedChannelLabel()} channel.`,
+    activityState.build ? `Build: ${activityState.build}.` : "",
+    activityState.install ? `Install: ${activityState.install}.` : "",
+    activityState.upstream ? `Upstream: ${activityState.upstream}.` : "",
+    activityState.store ? `Store: ${activityState.store}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  if (message && message !== liveState.lastDashboardAnnouncement) {
+    liveState.lastDashboardAnnouncement = message;
+    region.textContent = message;
+  }
 }
 
 // Maps build conclusions to graph node fill colors
@@ -581,6 +615,8 @@ function renderDurationTrendChart(trendRows) {
 
   if (!ordered.length) {
     container.innerHTML = "";
+    container.setAttribute("aria-label", durationTrendDescription(ordered));
+    container.removeAttribute("aria-describedby");
     return;
   }
 
@@ -610,6 +646,17 @@ function renderDurationTrendChart(trendRows) {
   svg.setAttribute("class", "finance-chart-svg");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-labelledby", "duration-trend-chart-title duration-trend-chart-desc");
+
+  const title = document.createElementNS(ns, "title");
+  title.setAttribute("id", "duration-trend-chart-title");
+  title.textContent = "Build duration trend chart";
+  const desc = document.createElementNS(ns, "desc");
+  desc.setAttribute("id", "duration-trend-chart-desc");
+  desc.textContent = durationTrendDescription(trendRows);
+  svg.append(title, desc);
+  container.setAttribute("aria-label", desc.textContent);
 
   const defs = document.createElementNS(ns, "defs");
   const gradient = document.createElementNS(ns, "linearGradient");
@@ -879,6 +926,7 @@ function renderBuildStatus(buildStatus) {
 
   const trend = buildStatus.duration_trend || [];
   renderDurationTrendChart(trend);
+  announceDashboardStatus();
 }
 
 // Populates a list of hyperlinks pointing to failed pipeline log files
@@ -915,10 +963,8 @@ function renderMatrixRows() {
     const logUrl = row.failed_job_url || row.run_url;
     const badgeSrc = osBadgeByFamily[row.family] || "";
     const statusText = (row.status || "unknown").replace("_", " ");
-    const statusBadgeAlt = `${row.label} status: ${statusText}`;
-    const logoAlt = row.family ? `${row.family} logo` : "Operating system logo";
     const badgeCell = badgeSrc
-      ? `<img class="os-badge" src="${badgeSrc}" alt="${logoAlt}">`
+      ? `<img class="os-badge" src="${badgeSrc}" alt="">`
       : `<span class="mono">${row.family || ""}</span>`;
     const statusCell = isBuildingStatus(row.status)
       ? `<span class="status-chip status-building is-building" aria-label="Status: building">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">building</span><span class="status-text-short" aria-hidden="true">building</span></span>`
@@ -1069,10 +1115,11 @@ function componentStatusHtml(item, currentLabel) {
   }
   if (item.update_available) {
     const pendingLabel = selectedBranch === "edge" ? "Dev commit pending" : "Stable commit pending";
-    return `<span class="status-chip status-caution">${warningIconSvg}${pendingLabel}</span>`;
+    return `<span class="status-chip status-caution" aria-label="Status: ${pendingLabel}">${warningIconSvg}<span aria-hidden="true">${pendingLabel}</span></span>`;
   }
   if (isLivePublishSuccess()) {
-    return `<span class="status-chip status-success">${checkIconSvg}${currentLabel || "Up to date"}</span>`;
+    const label = currentLabel || "Up to date";
+    return `<span class="status-chip status-success" aria-label="Status: ${escapeHtml(label)}">${checkIconSvg}<span aria-hidden="true">${escapeHtml(label)}</span></span>`;
   }
   if (
     item.lag_days === null ||
@@ -1080,9 +1127,10 @@ function componentStatusHtml(item, currentLabel) {
     item.lag_days === 0 ||
     currentLabel
   ) {
-    return `<span class="status-chip status-success">${checkIconSvg}${currentLabel || "Up to date"}</span>`;
+    const label = currentLabel || "Up to date";
+    return `<span class="status-chip status-success" aria-label="Status: ${escapeHtml(label)}">${checkIconSvg}<span aria-hidden="true">${escapeHtml(label)}</span></span>`;
   }
-  return `<span class="status-chip status-caution">${item.lag_days}d behind</span>`;
+  return `<span class="status-chip status-caution" aria-label="Status: ${item.lag_days} days behind"><span aria-hidden="true">${item.lag_days}d behind</span></span>`;
 }
 
 function githubCommitUrl(item, sha) {
@@ -1749,7 +1797,7 @@ function renderChannelSwitch(cs) {
 }
 
 function githubRunnerChipHtml() {
-  return `<span class="status-chip status-neutral status-chip--github-builder">${githubLogoSvg}GitHub runner</span>`;
+  return `<span class="status-chip status-neutral status-chip--github-builder" aria-label="Builder: GitHub runner">${githubLogoSvg}<span aria-hidden="true">GitHub runner</span></span>`;
 }
 
 function renderChannelSwitchTimeline(cs) {
@@ -2799,6 +2847,7 @@ function renderBranchData() {
   if (snapState.snapPackage) {
     renderSnapPackage(snapState.snapPackage);
   }
+  announceDashboardStatus();
 }
 
 function resetLiveWorkflowCache() {
@@ -2818,33 +2867,22 @@ function setupBranchSelector() {
   const btnEdge = document.getElementById("btn-edge");
 
   if (btnStable && btnEdge) {
-    btnStable.addEventListener("click", () => {
-      if (selectedBranch === "stable") return;
-      selectedBranch = "stable";
-      btnStable.classList.add("is-active");
-      btnStable.setAttribute("aria-selected", "true");
-      btnStable.removeAttribute("tabindex");
-      btnEdge.classList.remove("is-active");
-      btnEdge.setAttribute("aria-selected", "false");
-      btnEdge.setAttribute("tabindex", "-1");
+    const selectBranch = (branch) => {
+      if (selectedBranch === branch) return;
+      selectedBranch = branch;
+      const stableActive = branch === "stable";
+      btnStable.classList.toggle("is-active", stableActive);
+      btnStable.setAttribute("aria-pressed", stableActive ? "true" : "false");
+      btnEdge.classList.toggle("is-active", !stableActive);
+      btnEdge.setAttribute("aria-pressed", stableActive ? "false" : "true");
       renderBranchData();
       resetLiveWorkflowCache();
       refreshLiveData();
-    });
+      announceDashboardStatus();
+    };
 
-    btnEdge.addEventListener("click", () => {
-      if (selectedBranch === "edge") return;
-      selectedBranch = "edge";
-      btnStable.classList.remove("is-active");
-      btnStable.setAttribute("aria-selected", "false");
-      btnStable.setAttribute("tabindex", "-1");
-      btnEdge.classList.add("is-active");
-      btnEdge.setAttribute("aria-selected", "true");
-      btnEdge.removeAttribute("tabindex");
-      renderBranchData();
-      resetLiveWorkflowCache();
-      refreshLiveData();
-    });
+    btnStable.addEventListener("click", () => selectBranch("stable"));
+    btnEdge.addEventListener("click", () => selectBranch("edge"));
   }
 }
 
