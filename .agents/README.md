@@ -21,6 +21,7 @@ Follow [models/selection.md](models/selection.md). Use
 
 | Role | Recommended model | Responsibility |
 | --- | --- | --- |
+| Router | any available model | Receive unstructured requests, classify them, ask clarifying questions, and hand a brief to the Architect. |
 | Architect | selected high-reasoning model | Inspect the repo, make design decisions, and write one implementation packet. |
 | Implementer | selected worker coding model | Apply the packet exactly, run listed Workshop checks, and stop. |
 | Reviewer | selected high-reasoning reviewer | Review the diff, verify scope, run checks, and create any follow-up packet. |

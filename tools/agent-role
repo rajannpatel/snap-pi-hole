@@ -4,7 +4,7 @@ import os
 import yaml
 
 def print_usage():
-    print("Usage: tools/agent-role <architect|implementer|reviewer>")
+    print("Usage: tools/agent-role <router|architect|implementer|reviewer>")
     sys.exit(1)
 
 def find_model_selection():
@@ -22,17 +22,34 @@ def find_model_selection():
             return p
     return None
 
+def _print_router_fallback():
+    """Print the router banner and role file for the surface-agnostic fallback paths."""
+    print("=== Multi-Agent Role Verification ===")
+    print("Role:             ROUTER")
+    print("Assigned Model:   (surface-agnostic intake role)")
+    print("Assigned Surface: (any)")
+    print("\n=== Allowed Behavior ===")
+    role_file = ".agents/roles/router.md"
+    if os.path.exists(role_file):
+        with open(role_file, "r") as rf:
+            print(rf.read().strip())
+    else:
+        print(f"Warning: Role guideline file '{role_file}' not found.", file=sys.stderr)
+
 def main():
     if len(sys.argv) < 2:
         print_usage()
     
     role = sys.argv[1].lower()
-    if role not in ["architect", "implementer", "reviewer"]:
-        print(f"Error: Unknown role '{role}'. Expected: architect, implementer, reviewer", file=sys.stderr)
+    if role not in ["router", "architect", "implementer", "reviewer"]:
+        print(f"Error: Unknown role '{role}'. Expected: router, architect, implementer, reviewer", file=sys.stderr)
         print_usage()
         
     model_selection_path = find_model_selection()
     if not model_selection_path:
+        if role == "router":
+            _print_router_fallback()
+            return
         print("Error: No model selection file found. Checked paths:", file=sys.stderr)
         print("  - .agents/local/model-selection.yaml", file=sys.stderr)
         print("  - .agents/models/selection.local.yaml", file=sys.stderr)
@@ -47,6 +64,10 @@ def main():
         sys.exit(1)
         
     assignments = data.get("assignments", {})
+    # Router is surface-agnostic; model assignment is optional
+    if role == "router" and role not in assignments:
+        _print_router_fallback()
+        return
     if role not in assignments:
         print(f"Error: Role '{role}' not assigned in model selection at '{model_selection_path}'.", file=sys.stderr)
         sys.exit(1)

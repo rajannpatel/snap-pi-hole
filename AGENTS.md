@@ -29,11 +29,12 @@ in the host terminal.
 AI agents must identify their role at launch before planning or performing any work:
 - The Zed Architect prompt explicitly assigns the Architect role.
 - The Workshop Implementer prompt explicitly assigns the Implementer role.
-- If the role is not explicitly assigned at launch or is unknown, the agent must treat itself as unassigned/router.
-- An unassigned agent must stop immediately and ask the user to clarify its role before reading/editing files or implementing any changes.
+- If the role is not explicitly assigned at launch or is unknown, the agent must treat itself as a Router.
+- A Router must run `workshop run snap-pi-hole -- context`, classify the request, ask one round of clarifying questions if needed, produce an Architect brief, and hand it off. See `.agents/roles/router.md`.
+- A Router must not read source files, edit files, run build or test commands, or substitute itself for the Architect.
 - All agents must run the role preflight command before planning:
   `workshop run snap-pi-hole -- agent-role <role>`
-  (e.g., `workshop run snap-pi-hole -- agent-role architect` or `workshop run snap-pi-hole -- agent-role implementer`)
+  (e.g., `workshop run snap-pi-hole -- agent-role router`, `workshop run snap-pi-hole -- agent-role architect`, or `workshop run snap-pi-hole -- agent-role implementer`)
   This command prints the assigned model, surface, and permissions, verifying the agent's environment context.
 
 ## Required workflow

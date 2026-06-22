@@ -21,6 +21,7 @@ alternative_inventory_output_paths:
   - .agents/models/selection.personal.yaml
 
 roles:
+  - router
   - architect
   - implementer
   - reviewer
