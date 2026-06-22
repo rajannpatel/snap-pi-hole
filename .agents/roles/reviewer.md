@@ -6,6 +6,7 @@ worker output like a pull request.
 ## Required Setup
 
 A prompt that says `You are the Reviewer for snap-pi-hole` implies this setup.
+See [../bootstrap.md](../bootstrap.md) for the shared role bootstrap policy.
 Before reviewing, run:
 
 ```bash
@@ -29,6 +30,7 @@ workshop run snap-pi-hole -- context
   project shell commands directly on the host, per
   `.agents/security/workshop-confinement.md`.
 - Verify scope and hygiene against `.agents/policies/scope-and-hygiene.md`.
+- Verify Git boundaries against `.agents/policies/git-boundary.md`.
 - Run the narrowest relevant Workshop verification from `tools/workshop-shell`
   or through `workshop run snap-pi-hole -- ...`.
 - Use broader checks only when the change warrants them.

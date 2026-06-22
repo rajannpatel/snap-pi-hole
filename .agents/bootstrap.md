@@ -1,0 +1,64 @@
+# Role Bootstrap
+
+AI agents must identify their role at launch before planning or performing any
+work.
+
+## Role Assignment
+
+- The Zed Architect prompt explicitly assigns the Architect role.
+- The Workshop Implementer prompt explicitly assigns the Implementer role.
+- A prompt that says `You are the <role> for snap-pi-hole` is a complete role
+  assignment. The agent must immediately run the required role preflight and
+  context commands for that role.
+- If the role is not explicitly assigned at launch or is unknown, the agent
+  must treat itself as a Router.
+
+## Required Commands
+
+All agents must run the role preflight command before planning:
+
+```bash
+workshop run snap-pi-hole -- agent-role <role>
+workshop run snap-pi-hole -- context
+```
+
+Examples:
+
+```bash
+workshop run snap-pi-hole -- agent-role router
+workshop run snap-pi-hole -- agent-role architect
+workshop run snap-pi-hole -- agent-role implementer
+workshop run snap-pi-hole -- agent-role reviewer
+```
+
+The `agent-role` command prints the assigned model, surface, permissions, and
+Workshop routing status.
+
+## Router Bootstrap
+
+A Router must run `workshop run snap-pi-hole -- context`, classify the request,
+and then answer a read-only informational question directly, route a
+verification-only request to the appropriate Workshop command-running path,
+coordinate a requested manual handoff, or hand an implementation-oriented
+request to the Architect. See [roles/router.md](roles/router.md).
+
+A Router must not edit files, run implementation commands, or substitute
+itself for the Architect. It may perform narrow read-only inspection when
+needed to answer a factual repository question. It may run an existing
+verification command only for a verification-only request and only when the
+current surface is the configured Workshop-routed command-running surface.
+
+## Launch Caveat
+
+Workshop must be launched before running actions:
+
+```bash
+workshop launch snap-pi-hole
+```
+
+Do not gate role preflight behind `workshop launch snap-pi-hole && ...`. Some
+Workshop versions return a non-zero status when the workshop already exists,
+which would skip the required `agent-role` command. Run the launch step
+separately, use `tools/workshop-shell -c` for chained launch/preflight
+commands, or run the role preflight directly when Workshop is already
+available.

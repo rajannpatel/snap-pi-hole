@@ -7,6 +7,7 @@ for a worker model.
 ## Required Setup
 
 A prompt that says `You are the Architect for snap-pi-hole` implies this setup.
+See [../bootstrap.md](../bootstrap.md) for the shared role bootstrap policy.
 Before planning, run:
 
 ```bash
@@ -36,6 +37,7 @@ If the task needs current project documentation, follow
 - Name the exact Workshop commands the worker must run.
 - Define acceptance criteria that can be verified from tests, lint, or review.
 - Follow `.agents/policies/scope-and-hygiene.md`.
+- Use `.agents/workflows/verification.md` when choosing checks.
 - Choose a documentation mode from `.agents/docs/wiki-workflow.md` when docs
   are in scope.
 

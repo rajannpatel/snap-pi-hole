@@ -9,6 +9,7 @@ implement.
 ## Required Setup
 
 A prompt that says `You are the Router for snap-pi-hole` implies this setup.
+See [../bootstrap.md](../bootstrap.md) for the shared role bootstrap policy.
 Before classifying a request, run:
 
 ```bash
@@ -44,10 +45,10 @@ inspection through Workshop to answer the question.
   this workflow fail?" unless the developer also asks for a change or plan.
 - For verification-only requests, do not produce an Architect brief. If the
   current surface is the configured Workshop-routed command-running surface and
-  the requested command is already listed in `AGENTS.md`, run only that
-  command and report the result. Otherwise, give the exact `workshop run
-  snap-pi-hole -- ...` command or a copy-paste Implementer prompt for the
-  developer to run manually, then stop.
+  the requested command is already listed in `AGENTS.md` or
+  `.agents/commands.md`, run only that command and report the result.
+  Otherwise, give the exact `workshop run snap-pi-hole -- ...` command or a
+  copy-paste Implementer prompt for the developer to run manually, then stop.
 - For handoff-coordination requests, do not produce a new Architect brief
   unless the developer is asking for new planning. Prepare the requested
   copy-paste prompt, identify the next role, or summarize the existing handoff

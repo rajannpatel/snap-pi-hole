@@ -24,6 +24,10 @@ Architect returns a blocker report and asks the developer whether to update
 model selection, launch the Implementer later, or explicitly switch to
 single-agent mode.
 
+Role preflight and context checks are defined in
+[../bootstrap.md](../bootstrap.md). Git mutation and push boundaries are
+defined in [../policies/git-boundary.md](../policies/git-boundary.md).
+
 ## Operating Loop
 
 1. Start an architect planning thread.
@@ -75,6 +79,8 @@ Good packets usually touch one behavior and one test area:
 
 Split work when it crosses unrelated areas, requires a design decision, or
 needs packaging/runtime verification after source-level tests.
+
+Use [verification.md](verification.md) when choosing packet checks.
 
 ## Worker Guardrails
 
