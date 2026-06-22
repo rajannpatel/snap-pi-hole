@@ -17,6 +17,12 @@ Agents may use these host-side entry points:
 - `workshop run snap-pi-hole -- ...`
 - `tools/workshop-shell`
 
+When launch and role preflight are chained, use `tools/workshop-shell -c`
+rather than a raw `workshop launch snap-pi-hole && workshop run ...` command.
+The wrapper treats the known already-launched `workshop exists` response as
+success for `workshop launch snap-pi-hole`, so required preflight commands are
+not skipped.
+
 Inside Workshop, use the named project actions from `workshop.yaml`, such as
 `context`, `doctor`, `test`, `lint`, `build`, `install`, and `smoke`.
 

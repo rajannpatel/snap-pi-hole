@@ -77,6 +77,12 @@ AI agents must identify their role at launch before planning or performing any w
 
 7. **Workshop must be launched before running actions:**
    `workshop launch snap-pi-hole`
+   Do not gate role preflight behind `workshop launch snap-pi-hole && ...`.
+   Some Workshop versions return a non-zero status when the workshop already
+   exists, which would skip the required `agent-role` command. Run the launch
+   step separately, use `tools/workshop-shell -c` for chained launch/preflight
+   commands, or run the role preflight directly when Workshop is already
+   available.
 
 8. **Choose an agent UI mode in uncommitted personal preferences:**
    Workshop terminal mode for command-running agents, or native panel mode

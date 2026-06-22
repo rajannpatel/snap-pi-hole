@@ -10,12 +10,43 @@ run_in_workshop() {
   exec workshop run "${project}" -- shell "$@"
 }
 
+run_host_workshop_command() {
+  local command="$1"
+
+  WORKSHOP_SHELL_COMMAND="${command}" WORKSHOP_PROJECT="${project}" exec bash -lc '
+workshop() {
+  if [ "$#" -ge 2 ] && [ "$1" = "launch" ] && [ "$2" = "${WORKSHOP_PROJECT}" ]; then
+    local output status
+    output="$(command workshop "$@" 2>&1)"
+    status=$?
+
+    if [ "${status}" -eq 0 ]; then
+      [ -z "${output}" ] || printf "%s\n" "${output}"
+      return 0
+    fi
+
+    if printf "%s\n" "${output}" | grep -Fq "workshop exists"; then
+      [ -z "${output}" ] || printf "%s\n" "${output}" >&2
+      return 0
+    fi
+
+    [ -z "${output}" ] || printf "%s\n" "${output}" >&2
+    return "${status}"
+  fi
+
+  command workshop "$@"
+}
+
+eval "${WORKSHOP_SHELL_COMMAND}"
+'
+}
+
 run_command() {
   local command="$1"
 
   case "${command}" in
     workshop\ launch*|workshop\ refresh*|workshop\ run\ "${project}"\ --*)
-      exec bash -lc "${command}"
+      run_host_workshop_command "${command}"
       ;;
     *)
       run_in_workshop bash -lc "${command}"

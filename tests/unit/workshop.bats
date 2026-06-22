@@ -726,7 +726,18 @@ PYEOF
 
     grep -qF 'workshop run "${project}" -- shell' "${shell}"
     grep -qF 'run_command "${1:-}"' "${shell}"
+    grep -qF 'run_host_workshop_command "${command}"' "${shell}"
     grep -qF 'workshop\ run\ "${project}"\ --*' "${shell}"
+    grep -qF 'grep -Fq "workshop exists"' "${shell}"
+    grep -qF 'eval "${WORKSHOP_SHELL_COMMAND}"' "${shell}"
+}
+
+@test "agent instructions prevent launch short-circuiting role preflight" {
+    grep -qF "Do not gate role preflight behind \`workshop launch snap-pi-hole && ...\`." "${REPO_ROOT}/AGENTS.md"
+    grep -qF "which would skip the required \`agent-role\` command" "${REPO_ROOT}/AGENTS.md"
+    grep -qF "use \`tools/workshop-shell -c\`" "${REPO_ROOT}/.agents/security/workshop-confinement.md"
+    grep -qF "The wrapper treats the known already-launched \`workshop exists\` response as" "${REPO_ROOT}/.agents/security/workshop-confinement.md"
+    grep -qF "success for \`workshop launch snap-pi-hole\`, so required preflight commands are" "${REPO_ROOT}/.agents/security/workshop-confinement.md"
 }
 
 @test "local Workshop customization paths are ignored" {
