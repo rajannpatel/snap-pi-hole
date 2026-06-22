@@ -62,7 +62,7 @@ AI agents must identify their role at launch before planning or performing any w
    - Full BATS suite:       `workshop run snap-pi-hole -- test`
    - JS dependencies:       `workshop run snap-pi-hole -- deps-js`
    - JSDOM tests:           `workshop run snap-pi-hole -- test-jsdom`
-   - Snap Chromium tests:   `workshop run snap-pi-hole -- test-playwright-snap`
+   - Playwright browser tests: `workshop run snap-pi-hole -- test-playwright-snap`
    - Lint suite:            `workshop run snap-pi-hole -- lint`
    - JavaScript lint:       `workshop run snap-pi-hole -- lint-js`
    - Format check:          `workshop run snap-pi-hole -- format-check`
@@ -184,7 +184,7 @@ container or CI environment, not directly on the host:
 
 ```bash
 cd tests && npm run test:jsdom
-cd tests && npm run test:playwright:snap
+cd tests && npm run test:playwright
 cd tests && npm run lint:js
 cd tests && npm run format:check
 yamllint -c .yamllint snap/snapcraft.yaml

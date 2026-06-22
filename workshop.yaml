@@ -56,7 +56,6 @@ actions:
     command -v yamllint
     command -v yq
     dpkg-query -W -f='${Status}' build-essential | grep -qx "install ok installed"
-    test -x /snap/bin/chromium
     echo "==> Snapcraft"
     snapcraft version
     echo "==> snapd"
@@ -94,6 +93,7 @@ actions:
   deps-js: |
     cd tests
     npm ci
+    npx playwright install --with-deps chromium
 
   lint-js: |
     cd tests
@@ -128,7 +128,7 @@ actions:
 
   test-playwright-snap: |
     cd tests
-    npm run test:playwright:snap
+    npm run test:playwright
 
   coverage: |
     tests/scripts/local-preview.sh kcov

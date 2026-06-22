@@ -33,7 +33,7 @@ with open("${REPO_ROOT}/workshop.yaml") as f:
     doc = yaml.safe_load(f)
 
 names = [sdk.get("name") for sdk in doc["sdks"]]
-assert names == ["uv", "project-tools", "try-agy", "system"], names
+assert names == ["uv", "project-tools", "agy", "system"], names
 assert "codex" not in names
 assert "copilot" not in names
 assert "claude-code" not in names
@@ -134,6 +134,7 @@ with open("${REPO_ROOT}/workshop.yaml") as f:
     actions = yaml.safe_load(f)["actions"]
 
 doctor = actions["doctor"]
+retired_chromium_path = "/" + "snap/bin/chromium"
 required = {
     "awk",
     "bats",
@@ -168,7 +169,7 @@ declared = set(re.findall(r"^\\s*command -v ([A-Za-z0-9_.+-]+)\\s*$", doctor, re
 missing = sorted(required - declared)
 assert not missing, f"doctor is missing command checks for: {missing}"
 assert "dpkg-query -W -f='\${Status}' build-essential" in doctor
-assert "test -x /snap/bin/chromium" in doctor
+assert retired_chromium_path not in doctor
 
 for action_name in (
     "context",
@@ -211,6 +212,8 @@ from pathlib import Path
 setup_base = Path("${REPO_ROOT}/.workshop/tools/hooks/setup-base").read_text()
 setup_project = Path("${REPO_ROOT}/.workshop/tools/hooks/setup-project").read_text()
 check_health = Path("${REPO_ROOT}/.workshop/tools/hooks/check-health").read_text()
+retired_chromium_install = "snap install " + "chromium"
+retired_chromium_path = "/" + "snap/bin/chromium"
 
 assert "nodejs" in setup_base
 assert "npm" in setup_base
@@ -233,13 +236,14 @@ for package in (
     assert package in setup_base, f"setup-base missing package: {package}"
 assert "ln -sf /usr/bin/fdfind /usr/local/bin/fd" in setup_base
 assert "/usr/local/bin/nodejs" in setup_base
-assert "snap install chromium" in setup_base
+assert retired_chromium_install not in setup_base
 assert "tests/package-lock.json" in setup_project
 assert "npm ci" in setup_project
+assert "npx playwright install --with-deps chromium" in setup_project
 for command in ("awk", "curl", "fd", "g++", "gcc", "gh", "git", "jq", "make", "node", "nodejs", "npm", "npx", "python3", "rg", "ruby", "sed", "tree", "uv", "wget", "yq"):
     assert command in check_health, f"check-health missing command: {command}"
 assert "build-essential" in check_health
-assert "/snap/bin/chromium" in check_health
+assert retired_chromium_path not in check_health
 PYEOF
 }
 
@@ -828,10 +832,16 @@ EOF
 schema_version: 1
 kind: agent-model-selection
 metadata: {}
-model_access: {}
+model_access:
+  gateways:
+    - agy
 agent_surfaces:
   - id: workshop_terminal_cli_tui
     type: workshop_terminal
+    providers_or_gateways:
+      - agy
+    models:
+      - Claude Sonnet 4.6 (Thinking)
     command_execution:
       can_run_shell: true
       mode: workshop_shell
@@ -841,8 +851,8 @@ agent_surfaces:
 assignments:
   implementer:
     surface_id: workshop_terminal_cli_tui
-    model: Gemini agy app
-    provider_or_gateway: Gemini agy app
+    model: Claude Sonnet 4.6 (Thinking)
+    provider_or_gateway: agy
 EOF
 
     run "${REPO_ROOT}/tools/agent-handoff" "$test_packet"
@@ -858,10 +868,16 @@ EOF
 schema_version: 1
 kind: agent-model-selection
 metadata: {}
-model_access: {}
+model_access:
+  gateways:
+    - agy
 agent_surfaces:
   - id: other_surface
     type: workshop_terminal
+    providers_or_gateways:
+      - agy
+    models:
+      - Claude Sonnet 4.6 (Thinking)
     command_execution:
       can_run_shell: true
       mode: workshop_shell
@@ -871,8 +887,8 @@ agent_surfaces:
 assignments:
   implementer:
     surface_id: other_surface
-    model: Gemini agy app
-    provider_or_gateway: Gemini agy app
+    model: Claude Sonnet 4.6 (Thinking)
+    provider_or_gateway: agy
 EOF
 
     run "${REPO_ROOT}/tools/agent-handoff" "$test_packet"
@@ -885,10 +901,16 @@ EOF
 schema_version: 1
 kind: agent-model-selection
 metadata: {}
-model_access: {}
+model_access:
+  gateways:
+    - agy
 agent_surfaces:
   - id: workshop_terminal_cli_tui
     type: workshop_terminal
+    providers_or_gateways:
+      - agy
+    models:
+      - Claude Sonnet 4.6 (Thinking)
     command_execution:
       can_run_shell: true
       mode: workshop_shell
@@ -899,12 +921,12 @@ assignments:
   implementer:
     surface_id: workshop_terminal_cli_tui
     model: Other Model
-    provider_or_gateway: Gemini agy app
+    provider_or_gateway: agy
 EOF
 
     run "${REPO_ROOT}/tools/agent-handoff" "$test_packet"
     [ "$status" -ne 0 ]
-    echo "$output" | grep -qF "Error: Implementer model must be"
+    echo "$output" | grep -qF "Error: Implementer model 'Other Model' is not listed on surface"
 
     # 7. Test: Invalid model selection - not workshop-routed
     export MODEL_SELECTION_PATH="${TEST_TMPDIR}/not_routed.yaml"
@@ -912,10 +934,16 @@ EOF
 schema_version: 1
 kind: agent-model-selection
 metadata: {}
-model_access: {}
+model_access:
+  gateways:
+    - agy
 agent_surfaces:
   - id: workshop_terminal_cli_tui
     type: workshop_terminal
+    providers_or_gateways:
+      - agy
+    models:
+      - Claude Sonnet 4.6 (Thinking)
     command_execution:
       can_run_shell: true
       mode: workshop_shell
@@ -925,8 +953,8 @@ agent_surfaces:
 assignments:
   implementer:
     surface_id: workshop_terminal_cli_tui
-    model: Gemini agy app
-    provider_or_gateway: Gemini agy app
+    model: Claude Sonnet 4.6 (Thinking)
+    provider_or_gateway: agy
 EOF
 
     run "${REPO_ROOT}/tools/agent-handoff" "$test_packet"

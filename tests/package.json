@@ -12,7 +12,6 @@
     "lint:js": "sh -c 'cd .. && git ls-files \"*.js\" | xargs npx --yes eslint@9 --config eslint.config.mjs'",
     "test:jsdom": "node --test dashboard-logic-tests.spec.js",
     "test:playwright": "playwright test --config playwright.config.js",
-    "test:playwright:snap": "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/snap/bin/chromium playwright test --config playwright.config.js",
     "test": "npm run test:jsdom && npm run test:playwright"
   }
 }

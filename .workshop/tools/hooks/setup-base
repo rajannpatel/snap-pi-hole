@@ -68,5 +68,4 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 
-snap install chromium
 snap install snapcraft --channel=9.x/stable --classic

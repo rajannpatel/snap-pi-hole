@@ -10,4 +10,5 @@ fi
 if [ -f tests/package-lock.json ]; then
   cd tests
   npm ci
+  npx playwright install --with-deps chromium
 fi

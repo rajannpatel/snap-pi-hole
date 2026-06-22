@@ -17,9 +17,4 @@ if [ "${#missing[@]}" -gt 0 ]; then
   exit 1
 fi
 
-if [ ! -x /snap/bin/chromium ]; then
-  workshopctl set-health error "missing required tool: /snap/bin/chromium"
-  exit 1
-fi
-
 workshopctl set-health okay
