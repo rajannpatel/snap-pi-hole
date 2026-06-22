@@ -6,7 +6,8 @@ sdks:
   - name: uv
     channel: latest/stable
   - name: project-tools
-  - name: try-agy
+  - name: agy
+    channel: latest/stable
   - name: system
     plugs:
       admin-web:
