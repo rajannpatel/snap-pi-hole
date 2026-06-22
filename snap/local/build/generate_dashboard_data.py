@@ -200,8 +200,17 @@ def extract_snapcraft_versions_from_git(repo_root, ref):
 
 
 def extract_track_upstream_cron(track_workflow_path):
-    # Renovate Bot is used instead of the custom GitHub Action
-    return {"cron": "", "label": "Automated (Renovate)"}
+    content = track_workflow_path.read_text(encoding="utf-8")
+    match = re.search(r"cron:\s*'([^']+)'", content)
+    if not match:
+        return {"cron": "", "label": "Unknown"}
+    cron = match.group(1)
+    label = "Scheduled"
+    if cron == "0 0 * * *":
+        label = "Daily at 00:00 UTC"
+    elif cron == "0 */3 * * *":
+        label = "Every 3 hours"
+    return {"cron": cron, "label": label}
 
 
 def run_duration_seconds(run):
@@ -1500,40 +1509,19 @@ def collect_snap_package_data(client, repo_root):
 
 
 def collect_track_upstream_status(client):
-    # Query for recent PRs created by Renovate
-    pulls_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/pulls"
-    params = {"state": "all", "per_page": 10}
-    pulls = client.get_json_or_empty(pulls_url, params=params)
-
-    # Find the latest pull request from Renovate
-    renovate_pr = None
-    if isinstance(pulls, list):
-        for pr in pulls:
-            user = pr.get("user", {})
-            if user and user.get("login") in ("renovate[bot]", "renovate"):
-                renovate_pr = pr
-                break
-
-    if renovate_pr:
-        updated_at = renovate_pr.get("updated_at", "")
-        url = renovate_pr.get("html_url", "")
-        return {
-            "latest_success_run": {
-                "run_number": renovate_pr.get("number"),
-                "updated_at": updated_at,
-                "url": url,
-                "duration_seconds": "Renovate PRs",
-            }
+    runs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/workflows/track-upstream-releases.yml/runs"
+    runs = client.get_json_or_empty(runs_url, params={"per_page": 10, "status": "completed"}).get("workflow_runs", [])
+    latest_success = next((run for run in runs if run.get("conclusion") == "success"), None)
+    duration = run_duration_seconds(latest_success) if latest_success else None
+    return {
+        "latest_success_run": {
+            "run_number": latest_success.get("run_number") if latest_success else None,
+            "updated_at": latest_success.get("updated_at") if latest_success else "",
+            "url": latest_success.get("html_url") if latest_success else "",
+            "duration_seconds": duration,
+            "duration_label": human_duration(duration),
         }
-    else:
-        return {
-            "latest_success_run": {
-                "run_number": None,
-                "updated_at": "",
-                "url": f"https://github.com/{OWNER}/{REPO}/pulls?q=is%3Apr+author%3Aapp%2Frenovate",
-                "duration_seconds": "Renovate PRs",
-            }
-        }
+    }
 
 
 def dt_to_iso(value):
@@ -1601,7 +1589,7 @@ def main():
     edge_releases = collect_edge_release_data(client, edge_versions, versions)
     snap_package = collect_snap_package_data(client, repo_root)
     auto_update = collect_track_upstream_status(client)
-    schedule = extract_track_upstream_cron(None)
+    schedule = extract_track_upstream_cron(repo_root / ".github" / "workflows" / "track-upstream-releases.yml")
     channel_switch = fill_channel_switch_revisions(
         collect_channel_switch_status(client, "main"),
         snap_package,

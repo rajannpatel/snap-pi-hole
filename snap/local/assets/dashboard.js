@@ -323,25 +323,19 @@ function workflowButtonHtml(url, durationSeconds, contextLabel, isBuilding = fal
 
   if (showSpinner) {
     if (durationSeconds !== null && durationSeconds !== undefined) {
-      const durationLabel =
-        typeof durationSeconds === "string" ? durationSeconds : humanDuration(durationSeconds);
+      const durationLabel = humanDuration(durationSeconds);
       contentHtml = `${githubLogoSvg}${spinnerHtml}<span class="workflow-btn__label">${escapeHtml(durationLabel)}</span>`;
       accessibleLabel = `${contextLabel || "Workflow"} active, duration: ${durationLabel}`;
-      const startTime =
-        Date.now() - (typeof durationSeconds === "number" ? durationSeconds * 1000 : 0);
+      const startTime = Date.now() - durationSeconds * 1000;
       dataAttrs = ` data-start-time="${startTime}" data-context-label="${escapeHtml(contextLabel || "Workflow")}"`;
     } else {
       contentHtml = `${githubLogoSvg}${spinnerHtml}<span class="workflow-btn__label">&#8203;</span>`;
       accessibleLabel = `${contextLabel || "Workflow"} loading`;
     }
   } else {
-    const durationLabel =
-      typeof durationSeconds === "string" ? durationSeconds : humanDuration(durationSeconds);
+    const durationLabel = humanDuration(durationSeconds);
     contentHtml = `${githubLogoSvg}<span class="workflow-btn__label">${escapeHtml(durationLabel)}</span>`;
-    accessibleLabel =
-      typeof durationSeconds === "string"
-        ? contextLabel
-        : `${contextLabel || "Workflow"} duration: ${durationLabel}`;
+    accessibleLabel = `${contextLabel || "Workflow"} duration: ${durationLabel}`;
   }
 
   if (!url) {
@@ -1242,15 +1236,7 @@ function renderSnapFreshness(snapPackage, rows) {
 
 // Writes the live countdown sentence for the next scheduled rebuild check
 function renderReleaseTrackingScheduleNote() {
-  const isRenovate = globalDashboardData?.auto_update?.frequency?.label === "Automated (Renovate)";
-  if (isRenovate) {
-    setText(
-      "release-tracking-schedule-note",
-      "Release tracking is managed automatically by Renovate Bot.",
-    );
-  } else {
-    setText("release-tracking-schedule-note", scheduledCheckLabel(releaseTrackingNextCheckMs));
-  }
+  setText("release-tracking-schedule-note", scheduledCheckLabel(releaseTrackingNextCheckMs));
 }
 function getNextCronTime() {
   const now = new Date();
@@ -1263,24 +1249,16 @@ function getNextCronTime() {
 
 // Aggregates and displays general snap store track updates and release indicators
 function renderReleaseInfo(data) {
-  const isRenovate = data.auto_update?.frequency?.label === "Automated (Renovate)";
   const trackRun = data.auto_update?.latest_success_run || {};
   const lastCheck = trackRun.updated_at;
+  const nextCheckDate = getNextCronTime();
+  const nextCheck = nextCheckDate.toISOString();
 
   setText("stable-track-updated", formatDate(lastCheck));
   setText("edge-track-updated", formatDate(lastCheck));
-
-  if (isRenovate) {
-    setText("stable-track-next", "Continuous");
-    setText("edge-track-next", "Continuous");
-    releaseTrackingNextCheckMs = null;
-  } else {
-    const nextCheckDate = getNextCronTime();
-    const nextCheck = nextCheckDate.toISOString();
-    setText("stable-track-next", formatDate(nextCheck));
-    setText("edge-track-next", formatDate(nextCheck));
-    releaseTrackingNextCheckMs = nextCheckDate.getTime();
-  }
+  setText("stable-track-next", formatDate(nextCheck));
+  setText("edge-track-next", formatDate(nextCheck));
+  releaseTrackingNextCheckMs = nextCheckDate.getTime();
   renderReleaseTrackingScheduleNote();
 
   // Calculate status for stable
@@ -2265,11 +2243,6 @@ async function applyLiveTrackUpstream(latestByWorkflow) {
     if (jobDetails.status) {
       isBuilding = isBuildingStatus(jobDetails.status);
     }
-  } else {
-    // Fallback to Renovate Bot baked data
-    const trackRun = globalDashboardData?.auto_update?.latest_success_run || {};
-    jobUrl = trackRun.url || "";
-    durationSeconds = trackRun.duration_seconds;
   }
 
   if (isBuilding) {
