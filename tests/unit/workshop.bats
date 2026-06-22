@@ -420,7 +420,18 @@ PYEOF
     python3 - <<PYEOF
 from pathlib import Path
 
-text = Path("${REPO_ROOT}/AGENTS.md").read_text()
+root = Path("${REPO_ROOT}")
+agents_text = (root / "AGENTS.md").read_text()
+bootstrap_text = (root / ".agents/bootstrap.md").read_text()
+bootstrap_normalized = " ".join(bootstrap_text.split())
+
+for needle in (
+    "workshop run snap-pi-hole -- agent-role <role>",
+    "workshop run snap-pi-hole -- context",
+    ".agents/bootstrap.md",
+):
+    assert needle in agents_text, needle
+
 for needle in (
     "You are the <role> for snap-pi-hole",
     "complete role assignment",
@@ -428,7 +439,7 @@ for needle in (
     "workshop run snap-pi-hole -- agent-role <role>",
     "workshop run snap-pi-hole -- context",
 ):
-    assert needle in text, needle
+    assert needle in bootstrap_normalized, needle
 PYEOF
 }
 
@@ -492,14 +503,17 @@ for rel, needles in required_docs.items():
 
 references = {
     ".agents/README.md": [
+        "bootstrap.md",
         "security/workshop-confinement.md",
+        "commands.md",
+        "workflows/verification.md",
+        "policies/git-boundary.md",
+        "policies/scope-and-hygiene.md",
+        "workflows/delegation.md",
+        "workflows/editor-preflight.md",
+        "docs/wiki-workflow.md",
         "models/selection.md",
         "templates/role-launch-prompts.md",
-        "You are the <role> for snap-pi-hole",
-        "docs/wiki-workflow.md",
-        "workflows/delegation.md",
-        "panel-role-assignment",
-        "policies/scope-and-hygiene.md",
     ],
     ".agents/roles/router.md": [
         "You are the Router for snap-pi-hole",
@@ -557,6 +571,13 @@ for rel, needles in references.items():
     text = (root / rel).read_text()
     for needle in needles:
         assert needle in text, f"{rel} missing reference {needle!r}"
+
+assert "You are the <role> for snap-pi-hole" in (
+    root / ".agents/bootstrap.md"
+).read_text()
+assert "Panel Role Assignment" in (
+    root / ".agents/workflows/delegation.md"
+).read_text()
 PYEOF
 }
 
@@ -737,11 +758,39 @@ PYEOF
 }
 
 @test "agent instructions prevent launch short-circuiting role preflight" {
-    grep -qF "Do not gate role preflight behind \`workshop launch snap-pi-hole && ...\`." "${REPO_ROOT}/AGENTS.md"
-    grep -qF "which would skip the required \`agent-role\` command" "${REPO_ROOT}/AGENTS.md"
-    grep -qF "use \`tools/workshop-shell -c\`" "${REPO_ROOT}/.agents/security/workshop-confinement.md"
-    grep -qF "The wrapper treats the known already-launched \`workshop exists\` response as" "${REPO_ROOT}/.agents/security/workshop-confinement.md"
-    grep -qF "success for \`workshop launch snap-pi-hole\`, so required preflight commands are" "${REPO_ROOT}/.agents/security/workshop-confinement.md"
+    python3 - <<PYEOF
+from pathlib import Path
+
+root = Path("${REPO_ROOT}")
+agents_text = (root / "AGENTS.md").read_text()
+bootstrap_text = (root / ".agents/bootstrap.md").read_text()
+confinement_text = (
+    root / ".agents/security/workshop-confinement.md"
+).read_text()
+confinement_normalized = " ".join(confinement_text.split())
+
+for needle in (
+    ".agents/bootstrap.md",
+    ".agents/security/workshop-confinement.md",
+):
+    assert needle in agents_text, needle
+
+for needle in (
+    "workshop launch snap-pi-hole",
+    "workshop launch snap-pi-hole && ...",
+    "which would skip the required \`agent-role\` command",
+    "tools/workshop-shell -c",
+):
+    assert needle in bootstrap_text, needle
+
+for needle in (
+    "tools/workshop-shell -c",
+    "workshop launch snap-pi-hole && workshop run",
+    "already-launched \`workshop exists\`",
+    "required preflight commands are not skipped",
+):
+    assert needle in confinement_normalized, needle
+PYEOF
 }
 
 @test "local Workshop customization paths are ignored" {
