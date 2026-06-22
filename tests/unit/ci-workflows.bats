@@ -293,7 +293,7 @@ for workflow in ("${REPO_ROOT}/.github/workflows/cicd.yml", "${REPO_ROOT}/.githu
 PYEOF
 }
 
-@test "cicd snap gate excludes markdown-only pushes from package publishing" {
+@test "cicd snap gate excludes docs tests gui and asset-only pushes from package publishing" {
     python3 - <<PYEOF
 import yaml
 
@@ -307,6 +307,14 @@ filters = filter_step["with"]["filters"]
 assert "README.md" not in filters, filters
 assert "'**/*.md'" not in filters, filters
 assert '"**/*.md"' not in filters, filters
+assert "- 'tests/**'" not in filters, filters
+assert "- '!tests/unit/workshop.bats'" not in filters, filters
+assert "- 'snap/gui/**'" not in filters, filters
+assert "snap/local/assets" not in filters, filters
+assert "- 'snap/snapcraft.yaml'" in filters, filters
+assert "- 'snap/hooks/**'" in filters, filters
+assert "- 'snap/local/runtime/**'" in filters, filters
+assert "- 'snap/local/build/ftl-override-build.sh'" in filters, filters
 
 build = jobs["build"]
 assert "needs.changes.outputs.snap == 'true'" in build["if"], build["if"]

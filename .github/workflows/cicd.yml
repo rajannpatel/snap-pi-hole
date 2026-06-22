@@ -31,8 +31,6 @@ jobs:
               - 'snap/local/runtime/**'
               - 'snap/local/testing/**'
               - 'snap/local/patches/**'
-              - 'snap/gui/**'
-              - 'tests/**'
               - '.github/workflows/cicd.yml'
               - '.github/workflows/launchpad-builds.yml'
               - '.github/workflows/launchpad-recovery.yml'
