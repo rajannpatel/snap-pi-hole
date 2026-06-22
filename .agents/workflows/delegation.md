@@ -12,6 +12,10 @@ Architect unless it is explicitly running as the selected Implementer. The
 Architect produces the implementation packet and stops. It does not edit files,
 run implementation commands, or substitute itself for the worker.
 
+A Router thread is never the implementation thread. If the Router receives an
+implementation-oriented follow-up after answering prior questions, it must hand
+the request to the Architect and stop.
+
 The Implementer must be a separate thread on the selected Implementer model,
 provider or gateway, and Workshop-routed surface from the active
 model-selection inventory. A platform sub-agent, nested agent, or same-model

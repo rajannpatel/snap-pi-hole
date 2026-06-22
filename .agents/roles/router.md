@@ -67,6 +67,11 @@ inspection through Workshop to answer the question.
   - What acceptance criteria were stated or inferred
 - Then hand the brief to the Architect and stop.
 
+Role continuity rule: If a later message in the same Router thread becomes
+implementation-oriented, the Router still only writes the Architect brief and
+stops. Starting the Architect or Implementer requires a separate explicitly
+assigned role prompt.
+
 ## Direct Answer Format
 
 For informational requests, answer in plain language with file references when
@@ -146,3 +151,9 @@ Stop and ask the developer before escalating if:
   surface.
 - Write an implementation packet — that is the Architect's job.
 - Substitute itself for the Architect or Implementer.
+- Change its own role by running `agent-role architect`,
+  `agent-role implementer`, or `agent-role reviewer`. A thread that starts as
+  Router stays Router until it stops.
+- Treat developer approval of proposed changes as permission to implement.
+  Concrete choices such as "do #1 and #2" are implementation-oriented follow-up
+  requests; produce an Architect brief and stop.

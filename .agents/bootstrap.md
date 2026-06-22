@@ -13,6 +13,11 @@ work.
 - If the role is not explicitly assigned at launch or is unknown, the agent
   must treat itself as a Router.
 
+A role assignment is per thread. An agent must not self-reassign to another
+role by running a different `agent-role` command. To change roles, start a new
+thread or provide a fresh prompt that explicitly says `You are the <role> for
+snap-pi-hole`.
+
 ## Required Commands
 
 All agents must run the role preflight command before planning:
