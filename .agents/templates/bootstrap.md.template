@@ -45,7 +45,7 @@ A Router must run `workshop run <project-alias> -- context`, classify the reques
 and then answer a read-only informational question directly, route a
 verification-only request to the appropriate Workshop command-running path,
 coordinate a requested manual handoff, or hand an implementation-oriented
-request to the Architect. See [roles/router.md](roles/router.md).
+request to the Architect.
 
 A Router must not edit files, run implementation commands, or substitute
 itself for the Architect. It may perform narrow read-only inspection when

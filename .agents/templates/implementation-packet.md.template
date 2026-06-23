@@ -1,0 +1,27 @@
+# Implementation Packet
+
+## Task Overview
+[Describe the specific implementation task concisely]
+
+## Environment & Model Context
+*Required: Must be filled by Architect before delegation.*
+- **Target Workshop Surface:** [e.g., Workshop terminal CLI/TUI]
+- **Assigned Implementer Model:** [e.g., Claude 3.5 Sonnet]
+- **Workshop-Routed:** Yes
+- **Authorized Entrypoints:** `tools/workshop-shell`, `workshop run <project-alias> -- ...`
+
+## Files to Edit
+- [File path 1]
+- [File path 2]
+
+## Required Workshop Commands
+1. `workshop run <project-alias> -- <command>`
+2. `workshop run <project-alias> -- <command>`
+
+## Acceptance Criteria
+- [Criteria 1]
+- [Criteria 2]
+
+## Verification Plan
+1. Run: `workshop run <project-alias> -- <test-command>`
+2. Run: `workshop run <project-alias> -- <lint-command>`

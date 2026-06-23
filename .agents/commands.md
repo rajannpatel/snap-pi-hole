@@ -6,23 +6,23 @@ over lower-level commands.
 ## Workshop Actions
 
 ```bash
-workshop run snap-pi-hole -- agent-role <role>
-workshop run snap-pi-hole -- context
-workshop run snap-pi-hole -- doctor
-workshop run snap-pi-hole -- test tests/unit/<file>.bats
-workshop run snap-pi-hole -- test
-workshop run snap-pi-hole -- deps-js
-workshop run snap-pi-hole -- test-jsdom
-workshop run snap-pi-hole -- test-playwright-snap
-workshop run snap-pi-hole -- lint
-workshop run snap-pi-hole -- lint-js
-workshop run snap-pi-hole -- format-check
-workshop run snap-pi-hole -- shellcheck
-workshop run snap-pi-hole -- yamllint
-workshop run snap-pi-hole -- build
-workshop run snap-pi-hole -- install
-workshop run snap-pi-hole -- smoke
-workshop run snap-pi-hole -- shell
+workshop run <project-alias> -- agent-role <role>
+workshop run <project-alias> -- context
+workshop run <project-alias> -- doctor
+workshop run <project-alias> -- test tests/unit/<file>.bats
+workshop run <project-alias> -- test
+workshop run <project-alias> -- deps-js
+workshop run <project-alias> -- test-jsdom
+workshop run <project-alias> -- test-playwright-snap
+workshop run <project-alias> -- lint
+workshop run <project-alias> -- lint-js
+workshop run <project-alias> -- format-check
+workshop run <project-alias> -- shellcheck
+workshop run <project-alias> -- yamllint
+workshop run <project-alias> -- build
+workshop run <project-alias> -- install
+workshop run <project-alias> -- smoke
+workshop run <project-alias> -- shell
 ```
 
 Repo-local slash commands such as `/tdd`, `/grill-with-docs`, and `/diagnose`
