@@ -8,6 +8,10 @@ sdks:
   - name: project-tools
   - name: agy
     channel: latest/stable
+  - name: copilot
+    channel: latest/stable
+  - name: kiro
+    channel: latest/edge
   - name: system
     plugs:
       admin-web:
