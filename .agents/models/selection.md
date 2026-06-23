@@ -34,9 +34,9 @@ enough for delegation if the provider or gateway is ambiguous.
 
 | Role | Selection rule |
 | --- | --- |
-| Architect | Use the strongest planning and deep-reasoning model available on a suitable surface. Prefer models suited to architecture, complex refactors, long-horizon debugging, and repository-level planning. |
-| Implementer | Use a reliable coding model on a surface that can run commands safely through Workshop. The selected model must have an explicit provider or gateway on that same surface. The model must follow narrow instructions and stop on blockers. |
-| Reviewer | Use a strong reasoning model with good bug-finding behavior. It can be the same model class as Architect, but should run in a separate review pass. |
+- Architect: Use the strongest planning and deep-reasoning model available on a suitable surface. Prefer models suited to architecture, complex refactors, long-horizon debugging, and repository-level planning. `workshop_routed: true` is required.
+- Implementer: Use a reliable coding model on a surface that can run commands safely through Workshop. The selected model must have an explicit provider or gateway on that same surface. The model must follow narrow instructions and stop on blockers. `workshop_routed: true` is required.
+- Reviewer: Use a strong reasoning model with good bug-finding behavior. It can be the same model class as Architect, but should run in a separate review pass. `workshop_routed: true` is required.
 | Inline assistant | Use the editor-native completion/chat assistant for small local edits under human control. |
 
 Suitable examples include Claude Opus/Sonnet-class models, GPT-5/o-series or

@@ -1,4 +1,7 @@
 # Reviewer Role
+#
+# Workshop Confinement: MANDATORY. All tasks must be performed within the
+# Workshop container.
 
 You are the reviewer for delegated agent work in this repository. Treat the
 worker output like a pull request.
