@@ -219,6 +219,54 @@ for row in rows:
 PYEOF
 }
 
+@test "dashboard data: distro matrix treats skipped cicd run as skipped data" {
+    python3 - <<PYEOF
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        if url.endswith("/actions/workflows/cicd.yml/runs"):
+            return {
+                "workflow_runs": [
+                    {
+                        "id": 123,
+                        "status": "completed",
+                        "conclusion": "skipped",
+                        "run_number": 42,
+                        "head_branch": "main",
+                        "event": "push",
+                        "run_started_at": "2026-06-08T10:00:00Z",
+                        "updated_at": "2026-06-08T10:00:05Z",
+                        "html_url": "https://example.test/run/123",
+                    }
+                ]
+            }
+        if url.endswith("/actions/runs/123/jobs"):
+            return {"jobs": []}
+        raise AssertionError(f"unexpected URL: {url}")
+
+original = dashboard.DISTRO_WORKFLOWS
+try:
+    dashboard.DISTRO_WORKFLOWS = [
+        {"id": "ubuntu", "label": "Ubuntu", "workflow": "cicd.yml", "family": "Ubuntu"},
+    ]
+    matrix = dashboard.collect_distro_matrix(FakeClient())
+finally:
+    dashboard.DISTRO_WORKFLOWS = original
+
+row = matrix["rows"][0]
+assert row["status"] == "skipped", row
+assert row["conclusion"] == "skipped", row
+assert row["duration_seconds"] is None, row
+assert row["duration_label"] == "Unknown", row
+assert row["workflow_state"] == "skipped", row
+assert row["workflow_reason"] == "Workflow skipped", row
+assert row["run_url"] == "https://example.test/run/123", row
+PYEOF
+}
+
 @test "dashboard data: track-upstream status includes latest run duration" {
     python3 - <<PYEOF
 import sys
@@ -499,6 +547,77 @@ assert amd["status"] == "no_data", amd
 assert amd["url"] == "", amd
 assert amd["job_name"] == "", amd
 assert amd["duration_label"] == "Unknown", amd
+PYEOF
+}
+
+@test "dashboard data: snap package keeps last good workflow when latest run is skipped" {
+    python3 - <<PYEOF
+import pathlib
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+def ch(track, risk, arch, version, revision, released, size):
+    return {
+        "channel": {"track": track, "risk": risk, "architecture": arch, "released-at": released},
+        "version": version,
+        "revision": revision,
+        "download": {"size": size, "url": f"https://example.test/{arch}.snap"},
+    }
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        if url == dashboard.SNAPCRAFT_INFO_URL:
+            return {
+                "channel-map": [
+                    ch("latest", "stable", "amd64", "v6.4.2", 1, "2026-06-10T17:00:00Z", 100),
+                ]
+            }
+        if url.endswith("/actions/workflows/cicd.yml/runs"):
+            return {"workflow_runs": [
+                {
+                    "id": 101,
+                    "run_number": 56,
+                    "status": "completed",
+                    "conclusion": "skipped",
+                    "run_started_at": "2026-06-10T18:00:00Z",
+                    "updated_at": "2026-06-10T18:00:05Z",
+                    "html_url": "https://example.test/run/skipped",
+                },
+                {
+                    "id": 100,
+                    "run_number": 55,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "run_started_at": "2026-06-10T17:00:00Z",
+                    "updated_at": "2026-06-10T17:05:00Z",
+                    "html_url": "https://example.test/run/good",
+                },
+            ]}
+        if url.endswith("/actions/runs/101/jobs"):
+            return {"jobs": []}
+        if url.endswith("/actions/runs/100/jobs"):
+            return {"jobs": [{
+                "name": "publish github (stable, amd64)",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-06-10T17:01:00Z",
+                "completed_at": "2026-06-10T17:02:05Z",
+                "html_url": "https://example.test/job/amd64-good",
+            }]}
+        if url.endswith("/actions/workflows/launchpad-builds.yml/runs"):
+            return {"workflow_runs": []}
+        return {}
+
+result = dashboard.collect_snap_package_data(FakeClient(), pathlib.Path("${TEST_TMPDIR}"))
+amd = result["channels"][0]["workflow_runs"]["stable"]
+assert amd["status"] == "success", amd
+assert amd["workflow_state"] == "ready", amd
+assert amd["workflow_reason"] == "", amd
+assert amd["url"] == "https://example.test/job/amd64-good", amd
+assert amd["run_number"] == 55, amd
+assert amd["duration_seconds"] == 65, amd
+assert amd["duration_label"] == "1m 5s", amd
 PYEOF
 }
 

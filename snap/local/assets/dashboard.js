@@ -212,18 +212,30 @@ function humanDuration(seconds) {
 }
 
 function durationTrendDescription(trendRows) {
+  const skippedCount = (trendRows || []).filter(
+    (row) =>
+      row.workflow_state === "skipped" || row.skipped === true || row.conclusion === "skipped",
+  ).length;
   const ordered = (trendRows || [])
     .slice(0, 12)
     .filter((row) => row.duration_seconds !== null && row.duration_seconds !== undefined)
     .reverse();
-  if (!ordered.length) return "Build duration trend chart. No duration data available.";
+  if (!ordered.length) {
+    if (skippedCount) {
+      return `Build duration trend chart. ${skippedCount} recent run${skippedCount === 1 ? " was" : "s were"} skipped.`;
+    }
+    return "Build duration trend chart. No duration data available.";
+  }
 
   const latest = ordered[ordered.length - 1];
   const durations = ordered.map((row) => row.duration_seconds);
   const minDuration = Math.min(...durations);
   const maxDuration = Math.max(...durations);
   const latestStatus = String(latest.conclusion || "unknown").replace(/_/g, " ");
-  return `Build duration trend chart with ${ordered.length} recent runs. Latest run #${latest.run_number || "unknown"} took ${latest.duration_label || humanDuration(latest.duration_seconds)} and finished with ${latestStatus}. Durations range from ${humanDuration(minDuration)} to ${humanDuration(maxDuration)}.`;
+  const skippedText = skippedCount
+    ? ` ${skippedCount} recent run${skippedCount === 1 ? " was" : "s were"} skipped.`
+    : "";
+  return `Build duration trend chart with ${ordered.length} recent runs. Latest run #${latest.run_number || "unknown"} took ${latest.duration_label || humanDuration(latest.duration_seconds)} and finished with ${latestStatus}. Durations range from ${humanDuration(minDuration)} to ${humanDuration(maxDuration)}.${skippedText}`;
 }
 
 // Safely sets textContent of an element if it exists
@@ -262,8 +274,20 @@ function trendPointColor(conclusion) {
 // Maps a build conclusion to its trend tooltip styling, title prefix and
 // message suffix. A cancelled or skipped run produced no new build, so it
 // must read as a neutral caution, never the green "positive" success style.
-function trendTooltipDescriptor(conclusion, isSuspiciouslyFast) {
+function trendTooltipDescriptor(conclusion, isSuspiciouslyFast, row = {}) {
   const normalized = String(conclusion || "unknown").toLowerCase();
+  const skippedByMetadata =
+    row.workflow_state === "skipped" ||
+    row.skipped === true ||
+    Number(row.skipped_jobs || 0) > 0 ||
+    Boolean(row.skip_reason || row.partial_run_reason);
+  if (skippedByMetadata) {
+    return {
+      notificationClass: "p-notification--caution is-inline",
+      titlePrefix: "Skipped ",
+      messageSuffix: row.skip_reason ? ` (${row.skip_reason})` : " (skipped jobs)",
+    };
+  }
   if (FAILURE_STATES.has(normalized)) {
     return {
       notificationClass: "p-notification--negative is-inline",
@@ -342,40 +366,82 @@ function liveJobDurationSeconds(job) {
   return Math.max(0, Math.round((ended - started) / 1000));
 }
 
-function workflowButtonLabel(durationSeconds) {
+function workflowButtonLabel(durationSeconds, status = "") {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "skipped") return "Skipped";
+  if (normalized === "cancelled") return "Cancelled";
+  if (normalized === "no_data") return "No data";
+  if (normalized === "unknown") return "Unavailable";
   if (durationSeconds === null || durationSeconds === undefined) return "Loading...";
   return humanDuration(durationSeconds);
 }
 
-function workflowButtonHtml(url, durationSeconds, contextLabel, isBuilding = false) {
-  const showSpinner = isBuilding || durationSeconds === null || durationSeconds === undefined;
+function workflowButtonDescriptor(
+  url,
+  durationSeconds,
+  contextLabel,
+  isBuilding = false,
+  status = "",
+) {
+  const normalizedStatus = String(status || "").toLowerCase();
+  const context = contextLabel || "Workflow";
+  const hasDuration = durationSeconds !== null && durationSeconds !== undefined;
+  const isUnavailable = normalizedStatus === "no_data" || normalizedStatus === "unknown";
+  const isSkipped = normalizedStatus === "skipped" || normalizedStatus === "cancelled";
+  const showSpinner = isBuilding || (!hasDuration && !isUnavailable && !isSkipped);
+  const label = workflowButtonLabel(durationSeconds, normalizedStatus);
+  let accessibleLabel;
+  if (isBuilding) {
+    accessibleLabel = `${context} active, duration: ${hasDuration ? humanDuration(durationSeconds) : "starting"}`;
+  } else if (isSkipped) {
+    accessibleLabel = `${context} ${label.toLowerCase()}`;
+  } else if (isUnavailable) {
+    accessibleLabel = `${context} unavailable`;
+  } else if (showSpinner) {
+    accessibleLabel = `${context} loading`;
+  } else {
+    accessibleLabel = `${context} duration: ${label}`;
+  }
+  return {
+    label,
+    accessibleLabel,
+    showSpinner,
+    disabled: !url || isUnavailable,
+    ticking: isBuilding && hasDuration,
+  };
+}
+
+function workflowButtonHtml(url, durationSeconds, contextLabel, isBuilding = false, status = "") {
+  const descriptor = workflowButtonDescriptor(
+    url,
+    durationSeconds,
+    contextLabel,
+    isBuilding,
+    status,
+  );
   const spinnerHtml = `<i class="p-icon--spinner u-animation--spin" aria-hidden="true"></i>`;
+  const labelHtml =
+    descriptor.showSpinner && descriptor.label === "Loading..."
+      ? "&#8203;"
+      : escapeHtml(descriptor.label);
 
   let contentHtml;
-  let accessibleLabel;
   let dataAttrs = "";
 
-  if (showSpinner) {
-    if (durationSeconds !== null && durationSeconds !== undefined) {
-      const durationLabel = humanDuration(durationSeconds);
-      contentHtml = `${githubLogoSvg}${spinnerHtml}<span class="workflow-btn__label">${escapeHtml(durationLabel)}</span>`;
-      accessibleLabel = `${contextLabel || "Workflow"} active, duration: ${durationLabel}`;
+  if (descriptor.showSpinner) {
+    contentHtml = `${githubLogoSvg}${spinnerHtml}<span class="workflow-btn__label">${labelHtml}</span>`;
+    if (descriptor.ticking) {
       const startTime = Date.now() - durationSeconds * 1000;
       dataAttrs = ` data-start-time="${startTime}" data-context-label="${escapeHtml(contextLabel || "Workflow")}"`;
-    } else {
-      contentHtml = `${githubLogoSvg}${spinnerHtml}<span class="workflow-btn__label">&#8203;</span>`;
-      accessibleLabel = `${contextLabel || "Workflow"} loading`;
     }
   } else {
-    const durationLabel = humanDuration(durationSeconds);
-    contentHtml = `${githubLogoSvg}<span class="workflow-btn__label">${escapeHtml(durationLabel)}</span>`;
-    accessibleLabel = `${contextLabel || "Workflow"} duration: ${durationLabel}`;
+    contentHtml = `${githubLogoSvg}<span class="workflow-btn__label">${labelHtml}</span>`;
   }
 
-  if (!url) {
-    return `<div class="workflow-buttons"><span class="p-button workflow-btn is-disabled"${dataAttrs} aria-disabled="true" aria-label="${escapeHtml(accessibleLabel)}" title="${escapeHtml(accessibleLabel)}">${contentHtml}</span></div>`;
+  if (descriptor.disabled) {
+    return `<div class="workflow-buttons"><span class="p-button workflow-btn is-disabled"${dataAttrs} aria-disabled="true" aria-label="${escapeHtml(descriptor.accessibleLabel)}" title="${escapeHtml(descriptor.accessibleLabel)}">${contentHtml}</span></div>`;
   }
-  return `<div class="workflow-buttons"><a class="p-button workflow-btn"${dataAttrs} href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(accessibleLabel)}" title="${escapeHtml(accessibleLabel)}">${contentHtml}</a></div>`;
+  return `<div class="workflow-buttons"><a class="p-button workflow-btn"${dataAttrs} href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(descriptor.accessibleLabel)}" title="${escapeHtml(descriptor.accessibleLabel)}">${contentHtml}</a></div>`;
 }
 
 function normalizedLiveStatus(jobOrRun) {
@@ -812,7 +878,7 @@ function renderDurationTrendChart(trendRows) {
     focusDot.setAttribute("stroke", dotColor);
     focusHalo.setAttribute("fill", dotColor);
     focusHalo.setAttribute("fill-opacity", "0.18");
-    const descriptor = trendTooltipDescriptor(conclusion, isSuspiciouslyFast);
+    const descriptor = trendTooltipDescriptor(conclusion, isSuspiciouslyFast, point.row);
     const messageText = `: ${point.row.duration_label}${descriptor.messageSuffix}`;
     tooltip.innerHTML = `<div class="${descriptor.notificationClass}"><div class="p-notification__content"><h5 class="p-notification__title">${descriptor.titlePrefix}Run #${escapeHtml(point.row.run_number)}</h5><p class="p-notification__message">${escapeHtml(messageText)}</p></div></div>`;
     const tooltipWidth = 288;
@@ -876,10 +942,17 @@ function renderBuildStatus(buildStatus) {
   }
   const latestLink = document.getElementById("latest-run-link");
   if (latestLink) {
-    const durationLabel = latest.duration_label || (building ? "0s" : "Unknown");
+    const durationLabel = workflowButtonLabel(
+      latest.duration_seconds,
+      latest.status || latest.conclusion,
+    );
     const accessibleLabel = building
       ? `Latest pipeline run active, duration: ${durationLabel}`
-      : `Latest pipeline run duration: ${durationLabel}`;
+      : latest.status === "skipped"
+        ? "Latest pipeline run skipped"
+        : latest.status === "no_data"
+          ? "Latest pipeline run unavailable"
+          : `Latest pipeline run duration: ${durationLabel}`;
     const label = latestLink.querySelector(".workflow-btn__label");
     const icon = latestLink.querySelector(".status-chip-logo");
     const spinner = latestLink.querySelector(".p-icon--spinner");
@@ -974,7 +1047,13 @@ function renderMatrixRows() {
           <td class="distribution-col">${row.label}</td>
           <td>${statusCell}</td>
           <td class="mono">${formatDate(row.updated_at)}</td>
-          <td>${workflowButtonHtml(logUrl, row.duration_seconds, row.failed_job_url ? "Test job" : "Test run", isBuildingStatus(row.status))}</td>
+          <td>${workflowButtonHtml(
+            logUrl,
+            row.duration_seconds,
+            row.failed_job_url ? "Test job" : "Test run",
+            isBuildingStatus(row.status),
+            row.status,
+          )}</td>
         `;
     tbody.appendChild(tr);
   });
@@ -1178,6 +1257,7 @@ function renderDependencies() {
     syncDurationSeconds,
     liveState.trackUpstreamJobUrl ? "Upstream sync job" : "Upstream sync run",
     isUpstreamBuilding,
+    liveState.trackUpstreamJobStatus || trackRun.status,
   );
   updateUpstreamActivity();
 
@@ -1344,6 +1424,8 @@ function renderReleaseInfo(data) {
     trackRun.url,
     trackRun.duration_seconds,
     "Upstream sync run",
+    false,
+    trackRun.status,
   );
   if (stableWorkflowEl) stableWorkflowEl.innerHTML = workflowHtml;
   if (edgeWorkflowEl) edgeWorkflowEl.innerHTML = workflowHtml;
@@ -1475,6 +1557,8 @@ function renderSnapPackage(snapPackage) {
       workflowSnapshot.url || "",
       workflowSnapshot.duration_seconds,
       isGitHub ? "Build job" : "Publish job",
+      isBuildingStatus(workflowSnapshot.status),
+      workflowSnapshot.status,
     );
 
     const tr = document.createElement("tr");
@@ -1563,7 +1647,13 @@ function applyLiveSnapStatus(cicdJobs, cicdRun, lpJobs, lpRun) {
       : isGitHub
         ? "Build run"
         : "Publish run";
-    const workflowHtml = workflowButtonHtml(runUrl, duration, workflowContext, isBuilding);
+    const workflowHtml = workflowButtonHtml(
+      runUrl,
+      duration,
+      workflowContext,
+      isBuilding,
+      job ? normalizedLiveStatus(job) : "",
+    );
 
     if (tr.cells.length <= 7) {
       const td = tr.insertCell(7);
@@ -1768,6 +1858,7 @@ function renderChannelSwitch(cs) {
           row.duration_seconds,
           "Workflow run",
           isBuilding,
+          row.status,
         );
 
         tr.innerHTML = `
@@ -2182,6 +2273,7 @@ function applyLiveBuildStatus(runs) {
     latest.status === "completed" ? latest.conclusion || "unknown" : latest.status || "queued";
   const trend = cicdRuns.slice(0, 12).map((run) => {
     const duration = liveRunDurationSeconds(run);
+    const status = normalizedLiveStatus(run);
     return {
       run_number: run.run_number,
       conclusion: run.conclusion || "unknown",
@@ -2189,6 +2281,10 @@ function applyLiveBuildStatus(runs) {
       duration_label: humanDuration(duration),
       updated_at: run.updated_at || "",
       url: run.html_url || "",
+      workflow_state:
+        status === "skipped" ? "skipped" : isBuildingStatus(status) ? "active" : "ready",
+      skipped: status === "skipped",
+      skip_reason: status === "skipped" ? "workflow skipped" : "",
     };
   });
 
@@ -2340,7 +2436,13 @@ async function applyLiveTrackUpstream(latestByWorkflow) {
   // Update workflows column
   let workflowHtml = "N/A";
   if (jobUrl) {
-    workflowHtml = workflowButtonHtml(jobUrl, durationSeconds, "Upstream sync job", isBuilding);
+    workflowHtml = workflowButtonHtml(
+      jobUrl,
+      durationSeconds,
+      "Upstream sync job",
+      isBuilding,
+      liveState.trackUpstreamJobStatus,
+    );
 
     // Also update the components/dependencies status and workflow cells with live job data.
     renderDependencies();

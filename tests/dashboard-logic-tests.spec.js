@@ -198,6 +198,15 @@ describe("durationTrendDescription", () => {
       "Build duration trend chart. No duration data available.",
     );
   });
+
+  it("mentions skipped runs when duration rows are absent", () => {
+    assert.equal(
+      api.durationTrendDescription([
+        { run_number: 10, conclusion: "skipped", workflow_state: "skipped" },
+      ]),
+      "Build duration trend chart. 1 recent run was skipped.",
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -372,6 +381,13 @@ describe("trendTooltipDescriptor", () => {
     assert.equal(fast.titlePrefix, "Suspiciously Fast ");
     assert(fast.messageSuffix.includes("potential bypass"));
   });
+  it("does not flag intentionally skipped work as suspiciously fast", () => {
+    const skipped = api.trendTooltipDescriptor("success", true, {
+      skipped_jobs: 3,
+    });
+    assert.equal(skipped.titlePrefix, "Skipped ");
+    assert(skipped.messageSuffix.includes("skipped jobs"));
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -438,9 +454,40 @@ describe("workflowButtonLabel", () => {
     assert.equal(api.workflowButtonLabel(null), "Loading...");
     assert.equal(api.workflowButtonLabel(undefined), "Loading...");
   });
+  it("labels explicit skipped and unavailable states without implying loading", () => {
+    assert.equal(api.workflowButtonLabel(null, "skipped"), "Skipped");
+    assert.equal(api.workflowButtonLabel(null, "no_data"), "No data");
+    assert.equal(api.workflowButtonLabel(null, "unknown"), "Unavailable");
+  });
   it("formats duration labels", () => {
     assert.equal(api.workflowButtonLabel(185), "3m 5s");
     assert.equal(api.workflowButtonLabel(3661), "1h 1m");
+  });
+});
+
+describe("workflowButtonHtml", () => {
+  it("renders skipped workflow links without a spinner", () => {
+    const html = api.workflowButtonHtml(
+      "https://example.test/run/1",
+      null,
+      "Build job",
+      false,
+      "skipped",
+    );
+
+    assert.match(html, /<a class="p-button workflow-btn"/);
+    assert.match(html, />Skipped</);
+    assert.doesNotMatch(html, /p-icon--spinner/);
+    assert.match(html, /aria-label="Build job skipped"/);
+  });
+
+  it("renders unavailable workflow controls as disabled non-loading text", () => {
+    const html = api.workflowButtonHtml("", null, "Test job", false, "no_data");
+
+    assert.match(html, /<span class="p-button workflow-btn is-disabled"/);
+    assert.match(html, /aria-disabled="true"/);
+    assert.match(html, />No data</);
+    assert.doesNotMatch(html, /p-icon--spinner/);
   });
 });
 

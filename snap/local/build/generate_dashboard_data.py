@@ -247,6 +247,7 @@ def collect_build_status(client, branch="main"):
     for run in runs[:12]:
         duration = run_duration_seconds(run)
         updated = parse_iso(run.get("updated_at"))
+        status = summarize_state(run)
         timestamps.append(updated)
         trend.append(
             {
@@ -256,12 +257,19 @@ def collect_build_status(client, branch="main"):
                 "duration_label": human_duration(duration),
                 "updated_at": run.get("updated_at", ""),
                 "url": run.get("html_url", ""),
+                "workflow_state": "skipped" if status == "skipped" else "ready",
+                "skipped": status == "skipped",
+                "skip_reason": "workflow skipped" if status == "skipped" else "",
             }
         )
 
     update_frequency_days = calculate_update_frequency_days(timestamps)
     latest_duration = run_duration_seconds(latest) if latest else None
-    recent_durations = [item["duration_seconds"] for item in trend[1:6] if item["duration_seconds"] is not None]
+    recent_durations = [
+        item["duration_seconds"]
+        for item in trend[1:6]
+        if item["duration_seconds"] is not None
+    ]
     baseline = round(sum(recent_durations) / len(recent_durations), 1) if recent_durations else None
     regression = None
     if latest_duration is not None and baseline:
@@ -348,6 +356,8 @@ def latest_cicd_run_with_distro_jobs(client, branch="main"):
         jobs = client.get_json_or_empty(jobs_url, params={"per_page": 100}).get("jobs", [])
         if any(job.get("name", "").startswith("distro test (") for job in jobs):
             return run, jobs
+        if summarize_state(run) == "skipped":
+            return run, []
     return None, []
 
 
@@ -429,15 +439,31 @@ def workflow_job_details(run, job):
             "duration_seconds": None,
             "duration_label": "Unknown",
             "status": "no_data",
+            "workflow_state": "unavailable",
+            "workflow_reason": "No matching workflow job",
             "run_number": None,
             "job_name": "",
         }
-    duration = job_elapsed_seconds(job) if job else run_duration_seconds(run)
+    status = summarize_state(job or run)
+    duration = (
+        None
+        if status == "skipped"
+        else (job_elapsed_seconds(job) if job else run_duration_seconds(run))
+    )
+    active_states = {"queued", "in_progress", "requested", "waiting", "pending", "running"}
+    workflow_state = (
+        "active" if status in active_states else ("skipped" if status == "skipped" else "ready")
+    )
+    workflow_reason = ""
+    if status == "skipped":
+        workflow_reason = "Job skipped" if job else "Workflow skipped"
     return {
         "url": (job or {}).get("html_url") or (run or {}).get("html_url", ""),
         "duration_seconds": duration,
         "duration_label": human_duration(duration),
-        "status": summarize_state(job or run),
+        "status": status,
+        "workflow_state": workflow_state,
+        "workflow_reason": workflow_reason,
         "run_number": (run or {}).get("run_number"),
         "job_name": (job or {}).get("name", ""),
     }
@@ -445,7 +471,11 @@ def workflow_job_details(run, job):
 
 def collect_snap_workflow_jobs(client, branch="main"):
     cicd_run, cicd_jobs = latest_run_with_jobs(client, "cicd.yml", branch=branch)
-    launchpad_run, launchpad_jobs = latest_run_with_jobs(client, "launchpad-builds.yml", branch=branch)
+    launchpad_run, launchpad_jobs = latest_run_with_jobs(
+        client,
+        "launchpad-builds.yml",
+        branch=branch,
+    )
     workflows = {}
     for channel in ("stable", "edge"):
         for arch in GITHUB_BUILD_ARCHES:
@@ -944,12 +974,26 @@ def collect_distro_matrix(client, branch="main", channel="stable"):
             job = next((j for j in jobs if j.get("name", "").startswith(legacy_prefix)), None)
 
         status = summarize_state(job)
-        conclusion = job.get("conclusion") if job else "no_data"
-        duration = job_duration_seconds(job) if job else None
+        if not job and summarize_state(target_run) == "skipped":
+            status = "skipped"
+        conclusion = job.get("conclusion") if job else status
+        duration = None if status == "skipped" else (job_duration_seconds(job) if job else None)
+        active_states = {"queued", "in_progress", "requested", "waiting", "pending", "running"}
+        if status == "skipped":
+            workflow_state = "skipped"
+            workflow_reason = "Job skipped" if job else "Workflow skipped"
+        elif status == "no_data":
+            workflow_state = "unavailable"
+            workflow_reason = "No matching job in latest run"
+        else:
+            workflow_state = "active" if status in active_states else "ready"
+            workflow_reason = ""
         updated = (job.get("completed_at") or job.get("started_at") or "") if job else ""
         if not updated and target_run:
             updated = target_run.get("updated_at", "")
-        run_url = (job.get("html_url", "") if job else "") or (target_run.get("html_url", "") if target_run else "")
+        run_url = (job.get("html_url", "") if job else "") or (
+            target_run.get("html_url", "") if target_run else ""
+        )
 
         if updated:
             latest_timestamps.append(parse_iso(updated))
@@ -981,6 +1025,8 @@ def collect_distro_matrix(client, branch="main", channel="stable"):
                 "updated_at": updated,
                 "duration_seconds": duration,
                 "duration_label": human_duration(duration),
+                "workflow_state": workflow_state,
+                "workflow_reason": workflow_reason,
                 "run_url": run_url,
                 "failed_job_url": failed_job_url,
             }
