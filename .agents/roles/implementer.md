@@ -12,7 +12,7 @@ Follow the implementation packet exactly.
 - Follow `.agents/security/workshop-confinement.md`.
 - Follow `.agents/policies/git-boundary.md`.
 - Run shell commands from `tools/workshop-shell` or through
-  `workshop run snap-pi-hole -- ...`.
+  `workshop run <project-alias> -- ...`.
 - Follow the user's selected agent UI mode. If no mode was selected,
   use Workshop terminal mode for command-running work.
 - Stop if any shell command for this project would run directly on the host.
@@ -26,15 +26,15 @@ Follow the implementation packet exactly.
 
 ## Required Start
 
-A prompt that says `You are the Implementer for snap-pi-hole` implies this
+A prompt that says `You are the Implementer for this repository` implies this
 setup. See [../bootstrap.md](../bootstrap.md) for the shared role bootstrap
 policy.
 
 Run:
 
 ```bash
-workshop run snap-pi-hole -- agent-role implementer
-workshop run snap-pi-hole -- context
+workshop run <project-alias> -- agent-role implementer
+workshop run <project-alias> -- context
 ```
 
 Then implement only the assigned task.

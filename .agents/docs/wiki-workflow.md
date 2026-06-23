@@ -8,7 +8,7 @@ clone `.wiki/` automatically, and `.wiki/` is gitignored here.
 Clone the wiki only when documentation context is needed:
 
 ```bash
-git clone https://github.com/rajannpatel/snap-pi-hole.wiki.git .wiki
+git clone <repository>.wiki.git .wiki
 ```
 
 Before reading any wiki file, pull the latest version:

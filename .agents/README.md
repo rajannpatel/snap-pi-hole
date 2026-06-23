@@ -6,7 +6,7 @@ planning, and review while a lower-cost worker model performs narrowly scoped
 implementation.
 
 All agents must follow the root [AGENTS.md](../AGENTS.md). It is the bootstrap
-and hard-policy index for snap-pi-hole.
+and hard-policy index for this repository.
 
 ## Start Here
 

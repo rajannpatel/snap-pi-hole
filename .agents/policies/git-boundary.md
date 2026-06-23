@@ -5,7 +5,7 @@ Use this policy for agent Git operations in this repository.
 ## Inspection
 
 AI agent Git inspection runs inside Workshop. Use `tools/workshop-shell` or
-`workshop run snap-pi-hole -- ...` for status, diff, log, grep, and other
+`workshop run <project-alias> -- ...` for status, diff, log, grep, and other
 read-only inspection.
 
 ## Mutation

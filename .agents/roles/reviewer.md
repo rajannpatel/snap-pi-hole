@@ -8,13 +8,13 @@ worker output like a pull request.
 
 ## Required Setup
 
-A prompt that says `You are the Reviewer for snap-pi-hole` implies this setup.
+A prompt that says `You are the Reviewer for this repository` implies this setup.
 See [../bootstrap.md](../bootstrap.md) for the shared role bootstrap policy.
 Before reviewing, run:
 
 ```bash
-workshop run snap-pi-hole -- agent-role reviewer
-workshop run snap-pi-hole -- context
+workshop run <project-alias> -- agent-role reviewer
+workshop run <project-alias> -- context
 ```
 
 ## Review Priorities
@@ -35,7 +35,7 @@ workshop run snap-pi-hole -- context
 - Verify scope and hygiene against `.agents/policies/scope-and-hygiene.md`.
 - Verify Git boundaries against `.agents/policies/git-boundary.md`.
 - Run the narrowest relevant Workshop verification from `tools/workshop-shell`
-  or through `workshop run snap-pi-hole -- ...`.
+  or through `workshop run <project-alias> -- ...`.
 - Use broader checks only when the change warrants them.
 - Review wiki work according to `.agents/docs/wiki-workflow.md`.
 

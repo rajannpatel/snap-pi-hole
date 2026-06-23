@@ -64,7 +64,7 @@ They may be assigned roles only within the Workshop confinement policy in
 
 For command-running implementation work, prefer Workshop terminal mode. Launch
 the CLI, TUI, or terminal-thread agent from `tools/workshop-shell` or
-`workshop run snap-pi-hole -- shell`.
+`workshop run <project-alias> -- shell`.
 
 If a panel cannot enforce Workshop-only shell commands, do not assign it the
 Implementer role. Use it for Architect or Reviewer only, and hand the packet to

@@ -12,15 +12,15 @@ and reroute through Workshop.
 
 Agents may use these host-side entry points:
 
-- `workshop launch snap-pi-hole`
-- `workshop refresh snap-pi-hole`
-- `workshop run snap-pi-hole -- ...`
+- `workshop launch <project-alias>`
+- `workshop refresh <project-alias>`
+- `workshop run <project-alias> -- ...`
 - `tools/workshop-shell`
 
 When launch and role preflight are chained, use `tools/workshop-shell -c`
-rather than a raw `workshop launch snap-pi-hole && workshop run ...` command.
+rather than a raw `workshop launch <project-alias> && workshop run ...` command.
 The wrapper treats the known already-launched `workshop exists` response as
-success for `workshop launch snap-pi-hole`, so required preflight commands are
+success for `workshop launch <project-alias>`, so required preflight commands are
 not skipped.
 
 Inside Workshop, use the named project actions from `workshop.yaml`, such as
@@ -37,7 +37,7 @@ editor-specific enforcement settings.
 
 | Mode | Use when | Required personal preference |
 | --- | --- | --- |
-| Workshop terminal mode | The agent runs commands through a terminal thread, CLI, or TUI. | Launch the agent from `tools/workshop-shell` or `workshop run snap-pi-hole -- shell`. |
+| Workshop terminal mode | The agent runs commands through a terminal thread, CLI, or TUI. | Launch the agent from `tools/workshop-shell` or `workshop run <project-alias> -- shell`. |
 | Native panel mode | The user wants Zed Agent Panel, VS Code extension agents, or another native integration for planning, editing, or review. | Disable, deny, or confirmation-gate raw terminal tools. Permit only the allowed shell entry points above. |
 
 Native panel mode is a UI choice, not a second execution policy. Native panel

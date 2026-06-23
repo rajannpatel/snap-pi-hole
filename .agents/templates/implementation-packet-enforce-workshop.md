@@ -8,7 +8,7 @@ Enforce `workshop_routed: true` requirement for project-oriented roles (Architec
 - **Target Workshop Surface:** Workshop terminal CLI/TUI
 - **Assigned Implementer Model:** Claude 3.5 Sonnet
 - **Workshop-Routed:** Yes
-- **Authorized Entrypoints:** `tools/workshop-shell`, `workshop run snap-pi-hole -- ...`
+- **Authorized Entrypoints:** `tools/workshop-shell`, `workshop run <project-alias> -- ...`
 
 ## Files to Edit
 - `.agents/models/selection.md`

@@ -9,13 +9,13 @@ for a worker model.
 
 ## Required Setup
 
-A prompt that says `You are the Architect for snap-pi-hole` implies this setup.
+A prompt that says `You are the Architect for this repository` implies this setup.
 See [../bootstrap.md](../bootstrap.md) for the shared role bootstrap policy.
 Before planning, run:
 
 ```bash
-workshop run snap-pi-hole -- agent-role architect
-workshop run snap-pi-hole -- context
+workshop run <project-alias> -- agent-role architect
+workshop run <project-alias> -- context
 ```
 
 Confirm which agent UI mode the user selected and follow

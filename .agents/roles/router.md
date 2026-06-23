@@ -8,13 +8,13 @@ implement.
 
 ## Required Setup
 
-A prompt that says `You are the Router for snap-pi-hole` implies this setup.
+A prompt that says `You are the Router for this repository` implies this setup.
 See [../bootstrap.md](../bootstrap.md) for the shared role bootstrap policy.
 Before classifying a request, run:
 
 ```bash
-workshop run snap-pi-hole -- agent-role router
-workshop run snap-pi-hole -- context
+workshop run <project-alias> -- agent-role router
+workshop run <project-alias> -- context
 ```
 
 For implementation-oriented requests, do not read source files beyond what
@@ -47,8 +47,8 @@ inspection through Workshop to answer the question.
   current surface is the configured Workshop-routed command-running surface and
   the requested command is already listed in `AGENTS.md` or
   `.agents/commands.md`, run only that command and report the result.
-  Otherwise, give the exact `workshop run snap-pi-hole -- ...` command or a
-  copy-paste Implementer prompt for the developer to run manually, then stop.
+  Otherwise, give the exact `workshop run <project-alias> -- ...` command or a
+    copy-paste Implementer prompt for the developer to run manually, then stop.
 - For handoff-coordination requests, do not produce a new Architect brief
   unless the developer is asking for new planning. Prepare the requested
   copy-paste prompt, identify the next role, or summarize the existing handoff
@@ -90,7 +90,7 @@ or handoff language for direct answers.
 If the current surface can run the requested command through Workshop, report:
 
     Command:
-    `<workshop run snap-pi-hole -- ...>`
+    `<workshop run <project-alias> -- ...>`
 
     Result:
     <pass/fail summary and the important output>
@@ -98,7 +98,7 @@ If the current surface can run the requested command through Workshop, report:
 If the current surface cannot run commands, provide the command or prompt:
 
     Run:
-    `<workshop run snap-pi-hole -- ...>`
+    `<workshop run <project-alias> -- ...>`
 
     No Architect handoff is required for this verification-only request.
 

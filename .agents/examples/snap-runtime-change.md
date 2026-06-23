@@ -40,14 +40,14 @@ Forbidden paths:
 Before edits:
 
 ```bash
-workshop run snap-pi-hole -- context
+workshop run <project-alias> -- context
 ```
 
 Verification:
 
 ```bash
-workshop run snap-pi-hole -- test tests/unit/config-sync.bats
-workshop run snap-pi-hole -- lint
+workshop run <project-alias> -- test tests/unit/config-sync.bats
+workshop run <project-alias> -- lint
 ```
 
 ## Acceptance Criteria

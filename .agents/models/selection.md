@@ -62,7 +62,7 @@ Workshop.
 
 OpenCode and similar tools are agent surfaces. Treat OpenCode terminal/TUI as a
 Workshop terminal surface only when it is launched from `tools/workshop-shell`
-or `workshop run snap-pi-hole -- shell`. Treat OpenCode desktop like native
+or `workshop run <project-alias> -- shell`. Treat OpenCode desktop like native
 panel mode unless its shell/tool execution is confirmed to route through
 Workshop.
 

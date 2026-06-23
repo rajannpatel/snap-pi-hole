@@ -9,56 +9,56 @@ residual risk clearly.
 For normal edits:
 
 ```bash
-workshop run snap-pi-hole -- context
-workshop run snap-pi-hole -- test tests/unit/<relevant-file>.bats
-workshop run snap-pi-hole -- lint
+workshop run <project-alias> -- context
+workshop run <project-alias> -- test tests/unit/<relevant-file>.bats
+workshop run <project-alias> -- lint
 ```
 
 For packaging/runtime changes:
 
 ```bash
-workshop run snap-pi-hole -- build
-workshop run snap-pi-hole -- install
-workshop run snap-pi-hole -- smoke
+workshop run <project-alias> -- build
+workshop run <project-alias> -- install
+workshop run <project-alias> -- smoke
 ```
 
 For pre-submit:
 
 ```bash
-workshop run snap-pi-hole -- test
-workshop run snap-pi-hole -- deps-js
-workshop run snap-pi-hole -- test-jsdom
-workshop run snap-pi-hole -- test-playwright-snap
-workshop run snap-pi-hole -- lint
-workshop run snap-pi-hole -- lint-js
-workshop run snap-pi-hole -- format-check
+workshop run <project-alias> -- test
+workshop run <project-alias> -- deps-js
+workshop run <project-alias> -- test-jsdom
+workshop run <project-alias> -- test-playwright-snap
+workshop run <project-alias> -- lint
+workshop run <project-alias> -- lint-js
+workshop run <project-alias> -- format-check
 ```
 
 ## Verification Matrix
 
 | Change type | Narrow verification | Broader verification |
 | --- | --- | --- |
-| Shell runtime or testing helper | `workshop run snap-pi-hole -- test tests/unit/<file>.bats` | `workshop run snap-pi-hole -- lint` |
-| Snap hook | `workshop run snap-pi-hole -- test tests/unit/hooks.bats` | `workshop run snap-pi-hole -- lint` |
-| Snapcraft metadata | `workshop run snap-pi-hole -- test tests/unit/snapcraft-schema.bats` | `workshop run snap-pi-hole -- build` |
-| Dashboard JavaScript | `workshop run snap-pi-hole -- deps-js` and `workshop run snap-pi-hole -- test-jsdom` | `workshop run snap-pi-hole -- test-playwright-snap`, `workshop run snap-pi-hole -- lint-js`, and `workshop run snap-pi-hole -- format-check` |
-| Snap runtime behavior | focused BATS test | `workshop run snap-pi-hole -- build`, `install`, and `smoke` |
+| Shell runtime or testing helper | `workshop run <project-alias> -- test tests/unit/<file>.bats` | `workshop run <project-alias> -- lint` |
+| Snap hook | `workshop run <project-alias> -- test tests/unit/hooks.bats` | `workshop run <project-alias> -- lint` |
+| Snapcraft metadata | `workshop run <project-alias> -- test tests/unit/snapcraft-schema.bats` | `workshop run <project-alias> -- build` |
+| Dashboard JavaScript | `workshop run <project-alias> -- deps-js` and `workshop run <project-alias> -- test-jsdom` | `workshop run <project-alias> -- test-playwright-snap`, `workshop run <project-alias> -- lint-js`, and `workshop run <project-alias> -- format-check` |
+| Snap runtime behavior | focused BATS test | `workshop run <project-alias> -- build`, `install`, and `smoke` |
 | Wiki context only | `git -C .wiki pull --ff-only` | no wiki edits |
 | Wiki update proposal | review proposal against current `.wiki/` content | no wiki commit |
 | Direct wiki edit | `git -C .wiki status --short` and relevant `.wiki/.hooks` checks | separate `.wiki/` commit and push |
 
 ## Area References
 
-- Dashboard JS: `workshop run snap-pi-hole -- deps-js`,
-  `workshop run snap-pi-hole -- test-jsdom`,
-  `workshop run snap-pi-hole -- test-playwright-snap`,
-  `workshop run snap-pi-hole -- lint-js`, and
-  `workshop run snap-pi-hole -- format-check`.
+- Dashboard JS: `workshop run <project-alias> -- deps-js`,
+  `workshop run <project-alias> -- test-jsdom`,
+  `workshop run <project-alias> -- test-playwright-snap`,
+  `workshop run <project-alias> -- lint-js`, and
+  `workshop run <project-alias> -- format-check`.
 - Snap runtime: focused BATS tests first, then `build`, `install`, and
   `smoke` when behavior crosses packaging or runtime boundaries.
-- Shell/BATS: `workshop run snap-pi-hole -- test tests/unit/<file>.bats`.
-- Snapcraft metadata: `workshop run snap-pi-hole -- test tests/unit/snapcraft-schema.bats`
-  and `workshop run snap-pi-hole -- yamllint`; use `build` when packaging
+- Shell/BATS: `workshop run <project-alias> -- test tests/unit/<file>.bats`.
+- Snapcraft metadata: `workshop run <project-alias> -- test tests/unit/snapcraft-schema.bats`
+  and `workshop run <project-alias> -- yamllint`; use `build` when packaging
   risk warrants it.
 - Wiki: follow [../docs/wiki-workflow.md](../docs/wiki-workflow.md).
 

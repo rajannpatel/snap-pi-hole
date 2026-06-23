@@ -12,14 +12,14 @@ Slash-command definitions live in `.claude/commands/`:
 
 ## Shared Rules
 
-All three workflows must preserve these project rules:
+These workflows must preserve these repository rules:
 
 - Run `agent-role <role>` and `context` before planning, editing, reviewing, or
   running checks.
 - Run project shell commands through Workshop, usually with:
 
   ```bash
-  tools/workshop-shell -c 'workshop run snap-pi-hole -- <action>'
+  tools/workshop-shell -c 'workshop run <project-alias> -- <action>'
   ```
 
 - Follow the Router, Architect, Implementer, and Reviewer boundaries in

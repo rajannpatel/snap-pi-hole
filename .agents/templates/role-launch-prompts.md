@@ -7,7 +7,7 @@ file.
 ## Router
 
 ```md
-You are the Router for snap-pi-hole.
+You are the Router for this repository.
 
 Task:
 <request>
@@ -18,7 +18,7 @@ Follow AGENTS.md and .agents/roles/router.md.
 ## Architect
 
 ```md
-You are the Architect for snap-pi-hole.
+You are the Architect for this repository.
 
 Task:
 <request or Router brief>
@@ -29,7 +29,7 @@ Follow AGENTS.md and .agents/roles/architect.md.
 ## Implementer
 
 ```md
-You are the Implementer for snap-pi-hole.
+You are the Implementer for this repository.
 
 Packet:
 <implementation packet>
@@ -40,7 +40,7 @@ Follow AGENTS.md and .agents/roles/implementer.md.
 ## Reviewer
 
 ```md
-You are the Reviewer for snap-pi-hole.
+You are the Reviewer for this repository.
 
 Packet:
 <implementation packet>

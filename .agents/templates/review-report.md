@@ -14,7 +14,7 @@ Status: accept | needs-fix | blocked
 
 ## Verification
 
-- `workshop run snap-pi-hole -- context`: pass | fail | skipped
+- `workshop run <project-alias> -- context`: pass | fail | skipped
 - focused test: pass | fail | skipped
 - lint or format check: pass | fail | skipped
 

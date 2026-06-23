@@ -73,25 +73,25 @@ Use `.agents/docs/wiki-workflow.md` for mode definitions.
 Before edits:
 
 ```bash
-workshop run snap-pi-hole -- context
+workshop run <project-alias> -- context
 ```
 
 Focused verification:
 
 ```bash
-workshop run snap-pi-hole -- test tests/unit/<file>.bats
+workshop run <project-alias> -- test tests/unit/<file>.bats
 ```
 
 Additional verification, if relevant:
 
 ```bash
-workshop run snap-pi-hole -- lint
-workshop run snap-pi-hole -- lint-js
-workshop run snap-pi-hole -- test-jsdom
-workshop run snap-pi-hole -- format-check
-workshop run snap-pi-hole -- build
-workshop run snap-pi-hole -- install
-workshop run snap-pi-hole -- smoke
+workshop run <project-alias> -- lint
+workshop run <project-alias> -- lint-js
+workshop run <project-alias> -- test-jsdom
+workshop run <project-alias> -- format-check
+workshop run <project-alias> -- build
+workshop run <project-alias> -- install
+workshop run <project-alias> -- smoke
 ```
 
 ## Acceptance Criteria

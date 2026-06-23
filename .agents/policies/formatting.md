@@ -13,7 +13,7 @@ git diff --name-only -- '*.js' | xargs -r npx --yes prettier@3 --write --ignore-
 Use this non-mutating check for verification:
 
 ```bash
-workshop run snap-pi-hole -- format-check
+workshop run <project-alias> -- format-check
 ```
 
 The lower-level command is:

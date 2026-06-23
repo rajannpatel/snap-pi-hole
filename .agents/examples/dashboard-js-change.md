@@ -40,16 +40,16 @@ Forbidden paths:
 Before edits:
 
 ```bash
-workshop run snap-pi-hole -- context
+workshop run <project-alias> -- context
 ```
 
 Verification:
 
 ```bash
-workshop run snap-pi-hole -- deps-js
-workshop run snap-pi-hole -- test-jsdom
-workshop run snap-pi-hole -- lint-js
-workshop run snap-pi-hole -- format-check
+workshop run <project-alias> -- deps-js
+workshop run <project-alias> -- test-jsdom
+workshop run <project-alias> -- lint-js
+workshop run <project-alias> -- format-check
 ```
 
 ## Acceptance Criteria
