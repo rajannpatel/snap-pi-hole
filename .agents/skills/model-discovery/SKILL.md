@@ -16,9 +16,7 @@ Run discovery only inside Workshop. Do not invoke provider CLIs directly on the
 host.
 
 ```bash
-workshop run snap-pi-hole -- shell
-# inside the Workshop shell:
-bash .agents/skills/model-discovery/discover.sh
+tools/workshop-shell -c "bash .agents/skills/model-discovery/discover.sh"
 ```
 
 The script refuses to run when the expected Workshop shell context is missing.
