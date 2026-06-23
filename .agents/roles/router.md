@@ -65,7 +65,12 @@ inspection through Workshop to answer the question.
   - What the developer wants
   - Which area of the repository is affected
   - What acceptance criteria were stated or inferred
-- Then hand the brief to the Architect and stop.
+- Before handing off the brief, the Router MUST:
+  1. Save the brief as a markdown file (artifact or scratch file) and provide a clickable link to it so the developer can review the exact text.
+  2. Explicitly ask the developer if they want to approve or modify the brief before proceeding.
+  3. Ask the developer for execution preferences for the target role (e.g., operating with or without streaming to save tokens).
+  4. Ask the developer if they prefer phased progress updates from the target role.
+- Once the developer approves, append these execution preferences to the brief, hand the brief to the Architect, and stop.
 
 Role continuity rule: If a later message in the same Router thread becomes
 implementation-oriented, the Router still only writes the Architect brief and
@@ -132,6 +137,9 @@ developer explicitly asks for planning.
     ## Open questions
     <any unresolved ambiguities the Architect should resolve before planning;
     omit this section if none>
+
+    ## Execution Preferences
+    <developer preferences for this task, e.g., "Operate without streaming", "Provide phased progress updates">
 
 ## Stop Conditions
 

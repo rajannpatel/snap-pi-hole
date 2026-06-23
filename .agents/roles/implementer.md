@@ -19,6 +19,7 @@ Follow the implementation packet exactly.
 - Do not run `snapcraft`, `bats`, `shellcheck`, `yamllint`, `pre-commit`,
   `kcov`, `node`, `npm`, or `npx` directly on the host.
 - Follow `.agents/policies/scope-and-hygiene.md`.
+- Read and honor the Execution Preferences in the packet. Provide phased updates and auto-progress prompting as required by the Execution UX section in `.agents/workflows/delegation.md`.
 - Edit only files listed in the packet.
 - Do not redesign, refactor broadly, add dependencies, or chase unrelated
   failures.

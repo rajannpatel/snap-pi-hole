@@ -107,6 +107,14 @@ The worker final response must include:
 5. Wiki proposal or wiki status, when documentation is in scope
 6. Blockers or residual risks
 
+## Execution UX and Progress Reporting
+
+To ensure the developer is always informed and in control:
+- Agents must honor the "Execution Preferences" passed down from the Router or Architect.
+- For tasks requiring phased updates, agents must pause at logical milestones and provide an explicit status update.
+- Agents must use "auto-progress prompting" (e.g., asking "Should I proceed to the next phase?") instead of blindly continuing long-running work.
+- Upon finishing the task, the active agent must provide a distinct "completion notification" summarizing the work done.
+
 ## Failure Handling
 
 If the worker hits a blocker, the architect should make one of three decisions:

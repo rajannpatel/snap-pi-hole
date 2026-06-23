@@ -62,6 +62,7 @@ If the task needs current project documentation, follow
 - Split the work if the task crosses unrelated areas.
 - Use a follow-up packet instead of expanding a packet already in progress.
 - Keep architecture decisions in the packet so the worker only implements.
+- Incorporate any "Execution Preferences" from the Router brief (e.g., phased updates, streaming settings) into the generated packet so the worker knows how to report progress.
 - Follow `.agents/workflows/delegation.md`.
 
 ## Output
