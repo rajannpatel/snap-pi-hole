@@ -17,6 +17,7 @@ host.
 
 ```bash
 workshop run snap-pi-hole -- shell
+# inside the Workshop shell:
 bash .agents/skills/model-discovery/discover.sh
 ```
 

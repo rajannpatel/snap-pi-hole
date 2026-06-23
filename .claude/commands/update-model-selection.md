@@ -13,7 +13,9 @@ workshop run <project-alias> -- agent-role <role>
 workshop run <project-alias> -- context
 ```
 
-When running from the host, route commands through the project wrapper:
+If you are already working in a Workshop shell, continue there and run the
+discovery script directly. For non-editor contexts that truly need a host-side
+launcher, route the command through the project wrapper:
 
 ```bash
 tools/workshop-shell -c 'workshop run <project-alias> -- context'
