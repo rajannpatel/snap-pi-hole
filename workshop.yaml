@@ -3,6 +3,12 @@ name: snap-pi-hole
 base: ubuntu@26.04
 
 sdks:
+  - name: opencode
+    channel: latest/stable
+    slots:
+      opencode-bridge:
+        interface: tunnel
+        endpoint: localhost:3000
   - name: uv
     channel: latest/stable
   - name: project-tools
@@ -12,8 +18,17 @@ sdks:
     channel: latest/stable
   - name: kiro
     channel: latest/edge
+  - name: codex
+    channel: latest/stable
+  - name: claude-code
+    channel: latest/stable
+  - name: ollama
+    channel: cuda/stable
   - name: system
     plugs:
+      opencode-bridge:
+        interface: tunnel
+        endpoint: localhost:3000/tcp
       admin-web:
         interface: tunnel
         endpoint: localhost:8080/tcp
@@ -23,6 +38,11 @@ sdks:
       dns-udp:
         interface: tunnel
         endpoint: localhost:5300/udp
+
+connections:
+  - plug: opencode:opencode-config
+    slot: :mount
+    workshop-source: ~/.config/opencode
 
 # Workshop wires these tunnel plugs to matching tool slots by name. Keep the
 # plug names aligned with the expected tunnel names instead of duplicating them
@@ -192,3 +212,17 @@ actions:
 
   uninstall: |
     sudo snap remove --purge pihole-by-rajannpatel
+
+  # Launch OpenCode with OMO's ultrawork multi-agent mode
+  ultrawork: opencode --prompt "$@" ulw
+
+  # Fallback direct agent execution actions
+  codex-yolo: codex --yolo "$@"
+  claude-auto: claude --dangerously-skip-permissions "$@"
+  copilot-auto: copilot --yolo --silent "$@"
+
+  # Using the correct agy CLI command
+  agy-run: agy agent run "$@"
+
+  # Useful for debugging the local GPU
+  ollama-serve: ollama serve
