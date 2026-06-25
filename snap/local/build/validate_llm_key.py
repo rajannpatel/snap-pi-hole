@@ -132,9 +132,9 @@ def main():
         return 0
 
     results = {}
-    has_alternatives = len(providers) > 1
-    for provider in providers:
-        status, err = validate_provider(provider, has_alternatives)
+    for i, provider in enumerate(providers):
+        is_last = (i == len(providers) - 1)
+        status, err = validate_provider(provider, has_alternatives=not is_last)
         results[provider.name] = (status, err)
         if status == "SUCCESS":
             return 0

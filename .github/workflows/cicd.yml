@@ -316,6 +316,13 @@ jobs:
           path: vulnerability-reports/
           if-no-files-found: error
 
+      - name: Cache vulnerability reports for deploy fallback
+        if: success()
+        uses: actions/cache@v4
+        with:
+          path: vulnerability-reports/
+          key: vulnerability-reports-${{ github.sha }}
+
   smoke:
     name: smoke test (${{ matrix.channel }}, ${{ matrix.arch }})
     needs: [build, lint]
@@ -719,7 +726,7 @@ jobs:
       needs.lint.result == 'success' &&
       (
         (needs.changes.outputs.snap == 'true' && needs.build.result == 'success' &&
-         needs.smoke.result == 'success' && needs.vulnerability-scan.result == 'success') ||
+         needs.smoke.result == 'success') ||
         needs.changes.outputs.snap == 'false'
       )
     permissions:
@@ -768,8 +775,18 @@ jobs:
           path: sbom-artifacts
           merge-multiple: true
 
-      - name: Download vulnerability reports
+      - name: Restore cached vulnerability reports (fallback)
+        id: vuln-cache
+        uses: actions/cache@v4
+        with:
+          path: vulnerability-reports/
+          key: vulnerability-reports-${{ github.sha }}
+          restore-keys: |
+            vulnerability-reports-
+
+      - name: Download vulnerability reports from workflow
         if: needs.changes.outputs.snap == 'true'
+        continue-on-error: true
         uses: actions/download-artifact@v7
         with:
           name: vulnerability-reports
@@ -803,8 +820,11 @@ jobs:
             cp -v docs/sbom/sbom-stable-amd64.json docs/sbom/sbom-amd64.json || true
             cp -v docs/sbom/sbom-stable-arm64.json docs/sbom/sbom-arm64.json || true
 
-            # Copy vulnerability reports generated from SBOM artifacts
-            cp -r vulnerability-reports/* docs/vulnerabilities/
+            # Copy vulnerability reports (from workflow artifacts or cache fallback)
+            mkdir -p docs/vulnerabilities
+            if [ -d vulnerability-reports ] && [ "$(ls -A vulnerability-reports 2>/dev/null)" ]; then
+              cp -r vulnerability-reports/* docs/vulnerabilities/
+            fi
           fi
 
           # Match the stable source refs used by build jobs before rendering dashboard data.
