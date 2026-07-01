@@ -166,7 +166,7 @@ install = next(step for step in steps if step.get("name") == "Install shellcheck
 run = install["run"]
 
 apt_kcov = "if sudo apt-get install -y kcov; then"
-source_notice = "kcov is not available from apt on this runner; building from source."
+source_notice = "kcov is not available from apt on this runner; building from source"
 clone = "git clone --depth 1 --branch v43 https://github.com/SimonKagstrom/kcov.git"
 build = "cmake --build"
 install_from_build = "sudo cmake --install"

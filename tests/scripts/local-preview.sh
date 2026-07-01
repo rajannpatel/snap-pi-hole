@@ -72,7 +72,7 @@ run_sbom() {
     unsquashfs -d local-extracted-snap "${snap_file}"
 
     echo "Scanning with syft..."
-    syft scan local-extracted-snap -o cyclonedx-json=local-sbom.json
+    syft scan local-extracted-snap -o cyclonedx-json@1.5=local-sbom.json
 
     echo "Enriching SBOM licenses..."
     python3 snap/local/build/enrich_sbom.py local-sbom.json local-extracted-snap
