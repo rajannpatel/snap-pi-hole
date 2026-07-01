@@ -64,3 +64,12 @@ local-sbom.json
 
 # Node.js
 node_modules/
+
+# OMO, OpenCode and local agent assignments
+.omo/
+.opencode/
+model-assignments.json
+
+# Local test output
+/test-results/
+
