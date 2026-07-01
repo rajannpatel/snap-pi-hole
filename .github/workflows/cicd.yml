@@ -60,7 +60,7 @@ jobs:
           if sudo apt-get install -y kcov; then
             kcov --version
           else
-            echo "kcov is not available from apt on this runner; building from source."
+            echo "kcov is not available from apt on this runner; building from source"
             sudo apt-get install -y \
               build-essential \
               cmake \
