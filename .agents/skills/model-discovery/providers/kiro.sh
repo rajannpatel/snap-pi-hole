@@ -70,7 +70,15 @@ elif grep -Eq '(^|[[:space:]])list([[:space:],]|$)' <<<"$help_text"; then
 fi
 
 if [ "${#list_cmd[@]}" -eq 0 ]; then
-  printf 'model-discovery: warning: kiro-cli has no recognized model-list subcommand\n' >&2
+  # No subcommand found — try kiro-cli chat --list-models --format json
+  chat_help=$(run_help_with_timeout "kiro-cli chat --help" kiro-cli chat --help) || exit 0
+  if grep -Eq '(^|[[:space:]])--list-models' <<<"$chat_help"; then
+    list_cmd=(kiro-cli chat --list-models --format json)
+  fi
+fi
+
+if [ "${#list_cmd[@]}" -eq 0 ]; then
+  printf 'model-discovery: warning: kiro-cli has no recognized model-list command\n' >&2
   exit 0
 fi
 
@@ -79,22 +87,39 @@ output=$(run_with_timeout "kiro-cli model-list command" "${list_cmd[@]}") || {
   exit 0
 }
 
-printf '%s\n' "$output" |
-  awk -v provider="$provider" '
-    NF == 0 { next }
-    /^[[:space:]]*[\[{]/ { next }
-    tolower($0) ~ /^[[:space:]]*(name|model|models|id)[[:space:]]*$/ { next }
-    tolower($0) ~ /^[[:space:]]*(error|usage):/ { next }
-    /^[[:space:]]*[-=]+[[:space:]]*$/ { next }
-    {
-      line = $0
-      sub(/^[[:space:]]+/, "", line)
-      sub(/[[:space:]]+$/, "", line)
-      split(line, fields, /[[:space:]]{2,}|\t/)
-      model = fields[1]
-      sub(/^[*+-][[:space:]]*/, "", model)
-      if (model != "") {
-        print provider "\t" model
+# If output is JSON (from --list-models --format json), parse model_id fields
+if printf '%s\n' "$output" | head -1 | grep -q '^{.*"models"'; then
+  printf '%s\n' "$output" |
+    awk -v provider="$provider" '
+      BEGIN { RS = "[}],"; FS = "\"" }
+      /"model_id"/ {
+        for (i = 1; i < NF; i++) {
+          if ($i == "model_id") {
+            id = $(i + 2)
+            gsub(/[[:space:]]/, "", id)
+            if (id != "") print provider "\t" id
+          }
+        }
       }
-    }
-  '
+    '
+else
+  printf '%s\n' "$output" |
+    awk -v provider="$provider" '
+      NF == 0 { next }
+      /^[[:space:]]*[\[{]/ { next }
+      tolower($0) ~ /^[[:space:]]*(name|model|models|id)[[:space:]]*$/ { next }
+      tolower($0) ~ /^[[:space:]]*(error|usage):/ { next }
+      /^[[:space:]]*[-=]+[[:space:]]*$/ { next }
+      {
+        line = $0
+        sub(/^[[:space:]]+/, "", line)
+        sub(/[[:space:]]+$/, "", line)
+        split(line, fields, /[[:space:]]{2,}|\t/)
+        model = fields[1]
+        sub(/^[*+-][[:space:]]*/, "", model)
+        if (model != "") {
+          print provider "\t" model
+        }
+      }
+    '
+fi

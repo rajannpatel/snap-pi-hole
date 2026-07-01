@@ -399,6 +399,39 @@ PYEOF
     grep -q "cp -r vulnerability-reports/\\* docs/vulnerabilities/" "$workflow"
 }
 
+@test "cicd workflow preserves fallback vulnerability reports for non-snap Pages deploys" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+steps = doc["jobs"]["deploy-pages"]["steps"]
+organize = next(step for step in steps if step.get("name") == "Organize files for GitHub Pages")
+run = organize["run"]
+copy_idx = run.index("cp -r vulnerability-reports/* docs/vulnerabilities/")
+snap_gate_idx = run.index("SNAP_RELEVANT")
+generate_idx = run.index("python3 snap/local/build/generate_dashboard_data.py")
+assert copy_idx < snap_gate_idx, run
+assert copy_idx < generate_idx, run
+assert "[ -d vulnerability-reports ]" in run, run
+assert "ls -A vulnerability-reports 2>/dev/null" in run, run
+PYEOF
+}
+
+@test "cicd workflow refuses non-snap Pages deploys without fallback vulnerability reports" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+steps = doc["jobs"]["deploy-pages"]["steps"]
+organize = next(step for step in steps if step.get("name") == "Organize files for GitHub Pages")
+run = organize["run"]
+missing_msg = "No vulnerability report fallback available for non-snap Pages deploy"
+assert missing_msg in run, run
+assert "exit 1" in run[run.index(missing_msg):], run
+assert run.index(missing_msg) < run.index("python3 snap/local/build/generate_dashboard_data.py"), run
+PYEOF
+}
+
 @test "cicd deploy-pages selects stable upstream sources before dashboard data generation" {
     python3 - <<PYEOF
 import yaml

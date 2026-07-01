@@ -385,6 +385,15 @@ main() {
   trap 'rm -f "$RAW_FILE" "$DISCOVERED_FILE" "$PROVIDERS_FILE" "$MODELS_FILE" "$CANDIDATE_FILE" "$ASSIGNMENTS_TEMPLATE_FILE" "$OUTPUT_PATH.tmp"' EXIT
 
   run_adapters
+
+  # --list: machine-readable dump of provider\tmodel lines, no interactive flow
+  if [ "${1:-}" = "--list" ]; then
+    if [ -s "$DISCOVERED_FILE" ]; then
+      cat "$DISCOVERED_FILE"
+    fi
+    exit 0
+  fi
+
   print_summary
   render_yaml_from_template >"$CANDIDATE_FILE"
   validate_candidate_yaml

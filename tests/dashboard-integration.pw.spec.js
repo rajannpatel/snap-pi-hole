@@ -116,9 +116,41 @@ test.describe("dashboard.html semantic structure", () => {
       "Tested on",
       "Path",
       "Status",
-      "Updated",
+      "Last Published",
       "Test duration",
     ]);
+  });
+
+  test("compatibility matrix exposes last published and links duration to last good run", async ({
+    page,
+  }) => {
+    const table = page.getByRole("table", { name: "Distribution test status matrix" });
+    await expect(table.getByRole("columnheader", { name: "Last Published" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Test duration" })).toBeVisible();
+
+    await page.evaluate(() => {
+      window.renderMatrixRows([
+        {
+          id: "ubuntu",
+          label: "Ubuntu",
+          family: "Ubuntu",
+          status: "success",
+          conclusion: "success",
+          updated_at: "2026-06-08T10:03:05Z",
+          duration_seconds: 125,
+          duration_label: "2m 5s",
+          run_url: "https://example.test/job/ubuntu-good",
+        },
+      ]);
+    });
+
+    const row = page.locator("#compatibility-matrix-body tr").first();
+    const published = row.locator("td").nth(3);
+    await expect(published).not.toHaveText("Unknown");
+    await expect(row.getByRole("link", { name: /2m 5s/ })).toHaveAttribute(
+      "href",
+      "https://example.test/job/ubuntu-good",
+    );
   });
 
   test("workflow tables have duration columns", async ({ page }) => {
@@ -184,6 +216,16 @@ test.describe("dashboard.html semantic structure", () => {
       tabIndex: null,
       ariaDisabled: "true",
     });
+  });
+
+  test("disabled workflow placeholders do not include a perpetual spinner", async ({ page }) => {
+    const hasSpinner = await page.evaluate(() => {
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = window.workflowButtonHtml("", null, "Workflow");
+      return Boolean(wrapper.querySelector(".p-icon--spinner, .is-loading"));
+    });
+
+    expect(hasSpinner).toBe(false);
   });
 
   test("Pi-hole components table has correct structure", async ({ page }) => {

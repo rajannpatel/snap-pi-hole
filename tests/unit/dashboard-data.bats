@@ -267,6 +267,224 @@ assert row["run_url"] == "https://example.test/run/123", row
 PYEOF
 }
 
+@test "dashboard data: distro matrix keeps last good jobs when latest cicd run is skipped" {
+    python3 - <<PYEOF
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        if url.endswith("/actions/workflows/cicd.yml/runs"):
+            return {
+                "workflow_runs": [
+                    {
+                        "id": 124,
+                        "status": "completed",
+                        "conclusion": "skipped",
+                        "run_number": 43,
+                        "head_branch": "main",
+                        "event": "push",
+                        "run_started_at": "2026-06-08T11:00:00Z",
+                        "updated_at": "2026-06-08T11:00:05Z",
+                        "html_url": "https://example.test/run/skipped",
+                    },
+                    {
+                        "id": 123,
+                        "status": "completed",
+                        "conclusion": "success",
+                        "run_number": 42,
+                        "head_branch": "main",
+                        "event": "push",
+                        "run_started_at": "2026-06-08T10:00:00Z",
+                        "updated_at": "2026-06-08T10:03:05Z",
+                        "html_url": "https://example.test/run/good",
+                    },
+                ]
+            }
+        if url.endswith("/actions/runs/124/jobs"):
+            return {"jobs": []}
+        if url.endswith("/actions/runs/123/jobs"):
+            return {"jobs": [{
+                "name": "distro test (ubuntu, stable) / Validate Snap Installation",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-06-08T10:01:00Z",
+                "completed_at": "2026-06-08T10:03:05Z",
+                "html_url": "https://example.test/job/ubuntu-good",
+            }]}
+        raise AssertionError(f"unexpected URL: {url}")
+
+original = dashboard.DISTRO_WORKFLOWS
+try:
+    dashboard.DISTRO_WORKFLOWS = [
+        {"id": "ubuntu", "label": "Ubuntu", "workflow": "cicd.yml", "family": "Ubuntu", "distro": "ubuntu"},
+    ]
+    matrix = dashboard.collect_distro_matrix(FakeClient())
+finally:
+    dashboard.DISTRO_WORKFLOWS = original
+
+row = matrix["rows"][0]
+assert row["status"] == "success", row
+assert row["conclusion"] == "success", row
+assert row["workflow_state"] == "ready", row
+assert row["workflow_reason"] == "", row
+assert row["run_number"] == 42, row
+assert row["updated_at"] == "2026-06-08T10:03:05Z", row
+assert row["duration_seconds"] == 125, row
+assert row["duration_label"] == "2m 5s", row
+assert row["run_url"] == "https://example.test/job/ubuntu-good", row
+assert matrix["last_updated"].isoformat() == "2026-06-08T10:03:05+00:00", matrix["last_updated"]
+PYEOF
+}
+
+@test "dashboard data: distro matrix keeps last good jobs when latest cicd run only has skipped distro jobs" {
+    python3 - <<PYEOF
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        if url.endswith("/actions/workflows/cicd.yml/runs"):
+            return {
+                "workflow_runs": [
+                    {
+                        "id": 124,
+                        "status": "completed",
+                        "conclusion": "success",
+                        "run_number": 43,
+                        "head_branch": "main",
+                        "event": "push",
+                        "run_started_at": "2026-06-08T11:00:00Z",
+                        "updated_at": "2026-06-08T11:00:05Z",
+                        "html_url": "https://example.test/run/skipped-jobs",
+                    },
+                    {
+                        "id": 123,
+                        "status": "completed",
+                        "conclusion": "success",
+                        "run_number": 42,
+                        "head_branch": "main",
+                        "event": "push",
+                        "run_started_at": "2026-06-08T10:00:00Z",
+                        "updated_at": "2026-06-08T10:03:05Z",
+                        "html_url": "https://example.test/run/good",
+                    },
+                ]
+            }
+        if url.endswith("/actions/runs/124/jobs"):
+            return {"jobs": [{
+                "name": "distro test (ubuntu, stable) / Validate Snap Installation",
+                "status": "completed",
+                "conclusion": "skipped",
+                "started_at": "2026-06-08T11:01:00Z",
+                "completed_at": "2026-06-08T11:01:05Z",
+                "html_url": "https://example.test/job/ubuntu-skipped",
+            }]}
+        if url.endswith("/actions/runs/123/jobs"):
+            return {"jobs": [{
+                "name": "distro test (ubuntu, stable) / Validate Snap Installation",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-06-08T10:01:00Z",
+                "completed_at": "2026-06-08T10:03:05Z",
+                "html_url": "https://example.test/job/ubuntu-good",
+            }]}
+        raise AssertionError(f"unexpected URL: {url}")
+
+original = dashboard.DISTRO_WORKFLOWS
+try:
+    dashboard.DISTRO_WORKFLOWS = [
+        {"id": "ubuntu", "label": "Ubuntu", "workflow": "cicd.yml", "family": "Ubuntu", "distro": "ubuntu"},
+    ]
+    matrix = dashboard.collect_distro_matrix(FakeClient())
+finally:
+    dashboard.DISTRO_WORKFLOWS = original
+
+row = matrix["rows"][0]
+assert row["status"] == "success", row
+assert row["run_number"] == 42, row
+assert row["run_url"] == "https://example.test/job/ubuntu-good", row
+assert row["duration_label"] == "2m 5s", row
+PYEOF
+}
+
+@test "dashboard data: distro matrix searches beyond first page for last good jobs" {
+    python3 - <<PYEOF
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        params = params or {}
+        if url.endswith("/actions/workflows/cicd.yml/runs"):
+            page = params.get("page", 1)
+            if page == 1:
+                return {
+                    "workflow_runs": [
+                        {
+                            "id": 200 + idx,
+                            "status": "completed",
+                            "conclusion": "skipped",
+                            "run_number": 60 + idx,
+                            "head_branch": "main",
+                            "event": "push",
+                            "run_started_at": "2026-06-08T11:00:00Z",
+                            "updated_at": "2026-06-08T11:00:05Z",
+                            "html_url": f"https://example.test/run/skipped-{idx}",
+                        }
+                        for idx in range(100)
+                    ]
+                }
+            if page == 2:
+                return {
+                    "workflow_runs": [
+                        {
+                            "id": 123,
+                            "status": "completed",
+                            "conclusion": "success",
+                            "run_number": 42,
+                            "head_branch": "main",
+                            "event": "push",
+                            "run_started_at": "2026-06-08T10:00:00Z",
+                            "updated_at": "2026-06-08T10:03:05Z",
+                            "html_url": "https://example.test/run/good",
+                        }
+                    ]
+                }
+            return {"workflow_runs": []}
+        if url.endswith("/actions/runs/123/jobs"):
+            return {"jobs": [{
+                "name": "distro test (ubuntu, stable) / Validate Snap Installation",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-06-08T10:01:00Z",
+                "completed_at": "2026-06-08T10:03:05Z",
+                "html_url": "https://example.test/job/ubuntu-good",
+            }]}
+        if "/actions/runs/" in url:
+            return {"jobs": []}
+        raise AssertionError(f"unexpected URL: {url}")
+
+original = dashboard.DISTRO_WORKFLOWS
+try:
+    dashboard.DISTRO_WORKFLOWS = [
+        {"id": "ubuntu", "label": "Ubuntu", "workflow": "cicd.yml", "family": "Ubuntu", "distro": "ubuntu"},
+    ]
+    matrix = dashboard.collect_distro_matrix(FakeClient())
+finally:
+    dashboard.DISTRO_WORKFLOWS = original
+
+row = matrix["rows"][0]
+assert row["status"] == "success", row
+assert row["run_number"] == 42, row
+assert row["run_url"] == "https://example.test/job/ubuntu-good", row
+assert row["duration_label"] == "2m 5s", row
+PYEOF
+}
+
 @test "dashboard data: track-upstream status includes latest run duration" {
     python3 - <<PYEOF
 import sys
@@ -495,7 +713,7 @@ assert s390x["job_name"] == "build and publish launchpad (stable, s390x)", s390x
 PYEOF
 }
 
-@test "dashboard data: snap package omits workflow details when CI run has no package job" {
+@test "dashboard data: snap package keeps last good workflow when latest run has no package job" {
     python3 - <<PYEOF
 import pathlib
 import sys
@@ -519,15 +737,26 @@ class FakeClient:
                 ]
             }
         if url.endswith("/actions/workflows/cicd.yml/runs"):
-            return {"workflow_runs": [{
-                "id": 101,
-                "run_number": 55,
-                "status": "completed",
-                "conclusion": "success",
-                "run_started_at": "2026-06-10T17:00:00Z",
-                "updated_at": "2026-06-10T17:05:00Z",
-                "html_url": "https://example.test/run/markdown-only",
-            }]}
+            return {"workflow_runs": [
+                {
+                    "id": 101,
+                    "run_number": 56,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "run_started_at": "2026-06-10T18:00:00Z",
+                    "updated_at": "2026-06-10T18:05:00Z",
+                    "html_url": "https://example.test/run/markdown-only",
+                },
+                {
+                    "id": 100,
+                    "run_number": 55,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "run_started_at": "2026-06-10T17:00:00Z",
+                    "updated_at": "2026-06-10T17:05:00Z",
+                    "html_url": "https://example.test/run/good",
+                },
+            ]}
         if url.endswith("/actions/runs/101/jobs"):
             return {"jobs": [{
                 "name": "shellcheck + bats",
@@ -537,16 +766,29 @@ class FakeClient:
                 "completed_at": "2026-06-10T17:02:05Z",
                 "html_url": "https://example.test/job/lint",
             }]}
+        if url.endswith("/actions/runs/100/jobs"):
+            return {"jobs": [{
+                "name": "publish github (stable, amd64)",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-06-10T17:01:00Z",
+                "completed_at": "2026-06-10T17:02:05Z",
+                "html_url": "https://example.test/job/amd64-good",
+            }]}
         if url.endswith("/actions/workflows/launchpad-builds.yml/runs"):
             return {"workflow_runs": []}
         return {}
 
 result = dashboard.collect_snap_package_data(FakeClient(), pathlib.Path("${TEST_TMPDIR}"))
 amd = result["channels"][0]["workflow_runs"]["stable"]
-assert amd["status"] == "no_data", amd
-assert amd["url"] == "", amd
-assert amd["job_name"] == "", amd
-assert amd["duration_label"] == "Unknown", amd
+assert amd["status"] == "success", amd
+assert amd["workflow_state"] == "ready", amd
+assert amd["workflow_reason"] == "", amd
+assert amd["url"] == "https://example.test/job/amd64-good", amd
+assert amd["job_name"] == "publish github (stable, amd64)", amd
+assert amd["run_number"] == 55, amd
+assert amd["duration_seconds"] == 65, amd
+assert amd["duration_label"] == "1m 5s", amd
 PYEOF
 }
 
@@ -909,7 +1151,50 @@ with patch("urllib.request.urlopen", return_value=mock_response_latest_artifact)
     assert res["status"] == "success", res
     assert res["run_number"] == 51, res
 
-# Test 7: corrupt artifact is ignored
+# Test 7: channel switch scans beyond first page for latest artifact evidence
+class PaginatedChannelSwitchClient(FakeClient):
+    def get_json_or_empty(self, url, headers=None, params=None):
+        if url.endswith("/actions/workflows/channel-switch.yml/runs"):
+            page = (params or {}).get("page", 1)
+            if page == 1:
+                return {
+                    "workflow_runs": [
+                        {
+                            "id": 300 + idx,
+                            "run_number": 80 + idx,
+                            "status": "completed",
+                            "conclusion": "success",
+                            "updated_at": "2026-06-15T14:00:00Z",
+                        }
+                        for idx in range(10)
+                    ]
+                }
+            if page == 2:
+                return {
+                    "workflow_runs": [
+                        {
+                            "id": 17,
+                            "run_number": 51,
+                            "status": "completed",
+                            "conclusion": "success",
+                            "updated_at": "2026-06-15T13:30:00Z",
+                        }
+                    ]
+                }
+            return {"workflow_runs": []}
+        return super().get_json_or_empty(url, headers=headers, params=params)
+
+with patch("urllib.request.urlopen", return_value=mock_response_latest_artifact):
+    client = PaginatedChannelSwitchClient(
+        jobs={17: {"jobs": [{"name": "Channel Switch Smoke (arm64)", "status": "completed", "conclusion": "success"}]}},
+        artifacts={17: {"artifacts": [{"name": "channel-switch-result-arm64", "archive_download_url": "http://download/page-two-success"}]}},
+    )
+    res = dashboard.collect_channel_switch_status(client)
+    assert res["status"] == "success", res
+    assert res["run_number"] == 51, res
+    assert res["rows"][0]["evidence"], res["rows"][0]
+
+# Test 8: corrupt artifact is ignored
 mock_response_corrupt = MagicMock()
 mock_response_corrupt.__enter__.return_value = mock_response_corrupt
 mock_response_corrupt.read.return_value = b"corrupt zip data"
@@ -924,7 +1209,7 @@ with patch("urllib.request.urlopen", return_value=mock_response_corrupt):
     assert res["status"] == "success", res
     assert res["rows"][0]["reason"] == "", res["rows"][0]
 
-# Test 8: semantically invalid artifact is ignored
+# Test 9: semantically invalid artifact is ignored
 invalid_artifact = copy.deepcopy(artifact_data)
 invalid_artifact["path"] = "bad-path"
 try:
@@ -952,11 +1237,11 @@ with patch("urllib.request.urlopen", return_value=mock_response_invalid):
     assert res["stable_revision"] == "", res
     assert res["edge_revision"] == "", res
 
-# Test 9: duration label is humanized
+# Test 10: duration label is humanized
 assert dashboard.human_duration(90) == "1m 30s"
 assert dashboard.human_duration(3600) == "1h 0m"
 
-# Test 10: missing channel fields are derived from runner artifact transitions
+# Test 11: missing channel fields are derived from runner artifact transitions
 artifact_without_channels = {
     "transitions": [
         {"from": "latest/stable", "to": "latest/edge", "from_revision": "840", "to_revision": "838"}
@@ -966,7 +1251,7 @@ stable_rev, edge_rev = dashboard.channel_switch_revisions_from_artifact(artifact
 assert stable_rev == "840", stable_rev
 assert edge_rev == "838", edge_rev
 
-# Test 11: missing channel switch revisions are filled from ARM64 snap package channel data
+# Test 12: missing channel switch revisions are filled from ARM64 snap package channel data
 filled = dashboard.fill_channel_switch_revisions(
     {
         "status": "success",
@@ -987,7 +1272,7 @@ assert filled["stable_revision"] == "867", filled
 assert filled["edge_revision"] == "869", filled
 assert filled["summary"] == "stable r867 -> edge r869 -> stable r867", filled
 
-# Test 12: local channel switch artifacts can be consumed without the GitHub artifact ZIP API
+# Test 13: local channel switch artifacts can be consumed without the GitHub artifact ZIP API
 local_dir = pathlib.Path("${TEST_TMPDIR}/channel-switch-artifacts/channel-switch-result-arm64")
 local_dir.mkdir(parents=True)
 local_artifact = json.loads(fixture_path.read_text(encoding="utf-8"))

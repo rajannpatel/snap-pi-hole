@@ -343,22 +343,42 @@ def distro_job_key(workflow_file):
     return base
 
 
+def distro_jobs_with_evidence(jobs):
+    return [
+        job
+        for job in jobs
+        if job.get("name", "").startswith("distro test (") and summarize_state(job) != "skipped"
+    ]
+
+
 def latest_cicd_run_with_distro_jobs(client, branch="main"):
     """Return (run, jobs) for the newest cicd.yml run that contains the
     per-distribution ``distro test (...)`` matrix jobs."""
     runs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/workflows/cicd.yml/runs"
-    runs_data = client.get_json_or_empty(
-        runs_url,
-        params={"per_page": 10, "branch": branch, "event": "push"},
-    )
-    for run in runs_data.get("workflow_runs", []):
-        jobs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run.get('id')}/jobs"
-        jobs = client.get_json_or_empty(jobs_url, params={"per_page": 100}).get("jobs", [])
-        if any(job.get("name", "").startswith("distro test (") for job in jobs):
-            return run, jobs
-        if summarize_state(run) == "skipped":
-            return run, []
-    return None, []
+    fallback_run = None
+    page = 1
+    per_page = 100
+    while True:
+        runs_data = client.get_json_or_empty(
+            runs_url,
+            params={"per_page": per_page, "page": page, "branch": branch, "event": "push"},
+        )
+        runs = runs_data.get("workflow_runs", [])
+        if not runs:
+            break
+        for run in runs:
+            if fallback_run is None:
+                fallback_run = run
+            if summarize_state(run) == "skipped":
+                continue
+            jobs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run.get('id')}/jobs"
+            jobs = client.get_json_or_empty(jobs_url, params={"per_page": 100}).get("jobs", [])
+            if distro_jobs_with_evidence(jobs):
+                return run, jobs
+        if len(runs) < per_page:
+            break
+        page += 1
+    return fallback_run, []
 
 
 def safe_get_json_or_empty(client, url, headers=None, params=None):
@@ -368,27 +388,36 @@ def safe_get_json_or_empty(client, url, headers=None, params=None):
         return {}
 
 
-def workflow_runs(client, workflow_file, branch="main", per_page=5):
+def workflow_runs(client, workflow_file, branch="main", per_page=5, page=None):
     runs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/workflows/{workflow_file}/runs"
+    params = {"per_page": per_page, "branch": branch}
+    if page is not None:
+        params["page"] = page
     return safe_get_json_or_empty(
         client,
         runs_url,
-        params={"per_page": per_page, "branch": branch},
+        params=params,
     ).get("workflow_runs", [])
 
 
-def latest_run_with_jobs(client, workflow_file, branch="main"):
-    fallback_run = None
-    for run in workflow_runs(client, workflow_file, branch=branch):
-        if fallback_run is None:
-            fallback_run = run
-        if run.get("conclusion") == "skipped":
-            continue
-        jobs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run.get('id')}/jobs"
-        jobs = safe_get_json_or_empty(client, jobs_url, params={"per_page": 100}).get("jobs", [])
-        if jobs:
-            return run, jobs
-    return fallback_run, []
+def workflow_run_job_candidates(client, workflow_file, branch="main", per_page=100):
+    candidates = []
+    page = 1
+    while True:
+        runs = workflow_runs(client, workflow_file, branch=branch, per_page=per_page, page=page)
+        if not runs:
+            break
+        for run in runs:
+            if run.get("conclusion") == "skipped":
+                continue
+            jobs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run.get('id')}/jobs"
+            jobs = safe_get_json_or_empty(client, jobs_url, params={"per_page": 100}).get("jobs", [])
+            if jobs:
+                candidates.append((run, jobs))
+        if len(runs) < per_page:
+            break
+        page += 1
+    return candidates
 
 
 def build_job_stages(arch, channel, is_github):
@@ -469,9 +498,17 @@ def workflow_job_details(run, job):
     }
 
 
+def snap_workflow_details_from_candidates(candidates, arch, channel, is_github):
+    for run, jobs in candidates:
+        job = find_snap_build_job(jobs, arch, channel, is_github)
+        if job:
+            return workflow_job_details(run, job)
+    return workflow_job_details(None, None)
+
+
 def collect_snap_workflow_jobs(client, branch="main"):
-    cicd_run, cicd_jobs = latest_run_with_jobs(client, "cicd.yml", branch=branch)
-    launchpad_run, launchpad_jobs = latest_run_with_jobs(
+    cicd_candidates = workflow_run_job_candidates(client, "cicd.yml", branch=branch)
+    launchpad_candidates = workflow_run_job_candidates(
         client,
         "launchpad-builds.yml",
         branch=branch,
@@ -479,11 +516,19 @@ def collect_snap_workflow_jobs(client, branch="main"):
     workflows = {}
     for channel in ("stable", "edge"):
         for arch in GITHUB_BUILD_ARCHES:
-            job = find_snap_build_job(cicd_jobs, arch, channel, True)
-            workflows[(arch, channel)] = workflow_job_details(cicd_run if job else None, job)
+            workflows[(arch, channel)] = snap_workflow_details_from_candidates(
+                cicd_candidates,
+                arch,
+                channel,
+                True,
+            )
         for arch in ("ARMHF", "PPC64EL", "RISCV64", "S390X"):
-            job = find_snap_build_job(launchpad_jobs, arch, channel, False)
-            workflows[(arch, channel)] = workflow_job_details(launchpad_run if job else None, job)
+            workflows[(arch, channel)] = snap_workflow_details_from_candidates(
+                launchpad_candidates,
+                arch,
+                channel,
+                False,
+            )
     return workflows
 
 
@@ -746,11 +791,24 @@ def fill_channel_switch_revisions(channel_switch, snap_package):
 
 def collect_channel_switch_status(client, branch="main"):
     runs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/workflows/{CHANNEL_SWITCH_WORKFLOW}/runs"
-    runs_data = client.get_json_or_empty(
-        runs_url,
-        params={"per_page": 10, "branch": branch},
-    )
-    runs = runs_data.get("workflow_runs", [])
+    per_page = 10
+    page = 1
+    runs = []
+    pages = []
+    while True:
+        runs_data = client.get_json_or_empty(
+            runs_url,
+            params={"per_page": per_page, "page": page, "branch": branch},
+        )
+        page_runs = runs_data.get("workflow_runs", [])
+        if page == 1:
+            runs = page_runs
+        if not page_runs:
+            break
+        pages.append(page_runs)
+        if len(page_runs) < per_page:
+            break
+        page += 1
     if not runs:
         return {
             "status": "no_data",
@@ -777,12 +835,15 @@ def collect_channel_switch_status(client, branch="main"):
     active_states = {"in_progress", "queued", "requested", "waiting", "pending", "running"}
     if target_run.get("status") not in active_states:
         target_run = None
-        for candidate in runs:
-            candidate_run_id = candidate.get("id")
-            candidate_artifacts = collect_workflow_artifacts(client, candidate_run_id)
-            if candidate_artifacts:
-                target_run = candidate
-                artifacts = candidate_artifacts
+        for page_runs in pages:
+            for candidate in page_runs:
+                candidate_run_id = candidate.get("id")
+                candidate_artifacts = collect_workflow_artifacts(client, candidate_run_id)
+                if candidate_artifacts:
+                    target_run = candidate
+                    artifacts = candidate_artifacts
+                    break
+            if target_run is not None:
                 break
         if target_run is None:
             target_run = runs[0]
@@ -1039,8 +1100,11 @@ def collect_distro_matrix(client, branch="main", channel="stable"):
     }
 
 
-def collect_security_summary(vulnerability_summary_path):
-    if not vulnerability_summary_path.exists():
+def collect_security_summary(vulnerability_summary_path, fallback_summary_path=None):
+    summary_path = vulnerability_summary_path
+    if not summary_path.exists() and fallback_summary_path and fallback_summary_path.exists():
+        summary_path = fallback_summary_path
+    if not summary_path.exists():
         return {
             "total_vulnerabilities": 0,
             "affected_packages": 0,
@@ -1050,7 +1114,7 @@ def collect_security_summary(vulnerability_summary_path):
             "gate_policy": "report_only",
             "architectures": [],
         }
-    summary = json.loads(vulnerability_summary_path.read_text(encoding="utf-8"))
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
     actionable_vulnerabilities = summary.get("actionableVulnerabilities", summary.get("totalVulnerabilities", 0))
     actionable_packages = summary.get("actionableAffectedPackages", summary.get("affectedPackages", 0))
     architectures = []
@@ -1630,7 +1694,10 @@ def main():
     build_status_edge = collect_build_status(client, "main")
     distro_matrix_stable = collect_distro_matrix(client, "main", "stable")
     distro_matrix_edge = collect_distro_matrix(client, "main", "edge")
-    security = collect_security_summary(vuln_summary_path)
+    security = collect_security_summary(
+        vuln_summary_path,
+        repo_root / "docs" / "vulnerabilities" / "osv-summary.json",
+    )
     releases = collect_release_data(client, versions, snapcraft_sources)
     edge_releases = collect_edge_release_data(client, edge_versions, versions)
     snap_package = collect_snap_package_data(client, repo_root)

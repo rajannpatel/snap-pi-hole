@@ -726,7 +726,8 @@ jobs:
       needs.lint.result == 'success' &&
       (
         (needs.changes.outputs.snap == 'true' && needs.build.result == 'success' &&
-         needs.smoke.result == 'success') ||
+         needs.smoke.result == 'success' &&
+         needs.vulnerability-scan.result == 'success') ||
         needs.changes.outputs.snap == 'false'
       )
     permissions:
@@ -813,18 +814,20 @@ jobs:
           python3 snap/local/build/prettify_coverage.py docs/coverage
           find docs/coverage/ -name "*.css" -exec sh -c "cat snap/local/assets/kcov-override.css > {}" \;
 
-          # SBOMs and vulnerability reports only exist when snap-relevant files changed.
+          if [ -d vulnerability-reports ] && [ "$(ls -A vulnerability-reports 2>/dev/null)" ]; then
+            cp -r vulnerability-reports/* docs/vulnerabilities/
+          fi
+
+          if [ "${SNAP_RELEVANT}" != "true" ] && [ ! -f docs/vulnerabilities/osv-summary.json ]; then
+            echo "No vulnerability report fallback available for non-snap Pages deploy; refusing to publish empty vulnerability reports."
+            exit 1
+          fi
+
           if [ "${SNAP_RELEVANT}" = "true" ]; then
             echo "Finding and copying SBOM files..."
             find sbom-artifacts -name "sbom-*.json" -exec cp -v {} docs/sbom/ \;
             cp -v docs/sbom/sbom-stable-amd64.json docs/sbom/sbom-amd64.json || true
             cp -v docs/sbom/sbom-stable-arm64.json docs/sbom/sbom-arm64.json || true
-
-            # Copy vulnerability reports (from workflow artifacts or cache fallback)
-            mkdir -p docs/vulnerabilities
-            if [ -d vulnerability-reports ] && [ "$(ls -A vulnerability-reports 2>/dev/null)" ]; then
-              cp -r vulnerability-reports/* docs/vulnerabilities/
-            fi
           fi
 
           # Match the stable source refs used by build jobs before rendering dashboard data.

@@ -3,32 +3,26 @@ name: snap-pi-hole
 base: ubuntu@26.04
 
 sdks:
-  - name: opencode
-    channel: latest/stable
-    slots:
-      opencode-bridge:
-        interface: tunnel
-        endpoint: localhost:3000
+  # - name: opencode
+  #   channel: latest/stable
+  #   slots:
+  #     opencode-bridge:
+  #       interface: tunnel
+  #       endpoint: localhost:3000
+  - name: node
+    channel: 24
   - name: uv
     channel: latest/stable
   - name: project-tools
   - name: agy
     channel: latest/stable
-  - name: copilot
-    channel: latest/stable
-  - name: kiro
-    channel: latest/edge
   - name: codex
     channel: latest/stable
-  - name: claude-code
-    channel: latest/stable
-  - name: ollama
-    channel: cuda/stable
   - name: system
     plugs:
-      opencode-bridge:
-        interface: tunnel
-        endpoint: localhost:3000/tcp
+      # opencode-bridge:
+      #   interface: tunnel
+      #   endpoint: localhost:3000/tcp
       admin-web:
         interface: tunnel
         endpoint: localhost:8080/tcp
@@ -39,10 +33,9 @@ sdks:
         interface: tunnel
         endpoint: localhost:5300/udp
 
-connections:
-  - plug: opencode:opencode-config
-    slot: :mount
-    workshop-source: ~/.config/opencode
+# connections:
+#   - plug: opencode:opencode-config
+#     slot: :mount
 
 # Workshop wires these tunnel plugs to matching tool slots by name. Keep the
 # plug names aligned with the expected tunnel names instead of duplicating them

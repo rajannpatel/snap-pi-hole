@@ -385,10 +385,11 @@ function workflowButtonDescriptor(
 ) {
   const normalizedStatus = String(status || "").toLowerCase();
   const context = contextLabel || "Workflow";
+  const hasUrl = Boolean(url);
   const hasDuration = durationSeconds !== null && durationSeconds !== undefined;
   const isUnavailable = normalizedStatus === "no_data" || normalizedStatus === "unknown";
   const isSkipped = normalizedStatus === "skipped" || normalizedStatus === "cancelled";
-  const showSpinner = isBuilding || (!hasDuration && !isUnavailable && !isSkipped);
+  const showSpinner = hasUrl && (isBuilding || (!hasDuration && !isUnavailable && !isSkipped));
   const label = workflowButtonLabel(durationSeconds, normalizedStatus);
   let accessibleLabel;
   if (isBuilding) {
@@ -1021,10 +1022,10 @@ function renderFailedLogs(testMatrix) {
 }
 
 // Generates rows for the distribution OS compatibility matrix table
-function renderMatrixRows() {
+function renderMatrixRows(rowsOverride) {
   const tbody = document.getElementById("compatibility-matrix-body");
   if (!tbody) return;
-  const rows = matrixState.rows || [];
+  const rows = Array.isArray(rowsOverride) ? rowsOverride : matrixState.rows || [];
   updateInstallActivity(rows);
   tbody.innerHTML = "";
   if (!rows.length) {
@@ -1080,12 +1081,14 @@ function renderSecurity(security) {
     return ch === selectedBranch.toLowerCase();
   });
 
-  const totalVulns = archRows.length
+  const rowTotalVulns = archRows.length
     ? Math.max(...archRows.map((row) => row.vulnerabilities ?? 0))
     : 0;
-  const totalConfined = archRows.length
+  const rowTotalConfined = archRows.length
     ? Math.max(...archRows.map((row) => row.confined_mitigation_vulnerabilities ?? 0))
     : 0;
+  const totalVulns = security.total_vulnerabilities ?? rowTotalVulns;
+  const totalConfined = security.confined_mitigation_vulnerabilities ?? rowTotalConfined;
 
   setText("security-total-vulns", String(totalVulns));
   setText("security-confined-vulns", String(totalConfined));
@@ -2100,21 +2103,30 @@ function latestRunByWorkflow(runs) {
   return map;
 }
 
+function hasDistroJobEvidence(jobs) {
+  return (jobs || []).some((job) => {
+    if (!(job.name || "").startsWith("distro test (")) return false;
+    return normalizedLiveStatus(job) !== "skipped";
+  });
+}
+
+function shouldApplyLiveChannelSwitch(snapshot, run, rowStatus) {
+  const snapshotRow = (snapshot?.rows || []).find((row) => row.arch === "arm64") || {};
+  const snapshotMatchesRun = String(snapshot?.run_id || "") === String(run?.id || "");
+  if (isBuildingStatus(rowStatus)) return true;
+  if (snapshotMatchesRun) return true;
+  return !hasChannelSwitchEvidence(snapshotRow);
+}
+
 // Finds the newest runs and jobs that contain active distro test matrix items
 async function liveMatrixJobsAndRun(cicdRuns) {
-  const candidates = [];
-  if (cicdRuns[0]) candidates.push(cicdRuns[0]);
-  const newestCompleted = cicdRuns.find((run) => run.status === "completed");
-  if (newestCompleted && newestCompleted !== cicdRuns[0]) candidates.push(newestCompleted);
-  let latestJobs = null;
-  for (const run of candidates) {
+  for (const run of cicdRuns) {
     const jobs = await fetchRunJobs(run.id);
-    if (run === cicdRuns[0]) latestJobs = jobs;
-    if (jobs && jobs.some((job) => (job.name || "").startsWith("distro test ("))) {
+    if (hasDistroJobEvidence(jobs)) {
       return { jobs, run };
     }
   }
-  return { jobs: latestJobs, run: cicdRuns[0] || null };
+  return { jobs: null, run: null };
 }
 
 // Translates GHA job lists into compatibility matrix records and failing log links
@@ -2210,6 +2222,10 @@ async function applyLiveChannelSwitch(latestByWorkflow) {
   const rowStatus = job ? normalizedLiveStatus(job) : runStatus;
   const durationSeconds = (job ? liveJobDurationSeconds(job) : null) ?? liveRunDurationSeconds(run);
   const snapshot = globalDashboardData?.channel_switch || {};
+  if (!shouldApplyLiveChannelSwitch(snapshot, run, rowStatus)) {
+    renderChannelSwitch(snapshot);
+    return false;
+  }
   const snapshotRow = (snapshot.rows || []).find((row) => row.arch === "arm64") || {};
   const snapshotMatchesRun = String(snapshot.run_id || "") === String(run.id || "");
   const snapshotHasRevisions = Boolean(snapshot.stable_revision && snapshot.edge_revision);
@@ -2823,12 +2839,13 @@ function hasChannelSwitchEvidence(row) {
 function mergeChannelSwitchData(current, incoming) {
   if (!incoming) return current;
   if (!current) return incoming;
+  const currentRows = Array.isArray(current.rows) ? current.rows : [];
+  const incomingRows = Array.isArray(incoming.rows) ? incoming.rows : [];
+  if (!incomingRows.length && currentRows.length) return current;
   const sameRun =
     current.run_id && incoming.run_id && String(current.run_id) === String(incoming.run_id);
   if (!sameRun) return incoming;
 
-  const currentRows = Array.isArray(current.rows) ? current.rows : [];
-  const incomingRows = Array.isArray(incoming.rows) ? incoming.rows : [];
   const rows = incomingRows.length
     ? incomingRows.map((row) => {
         const previous = currentRows.find(

@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { JSDOM } from "jsdom";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DASHBOARD_JS = resolve(__dirname, "../snap/local/assets/dashboard.js");
@@ -48,6 +49,10 @@ function loadDashboardAPI() {
     "liveStatusChip",
     "workflowButtonLabel",
     "workflowButtonHtml",
+    "renderSecurity",
+    "liveMatrixJobsAndRun",
+    "applyLiveChannelSwitch",
+    "shouldApplyLiveChannelSwitch",
     "liveJobDurationSeconds",
     "liveRunDurationSeconds",
     "liveUpdateFrequencyDays",
@@ -64,13 +69,46 @@ function loadDashboardAPI() {
     "scheduledCheckCountdownParts",
     "scheduledCheckLabel",
     "pluralizeUnit",
+    "__setGlobalDashboardData",
   ];
 
-  const factory = new Function(`"use strict"; ${code}; return { ${exports.join(", ")} };`);
+  const factory = new Function(
+    `"use strict"; ${code}; function __setGlobalDashboardData(value) { globalDashboardData = value; } return { ${exports.join(", ")} };`,
+  );
   return factory();
 }
 
 const api = loadDashboardAPI();
+
+function withDashboardDocument(markup, callback) {
+  const previousDocument = globalThis.document;
+  const dom = new JSDOM(markup);
+  globalThis.document = dom.window.document;
+  try {
+    callback(dom.window.document);
+  } finally {
+    if (previousDocument === undefined) {
+      delete globalThis.document;
+    } else {
+      globalThis.document = previousDocument;
+    }
+  }
+}
+
+async function withDashboardDocumentAsync(markup, callback) {
+  const previousDocument = globalThis.document;
+  const dom = new JSDOM(markup);
+  globalThis.document = dom.window.document;
+  try {
+    await callback(dom.window.document);
+  } finally {
+    if (previousDocument === undefined) {
+      delete globalThis.document;
+    } else {
+      globalThis.document = previousDocument;
+    }
+  }
+}
 
 function loadChannelSwitchAPI() {
   const src = readFileSync(DASHBOARD_CHANNEL_SWITCH_JS, "utf8");
@@ -624,6 +662,31 @@ describe("mergeChannelSwitchData", () => {
     assert.equal(merged.run_id, 124);
     assert.deepEqual(merged.rows[0].evidence, []);
   });
+
+  it("keeps last known good channel-switch rows when incoming rows are empty", () => {
+    const current = {
+      run_id: 123,
+      status: "success",
+      rows: [
+        {
+          arch: "arm64",
+          status: "success",
+          duration_seconds: 59,
+          evidence: [{ title: "DNS query through local FTL", status: "success" }],
+        },
+      ],
+    };
+    const incoming = {
+      run_id: 124,
+      status: "success",
+      rows: [],
+    };
+
+    const merged = api.mergeChannelSwitchData(current, incoming);
+
+    assert.equal(merged.run_id, 123);
+    assert.deepEqual(merged.rows, current.rows);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -678,6 +741,269 @@ describe("channelRevisionChipHtml", () => {
     assert.match(html, /aria-label="stable revision 840"/);
     assert.match(html, /aria-hidden="true">stable/);
     assert.match(html, /aria-hidden="true">r840/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renderSecurity
+// ---------------------------------------------------------------------------
+describe("renderSecurity", () => {
+  it("uses persisted summary totals for headline security metrics", () => {
+    withDashboardDocument(
+      `
+        <span id="security-total-vulns"></span>
+        <span id="security-confined-vulns"></span>
+        <table><tbody id="security-arch-body"></tbody></table>
+      `,
+      (document) => {
+        api.renderSecurity({
+          total_vulnerabilities: 3,
+          affected_packages: 2,
+          raw_vulnerability_matches: 5,
+          raw_affected_packages: 2,
+          confined_mitigation_vulnerabilities: 4,
+          architectures: [
+            {
+              channel: "stable",
+              architecture: "amd64",
+              affected_packages: 1,
+              vulnerabilities: 1,
+              raw_vulnerability_matches: 2,
+              raw_affected_packages: 1,
+              confined_mitigation_vulnerabilities: 1,
+              report: "osv-amd64.json",
+              generated_at: "2026-06-08T10:03:05Z",
+            },
+          ],
+        });
+
+        assert.equal(document.getElementById("security-total-vulns").textContent, "3");
+        assert.equal(document.getElementById("security-confined-vulns").textContent, "4");
+      },
+    );
+  });
+});
+
+describe("liveMatrixJobsAndRun", () => {
+  it("skips completed runs where every distro job was skipped", async () => {
+    const previousFetch = globalThis.fetch;
+    const jobsByRun = {
+      124: [
+        {
+          name: "distro test (ubuntu, stable) / Validate Snap Installation",
+          status: "completed",
+          conclusion: "skipped",
+        },
+      ],
+      123: [
+        {
+          name: "distro test (ubuntu, stable) / Validate Snap Installation",
+          status: "completed",
+          conclusion: "success",
+        },
+      ],
+    };
+    globalThis.fetch = async (url) => {
+      const runId = String(url).match(/actions\/runs\/(\d+)\/jobs/)?.[1];
+      return {
+        ok: true,
+        headers: { get: () => "100" },
+        json: async () => ({ jobs: jobsByRun[runId] || [] }),
+      };
+    };
+
+    try {
+      const result = await api.liveMatrixJobsAndRun([
+        { id: 124, status: "completed", conclusion: "success" },
+        { id: 123, status: "completed", conclusion: "success" },
+      ]);
+
+      assert.equal(result.run.id, 123);
+      assert.equal(result.jobs[0].conclusion, "success");
+    } finally {
+      if (previousFetch === undefined) {
+        delete globalThis.fetch;
+      } else {
+        globalThis.fetch = previousFetch;
+      }
+    }
+  });
+
+  it("continues past ten all-skipped distro runs to find live evidence", async () => {
+    const previousFetch = globalThis.fetch;
+    const skippedRuns = Array.from({ length: 10 }, (_, index) => ({
+      id: 200 - index,
+      status: "completed",
+      conclusion: "success",
+    }));
+    const goodRun = { id: 123, status: "completed", conclusion: "success" };
+
+    globalThis.fetch = async (url) => {
+      const runId = String(url).match(/actions\/runs\/(\d+)\/jobs/)?.[1];
+      const conclusion = runId === "123" ? "success" : "skipped";
+      return {
+        ok: true,
+        headers: { get: () => "100" },
+        json: async () => ({
+          jobs: [
+            {
+              name: "distro test (ubuntu, stable) / Validate Snap Installation",
+              status: "completed",
+              conclusion,
+            },
+          ],
+        }),
+      };
+    };
+
+    try {
+      const result = await api.liveMatrixJobsAndRun([...skippedRuns, goodRun]);
+
+      assert.equal(result.run.id, 123);
+      assert.equal(result.jobs[0].conclusion, "success");
+    } finally {
+      if (previousFetch === undefined) {
+        delete globalThis.fetch;
+      } else {
+        globalThis.fetch = previousFetch;
+      }
+    }
+  });
+});
+
+describe("shouldApplyLiveChannelSwitch", () => {
+  it("keeps baked channel-switch evidence when a newer completed run has no durable evidence", () => {
+    const snapshot = {
+      run_id: 123,
+      rows: [
+        {
+          arch: "arm64",
+          evidence: [{ title: "DNS query through local FTL", status: "success" }],
+        },
+      ],
+    };
+
+    assert.equal(
+      api.shouldApplyLiveChannelSwitch(snapshot, { id: 124, status: "completed" }, "success"),
+      false,
+    );
+  });
+
+  it("allows live channel-switch overlay for active or same-run updates", () => {
+    const snapshot = {
+      run_id: 123,
+      rows: [{ arch: "arm64", evidence: [{ title: "Old run", status: "success" }] }],
+    };
+
+    assert.equal(
+      api.shouldApplyLiveChannelSwitch(snapshot, { id: 124, status: "in_progress" }, "in_progress"),
+      true,
+    );
+    assert.equal(
+      api.shouldApplyLiveChannelSwitch(snapshot, { id: 123, status: "completed" }, "success"),
+      true,
+    );
+  });
+});
+
+describe("applyLiveChannelSwitch", () => {
+  it("restores baked evidence when an active no-evidence run completes without durable details", async () => {
+    const previousFetch = globalThis.fetch;
+    const previousChannelSwitch = globalThis.DashboardChannelSwitch;
+    const snapshot = {
+      run_id: 123,
+      status: "success",
+      updated_at: "2026-06-08T10:03:05Z",
+      rows: [
+        {
+          arch: "arm64",
+          status: "success",
+          path: "roundtrip",
+          updated_at: "2026-06-08T10:03:05Z",
+          duration_seconds: 59,
+          url: "https://example.test/channel-switch-good",
+          evidence: [{ title: "DNS query through local FTL", status: "success" }],
+        },
+      ],
+    };
+    let fetchCount = 0;
+
+    globalThis.DashboardChannelSwitch = channelSwitchApi;
+    globalThis.fetch = async () => {
+      fetchCount += 1;
+      const active = fetchCount === 1;
+      return {
+        ok: true,
+        headers: { get: () => "100" },
+        json: async () => ({
+          jobs: [
+            {
+              name: "channel switch smoke test (arm64)",
+              status: active ? "in_progress" : "completed",
+              conclusion: active ? null : "success",
+              started_at: "2026-06-08T11:00:00Z",
+              completed_at: active ? null : "2026-06-08T11:03:05Z",
+              html_url: "https://example.test/channel-switch-new",
+            },
+          ],
+        }),
+      };
+    };
+
+    try {
+      await withDashboardDocumentAsync(
+        `
+          <ul id="channel-switch-timeline"></ul>
+          <p id="channel-switch-summary"></p>
+          <table><tbody id="channel-switch-matrix-body"></tbody></table>
+        `,
+        async (document) => {
+          api.__setGlobalDashboardData({ channel_switch: snapshot });
+
+          await api.applyLiveChannelSwitch({
+            "channel-switch.yml": {
+              id: 124,
+              status: "in_progress",
+              head_branch: "main",
+              updated_at: "2026-06-08T11:00:00Z",
+              html_url: "https://example.test/channel-switch-new",
+            },
+          });
+          assert.doesNotMatch(
+            document.getElementById("channel-switch-matrix-body").textContent,
+            /DNS query through local FTL/,
+          );
+
+          await api.applyLiveChannelSwitch({
+            "channel-switch.yml": {
+              id: 124,
+              status: "completed",
+              conclusion: "success",
+              head_branch: "main",
+              updated_at: "2026-06-08T11:03:05Z",
+              html_url: "https://example.test/channel-switch-new",
+            },
+          });
+
+          assert.match(
+            document.getElementById("channel-switch-matrix-body").textContent,
+            /DNS query through local FTL/,
+          );
+        },
+      );
+    } finally {
+      api.__setGlobalDashboardData(null);
+      if (previousFetch === undefined) {
+        delete globalThis.fetch;
+      } else {
+        globalThis.fetch = previousFetch;
+      }
+      if (previousChannelSwitch === undefined) {
+        delete globalThis.DashboardChannelSwitch;
+      } else {
+        globalThis.DashboardChannelSwitch = previousChannelSwitch;
+      }
+    }
   });
 });
 

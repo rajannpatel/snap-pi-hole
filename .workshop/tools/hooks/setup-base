@@ -28,8 +28,6 @@ apt-get install -y \
   libuv1-dev \
   make \
   nettle-dev \
-  nodejs \
-  npm \
   pre-commit \
   python3 \
   python3-pip \

@@ -92,6 +92,33 @@ for row in security["architectures"]:
 PYEOF
 }
 
+@test "dashboard security summary preserves fallback when latest OSV summary is missing" {
+    write_osv_report "${REPORT_DIR}/osv-amd64.json"
+    python3 "${REPO_ROOT}/snap/local/build/summarize_osv_reports.py" "$REPORT_DIR"
+
+    python3 - <<PYEOF
+import pathlib
+import sys
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+from generate_dashboard_data import collect_security_summary
+
+missing_latest = pathlib.Path("${TEST_TMPDIR}/missing-latest/osv-summary.json")
+fallback = pathlib.Path("${REPORT_DIR}/osv-summary.json")
+security = collect_security_summary(missing_latest, fallback)
+
+assert security["total_vulnerabilities"] == 1, security
+assert security["affected_packages"] == 1, security
+assert security["raw_vulnerability_matches"] == 2, security
+assert security["raw_affected_packages"] == 1, security
+assert security["confined_mitigation_vulnerabilities"] == 1, security
+assert len(security["architectures"]) == 1, security
+row = security["architectures"][0]
+assert row["vulnerabilities"] == 1, row
+assert row["raw_vulnerability_matches"] == 2, row
+assert row["report"].endswith("osv-amd64.json"), row
+PYEOF
+}
+
 @test "dashboard security summary is zero when OSV findings have no USN" {
     cat > "${REPORT_DIR}/osv-amd64.json" <<'EOF'
 {
