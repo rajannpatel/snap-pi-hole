@@ -33,8 +33,7 @@ with open("${REPO_ROOT}/workshop.yaml") as f:
     doc = yaml.safe_load(f)
 
 names = [sdk.get("name") for sdk in doc["sdks"]]
-assert names == ["uv", "project-tools", "agy", "system"], names
-assert "codex" not in names
+assert names == ["node", "uv", "project-tools", "agy", "codex", "system"], names
 assert "copilot" not in names
 assert "claude-code" not in names
 assert "gemini" not in names
@@ -98,6 +97,12 @@ expected = {
     "logs",
     "debug",
     "uninstall",
+    "ultrawork",
+    "codex-yolo",
+    "claude-auto",
+    "copilot-auto",
+    "agy-run",
+    "ollama-serve",
 }
 actual = set(doc["actions"])
 assert actual == expected, f"expected actions {sorted(expected)}, got {sorted(actual)}"
@@ -216,7 +221,6 @@ retired_chromium_install = "snap install " + "chromium"
 retired_chromium_path = "/" + "snap/bin/chromium"
 
 assert "nodejs" in setup_base
-assert "npm" in setup_base
 for package in (
     "build-essential",
     "curl",
@@ -409,7 +413,7 @@ for required in (
     "Workshop terminal mode",
     "Native panel mode",
     "tools/workshop-shell",
-    "workshop run snap-pi-hole -- ...",
+    "workshop run <project-alias> -- ...",
     "must not run arbitrary host shell commands",
 ):
     assert required in confinement_text, required
@@ -426,18 +430,18 @@ bootstrap_text = (root / ".agents/bootstrap.md").read_text()
 bootstrap_normalized = " ".join(bootstrap_text.split())
 
 for needle in (
-    "workshop run snap-pi-hole -- agent-role <role>",
-    "workshop run snap-pi-hole -- context",
+    "workshop run <project-alias> -- agent-role <role>",
+    "workshop run <project-alias> -- context",
     ".agents/bootstrap.md",
 ):
     assert needle in agents_text, needle
 
 for needle in (
-    "You are the <role> for snap-pi-hole",
+    "You are the <role> for <project-alias>",
     "complete role assignment",
     "role preflight",
-    "workshop run snap-pi-hole -- agent-role <role>",
-    "workshop run snap-pi-hole -- context",
+    "workshop run <project-alias> -- agent-role <role>",
+    "workshop run <project-alias> -- context",
 ):
     assert needle in bootstrap_normalized, needle
 PYEOF
@@ -481,10 +485,10 @@ required_docs = {
         "Failure Handling",
     ],
     ".agents/templates/role-launch-prompts.md": [
-        "You are the Router for snap-pi-hole",
-        "You are the Architect for snap-pi-hole",
-        "You are the Implementer for snap-pi-hole",
-        "You are the Reviewer for snap-pi-hole",
+        "You are the Router for this repository",
+        "You are the Architect for this repository",
+        "You are the Implementer for this repository",
+        "You are the Reviewer for this repository",
         "role phrase implies the required setup",
     ],
     ".agents/policies/scope-and-hygiene.md": [
@@ -516,12 +520,12 @@ references = {
         "templates/role-launch-prompts.md",
     ],
     ".agents/roles/router.md": [
-        "You are the Router for snap-pi-hole",
-        "workshop run snap-pi-hole -- agent-role router",
-        "workshop run snap-pi-hole -- context",
+        "You are the Router for this repository",
+        "workshop run <project-alias> -- agent-role router",
+        "workshop run <project-alias> -- context",
     ],
     ".agents/roles/architect.md": [
-        "You are the Architect for snap-pi-hole",
+        "You are the Architect for this repository",
         ".agents/security/workshop-confinement.md",
         ".agents/docs/wiki-workflow.md",
         ".agents/models/selection.md",
@@ -529,13 +533,13 @@ references = {
         ".agents/workflows/delegation.md",
     ],
     ".agents/roles/implementer.md": [
-        "You are the Implementer for snap-pi-hole",
+        "You are the Implementer for this repository",
         ".agents/security/workshop-confinement.md",
         ".agents/policies/scope-and-hygiene.md",
         ".agents/docs/wiki-workflow.md",
     ],
     ".agents/roles/reviewer.md": [
-        "You are the Reviewer for snap-pi-hole",
+        "You are the Reviewer for this repository",
         ".agents/security/workshop-confinement.md",
         ".agents/policies/scope-and-hygiene.md",
         ".agents/docs/wiki-workflow.md",
@@ -572,7 +576,7 @@ for rel, needles in references.items():
     for needle in needles:
         assert needle in text, f"{rel} missing reference {needle!r}"
 
-assert "You are the <role> for snap-pi-hole" in (
+assert "You are the <role> for <project-alias>" in (
     root / ".agents/bootstrap.md"
 ).read_text()
 assert "Panel Role Assignment" in (
@@ -776,8 +780,8 @@ for needle in (
     assert needle in agents_text, needle
 
 for needle in (
-    "workshop launch snap-pi-hole",
-    "workshop launch snap-pi-hole && ...",
+    "workshop launch <project-alias>",
+    "workshop launch <project-alias> && ...",
     "which would skip the required \`agent-role\` command",
     "tools/workshop-shell -c",
 ):
@@ -785,7 +789,7 @@ for needle in (
 
 for needle in (
     "tools/workshop-shell -c",
-    "workshop launch snap-pi-hole && workshop run",
+    "workshop launch <project-alias> && workshop run",
     "already-launched \`workshop exists\`",
     "required preflight commands are not skipped",
 ):
