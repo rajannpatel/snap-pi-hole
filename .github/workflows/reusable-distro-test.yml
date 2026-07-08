@@ -261,22 +261,28 @@ jobs:
         run: |
           sudo snap install multipass
           sudo snap connect multipass:kvm || true
-          sudo multipass set local.driver=qemu
 
+          # Wait for the multipass daemon to start and initialize completely
+          # before running client commands to avoid certificate race conditions.
           i=1
           while [ $i -le 20 ]; do
             if sudo multipass list >/dev/null 2>&1; then
               echo "Multipass is ready!"
-              exit 0
+              break
             fi
             echo "Waiting for Multipass daemon..."
             sleep 3
             i=$((i + 1))
           done
 
-          echo "Multipass daemon failed to start. Logs:"
-          sudo journalctl -n 50 -u snap.multipass.multipassd.service
-          exit 1
+          if [ $i -gt 20 ]; then
+            echo "Multipass daemon failed to start. Logs:"
+            sudo journalctl -n 50 -u snap.multipass.multipassd.service
+            exit 1
+          fi
+
+          # Configure driver now that the daemon is ready and certificates exist
+          sudo multipass set local.driver=qemu
 
       - name: Launch VM (Multipass)
         if: inputs.distro == 'ubuntu-core'
