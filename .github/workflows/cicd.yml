@@ -721,11 +721,15 @@ jobs:
     name: Deploy reports to GitHub Pages
     needs: [lint, build, smoke, vulnerability-scan, changes]
     runs-on: ubuntu-26.04
-    environment: snap-publishing
+    environment:
+      name: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'snap-publishing' || 'ci' }}
     if: |
       always() &&
-      github.ref == 'refs/heads/main' && github.event_name == 'push' &&
       needs.lint.result == 'success' &&
+      (
+        (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+        (github.event_name == 'pull_request' && needs.changes.outputs.snap == 'true')
+      ) &&
       (
         (needs.changes.outputs.snap == 'true' && needs.build.result == 'success' &&
          needs.smoke.result == 'success' &&
