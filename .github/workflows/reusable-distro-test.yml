@@ -284,6 +284,26 @@ jobs:
           # Configure driver now that the daemon is ready and certificates exist
           sudo multipass set local.driver=qemu
 
+          # Setting the driver triggers a daemon restart. Wait for it to be ready again.
+          echo "Waiting for Multipass daemon to reload driver..."
+          sleep 5
+          i=1
+          while [ $i -le 20 ]; do
+            if sudo multipass list >/dev/null 2>&1; then
+              echo "Multipass is ready with new driver!"
+              break
+            fi
+            echo "Waiting for Multipass daemon to recover..."
+            sleep 3
+            i=$((i + 1))
+          done
+
+          if [ $i -gt 20 ]; then
+            echo "Multipass daemon failed to restart after setting driver. Logs:"
+            sudo journalctl -n 50 -u snap.multipass.multipassd.service
+            exit 1
+          fi
+
       - name: Launch VM (Multipass)
         if: inputs.distro == 'ubuntu-core'
         run: |
