@@ -804,6 +804,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PUBLISH_RESULT: not_waited
           SNAP_RELEVANT: ${{ needs.changes.outputs.snap }}
+          SKIP_REMOTE_ARTIFACTS: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
         run: |
           # Create docs directory structure
           mkdir -p docs/coverage docs/sbom docs/vulnerabilities

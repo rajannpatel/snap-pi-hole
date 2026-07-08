@@ -663,7 +663,7 @@ def collect_workflow_artifacts(client, run_id):
     if local_artifacts:
         return local_artifacts
 
-    if os.environ.get("GITHUB_EVENT_NAME") == "pull_request":
+    if os.environ.get("SKIP_REMOTE_ARTIFACTS") == "true":
         return []
 
     url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run_id}/artifacts"
