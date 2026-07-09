@@ -80,7 +80,7 @@ parts:
     plugin: cmake
     source: https://github.com/pi-hole/FTL.git
     source-type: git
-    source-commit: "82c58cc45435ddd77875daf368cf64398bc15966"
+    source-commit: "fa65a88f8cdef1013594d4de14108077954faea4"
     source-depth: 1
     override-pull: $CRAFT_PROJECT_DIR/snap/local/build/ftl-override-pull.sh
     cmake-parameters:
@@ -161,7 +161,7 @@ parts:
     plugin: dump
     source: https://github.com/pi-hole/pi-hole.git
     source-type: git
-    source-commit: "3413768c90d9f5289f6e29c7d1e0fe3451e6bbd6"
+    source-commit: "f47b8ede5a8e38f9c703202d324a074dbdba4ca9"
     source-depth: 1
     after: [ftl, web]
     override-pull: $CRAFT_PROJECT_DIR/snap/local/build/pi-hole-override-pull.sh
@@ -179,7 +179,7 @@ parts:
     plugin: dump
     source: https://github.com/pi-hole/web.git
     source-type: git
-    source-commit: "cc7c2f34b6e1130888a5c462ad3dbf16bd67d35e"
+    source-commit: "b2a4078446519c58d84f199663ca9326d5d311f0"
     source-depth: 1
     override-build: $CRAFT_PROJECT_DIR/snap/local/build/web-override-build.sh
     organize:
@@ -231,8 +231,6 @@ parts:
     override-prime: |
       craftctl default
       python3 "$CRAFT_PROJECT_DIR/snap/local/build/filter_dpkg_status.py" "$SNAPCRAFT_PRIME"
-
-
 apps:
   # The daemon. Disabled on install so the operator can free port 53 and
   # review interface connections before it starts.

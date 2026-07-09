@@ -142,7 +142,8 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.snap == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-26.04-arm' || 'ubuntu-26.04' }}
-    environment: snap-publishing
+    environment:
+      name: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'snap-publishing' || 'ci' }}
     strategy:
       fail-fast: false
       matrix:
@@ -205,7 +206,8 @@ jobs:
     # cannot block the amd64/arm64 security gate or dashboard deploy.
     if: always() && needs.build.result == 'success'
     runs-on: ubuntu-26.04
-    environment: snap-publishing
+    environment:
+      name: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'snap-publishing' || 'ci' }}
     permissions:
       contents: read
       models: read
@@ -719,11 +721,15 @@ jobs:
     name: Deploy reports to GitHub Pages
     needs: [lint, build, smoke, vulnerability-scan, changes]
     runs-on: ubuntu-26.04
-    environment: snap-publishing
+    environment:
+      name: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'snap-publishing' || 'ci' }}
     if: |
       always() &&
-      github.ref == 'refs/heads/main' && github.event_name == 'push' &&
       needs.lint.result == 'success' &&
+      (
+        (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+        (github.event_name == 'pull_request' && needs.changes.outputs.snap == 'true')
+      ) &&
       (
         (needs.changes.outputs.snap == 'true' && needs.build.result == 'success' &&
          needs.smoke.result == 'success' &&
@@ -798,6 +804,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PUBLISH_RESULT: not_waited
           SNAP_RELEVANT: ${{ needs.changes.outputs.snap }}
+          SKIP_REMOTE_ARTIFACTS: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
         run: |
           # Create docs directory structure
           mkdir -p docs/coverage docs/sbom docs/vulnerabilities
@@ -864,4 +871,5 @@ jobs:
 
       - name: Deploy to GitHub Pages
         id: deployment
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: actions/deploy-pages@v4

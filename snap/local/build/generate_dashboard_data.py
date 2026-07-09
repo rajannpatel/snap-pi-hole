@@ -358,6 +358,8 @@ def latest_cicd_run_with_distro_jobs(client, branch="main"):
     fallback_run = None
     page = 1
     per_page = 100
+    max_queries = 12
+    queries_made = 0
     while True:
         runs_data = client.get_json_or_empty(
             runs_url,
@@ -371,6 +373,9 @@ def latest_cicd_run_with_distro_jobs(client, branch="main"):
                 fallback_run = run
             if summarize_state(run) == "skipped":
                 continue
+            queries_made += 1
+            if queries_made > max_queries:
+                return fallback_run, []
             jobs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run.get('id')}/jobs"
             jobs = client.get_json_or_empty(jobs_url, params={"per_page": 100}).get("jobs", [])
             if distro_jobs_with_evidence(jobs):
@@ -403,6 +408,8 @@ def workflow_runs(client, workflow_file, branch="main", per_page=5, page=None):
 def workflow_run_job_candidates(client, workflow_file, branch="main", per_page=100):
     candidates = []
     page = 1
+    max_queries = 12
+    queries_made = 0
     while True:
         runs = workflow_runs(client, workflow_file, branch=branch, per_page=per_page, page=page)
         if not runs:
@@ -410,11 +417,14 @@ def workflow_run_job_candidates(client, workflow_file, branch="main", per_page=1
         for run in runs:
             if run.get("conclusion") == "skipped":
                 continue
+            queries_made += 1
+            if queries_made > max_queries:
+                break
             jobs_url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run.get('id')}/jobs"
             jobs = safe_get_json_or_empty(client, jobs_url, params={"per_page": 100}).get("jobs", [])
             if jobs:
                 candidates.append((run, jobs))
-        if len(runs) < per_page:
+        if len(runs) < per_page or queries_made > max_queries:
             break
         page += 1
     return candidates
@@ -652,6 +662,9 @@ def collect_workflow_artifacts(client, run_id):
     local_artifacts = collect_local_channel_switch_artifacts(run_id)
     if local_artifacts:
         return local_artifacts
+
+    if os.environ.get("SKIP_REMOTE_ARTIFACTS") == "true":
+        return []
 
     url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/actions/runs/{run_id}/artifacts"
     data = client.get_json_or_empty(url)
