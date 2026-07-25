@@ -1356,12 +1356,12 @@ function upstreamCommitLinkHtml(item) {
   return `<a href="${url}" target="_blank" rel="noopener noreferrer">${shortSha}</a>`;
 }
 
-function sourceVersionWithCommitHtml(item, tagKey, commitKey) {
+function sourceVersionWithCommitHtml(item, tagKey, commitKey, noLink) {
   const version = item?.[tagKey] || "Unknown";
   const sha = item?.[commitKey] || "";
   if (!sha) return version;
   const shortSha = sha.substring(0, 7);
-  const url = githubCommitUrl(item, sha);
+  const url = noLink ? null : githubCommitUrl(item, sha);
   const commit = url
     ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${shortSha}</a>`
     : shortSha;
@@ -1441,7 +1441,7 @@ function renderDependencies() {
     edgeRows.forEach((item) => {
       const statusHtml = componentStatusHtml(item, "Up to date");
 
-      const localSource = sourceVersionWithCommitHtml(item, "local_tag", "local_commit");
+      const localSource = sourceVersionWithCommitHtml(item, "local_tag", "local_commit", true);
       const upstreamSource = sourceVersionWithCommitHtml(item, "upstream_tag", "upstream_commit");
 
       const tr = document.createElement("tr");
@@ -2370,8 +2370,27 @@ async function applyLiveChannelSwitch(latestByWorkflow) {
   const keepSnapshotRevisionEvidence = snapshotMatchesRun || snapshotHasRevisions;
   const snapshotRunData = keepSnapshotRevisionEvidence ? snapshot : {};
   const snapshotRowData = keepSnapshotRevisionEvidence ? snapshotRow : {};
+
+  const path = snapshotRowData.path || snapshotRunData.path || "roundtrip";
+  let defaultSummary = "stable -> edge -> stable";
+  if (path === "stable-to-edge") {
+    defaultSummary = "stable -> edge";
+  } else if (path === "edge-to-stable") {
+    defaultSummary = "edge -> stable";
+  }
+
+  const finalSummary =
+    snapshot.summary && snapshot.summary !== "No data available"
+      ? snapshot.summary
+      : defaultSummary;
+
+  const rowSummaryRaw = snapshotRowData.summary || snapshotRunData.summary || "";
+  const rowSummary =
+    rowSummaryRaw && rowSummaryRaw !== "No data available" ? rowSummaryRaw : defaultSummary;
+
   const liveChannelSwitch = {
     ...snapshot,
+    summary: finalSummary,
     stable_revision: snapshotRunData.stable_revision || "",
     edge_revision: snapshotRunData.edge_revision || "",
     status: rowStatus,
@@ -2391,8 +2410,8 @@ async function applyLiveChannelSwitch(latestByWorkflow) {
         conclusion:
           job?.conclusion ||
           (run.status === "completed" ? run.conclusion || "unknown" : run.status),
-        path: snapshotRowData.path || snapshotRunData.path || "roundtrip",
-        summary: snapshotRowData.summary || snapshotRunData.summary || "stable -> edge -> stable",
+        path: path,
+        summary: rowSummary,
         updated_at:
           job?.completed_at ||
           job?.started_at ||
