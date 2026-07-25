@@ -1235,12 +1235,90 @@ def collect_release_data(client, versions, snapcraft_sources=None):
     return {"components": results, "last_updated": dt_to_iso(max([d for d in latest_dates if d], default=None))}
 
 
-def collect_edge_release_data(client, versions, display_versions=None):
+def collect_edge_release_data(client, versions, display_versions=None, snapcraft_sources=None, repo_root=None):
     display_versions = display_versions or {}
+    
+    # 1. Search for any Edge SBOM files in repo_root to find actually bundled commits
+    sbom_commits = {}
+    if repo_root:
+        import glob
+        for p_str in glob.glob(str(repo_root / "**" / "sbom-*edge*.json"), recursive=True):
+            try:
+                with open(p_str, "r", encoding="utf-8") as f:
+                    sbom_data = json.load(f)
+                for comp in sbom_data.get("components", []):
+                    c_name = comp.get("name", "")
+                    c_ver = comp.get("version", "")
+                    c_commit = ""
+                    if "+git." in c_ver:
+                        c_commit = c_ver.split("+git.", 1)[1].split(".")[0]
+                    
+                    if c_commit:
+                        if c_name == "pihole-ftl":
+                            sbom_commits["ftl"] = c_commit
+                        elif c_name == "pi-hole":
+                            sbom_commits["pi_hole"] = c_commit
+                        elif c_name == "web":
+                            sbom_commits["web"] = c_commit
+                if sbom_commits:
+                    break
+            except Exception:
+                pass
+
+    # 2. Query the Snapcraft store API for the published Edge snap version, and extract the Core commit
+    published_edge_core_commit = ""
+    try:
+        snap_data = client.get_json_or_empty(
+            SNAPCRAFT_INFO_URL,
+            headers={"Snap-Device-Series": "16", "Accept": "application/json"},
+        )
+        channel_map = snap_data.get("channel-map", [])
+        for entry in channel_map:
+            channel = entry.get("channel", {})
+            if channel.get("track") == "latest" and channel.get("risk") == "edge":
+                version_str = entry.get("version", "")
+                if "+git." in version_str:
+                    published_edge_core_commit = version_str.split("+git.", 1)[1].split(".")[0]
+                    break
+    except Exception:
+        pass
+
+    # 3. Define the bundled/local commit for each component
+    bundled_commits = {}
+    stable_core_commit = ""
+    if snapcraft_sources and "pi_hole" in snapcraft_sources:
+        stable_core_commit = snapcraft_sources["pi_hole"].get("commit", "")
+
+    if sbom_commits:
+        # Use exact SBOM commits if available
+        bundled_commits = sbom_commits
+    elif published_edge_core_commit and stable_core_commit and published_edge_core_commit == stable_core_commit:
+        # If published edge core commit is stable core commit, everything is built from stable!
+        if snapcraft_sources:
+            bundled_commits = {
+                "ftl": snapcraft_sources.get("ftl", {}).get("commit", ""),
+                "pi_hole": stable_core_commit,
+                "web": snapcraft_sources.get("web", {}).get("commit", ""),
+            }
+    elif published_edge_core_commit:
+        # If published edge has dev core commit, use it, and fall back to live dev HEAD for FTL/Web
+        bundled_commits = {
+            "ftl": versions.get("ftl", ""),
+            "pi_hole": published_edge_core_commit,
+            "web": versions.get("web", ""),
+        }
+    else:
+        # Fallback to live upstream development HEAD commits
+        bundled_commits = {
+            "ftl": versions.get("ftl", ""),
+            "pi_hole": versions.get("pi_hole", ""),
+            "web": versions.get("web", ""),
+        }
+
     components = [
-        {"key": "ftl", "name": "FTL", "repo": "pi-hole/FTL", "local": versions.get("ftl", "")},
-        {"key": "pi_hole", "name": "Pi-hole Core", "repo": "pi-hole/pi-hole", "local": versions.get("pi_hole", "")},
-        {"key": "web", "name": "Web UI", "repo": "pi-hole/web", "local": versions.get("web", "")},
+        {"key": "ftl", "name": "FTL", "repo": "pi-hole/FTL", "local": bundled_commits.get("ftl", "")},
+        {"key": "pi_hole", "name": "Pi-hole Core", "repo": "pi-hole/pi-hole", "local": bundled_commits.get("pi_hole", "")},
+        {"key": "web", "name": "Web UI", "repo": "pi-hole/web", "local": bundled_commits.get("web", "")},
     ]
 
     results = []
@@ -1251,10 +1329,10 @@ def collect_edge_release_data(client, versions, display_versions=None):
         upstream_tag = latest_release.get("tag_name", "")
         local_tag = display_versions.get(component["key"], "") or upstream_tag
         local_sha = component["local"]
-        update_available = bool(local_sha and latest_sha and local_sha != latest_sha)
+        update_available = bool(local_sha and latest_sha and not latest_sha.startswith(local_sha) and not local_sha.startswith(latest_sha))
         
         compare_url = ""
-        if local_sha and latest_sha and local_sha != latest_sha:
+        if local_sha and latest_sha and not latest_sha.startswith(local_sha) and not local_sha.startswith(latest_sha):
             compare_url = f"https://github.com/{component['repo']}/compare/{local_sha}...{UPSTREAM_EDGE_REF}"
         else:
             compare_url = f"https://github.com/{component['repo']}/commits/{UPSTREAM_EDGE_REF}"
@@ -1712,7 +1790,7 @@ def main():
         repo_root / "docs" / "vulnerabilities" / "osv-summary.json",
     )
     releases = collect_release_data(client, versions, snapcraft_sources)
-    edge_releases = collect_edge_release_data(client, edge_versions, versions)
+    edge_releases = collect_edge_release_data(client, edge_versions, versions, snapcraft_sources, repo_root)
     snap_package = collect_snap_package_data(client, repo_root)
     auto_update = collect_track_upstream_status(client)
     schedule = extract_track_upstream_cron(repo_root / ".github" / "workflows" / "track-upstream-releases.yml")
