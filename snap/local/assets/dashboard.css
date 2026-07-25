@@ -838,3 +838,19 @@ footer.p-strip--dark a:hover {
   color: #e95420 !important;
   text-decoration: underline !important;
 }
+
+/* ==========================================================================
+   11. Table Group Headers
+   ========================================================================== */
+.table-group-header th {
+  background-color: #f7f7f7 !important;
+  color: #111 !important;
+  font-weight: 700 !important;
+  text-align: left !important;
+  padding: 10px 16px !important;
+  font-size: 0.9rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  border-top: 2px solid #e0e0e0 !important;
+  border-bottom: 2px solid #e0e0e0 !important;
+}

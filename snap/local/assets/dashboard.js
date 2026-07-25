@@ -75,10 +75,18 @@ const freshnessState = {
   build: { updatedAt: null },
 };
 const activityState = {
-  upstream: "Loading...",
-  build: "Loading...",
-  store: "Loading...",
-  install: "Loading...",
+  stable: {
+    upstream: "Loading...",
+    build: "Loading...",
+    store: "Loading...",
+    install: "Loading...",
+  },
+  edge: {
+    upstream: "Loading...",
+    build: "Loading...",
+    store: "Loading...",
+    install: "Loading...",
+  },
 };
 let freshnessTimer = null;
 let dependencyRows = [];
@@ -483,14 +491,15 @@ function updateChannelScopeSummary() {
   }
 }
 
-function renderCurrentActivity() {
-  const container = document.getElementById("current-activity");
+function renderCurrentActivity(channel) {
+  const ch = channel || "stable";
+  const container = document.getElementById(`current-activity-${ch}`);
   if (!container) return;
   const items = [
-    ["Pi-hole Components", activityState.upstream],
-    ["Build", activityState.build],
-    ["Store", activityState.store],
-    ["Install", activityState.install],
+    ["Pi-hole Components", activityState[ch].upstream],
+    ["Build", activityState[ch].build],
+    ["Store", activityState[ch].store],
+    ["Install", activityState[ch].install],
   ];
   container.innerHTML = "";
   items.forEach(([label, value]) => {
@@ -509,72 +518,94 @@ function renderCurrentActivity() {
 }
 
 function updateUpstreamActivity() {
-  const label = selectedChannelLabel();
-  const rows =
-    label === "edge"
-      ? globalDashboardData?.auto_update?.edge_releases || []
-      : dependencyRows.length
-        ? dependencyRows
-        : globalDashboardData?.release_info?.components || [];
-  if (!rows.length) {
-    activityState.upstream = "No upstream data";
+  // Update Stable Upstream Activity
+  const stableRows = dependencyRows.length
+    ? dependencyRows
+    : globalDashboardData?.release_info?.components || [];
+  if (!stableRows.length) {
+    activityState.stable.upstream = "No upstream data";
   } else {
-    const pending = rows.filter((row) => row.update_available).length;
-    if (label === "edge") {
-      activityState.upstream = pending
-        ? `${pending} dev commit${pending === 1 ? "" : "s"} pending`
-        : "Up to date with dev commits";
-    } else {
-      activityState.upstream = pending
-        ? `${pending} stable commit${pending === 1 ? "" : "s"} pending`
-        : "Up to date with stable branch";
-    }
+    const pending = stableRows.filter((row) => row.update_available).length;
+    activityState.stable.upstream = pending
+      ? `${pending} stable commit${pending === 1 ? "" : "s"} pending`
+      : "Up to date with stable branch";
   }
-  renderCurrentActivity();
+
+  // Update Edge Upstream Activity
+  const edgeRows = globalDashboardData?.auto_update?.edge_releases || [];
+  if (!edgeRows.length) {
+    activityState.edge.upstream = "No upstream data";
+  } else {
+    const pending = edgeRows.filter((row) => row.update_available).length;
+    activityState.edge.upstream = pending
+      ? `${pending} dev commit${pending === 1 ? "" : "s"} pending`
+      : "Up to date with dev commits";
+  }
+
+  renderCurrentActivity("stable");
+  renderCurrentActivity("edge");
 }
 
-function updateBuildActivity(buildStatus) {
+function updateBuildActivity(buildStatus, channel) {
+  const ch = channel || "stable";
   const latest = (buildStatus || {}).latest_run || {};
   if (!latest.number) {
-    activityState.build = "No run data";
+    activityState[ch].build = "No run data";
   } else if (isBuildingStatus(latest.status)) {
-    activityState.build = `Run #${latest.number} building (${latest.duration_label || "0s"})`;
+    activityState[ch].build = `Run #${latest.number} building (${latest.duration_label || "0s"})`;
   } else {
-    activityState.build = `Run #${latest.number} ${latest.status || "unknown"}`;
+    activityState[ch].build = `Run #${latest.number} ${latest.status || "unknown"}`;
   }
-  renderCurrentActivity();
+  renderCurrentActivity(ch);
 }
 
-function updateInstallActivity(rows) {
-  const matrixRows = rows || matrixState.rows || [];
+function updateInstallActivity(rows, channel) {
+  const ch = channel || "stable";
+  const matrixRows = rows || globalDashboardData?.test_matrix?.[ch]?.rows || [];
   if (!matrixRows.length) {
-    activityState.install = "No test data";
+    activityState[ch].install = "No test data";
   } else {
     const building = matrixRows.filter((row) => isBuildingStatus(row.status)).length;
     const failed = matrixRows.filter((row) => FAILURE_STATES.has(row.status)).length;
     const passed = matrixRows.filter((row) => row.status === "success").length;
     if (building) {
-      activityState.install = `${building} test${building === 1 ? "" : "s"} running`;
+      activityState[ch].install = `${building} test${building === 1 ? "" : "s"} running`;
     } else if (failed) {
-      activityState.install = `${failed} failing, ${passed} passing`;
+      activityState[ch].install = `${failed} failing, ${passed} passing`;
     } else {
-      activityState.install = `${passed}/${matrixRows.length} passing`;
+      activityState[ch].install = `${passed}/${matrixRows.length} passing`;
     }
   }
-  renderCurrentActivity();
+  renderCurrentActivity(ch);
 }
 
 function updateStoreActivity(snapPackage) {
-  const rows = (snapPackage || {}).channels || [];
-  if (!rows.length) {
-    activityState.store = "No store data";
+  const allRows = (snapPackage || {}).channels || (snapPackage || {}).all_channels || [];
+
+  // Update Stable
+  const stableRows = allRows.filter((r) => r.channel === "stable");
+  if (!stableRows.length) {
+    activityState.stable.store = "No store data";
   } else {
-    const lagging = rows.filter((row) => row.build_status !== "current").length;
-    activityState.store = lagging
+    const lagging = stableRows.filter((row) => row.build_status !== "current").length;
+    activityState.stable.store = lagging
       ? `${lagging} architecture${lagging === 1 ? "" : "s"} store lag`
       : "Serving all architectures";
   }
-  renderCurrentActivity();
+
+  // Update Edge
+  const edgeRows = allRows.filter((r) => r.channel === "edge");
+  if (!edgeRows.length) {
+    activityState.edge.store = "No store data";
+  } else {
+    const lagging = edgeRows.filter((row) => row.build_status !== "current").length;
+    activityState.edge.store = lagging
+      ? `${lagging} architecture${lagging === 1 ? "" : "s"} store lag`
+      : "Serving all architectures";
+  }
+
+  renderCurrentActivity("stable");
+  renderCurrentActivity("edge");
 }
 
 function buildJobNamePrefixes(arch, channel, isGitHub) {
@@ -671,8 +702,12 @@ function statusBadgeUrl(status) {
 // 3. CORE PAGE RENDERING (DOM GENERATORS & DRAWER FUNCTIONS)
 
 // Draws the SVG build duration trend line graph and configures interactive tooltips
-function renderDurationTrendChart(trendRows) {
-  const container = document.getElementById("duration-trend-chart");
+function renderDurationTrendChart(trendRows, channel) {
+  const ch = channel || "stable";
+  let container = document.getElementById(`duration-trend-chart-${ch}`);
+  if (!container) {
+    container = document.getElementById("duration-trend-chart");
+  }
   if (!container) return;
 
   const ordered = (trendRows || [])
@@ -714,13 +749,16 @@ function renderDurationTrendChart(trendRows) {
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-labelledby", "duration-trend-chart-title duration-trend-chart-desc");
+  svg.setAttribute(
+    "aria-labelledby",
+    `duration-trend-chart-title-${ch} duration-trend-chart-desc-${ch}`,
+  );
 
   const title = document.createElementNS(ns, "title");
-  title.setAttribute("id", "duration-trend-chart-title");
+  title.setAttribute("id", `duration-trend-chart-title-${ch}`);
   title.textContent = "Build duration trend chart";
   const desc = document.createElementNS(ns, "desc");
-  desc.setAttribute("id", "duration-trend-chart-desc");
+  desc.setAttribute("id", `duration-trend-chart-desc-${ch}`);
   desc.textContent = durationTrendDescription(trendRows);
   svg.append(title, desc);
   container.setAttribute("aria-label", desc.textContent);
@@ -925,13 +963,14 @@ function renderDurationTrendChart(trendRows) {
 }
 
 // Updates build status metrics cards and duration baseline/regression descriptions
-function renderBuildStatus(buildStatus) {
-  updateBuildActivity(buildStatus);
+function renderBuildStatus(buildStatus, channel) {
+  const ch = channel || "stable";
+  updateBuildActivity(buildStatus, ch);
   const latest = buildStatus.latest_run || {};
-  setText("latest-run-title", latest.number ? `Run #${latest.number}` : "No run data");
+  setText(`latest-${ch}-run-title`, latest.number ? `Run #${latest.number}` : "No run data");
   const building = isBuildingStatus(latest.status);
-  setText("latest-run-updated", formatDate(latest.updated_at));
-  const chip = document.getElementById("latest-run-status-chip");
+  setText(`latest-${ch}-run-updated`, formatDate(latest.updated_at));
+  const chip = document.getElementById(`latest-${ch}-run-status-chip`);
   if (chip) {
     const statusVal = building ? "building" : latest.status || "unknown";
     const statusText = statusVal.replace(/_/g, " ");
@@ -939,9 +978,9 @@ function renderBuildStatus(buildStatus) {
       ? "status-chip status-building is-building"
       : `status-chip ${statusClass(latest.status)}`;
 
-    chip.parentElement.innerHTML = `<span id="latest-run-status-chip" class="${statusClassStr}" aria-label="Status: ${statusText}">${statusIconSvg(statusVal)}<span class="status-text-full" aria-hidden="true">${statusText}</span><span class="status-text-short" aria-hidden="true">${statusText}</span></span>`;
+    chip.parentElement.innerHTML = `<span id="latest-${ch}-run-status-chip" class="${statusClassStr}" aria-label="Status: ${statusText}">${statusIconSvg(statusVal)}<span class="status-text-full" aria-hidden="true">${statusText}</span><span class="status-text-short" aria-hidden="true">${statusText}</span></span>`;
   }
-  const latestLink = document.getElementById("latest-run-link");
+  const latestLink = document.getElementById(`latest-${ch}-run-link`);
   if (latestLink) {
     const durationLabel = workflowButtonLabel(
       latest.duration_seconds,
@@ -996,16 +1035,17 @@ function renderBuildStatus(buildStatus) {
       }
     }
   }
-  setText("duration-regression", regressionText);
+  setText(`duration-regression-${ch}`, regressionText);
 
   const trend = buildStatus.duration_trend || [];
-  renderDurationTrendChart(trend);
+  renderDurationTrendChart(trend, ch);
   announceDashboardStatus();
 }
 
 // Populates a list of hyperlinks pointing to failed pipeline log files
-function renderFailedLogs(testMatrix) {
-  const list = document.getElementById("failed-log-links");
+function renderFailedLogs(testMatrix, channel) {
+  const ch = channel || "stable";
+  const list = document.getElementById(`failed-log-links-${ch}`);
   if (!list) return;
   list.innerHTML = "";
   const links = testMatrix.failed_links || [];
@@ -1025,39 +1065,126 @@ function renderFailedLogs(testMatrix) {
 function renderMatrixRows(rowsOverride) {
   const tbody = document.getElementById("compatibility-matrix-body");
   if (!tbody) return;
-  const rows = Array.isArray(rowsOverride) ? rowsOverride : matrixState.rows || [];
-  updateInstallActivity(rows);
   tbody.innerHTML = "";
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="5">No matrix rows available.</td></tr>';
+
+  if (Array.isArray(rowsOverride)) {
+    updateInstallActivity(rowsOverride, "stable");
+    if (!rowsOverride.length) {
+      tbody.innerHTML = '<tr><td colspan="5">No matrix rows available.</td></tr>';
+      return;
+    }
+    rowsOverride.forEach((row) => {
+      const tr = document.createElement("tr");
+      const logUrl = row.failed_job_url || row.run_url;
+      const badgeSrc = osBadgeByFamily[row.family] || "";
+      const statusText = (row.status || "unknown").replace("_", " ");
+      const badgeCell = badgeSrc
+        ? `<img class="os-badge" src="${badgeSrc}" alt="">`
+        : `<span class="mono">${row.family || ""}</span>`;
+      const statusCell = isBuildingStatus(row.status)
+        ? `<span class="status-chip status-building is-building" aria-label="Status: building">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">building</span><span class="status-text-short" aria-hidden="true">building</span></span>`
+        : `<span class="status-chip ${statusClass(row.status)}" aria-label="Status: ${statusText}">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">${statusText}</span><span class="status-text-short" aria-hidden="true">${statusText}</span></span>`;
+      tr.innerHTML = `
+            <td class="os-logo-col">${badgeCell}</td>
+            <td class="distribution-col">${row.label}</td>
+            <td>${statusCell}</td>
+            <td class="mono">${formatDate(row.updated_at)}</td>
+            <td>${workflowButtonHtml(
+              logUrl,
+              row.duration_seconds,
+              row.failed_job_url ? "Test job" : "Test run",
+              isBuildingStatus(row.status),
+              row.status,
+            )}</td>
+          `;
+      tbody.appendChild(tr);
+    });
     return;
   }
-  rows.forEach((row) => {
-    const tr = document.createElement("tr");
-    const logUrl = row.failed_job_url || row.run_url;
-    const badgeSrc = osBadgeByFamily[row.family] || "";
-    const statusText = (row.status || "unknown").replace("_", " ");
-    const badgeCell = badgeSrc
-      ? `<img class="os-badge" src="${badgeSrc}" alt="">`
-      : `<span class="mono">${row.family || ""}</span>`;
-    const statusCell = isBuildingStatus(row.status)
-      ? `<span class="status-chip status-building is-building" aria-label="Status: building">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">building</span><span class="status-text-short" aria-hidden="true">building</span></span>`
-      : `<span class="status-chip ${statusClass(row.status)}" aria-label="Status: ${statusText}">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">${statusText}</span><span class="status-text-short" aria-hidden="true">${statusText}</span></span>`;
-    tr.innerHTML = `
-          <td class="os-logo-col">${badgeCell}</td>
-          <td class="distribution-col">${row.label}</td>
-          <td>${statusCell}</td>
-          <td class="mono">${formatDate(row.updated_at)}</td>
-          <td>${workflowButtonHtml(
-            logUrl,
-            row.duration_seconds,
-            row.failed_job_url ? "Test job" : "Test run",
-            isBuildingStatus(row.status),
-            row.status,
-          )}</td>
-        `;
-    tbody.appendChild(tr);
-  });
+
+  // 1. Stable Rows
+  const stableHeader = document.createElement("tr");
+  stableHeader.className = "table-group-header";
+  stableHeader.innerHTML = `<th colspan="5" class="u-text--left">Stable (upstream branch)</th>`;
+  tbody.appendChild(stableHeader);
+
+  const stableRows = globalDashboardData?.test_matrix?.stable?.rows || [];
+  updateInstallActivity(stableRows, "stable");
+  if (!stableRows.length) {
+    const emptyRow = document.createElement("tr");
+    emptyRow.innerHTML =
+      '<td colspan="5" style="padding: 12px 16px;">No stable matrix rows available.</td>';
+    tbody.appendChild(emptyRow);
+  } else {
+    stableRows.forEach((row) => {
+      const tr = document.createElement("tr");
+      const logUrl = row.failed_job_url || row.run_url;
+      const badgeSrc = osBadgeByFamily[row.family] || "";
+      const statusText = (row.status || "unknown").replace("_", " ");
+      const badgeCell = badgeSrc
+        ? `<img class="os-badge" src="${badgeSrc}" alt="">`
+        : `<span class="mono">${row.family || ""}</span>`;
+      const statusCell = isBuildingStatus(row.status)
+        ? `<span class="status-chip status-building is-building" aria-label="Status: building">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">building</span><span class="status-text-short" aria-hidden="true">building</span></span>`
+        : `<span class="status-chip ${statusClass(row.status)}" aria-label="Status: ${statusText}">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">${statusText}</span><span class="status-text-short" aria-hidden="true">${statusText}</span></span>`;
+      tr.innerHTML = `
+            <td class="os-logo-col">${badgeCell}</td>
+            <td class="distribution-col">${row.label}</td>
+            <td>${statusCell}</td>
+            <td class="mono">${formatDate(row.updated_at)}</td>
+            <td>${workflowButtonHtml(
+              logUrl,
+              row.duration_seconds,
+              row.failed_job_url ? "Test job" : "Test run",
+              isBuildingStatus(row.status),
+              row.status,
+            )}</td>
+          `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // 2. Edge Rows
+  const edgeHeader = document.createElement("tr");
+  edgeHeader.className = "table-group-header";
+  edgeHeader.innerHTML = `<th colspan="5" class="u-text--left">Edge (upstream dev)</th>`;
+  tbody.appendChild(edgeHeader);
+
+  const edgeRows = globalDashboardData?.test_matrix?.edge?.rows || [];
+  updateInstallActivity(edgeRows, "edge");
+  if (!edgeRows.length) {
+    const emptyRow = document.createElement("tr");
+    emptyRow.innerHTML =
+      '<td colspan="5" style="padding: 12px 16px;">No edge matrix rows available.</td>';
+    tbody.appendChild(emptyRow);
+  } else {
+    edgeRows.forEach((row) => {
+      const tr = document.createElement("tr");
+      const logUrl = row.failed_job_url || row.run_url;
+      const badgeSrc = osBadgeByFamily[row.family] || "";
+      const statusText = (row.status || "unknown").replace("_", " ");
+      const badgeCell = badgeSrc
+        ? `<img class="os-badge" src="${badgeSrc}" alt="">`
+        : `<span class="mono">${row.family || ""}</span>`;
+      const statusCell = isBuildingStatus(row.status)
+        ? `<span class="status-chip status-building is-building" aria-label="Status: building">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">building</span><span class="status-text-short" aria-hidden="true">building</span></span>`
+        : `<span class="status-chip ${statusClass(row.status)}" aria-label="Status: ${statusText}">${statusIconSvg(row.status)}<span class="status-text-full" aria-hidden="true">${statusText}</span><span class="status-text-short" aria-hidden="true">${statusText}</span></span>`;
+      tr.innerHTML = `
+            <td class="os-logo-col">${badgeCell}</td>
+            <td class="distribution-col">${row.label}</td>
+            <td>${statusCell}</td>
+            <td class="mono">${formatDate(row.updated_at)}</td>
+            <td>${workflowButtonHtml(
+              logUrl,
+              row.duration_seconds,
+              row.failed_job_url ? "Test job" : "Test run",
+              isBuildingStatus(row.status),
+              row.status,
+            )}</td>
+          `;
+      tbody.appendChild(tr);
+    });
+  }
 
   // Equalize workflow button widths based on the widest button
   setTimeout(() => {
@@ -1264,15 +1391,22 @@ function renderDependencies() {
   );
   updateUpstreamActivity();
 
-  if (selectedBranch === "stable") {
-    const rows = dependencyRows.length
-      ? dependencyRows
-      : globalDashboardData?.release_info?.components || [];
-    if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="5">No dependency rows match current filter.</td></tr>';
-      return;
-    }
-    rows.forEach((item) => {
+  // 1. Stable Group
+  const stableHeader = document.createElement("tr");
+  stableHeader.className = "table-group-header";
+  stableHeader.innerHTML = `<th colspan="5" class="u-text--left">Stable (upstream branch)</th>`;
+  body.appendChild(stableHeader);
+
+  const stableRows = dependencyRows.length
+    ? dependencyRows
+    : globalDashboardData?.release_info?.components || [];
+  if (!stableRows.length) {
+    const emptyRow = document.createElement("tr");
+    emptyRow.innerHTML =
+      '<td colspan="5" style="padding: 12px 16px;">No stable dependency rows available.</td>';
+    body.appendChild(emptyRow);
+  } else {
+    stableRows.forEach((item) => {
       const statusHtml = componentStatusHtml(item);
 
       const localCommitShort = item.local_commit ? ` (${item.local_commit.substring(0, 7)})` : "";
@@ -1289,13 +1423,22 @@ function renderDependencies() {
           `;
       body.appendChild(tr);
     });
+  }
+
+  // 2. Edge Group
+  const edgeHeader = document.createElement("tr");
+  edgeHeader.className = "table-group-header";
+  edgeHeader.innerHTML = `<th colspan="5" class="u-text--left">Edge (upstream dev)</th>`;
+  body.appendChild(edgeHeader);
+
+  const edgeRows = globalDashboardData?.auto_update?.edge_releases || [];
+  if (!edgeRows.length) {
+    const emptyRow = document.createElement("tr");
+    emptyRow.innerHTML =
+      '<td colspan="5" style="padding: 12px 16px;">No edge dependency rows available.</td>';
+    body.appendChild(emptyRow);
   } else {
-    const rows = globalDashboardData?.auto_update?.edge_releases || [];
-    if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="5">No edge dependency rows available.</td></tr>';
-      return;
-    }
-    rows.forEach((item) => {
+    edgeRows.forEach((item) => {
       const statusHtml = componentStatusHtml(item, "Up to date");
 
       const localSource = sourceVersionWithCommitHtml(item, "local_tag", "local_commit");
@@ -1329,8 +1472,9 @@ function renderDependencies() {
 }
 
 // Renders active snap-package store upload/freshness notification banners
-function renderSnapFreshness(snapPackage, rows) {
-  const el = document.getElementById("snap-package-freshness");
+function renderSnapFreshness(snapPackage, rows, channel) {
+  const ch = channel || "stable";
+  const el = document.getElementById(`snap-package-freshness-${ch}`);
   if (!el) return;
   const sha = snapPackage.expected_commit || "";
   const rev = (rows || []).map((r) => r.revision).filter(Boolean)[0];
@@ -1491,194 +1635,188 @@ function snapStatusDescriptor(row) {
 // Draws target architectural snap release version tables
 function renderSnapPackage(snapPackage) {
   snapState.snapPackage = snapPackage;
-  const packageBody = document.getElementById("snap-package-rows");
-  if (!packageBody) return;
 
-  const allRows = snapPackage.all_channels || snapPackage.channels || [];
-  const selectedRows = [];
-  const arches = Array.from(new Set(allRows.map((r) => r.architecture)));
+  const renderChannel = (ch) => {
+    const packageBody = document.getElementById(`snap-package-rows-${ch}`);
+    if (!packageBody) return;
 
-  arches.forEach((arch) => {
-    const archRows = allRows.filter((r) => r.architecture === arch);
-    if (selectedBranch === "stable") {
-      const stableEntry = archRows.find((r) => r.channel === "stable");
-      if (stableEntry) {
-        selectedRows.push(stableEntry);
+    const allRows = snapPackage.all_channels || snapPackage.channels || [];
+    const selectedRows = [];
+    const arches = Array.from(new Set(allRows.map((r) => r.architecture)));
+
+    arches.forEach((arch) => {
+      const archRows = allRows.filter((r) => r.architecture === arch);
+      const chEntry = archRows.find((r) => r.channel === ch);
+      if (chEntry) {
+        selectedRows.push(chEntry);
       } else {
-        const edgeEntry = archRows.find((r) => r.channel === "edge");
-        if (edgeEntry) selectedRows.push(edgeEntry);
+        const fallbackCh = ch === "stable" ? "edge" : "stable";
+        const fallbackEntry = archRows.find((r) => r.channel === fallbackCh);
+        if (fallbackEntry) selectedRows.push(fallbackEntry);
       }
-    } else {
-      const edgeEntry = archRows.find((r) => r.channel === "edge");
-      if (edgeEntry) {
-        selectedRows.push(edgeEntry);
-      } else {
-        const stableEntry = archRows.find((r) => r.channel === "stable");
-        if (stableEntry) selectedRows.push(stableEntry);
-      }
+    });
+    const rows = selectedRows;
+
+    renderSnapFreshness(snapPackage || {}, rows, ch);
+
+    packageBody.innerHTML = "";
+    if (!rows.length) {
+      packageBody.innerHTML = `<tr><td colspan="8">snap package metadata unavailable for ${ch}.</td></tr>`;
+      return;
     }
-  });
-  const rows = selectedRows;
+    rows.forEach((row) => {
+      const isGitHub = row.build_source === "github";
+      const builtOn = isGitHub
+        ? `<span class="status-chip status-neutral status-chip--github-builder">${githubLogoSvg}GitHub builder</span>`
+        : `<span class="status-chip status-neutral status-chip--launchpad-builder">${launchpadLogoSvg}Launchpad builder</span>`;
+      const desc = snapStatusDescriptor(row);
+      const statusIcon = desc.cls === "status-success" ? checkIconSvg : warningIconSvg;
+      const status = `<span class="status-chip ${desc.cls}" aria-label="Status: ${desc.label}">${statusIcon}<span class="status-text-full" aria-hidden="true">${desc.label}</span><span class="status-text-short" aria-hidden="true">${desc.short}</span></span>`;
+      const version = row.full_version || row.version || "Unknown";
+
+      const workflowSnapshot = (row.workflow_runs || {})[ch] || {};
+      const workflow = workflowButtonHtml(
+        workflowSnapshot.url || "",
+        workflowSnapshot.duration_seconds,
+        isGitHub ? "Build job" : "Publish job",
+        isBuildingStatus(workflowSnapshot.status),
+        workflowSnapshot.status,
+      );
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+            <td>${row.architecture || "Unknown"}</td>
+            <td>${builtOn}</td>
+            <td class="mono snap-version">${version}</td>
+            <td class="mono">${row.revision || "Unknown"}</td>
+            <td class="mono">${formatBytes(row.size_bytes)}</td>
+            <td class="mono">${formatDate(row.released_at)}</td>
+            <td>${status}</td>
+            <td>${workflow}</td>
+          `;
+      packageBody.appendChild(tr);
+    });
+
+    // Equalize button widths for snap package table initially
+    setTimeout(() => {
+      const buttons = packageBody.querySelectorAll(".workflow-btn");
+      if (buttons.length === 0) return;
+      let maxWidth = 0;
+      buttons.forEach((btn) => {
+        btn.style.width = "auto";
+        maxWidth = Math.max(maxWidth, btn.offsetWidth);
+      });
+      buttons.forEach((btn) => {
+        btn.style.width = maxWidth + "px";
+      });
+    }, 0);
+  };
 
   updateStoreActivity(snapPackage || {});
-  renderSnapFreshness(snapPackage || {}, rows);
+  renderChannel("stable");
+  renderChannel("edge");
 
-  let targetVersion = "";
-  const currentChannel = rows.find((c) => c.build_status === "current");
+  // Keep backward compatible targetVersion logic
+  const allRows = snapPackage.all_channels || snapPackage.channels || [];
+  const stableEntry = allRows.find((c) => c.channel === "stable" && c.build_status === "current");
+  const edgeEntry = allRows.find((c) => c.channel === "edge" && c.build_status === "current");
+  const currentChannel = stableEntry || edgeEntry || allRows[0];
   if (currentChannel) {
-    targetVersion = currentChannel.full_version || currentChannel.version || "";
-  } else {
-    let newest = null;
-    rows.forEach((c) => {
-      if (!newest || new Date(c.released_at) > new Date(newest.released_at)) {
-        newest = c;
-      }
-    });
-    if (newest) {
-      targetVersion = newest.full_version || newest.version || "";
-    }
+    snapState.targetVersion = currentChannel.full_version || currentChannel.version || "";
   }
-  snapState.targetVersion = targetVersion;
-
-  packageBody.innerHTML = "";
-  if (!rows.length) {
-    packageBody.innerHTML = '<tr><td colspan="8">snap package metadata unavailable.</td></tr>';
-    return;
-  }
-  rows.forEach((row) => {
-    const isGitHub = row.build_source === "github";
-    const builtOn = isGitHub
-      ? `<span class="status-chip status-neutral status-chip--github-builder">${githubLogoSvg}GitHub builder</span>`
-      : `<span class="status-chip status-neutral status-chip--launchpad-builder">${launchpadLogoSvg}Launchpad builder</span>`;
-    const desc = snapStatusDescriptor(row);
-    const statusIcon = desc.cls === "status-success" ? checkIconSvg : warningIconSvg;
-    const status = `<span class="status-chip ${desc.cls}" aria-label="Status: ${desc.label}">${statusIcon}<span class="status-text-full" aria-hidden="true">${desc.label}</span><span class="status-text-short" aria-hidden="true">${desc.short}</span></span>`;
-    const version = row.full_version || row.version || "Unknown";
-
-    const workflowSnapshot = (row.workflow_runs || {})[selectedBranch] || {};
-    const workflow = workflowButtonHtml(
-      workflowSnapshot.url || "",
-      workflowSnapshot.duration_seconds,
-      isGitHub ? "Build job" : "Publish job",
-      isBuildingStatus(workflowSnapshot.status),
-      workflowSnapshot.status,
-    );
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-          <td>${row.architecture || "Unknown"}</td>
-          <td>${builtOn}</td>
-          <td class="mono snap-version">${version}</td>
-          <td class="mono">${row.revision || "Unknown"}</td>
-          <td class="mono">${formatBytes(row.size_bytes)}</td>
-          <td class="mono">${formatDate(row.released_at)}</td>
-          <td>${status}</td>
-          <td>${workflow}</td>
-        `;
-    packageBody.appendChild(tr);
-  });
-
-  // Equalize button widths for snap package table initially
-  setTimeout(() => {
-    const buttons = packageBody.querySelectorAll(".workflow-btn");
-    if (buttons.length === 0) return;
-    let maxWidth = 0;
-    buttons.forEach((btn) => {
-      btn.style.width = "auto";
-      maxWidth = Math.max(maxWidth, btn.offsetWidth);
-    });
-    buttons.forEach((btn) => {
-      btn.style.width = maxWidth + "px";
-    });
-  }, 0);
 
   refreshLiveSnapPackageStatus();
 }
 
 // Applies live architecture build runner status and specific workflow urls
 function applyLiveSnapStatus(cicdJobs, cicdRun, lpJobs, lpRun) {
-  const packageBody = document.getElementById("snap-package-rows");
-  if (!packageBody) return;
+  const updateChannelBody = (ch) => {
+    const packageBody = document.getElementById(`snap-package-rows-${ch}`);
+    if (!packageBody) return;
 
-  const rows = packageBody.querySelectorAll("tr");
-  rows.forEach((tr) => {
-    const archCell = tr.cells[0];
-    if (!archCell) return;
-    const arch = archCell.textContent.trim().toUpperCase();
+    const rows = packageBody.querySelectorAll("tr");
+    rows.forEach((tr) => {
+      const archCell = tr.cells[0];
+      if (!archCell) return;
+      const arch = archCell.textContent.trim().toUpperCase();
 
-    const isGitHub = GITHUB_BUILD_ARCHES.has(arch);
-    let job = null;
-    let run = null;
+      const isGitHub = GITHUB_BUILD_ARCHES.has(arch);
+      let job = null;
+      let run = null;
 
-    if (isGitHub) {
-      run = cicdRun;
-      job = findBuildJob(cicdJobs, arch, selectedBranch, true);
-    } else {
-      run = lpRun;
-      job = findBuildJob(lpJobs, arch, selectedBranch, false);
-    }
-
-    if (!job) {
-      return;
-    }
-
-    let statusHtml = null;
-    let isBuilding = false;
-    const runUrl = (job && job.html_url) || "";
-
-    if (job) {
-      const status = normalizedLiveStatus(job);
-      if (isBuildingStatus(status)) {
-        isBuilding = true;
-        statusHtml = liveStatusChip(status, isGitHub ? "building" : "publishing", true);
-      } else if (FAILURE_STATES.has(status) || status === "cancelled" || status === "skipped") {
-        statusHtml = liveStatusChip(status);
-      } else if (status === "success") {
-        statusHtml = `<span class="status-chip status-success" aria-label="Status: Serving · ${selectedBranch}">${checkIconSvg}<span class="status-text-full" aria-hidden="true">Serving · ${selectedBranch}</span><span class="status-text-short" aria-hidden="true">serving</span></span>`;
+      if (isGitHub) {
+        run = cicdRun;
+        job = findBuildJob(cicdJobs, arch, ch, true);
+      } else {
+        run = lpRun;
+        job = findBuildJob(lpJobs, arch, ch, false);
       }
-    }
 
-    if (statusHtml) {
-      tr.cells[6].innerHTML = statusHtml;
-    }
+      if (!job) {
+        return;
+      }
 
-    const duration = job ? liveJobDurationSeconds(job) : null;
-    const workflowContext = job
-      ? isGitHub
-        ? "Build job"
-        : "Publish job"
-      : isGitHub
-        ? "Build run"
-        : "Publish run";
-    const workflowHtml = workflowButtonHtml(
-      runUrl,
-      duration,
-      workflowContext,
-      isBuilding,
-      job ? normalizedLiveStatus(job) : "",
-    );
+      let statusHtml = null;
+      let isBuilding = false;
+      const runUrl = (job && job.html_url) || "";
 
-    if (tr.cells.length <= 7) {
-      const td = tr.insertCell(7);
-      td.innerHTML = workflowHtml;
-    } else {
-      tr.cells[7].innerHTML = workflowHtml;
-    }
-  });
+      if (job) {
+        const status = normalizedLiveStatus(job);
+        if (isBuildingStatus(status)) {
+          isBuilding = true;
+          statusHtml = liveStatusChip(status, isGitHub ? "building" : "publishing", true);
+        } else if (FAILURE_STATES.has(status) || status === "cancelled" || status === "skipped") {
+          statusHtml = liveStatusChip(status);
+        } else if (status === "success") {
+          statusHtml = `<span class="status-chip status-success" aria-label="Status: Serving · ${ch}">${checkIconSvg}<span class="status-text-full" aria-hidden="true">Serving · ${ch}</span><span class="status-text-short" aria-hidden="true">serving</span></span>`;
+        }
+      }
 
-  // Equalize button widths for snap package table
-  setTimeout(() => {
-    const buttons = packageBody.querySelectorAll(".workflow-btn");
-    if (buttons.length === 0) return;
-    let maxWidth = 0;
-    buttons.forEach((btn) => {
-      btn.style.width = "auto";
-      maxWidth = Math.max(maxWidth, btn.offsetWidth);
+      if (statusHtml) {
+        tr.cells[6].innerHTML = statusHtml;
+      }
+
+      const duration = job ? liveJobDurationSeconds(job) : null;
+      const workflowContext = job
+        ? isGitHub
+          ? "Build job"
+          : "Publish job"
+        : isGitHub
+          ? "Build run"
+          : "Publish run";
+      const workflowHtml = workflowButtonHtml(
+        runUrl,
+        duration,
+        workflowContext,
+        isBuilding,
+        job ? normalizedLiveStatus(job) : "",
+      );
+
+      if (tr.cells.length <= 7) {
+        const td = tr.insertCell(7);
+        td.innerHTML = workflowHtml;
+      } else {
+        tr.cells[7].innerHTML = workflowHtml;
+      }
     });
-    buttons.forEach((btn) => {
-      btn.style.width = maxWidth + "px";
-    });
-  }, 0);
+
+    // Equalize button widths for snap package table
+    setTimeout(() => {
+      const buttons = packageBody.querySelectorAll(".workflow-btn");
+      if (buttons.length === 0) return;
+      let maxWidth = 0;
+      buttons.forEach((btn) => {
+        btn.style.width = "auto";
+        maxWidth = Math.max(maxWidth, btn.offsetWidth);
+      });
+      buttons.forEach((btn) => {
+        btn.style.width = maxWidth + "px";
+      });
+    }, 0);
+  };
+
+  updateChannelBody("stable");
+  updateChannelBody("edge");
 
   // Check if we can override stable/edge track status to "Up to date"
   let isStableSuccessful = false;
@@ -2945,19 +3083,17 @@ async function loadDashboardData() {
 function renderBranchData() {
   if (!globalDashboardData) return;
   updateChannelScopeSummary();
-  const buildStatus = globalDashboardData.build_status?.[selectedBranch] || {};
-  const testMatrix = globalDashboardData.test_matrix?.[selectedBranch] || {};
 
-  const snapPackagesTitle = document.getElementById("snap-packages-title");
-  if (snapPackagesTitle) {
-    snapPackagesTitle.textContent =
-      selectedBranch === "stable" ? "Stable channel snap packages" : "Edge channel snap packages";
-  }
+  const stableBuildStatus = globalDashboardData.build_status?.stable || {};
+  const edgeBuildStatus = globalDashboardData.build_status?.edge || {};
+  const stableTestMatrix = globalDashboardData.test_matrix?.stable || {};
+  const edgeTestMatrix = globalDashboardData.test_matrix?.edge || {};
 
-  renderBuildStatus(buildStatus);
-  renderFailedLogs(testMatrix);
-  matrixState.rows = testMatrix.rows || [];
-  matrixState.failedLinks = testMatrix.failed_links || [];
+  renderBuildStatus(stableBuildStatus, "stable");
+  renderBuildStatus(edgeBuildStatus, "edge");
+  renderFailedLogs(stableTestMatrix, "stable");
+  renderFailedLogs(edgeTestMatrix, "edge");
+
   renderMatrixRows();
   renderDependencies();
   if (globalDashboardData.security) {
@@ -2982,27 +3118,7 @@ function resetLiveWorkflowCache() {
 }
 
 function setupBranchSelector() {
-  const btnStable = document.getElementById("btn-stable");
-  const btnEdge = document.getElementById("btn-edge");
-
-  if (btnStable && btnEdge) {
-    const selectBranch = (branch) => {
-      if (selectedBranch === branch) return;
-      selectedBranch = branch;
-      const stableActive = branch === "stable";
-      btnStable.classList.toggle("is-active", stableActive);
-      btnStable.setAttribute("aria-pressed", stableActive ? "true" : "false");
-      btnEdge.classList.toggle("is-active", !stableActive);
-      btnEdge.setAttribute("aria-pressed", stableActive ? "false" : "true");
-      renderBranchData();
-      resetLiveWorkflowCache();
-      refreshLiveData();
-      announceDashboardStatus();
-    };
-
-    btnStable.addEventListener("click", () => selectBranch("stable"));
-    btnEdge.addEventListener("click", () => selectBranch("edge"));
-  }
+  // Select stable/edge selectors removed as Stable and Edge channels are now rendered simultaneously.
 }
 
 // Renders baked/snapshot data sections

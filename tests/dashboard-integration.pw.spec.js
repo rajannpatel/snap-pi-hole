@@ -28,20 +28,30 @@ test.describe("dashboard.html semantic structure", () => {
   });
 
   test("has a build and test section with run identifier and status chip", async ({ page }) => {
-    const runTitle = page.locator("#latest-run-title");
-    await expect(runTitle).toBeVisible();
-    await expect(runTitle).toHaveText("Loading...");
+    const stableRunTitle = page.locator("#latest-stable-run-title");
+    await expect(stableRunTitle).toBeVisible();
+    await expect(stableRunTitle).toHaveText("Loading...");
 
-    const statusChip = page.locator("#latest-run-status-chip");
-    await expect(statusChip).toBeVisible();
+    const stableStatusChip = page.locator("#latest-stable-run-status-chip");
+    await expect(stableStatusChip).toBeVisible();
+
+    const edgeRunTitle = page.locator("#latest-edge-run-title");
+    await expect(edgeRunTitle).toBeVisible();
+    await expect(edgeRunTitle).toHaveText("Loading...");
+
+    const edgeStatusChip = page.locator("#latest-edge-run-status-chip");
+    await expect(edgeStatusChip).toBeVisible();
   });
 
   test("exposes channel scope and current activity summary", async ({ page }) => {
     await expect(page.locator("#channel-scope-summary")).toBeVisible();
-    await expect(page.locator("#current-activity")).toBeVisible();
+    await expect(page.locator("#current-activity-stable")).toBeVisible();
+    await expect(page.locator("#current-activity-edge")).toBeVisible();
 
     for (const label of ["Upstream", "Build", "Store", "Install"]) {
-      await expect(page.locator(`.activity-item__label:has-text("${label}")`)).toBeVisible();
+      await expect(
+        page.locator(`.activity-item__label:has-text("${label}")`).first(),
+      ).toBeVisible();
     }
   });
 
@@ -68,23 +78,6 @@ test.describe("dashboard.html semantic structure", () => {
     await expect(cta.first()).toBeVisible();
   });
 
-  test("has a keyboard-accessible channel selector button group", async ({ page }) => {
-    const group = page.getByRole("group", { name: "Channel scope" });
-    await expect(group).toBeVisible();
-
-    const stable = page.getByRole("button", { name: "Stable (upstream branch)" });
-    const edge = page.getByRole("button", { name: "Edge (upstream dev)" });
-    await expect(stable).toHaveAttribute("aria-pressed", "true");
-    await expect(edge).toHaveAttribute("aria-pressed", "false");
-
-    await stable.focus();
-    await page.keyboard.press("Tab");
-    await expect(edge).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(edge).toHaveAttribute("aria-pressed", "true");
-    await expect(stable).toHaveAttribute("aria-pressed", "false");
-  });
-
   test("has a polite live region for dashboard status updates", async ({ page }) => {
     const region = page.locator("#dashboard-live-status");
     await expect(region).toHaveAttribute("aria-live", "polite");
@@ -92,7 +85,7 @@ test.describe("dashboard.html semantic structure", () => {
   });
 
   test("has snap package rows table", async ({ page }) => {
-    await expect(page.locator("table.snap-package-table")).toBeVisible();
+    await expect(page.locator("table.snap-package-table").first()).toBeVisible();
   });
 
   test("has a channel switch release-health section", async ({ page }) => {
@@ -156,7 +149,10 @@ test.describe("dashboard.html semantic structure", () => {
   test("workflow tables have duration columns", async ({ page }) => {
     // Duration columns in each major table
     await expect(
-      page.getByLabel("Build and test").getByRole("columnheader", { name: "Test duration" }),
+      page
+        .getByLabel("Build and test")
+        .getByRole("columnheader", { name: "Test duration" })
+        .first(),
     ).toBeVisible();
     await expect(
       page.locator(".components-table").getByRole("columnheader", { name: "Sync duration" }),
@@ -164,29 +160,33 @@ test.describe("dashboard.html semantic structure", () => {
     await expect(
       page
         .locator(".snap-package-table")
+        .first()
         .getByRole("columnheader", { name: "Build/publish duration" }),
     ).toBeVisible();
   });
 
   test("duration trend chart exposes generated SVG text alternatives", async ({ page }) => {
     await page.evaluate(() => {
-      window.renderDurationTrendChart([
-        {
-          run_number: 102,
-          duration_seconds: 90,
-          duration_label: "1m 30s",
-          conclusion: "success",
-        },
-        {
-          run_number: 101,
-          duration_seconds: 120,
-          duration_label: "2m 0s",
-          conclusion: "failure",
-        },
-      ]);
+      window.renderDurationTrendChart(
+        [
+          {
+            run_number: 102,
+            duration_seconds: 90,
+            duration_label: "1m 30s",
+            conclusion: "success",
+          },
+          {
+            run_number: 101,
+            duration_seconds: 120,
+            duration_label: "2m 0s",
+            conclusion: "failure",
+          },
+        ],
+        "stable",
+      );
     });
 
-    const chart = page.locator("#duration-trend-chart");
+    const chart = page.locator("#duration-trend-chart-stable");
     await expect(chart).toHaveAttribute("aria-label", /Latest run #102 took 1m 30s/);
     await expect(chart.locator("svg title")).toHaveText("Build duration trend chart");
     await expect(chart.locator("svg desc")).toContainText("Durations range from 1m 30s to 2m 0s");
