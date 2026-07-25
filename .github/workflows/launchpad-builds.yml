@@ -101,7 +101,11 @@ jobs:
       - name: Select upstream Pi-hole sources
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 snap/local/build/select_snapcraft_upstream.py ${{ matrix.channel }}
+        run: |
+          python3 snap/local/build/select_snapcraft_upstream.py ${{ matrix.channel }}
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git diff --quiet || (git commit -a -m "chore: select upstream sources for ${{ matrix.channel }}")
 
       - name: Install snapcraft
         run: sudo snap install snapcraft --classic --channel=9.x/stable
