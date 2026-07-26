@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
 import pathlib
 import re
 import subprocess
 import sys
 import urllib.request
+from dataclasses import dataclass
+from typing import TypedDict
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from resolve_upstream_version import latest_release_versions
@@ -19,6 +22,28 @@ COMPONENTS = {
     "pi_hole": "pi-hole/pi-hole",
     "web": "pi-hole/web",
 }
+FULL_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+
+
+class ComponentSelection(TypedDict):
+    commit: str
+    stable_version: str
+
+
+class SelectionManifest(TypedDict):
+    schema_version: int
+    channel: str
+    ref: str
+    components: dict[str, ComponentSelection]
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidCommitError(Exception):
+    component: str
+    commit: str
+
+    def __str__(self):
+        return f"{self.component} resolved invalid commit {self.commit!r}"
 
 
 def github_json(url, token=""):
@@ -81,10 +106,39 @@ def update_source_commits(snapcraft_path, versions):
     snapcraft_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def selection_manifest(channel, ref, versions, stable_versions):
+    components = {}
+    for key in COMPONENTS:
+        commit = versions.get(key, "")
+        if not FULL_COMMIT_PATTERN.fullmatch(commit):
+            raise InvalidCommitError(component=key, commit=commit)
+        components[key] = {
+            "commit": commit,
+            "stable_version": stable_versions.get(key, ""),
+        }
+    return {
+        "schema_version": 1,
+        "channel": channel,
+        "ref": ref,
+        "components": components,
+    }
+
+
+def write_manifest(path, manifest):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = path.with_name(f".{path.name}.tmp")
+    temporary_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    temporary_path.replace(path)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Select upstream Pi-hole sources for snapcraft builds.")
     parser.add_argument("channel", choices=["stable", "edge"])
     parser.add_argument("--snapcraft", default="snap/snapcraft.yaml")
+    parser.add_argument("--manifest", type=pathlib.Path)
     args = parser.parse_args()
 
     snapcraft_path = pathlib.Path(args.snapcraft)
@@ -93,7 +147,10 @@ def main():
 
     ref = UPSTREAM_STABLE_REF if args.channel == "stable" else UPSTREAM_EDGE_REF
     versions = upstream_ref_versions(ref, token=token)
+    manifest = selection_manifest(args.channel, ref, versions, stable_versions)
     update_source_commits(snapcraft_path, versions)
+    if args.manifest:
+        write_manifest(args.manifest, manifest)
     print(f"Selected upstream {ref} commits for {args.channel} builds:")
     for key in ("ftl", "pi_hole", "web"):
         print(f"  {key}: {versions[key]} ({stable_versions[key]})")

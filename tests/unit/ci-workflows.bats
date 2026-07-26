@@ -241,6 +241,147 @@ for part, commit in versions.items():
 PYEOF
 }
 
+@test "selected upstream verifier rejects f47b8ed when edge manifest selects a0c6e98" {
+    local fixture="${TEST_WORKDIR}/selected-upstream-verifier"
+    mkdir -p \
+        "${fixture}/extracted/meta" \
+        "${fixture}/extracted/opt/pihole/templates"
+
+    cat > "${fixture}/manifest.json" <<'EOF'
+{
+  "schema_version": 1,
+  "channel": "edge",
+  "ref": "development",
+  "components": {
+    "ftl": {
+      "commit": "9597c87e2958a424c10e9591f64672b74da5b484",
+      "stable_version": "v6.6.3"
+    },
+    "pi_hole": {
+      "commit": "a0c6e982d3d31f01ed1a65e8d15c85f00cad52cb",
+      "stable_version": "v6.4.3"
+    },
+    "web": {
+      "commit": "63fd71e791cf71b7e2fae63bab8da5117d904e8d",
+      "stable_version": "v6.5.3"
+    }
+  }
+}
+EOF
+
+    cat > "${fixture}/snapcraft.yaml" <<'EOF'
+parts:
+  ftl:
+    source-commit: "9597c87e2958a424c10e9591f64672b74da5b484"
+  pi_hole:
+    source-commit: "a0c6e982d3d31f01ed1a65e8d15c85f00cad52cb"
+  web:
+    source-commit: "63fd71e791cf71b7e2fae63bab8da5117d904e8d"
+EOF
+
+    cat > "${fixture}/extracted/meta/snap.yaml" <<'EOF'
+name: pihole-by-rajannpatel
+version: v6.4.3+git.f47b8ed
+EOF
+
+    cat > "${fixture}/extracted/opt/pihole/templates/versions" <<'EOF'
+CORE_VERSION=v6.4.3+git.f47b8ed
+CORE_BRANCH=snap
+WEB_VERSION=v6.5.3+git.63fd71e
+WEB_BRANCH=snap
+FTL_VERSION=v6.6.3+git.9597c87
+FTL_BRANCH=snap
+EOF
+
+    cat > "${fixture}/edge-sbom.json" <<'EOF'
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "version": 1,
+  "components": [
+    {"type": "application", "name": "pihole-ftl", "version": "v6.6.3+git.9597c87"},
+    {"type": "application", "name": "pi-hole", "version": "v6.4.3+git.f47b8ed"},
+    {"type": "application", "name": "web", "version": "v6.5.3+git.63fd71e"}
+  ]
+}
+EOF
+
+    run python3 "${REPO_ROOT}/snap/local/build/verify_selected_upstream.py" \
+        --manifest "${fixture}/manifest.json" \
+        --snapcraft "${fixture}/snapcraft.yaml" \
+        --extracted "${fixture}/extracted" \
+        --sbom "${fixture}/edge-sbom.json"
+
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"snap version mismatch: expected v6.4.3+git.a0c6e98, got v6.4.3+git.f47b8ed"* ]]
+}
+
+@test "build workflows verify selected source manifest before publishing" {
+    python3 - <<PYEOF
+import yaml
+
+for workflow_path in (
+    "${REPO_ROOT}/.github/workflows/cicd.yml",
+    "${REPO_ROOT}/.github/workflows/launchpad-builds.yml",
+):
+    with open(workflow_path) as workflow_file:
+        workflow = yaml.safe_load(workflow_file)
+
+    jobs = workflow["jobs"]
+    job = jobs["build"] if "build" in jobs else jobs["build-and-publish-launchpad"]
+    steps = job["steps"]
+    runs = [step.get("run", "") for step in steps]
+    combined = "\n".join(runs)
+
+    assert '--manifest "\$RUNNER_TEMP/selected-upstream.json"' in combined, workflow_path
+    verifier_index = next(
+        index
+        for index, command in enumerate(runs)
+        if "verify_selected_upstream.py" in command
+    )
+    upload_index = next(
+        index
+        for index, step in enumerate(steps)
+        if str(step.get("uses", "")).startswith("actions/upload-artifact")
+        or "snapcraft upload" in step.get("run", "")
+    )
+    assert verifier_index < upload_index, (workflow_path, verifier_index, upload_index)
+
+with open("${REPO_ROOT}/.github/workflows/refresh-snapcraft-data.yml") as workflow_file:
+    refresh = yaml.safe_load(workflow_file)
+
+refresh_steps = refresh["jobs"]["refresh"]["steps"]
+refresh_runs = "\n".join(step.get("run", "") for step in refresh_steps)
+assert "gh run list" in refresh_runs, refresh_runs
+assert '--pattern "sbom-github-edge-*"' in refresh_runs, refresh_runs
+assert "--require-matching-edge-sbom" in refresh_runs, refresh_runs
+PYEOF
+}
+
+@test "launchpad commits only selected snapcraft metadata before remote-build" {
+    python3 - <<PYEOF
+import yaml
+
+with open("${REPO_ROOT}/.github/workflows/launchpad-builds.yml") as workflow_file:
+    workflow = yaml.safe_load(workflow_file)
+
+steps = workflow["jobs"]["build-and-publish-launchpad"]["steps"]
+selector = next(step for step in steps if step.get("name") == "Select upstream Pi-hole sources")
+run = selector["run"]
+
+assert "git add -- snap/snapcraft.yaml" in run, run
+assert "git diff --cached --quiet" in run, run
+assert "git commit -a" not in run, run
+assert "verify_selected_upstream.py" in run, run
+assert run.index("git add -- snap/snapcraft.yaml") < run.index("git commit"), run
+
+remote_build = next(
+    step for step in steps if str(step.get("name", "")).startswith("Build ")
+)
+assert steps.index(selector) < steps.index(remote_build), steps
+PYEOF
+}
+
 # Port-53 timeout guard logic (from cicd.yml smoke test)
 
 _run_port53_guard() {

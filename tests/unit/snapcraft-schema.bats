@@ -570,7 +570,7 @@ assert "systemctl status --full --no-pager" in pull, "missing patch-rot guard fo
 PYEOF
 }
 
-@test "ftl override-pull uses explicit patches for single-file upstream edits" {
+@test "ftl override-pull retires obsolete MbedTLS patch after upstream OpenSSL migration" {
     python3 - <<PYEOF
 import glob
 from pathlib import Path
@@ -582,7 +582,6 @@ patch_text = "\n".join(path.read_text() for path in patches)
 
 expected = {
     "FTL-h-strstr.patch",
-    "x509-mbedtls-rng.patch",
     "dnsmasq-no-setgroups.patch",
     "files-chown-pihole-root-snap.patch",
 }
@@ -590,7 +589,8 @@ assert {path.name for path in patches} == expected, [path.name for path in patch
 
 assert "patch --forward --strip=1" in script, "FTL patches are not applied with patch(1)"
 assert "snap/local/patches/ftl" in script, "FTL patch directory is not referenced"
-assert "mbedtls_psa_get_random" in patch_text, "x509 RNG patch missing"
+assert "x509-mbedtls-rng.patch" not in script, "retired x509 patch still has application logic"
+assert "mbedtls_psa_get_random" not in script + patch_text, "retired MbedTLS RNG shim remains"
 assert "#undef strstr" in patch_text, "strstr patch missing"
 assert "setgroups(0, &dummy) == -1" in patch_text, "dnsmasq patch context missing"
 assert "return true;" in patch_text, "chown_pihole patch missing"

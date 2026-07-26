@@ -292,6 +292,8 @@ class FakeClient:
         if "/commits/development" in url:
             repo = url.split("/repos/", 1)[1].rsplit("/commits/development", 1)[0]
             return {"sha": f"devsha_{repo.rsplit('/', 1)[1]}"}
+        if url == dashboard.SNAPCRAFT_INFO_URL:
+            return {}
         raise AssertionError(f"unexpected url {url}")
 
 versions = {"ftl": "local-ftl", "pi_hole": "local-core", "web": "local-web"}
@@ -305,7 +307,140 @@ assert by_key["pi_hole"]["local_tag"] == "v6.4.2", by_key["pi_hole"]
 assert by_key["pi_hole"]["upstream_tag"] == "v6.4.2", by_key["pi_hole"]
 assert by_key["web"]["local_tag"] == "v6.5.1", by_key["web"]
 assert by_key["web"]["upstream_tag"] == "v6.5.1", by_key["web"]
-assert by_key["web"]["local_commit"] == "local-web", by_key["web"]
+assert by_key["web"]["local_commit"] == "", by_key["web"]
 assert by_key["web"]["upstream_commit"] == "devsha_web", by_key["web"]
+PYEOF
+}
+
+@test "edge reporting chooses complete SBOM matching published Core instead of first glob" {
+    cat > "${TEST_TMPDIR}/sbom-edge-stale.json" <<'EOF'
+{
+  "components": [
+    {"name": "pihole-ftl", "version": "v6.6.2+git.oldftl0"},
+    {"name": "pi-hole", "version": "v6.4.3+git.f47b8ed"},
+    {"name": "web", "version": "v6.5.1+git.oldweb0"}
+  ]
+}
+EOF
+    cat > "${TEST_TMPDIR}/sbom-edge-matching.json" <<'EOF'
+{
+  "components": [
+    {"name": "pihole-ftl", "version": "v6.6.3+git.9597c87"},
+    {"name": "pi-hole", "version": "v6.4.3+git.a0c6e98"},
+    {"name": "web", "version": "v6.5.3+git.63fd71e"}
+  ]
+}
+EOF
+
+    python3 - <<PYEOF
+import glob
+import pathlib
+import sys
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        if url == dashboard.SNAPCRAFT_INFO_URL:
+            return {
+                "channel-map": [
+                    {
+                        "channel": {"track": "latest", "risk": "edge"},
+                        "version": "v6.4.3+git.a0c6e98",
+                    }
+                ]
+            }
+        if url.endswith("/releases/latest"):
+            return {"tag_name": "v0"}
+        if url.endswith("/commits/development"):
+            return {"sha": "upstream-development"}
+        raise AssertionError(f"unexpected URL: {url}")
+
+versions = {
+    "ftl": "live-ftl",
+    "pi_hole": "live-core",
+    "web": "live-web",
+}
+stable_sources = {
+    "ftl": {"commit": "stable-ftl"},
+    "pi_hole": {"commit": "f47b8ede5a8e38f9c703202d324a074dbdba4ca9"},
+    "web": {"commit": "stable-web"},
+}
+ordered_sboms = [
+    "${TEST_TMPDIR}/sbom-edge-stale.json",
+    "${TEST_TMPDIR}/sbom-edge-matching.json",
+]
+original_glob = glob.glob
+glob.glob = lambda *_args, **_kwargs: ordered_sboms
+try:
+    rows = dashboard.collect_edge_release_data(
+        FakeClient(),
+        versions,
+        snapcraft_sources=stable_sources,
+        repo_root=pathlib.Path("${TEST_TMPDIR}"),
+    )
+finally:
+    glob.glob = original_glob
+
+by_key = {row["key"]: row for row in rows}
+assert by_key["pi_hole"]["local_commit"] == "a0c6e98", by_key
+assert by_key["ftl"]["local_commit"] == "9597c87", by_key
+assert by_key["web"]["local_commit"] == "63fd71e", by_key
+PYEOF
+}
+
+@test "edge reporting never guesses bundled FTL or Web without matching SBOM" {
+    python3 - <<PYEOF
+import glob
+import pathlib
+import sys
+
+sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
+import generate_dashboard_data as dashboard
+
+class FakeClient:
+    def get_json_or_empty(self, url, headers=None, params=None):
+        if url == dashboard.SNAPCRAFT_INFO_URL:
+            return {
+                "channel-map": [
+                    {
+                        "channel": {"track": "latest", "risk": "edge"},
+                        "version": "v6.4.3+git.a0c6e98",
+                    }
+                ]
+            }
+        if url.endswith("/releases/latest"):
+            return {"tag_name": "v0"}
+        if url.endswith("/commits/development"):
+            return {"sha": "upstream-development"}
+        raise AssertionError(f"unexpected URL: {url}")
+
+versions = {
+    "ftl": "live-ftl",
+    "pi_hole": "live-core",
+    "web": "live-web",
+}
+stable_sources = {
+    "ftl": {"commit": "stable-ftl"},
+    "pi_hole": {"commit": "f47b8ede5a8e38f9c703202d324a074dbdba4ca9"},
+    "web": {"commit": "stable-web"},
+}
+original_glob = glob.glob
+glob.glob = lambda *_args, **_kwargs: []
+try:
+    rows = dashboard.collect_edge_release_data(
+        FakeClient(),
+        versions,
+        snapcraft_sources=stable_sources,
+        repo_root=pathlib.Path("${TEST_TMPDIR}"),
+    )
+finally:
+    glob.glob = original_glob
+
+by_key = {row["key"]: row for row in rows}
+assert by_key["pi_hole"]["local_commit"] == "a0c6e98", by_key
+assert by_key["ftl"]["local_commit"] == "", by_key
+assert by_key["web"]["local_commit"] == "", by_key
 PYEOF
 }

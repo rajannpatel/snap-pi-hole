@@ -158,7 +158,9 @@ jobs:
       - name: Select upstream Pi-hole sources
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 snap/local/build/select_snapcraft_upstream.py ${{ matrix.channel }}
+        run: |
+          python3 snap/local/build/select_snapcraft_upstream.py ${{ matrix.channel }} \
+            --manifest "$RUNNER_TEMP/selected-upstream.json"
 
       - name: Mask Snapcraft UA token
         env:
@@ -183,6 +185,11 @@ jobs:
           unsquashfs -d extracted-snap ${{ steps.snapcraft.outputs.snap }}
           syft scan extracted-snap -o cyclonedx-json@1.5=sbom-${{ matrix.channel }}-${{ matrix.arch }}.json
           python3 snap/local/build/enrich_sbom.py sbom-${{ matrix.channel }}-${{ matrix.arch }}.json extracted-snap
+          python3 snap/local/build/verify_selected_upstream.py \
+            --manifest "$RUNNER_TEMP/selected-upstream.json" \
+            --snapcraft snap/snapcraft.yaml \
+            --extracted extracted-snap \
+            --sbom sbom-${{ matrix.channel }}-${{ matrix.arch }}.json
 
       - name: Upload SBOM artefact
         uses: actions/upload-artifact@v6

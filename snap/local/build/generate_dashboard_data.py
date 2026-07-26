@@ -1235,84 +1235,69 @@ def collect_release_data(client, versions, snapcraft_sources=None):
     return {"components": results, "last_updated": dt_to_iso(max([d for d in latest_dates if d], default=None))}
 
 
+def git_suffix(version):
+    if "+git." not in version:
+        return ""
+    return version.split("+git.", 1)[1].split(".", 1)[0]
+
+
+def complete_edge_sbom_commits(path):
+    try:
+        sbom_data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    component_keys = {
+        "pihole-ftl": "ftl",
+        "pi-hole": "pi_hole",
+        "web": "web",
+    }
+    commits = {}
+    for component in sbom_data.get("components", []):
+        key = component_keys.get(component.get("name", ""))
+        commit = git_suffix(component.get("version", ""))
+        if key and commit:
+            commits[key] = commit
+    if set(commits) != {"ftl", "pi_hole", "web"}:
+        return {}
+    return commits
+
+
+def commits_match(left, right):
+    return bool(left and right and (left.startswith(right) or right.startswith(left)))
+
+
+def published_edge_core_commit(client):
+    snap_data = client.get_json_or_empty(
+        SNAPCRAFT_INFO_URL,
+        headers={"Snap-Device-Series": "16", "Accept": "application/json"},
+    )
+    for entry in snap_data.get("channel-map", []):
+        channel = entry.get("channel", {})
+        if channel.get("track") == "latest" and channel.get("risk") == "edge":
+            return git_suffix(entry.get("version", ""))
+    return ""
+
+
+def matching_edge_sbom_commits(repo_root, core_commit):
+    if not repo_root or not core_commit:
+        return {}
+    for path in sorted(repo_root.rglob("sbom-*edge*.json")):
+        commits = complete_edge_sbom_commits(path)
+        if commits_match(commits.get("pi_hole", ""), core_commit):
+            return commits
+    return {}
+
+
 def collect_edge_release_data(client, versions, display_versions=None, snapcraft_sources=None, repo_root=None):
     display_versions = display_versions or {}
-    
-    # 1. Search for any Edge SBOM files in repo_root to find actually bundled commits
-    sbom_commits = {}
-    if repo_root:
-        import glob
-        for p_str in glob.glob(str(repo_root / "**" / "sbom-*edge*.json"), recursive=True):
-            try:
-                with open(p_str, "r", encoding="utf-8") as f:
-                    sbom_data = json.load(f)
-                for comp in sbom_data.get("components", []):
-                    c_name = comp.get("name", "")
-                    c_ver = comp.get("version", "")
-                    c_commit = ""
-                    if "+git." in c_ver:
-                        c_commit = c_ver.split("+git.", 1)[1].split(".")[0]
-                    
-                    if c_commit:
-                        if c_name == "pihole-ftl":
-                            sbom_commits["ftl"] = c_commit
-                        elif c_name == "pi-hole":
-                            sbom_commits["pi_hole"] = c_commit
-                        elif c_name == "web":
-                            sbom_commits["web"] = c_commit
-                if sbom_commits:
-                    break
-            except Exception:
-                pass
-
-    # 2. Query the Snapcraft store API for the published Edge snap version, and extract the Core commit
-    published_edge_core_commit = ""
-    try:
-        snap_data = client.get_json_or_empty(
-            SNAPCRAFT_INFO_URL,
-            headers={"Snap-Device-Series": "16", "Accept": "application/json"},
-        )
-        channel_map = snap_data.get("channel-map", [])
-        for entry in channel_map:
-            channel = entry.get("channel", {})
-            if channel.get("track") == "latest" and channel.get("risk") == "edge":
-                version_str = entry.get("version", "")
-                if "+git." in version_str:
-                    published_edge_core_commit = version_str.split("+git.", 1)[1].split(".")[0]
-                    break
-    except Exception:
-        pass
-
-    # 3. Define the bundled/local commit for each component
-    bundled_commits = {}
-    stable_core_commit = ""
-    if snapcraft_sources and "pi_hole" in snapcraft_sources:
-        stable_core_commit = snapcraft_sources["pi_hole"].get("commit", "")
-
-    if sbom_commits:
-        # Use exact SBOM commits if available
-        bundled_commits = sbom_commits
-    elif published_edge_core_commit and stable_core_commit and published_edge_core_commit == stable_core_commit:
-        # If published edge core commit is stable core commit, everything is built from stable!
-        if snapcraft_sources:
-            bundled_commits = {
-                "ftl": snapcraft_sources.get("ftl", {}).get("commit", ""),
-                "pi_hole": stable_core_commit,
-                "web": snapcraft_sources.get("web", {}).get("commit", ""),
-            }
-    elif published_edge_core_commit:
-        # If published edge has dev core commit, use it, and fall back to live dev HEAD for FTL/Web
+    store_core_commit = published_edge_core_commit(client)
+    bundled_commits = matching_edge_sbom_commits(repo_root, store_core_commit)
+    if not bundled_commits:
         bundled_commits = {
-            "ftl": versions.get("ftl", ""),
-            "pi_hole": published_edge_core_commit,
-            "web": versions.get("web", ""),
-        }
-    else:
-        # Fallback to live upstream development HEAD commits
-        bundled_commits = {
-            "ftl": versions.get("ftl", ""),
-            "pi_hole": versions.get("pi_hole", ""),
-            "web": versions.get("web", ""),
+            "ftl": "",
+            "pi_hole": store_core_commit,
+            "web": "",
         }
 
     components = [
@@ -1754,12 +1739,21 @@ def build_snapcraft_payload(client, repo_root):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if a != "--snapcraft-only"]
+    flags = {"--snapcraft-only", "--require-matching-edge-sbom"}
+    args = [a for a in sys.argv[1:] if a not in flags]
     snapcraft_only = "--snapcraft-only" in sys.argv[1:]
+    require_edge_sbom = "--require-matching-edge-sbom" in sys.argv[1:]
     repo_root = pathlib.Path(args[0] if len(args) > 0 else ".").resolve()
 
     token = os.environ.get("GITHUB_TOKEN", "")
     client = HTTPClient(token=token)
+
+    if require_edge_sbom:
+        store_core_commit = published_edge_core_commit(client)
+        if not matching_edge_sbom_commits(repo_root, store_core_commit):
+            raise SystemExit(
+                "No complete edge SBOM matches the currently published edge Core commit."
+            )
 
     # Snapcraft-exclusive data (snap-store metadata) has no browser-reachable
     # API and changes independently of code pushes, so it lives in its own file

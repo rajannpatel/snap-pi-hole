@@ -102,10 +102,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python3 snap/local/build/select_snapcraft_upstream.py ${{ matrix.channel }}
+          python3 snap/local/build/select_snapcraft_upstream.py ${{ matrix.channel }} \
+            --manifest "$RUNNER_TEMP/selected-upstream.json"
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git diff --quiet || (git commit -a -m "chore: select upstream sources for ${{ matrix.channel }}")
+          git add -- snap/snapcraft.yaml
+          if ! git diff --cached --quiet -- snap/snapcraft.yaml; then
+            git commit --only snap/snapcraft.yaml \
+              -m "chore: select upstream sources for ${{ matrix.channel }}"
+          fi
+          git show HEAD:snap/snapcraft.yaml > "$RUNNER_TEMP/selected-snapcraft.yaml"
+          python3 snap/local/build/verify_selected_upstream.py \
+            --manifest "$RUNNER_TEMP/selected-upstream.json" \
+            --snapcraft "$RUNNER_TEMP/selected-snapcraft.yaml"
 
       - name: Install snapcraft
         run: sudo snap install snapcraft --classic --channel=9.x/stable
@@ -146,6 +155,11 @@ jobs:
           unsquashfs -d "extracted-${{ matrix.arch }}" "$SNAP_FILE"
           syft scan "extracted-${{ matrix.arch }}" -o cyclonedx-json@1.5="sbom-${{ matrix.arch }}.json"
           python3 snap/local/build/enrich_sbom.py "sbom-${{ matrix.arch }}.json" "extracted-${{ matrix.arch }}"
+          python3 snap/local/build/verify_selected_upstream.py \
+            --manifest "$RUNNER_TEMP/selected-upstream.json" \
+            --snapcraft snap/snapcraft.yaml \
+            --extracted "extracted-${{ matrix.arch }}" \
+            --sbom "sbom-${{ matrix.arch }}.json"
 
       - name: Upload snap artifact
         uses: actions/upload-artifact@v6

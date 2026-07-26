@@ -47,6 +47,34 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Locate latest successful CI/CD run
+        id: cicd
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id="$(gh run list \
+            --workflow cicd.yml \
+            --branch main \
+            --event push \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')"
+          if [ -z "${run_id}" ] || [ "${run_id}" = "null" ]; then
+            echo "::error::No successful main-branch CI/CD run has edge SBOM evidence." >&2
+            exit 1
+          fi
+          echo "run_id=${run_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Download edge SBOM evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p sbom-artifacts
+          gh run download "${{ steps.cicd.outputs.run_id }}" \
+            --pattern "sbom-github-edge-*" \
+            --dir sbom-artifacts
+
       - name: Generate snapcraft dashboard data
         env:
           # Required to download the channel-switch result artifact from the
@@ -56,9 +84,11 @@ jobs:
           # passed" summary line.
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          # Uses only the public api.snapcraft.io info endpoint plus local git
-          # history, so no Snap Store credentials are required.
-          python3 snap/local/build/generate_dashboard_data.py --snapcraft-only . "${DATA_FILE}"
+          python3 snap/local/build/generate_dashboard_data.py \
+            --snapcraft-only \
+            --require-matching-edge-sbom \
+            . \
+            "${DATA_FILE}"
           echo "Dashboard data file: ${DATA_FILE}"
           cat "${DATA_FILE}"
 

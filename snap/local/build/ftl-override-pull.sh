@@ -20,10 +20,6 @@ ftl_patch_already_satisfied() {
     files-chown-pihole-root-snap.patch)
       ! grep -qF 'log_warn("chown_pihole(): Failed to get pihole user' src/files.c
       ;;
-    x509-mbedtls-rng.patch)
-      grep -qF '# include <mbedtls/psa_util.h>' src/webserver/x509.c &&
-        grep -qF 'mbedtls_psa_get_random' src/webserver/x509.c
-      ;;
     *)
       return 1
       ;;
@@ -78,10 +74,6 @@ grep -rlZ '/run/dnsmasq.pid' "${CRAFT_PART_SRC}" | xargs -0 -r sed -i \
 # above, fail loudly so the next FTL bump is investigated.
 if ! grep -qF '#undef strstr' "${CRAFT_PART_SRC}/src/FTL.h"; then
   echo "ERROR: FTL.h strstr undef patch did not apply" >&2
-  exit 1
-fi
-if ! grep -qF 'mbedtls_psa_get_random' "${CRAFT_PART_SRC}/src/webserver/x509.c"; then
-  echo "ERROR: x509.c MbedTLS RNG patch did not apply" >&2
   exit 1
 fi
 if grep -rnF '/run/pihole-FTL.pid' "${CRAFT_PART_SRC}"; then
