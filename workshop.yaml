@@ -18,6 +18,8 @@ sdks:
     channel: latest/stable
   - name: codex
     channel: latest/stable
+  - name: opencode
+    channel: latest/stable
   - name: system
     plugs:
       # opencode-bridge:
