@@ -267,6 +267,8 @@ refresh_steps = refresh["jobs"]["refresh"]["steps"]
 refresh_runs = "\n".join(step.get("run", "") for step in refresh_steps)
 assert "gh run list" in refresh_runs, refresh_runs
 assert '--pattern "sbom-github-edge-*"' in refresh_runs, refresh_runs
+assert "--limit 1" in refresh_runs, refresh_runs
+assert "\${{ steps.cicd.outputs.run_id }}" in refresh_runs, refresh_runs
 PYEOF
 }
 
