@@ -1,22 +1,8 @@
+diff --git a/src/webserver/x509.c b/src/webserver/x509.c
+index 7520ff7..b8aa662 100644
 --- a/src/webserver/x509.c
 +++ b/src/webserver/x509.c
-@@ -20,6 +20,14 @@
- #include <mbedtls/ctr_drbg.h>
- #include <mbedtls/entropy.h>
- #include <mbedtls/error.h>
-+#include <mbedtls/version.h>
-+
-+#if MBEDTLS_VERSION_NUMBER >= 0x03060000
-+#define MBEDTLS_X509WRITE_CRT_PEM(ctx, buf, size) mbedtls_x509write_crt_pem(ctx, buf, size, NULL, NULL)
-+#define MBEDTLS_PK_PARSE_KEYFILE(ctx, path, pwd) mbedtls_pk_parse_keyfile(ctx, path, pwd, NULL, NULL)
-+#else
-+#define MBEDTLS_X509WRITE_CRT_PEM(ctx, buf, size) mbedtls_x509write_crt_pem(ctx, buf, size)
-+#define MBEDTLS_PK_PARSE_KEYFILE(ctx, path, pwd) mbedtls_pk_parse_keyfile(ctx, path, pwd)
-+#endif
- 
- static bool write_to_file(const char *certfile, const char *type, const char *suffix, const char *buffer, const char *buffer2, const char *buffer3)
- {
-@@ -225,7 +233,7 @@ bool generate_certificate(const char *certfile)
+@@ -225,7 +225,7 @@ bool generate_certificate(const char* certfile, bool rsa, const char *domain, co
  	mbedtls_x509write_crt_set_basic_constraints(&ca_cert, 1, -1);
  
  	// Export CA in PEM format
@@ -25,7 +11,7 @@
  	{
  		printf("ERROR: mbedtls_x509write_crt_pem (CA) returned %d\n", ret);
  		return false;
-@@ -287,7 +295,7 @@ bool generate_certificate(const char *certfile)
+@@ -287,7 +287,7 @@ bool generate_certificate(const char* certfile, bool rsa, const char *domain, co
  		printf("mbedtls_x509write_crt_set_subject_alternative_name returned %d\n", ret);
  
  	// Export certificate in PEM format
@@ -34,7 +20,8 @@
  	{
  		printf("ERROR: mbedtls_x509write_crt_pem returned %d\n", ret);
  		return false;
-@@ -438,7 +446,7 @@ enum cert_check read_certificate(const char* certfile, const char *domain, cons
+@@ -438,7 +438,7 @@ enum cert_check read_certificate(const char *certfile, const char *domain, const
+ 	mbedtls_pk_context key;
  	mbedtls_pk_init(&key);
  	bool has_key = true;
 -	int rc = mbedtls_pk_parse_keyfile(&key, certfile, NULL);
