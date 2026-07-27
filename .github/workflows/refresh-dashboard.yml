@@ -104,35 +104,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Locate latest successful CI/CD run
-        id: cicd
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          run_id="$(gh run list \
-            --workflow cicd.yml \
-            --branch main \
-            --event push \
-            --status success \
-            --limit 1 \
-            --json databaseId \
-            --jq '.[0].databaseId')"
-
-          if [ -z "${run_id}" ] || [ "${run_id}" = "null" ]; then
-            echo "::error::No successful main-branch CI/CD run found to reconstruct Pages artifacts." >&2
-            exit 1
-          fi
-
-          echo "run_id=${run_id}" >> "$GITHUB_OUTPUT"
-
       - name: Download latest dashboard source artifacts
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p coverage-report sbom-artifacts vulnerability-reports
-          gh run download "${{ steps.cicd.outputs.run_id }}" --name code-coverage-report --dir coverage-report || true
-          gh run download "${{ steps.cicd.outputs.run_id }}" --pattern "sbom-*" --dir sbom-artifacts || true
-          gh run download "${{ steps.cicd.outputs.run_id }}" --name vulnerability-reports --dir vulnerability-reports || true
+          found_run=""
+          for run_id in $(gh run list --workflow cicd.yml --branch main --event push --status success --limit 10 --json databaseId --jq '.[].databaseId'); do
+            gh run download "$run_id" --name code-coverage-report --dir coverage-report 2>/dev/null || true
+            gh run download "$run_id" --pattern "sbom-*" --dir sbom-artifacts 2>/dev/null || true
+            gh run download "$run_id" --name vulnerability-reports --dir vulnerability-reports 2>/dev/null || true
+            if [ "$(ls -A sbom-artifacts 2>/dev/null)" ] || [ "$(ls -A coverage-report 2>/dev/null)" ]; then
+              echo "Found source artifacts in CI/CD run $run_id"
+              found_run="$run_id"
+              break
+            fi
+          done
+          if [ -z "$found_run" ]; then
+            echo "::warning::No recent successful main-branch CI/CD run contained source artifacts."
+          fi
 
       - name: Download channel switch result artifact
         if: ${{ github.event_name == 'workflow_run' }}

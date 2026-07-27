@@ -47,33 +47,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Locate latest successful CI/CD run
-        id: cicd
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          run_id="$(gh run list \
-            --workflow cicd.yml \
-            --branch main \
-            --event push \
-            --status success \
-            --limit 1 \
-            --json databaseId \
-            --jq '.[0].databaseId')"
-          if [ -z "${run_id}" ] || [ "${run_id}" = "null" ]; then
-            echo "::error::No successful main-branch CI/CD run has edge SBOM evidence." >&2
-            exit 1
-          fi
-          echo "run_id=${run_id}" >> "$GITHUB_OUTPUT"
-
       - name: Download edge SBOM evidence
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p sbom-artifacts
-          gh run download "${{ steps.cicd.outputs.run_id }}" \
-            --pattern "sbom-github-edge-*" \
-            --dir sbom-artifacts || true
+          found_run=""
+          for run_id in $(gh run list --workflow cicd.yml --branch main --event push --status success --limit 10 --json databaseId --jq '.[].databaseId'); do
+            if gh run download "$run_id" --pattern "sbom-github-edge-*" --dir sbom-artifacts 2>/dev/null; then
+              if [ "$(ls -A sbom-artifacts 2>/dev/null)" ]; then
+                echo "Found edge SBOM evidence in CI/CD run $run_id"
+                found_run="$run_id"
+                break
+              fi
+            fi
+          done
+          if [ -z "$found_run" ]; then
+            echo "::warning::No recent successful main-branch CI/CD run contained edge SBOM artifacts."
+          fi
 
       - name: Generate snapcraft dashboard data
         env:
