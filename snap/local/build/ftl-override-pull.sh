@@ -20,6 +20,9 @@ ftl_patch_already_satisfied() {
     files-chown-pihole-root-snap.patch)
       ! grep -qF 'log_warn("chown_pihole(): Failed to get pihole user' src/files.c
       ;;
+    mbedtls-3.6-compatibility.patch)
+      ! grep -qF 'mbedtls_x509write_crt_pem(&ca_cert' src/webserver/x509.c
+      ;;
     *)
       return 1
       ;;

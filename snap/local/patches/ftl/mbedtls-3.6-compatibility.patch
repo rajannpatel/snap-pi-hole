@@ -1,0 +1,44 @@
+--- a/src/webserver/x509.c
++++ b/src/webserver/x509.c
+@@ -20,6 +20,14 @@
+ #include <mbedtls/ctr_drbg.h>
+ #include <mbedtls/entropy.h>
+ #include <mbedtls/error.h>
++#include <mbedtls/version.h>
++
++#if MBEDTLS_VERSION_NUMBER >= 0x03060000
++#define MBEDTLS_X509WRITE_CRT_PEM(ctx, buf, size) mbedtls_x509write_crt_pem(ctx, buf, size, NULL, NULL)
++#define MBEDTLS_PK_PARSE_KEYFILE(ctx, path, pwd) mbedtls_pk_parse_keyfile(ctx, path, pwd, NULL, NULL)
++#else
++#define MBEDTLS_X509WRITE_CRT_PEM(ctx, buf, size) mbedtls_x509write_crt_pem(ctx, buf, size)
++#define MBEDTLS_PK_PARSE_KEYFILE(ctx, path, pwd) mbedtls_pk_parse_keyfile(ctx, path, pwd)
++#endif
+ 
+ static bool write_to_file(const char *certfile, const char *type, const char *suffix, const char *buffer, const char *buffer2, const char *buffer3)
+ {
+@@ -225,7 +233,7 @@ bool generate_certificate(const char *certfile)
+ 	mbedtls_x509write_crt_set_basic_constraints(&ca_cert, 1, -1);
+ 
+ 	// Export CA in PEM format
+-	if((ret = mbedtls_x509write_crt_pem(&ca_cert, ca_buffer, sizeof(ca_buffer))) != 0)
++	if((ret = MBEDTLS_X509WRITE_CRT_PEM(&ca_cert, ca_buffer, sizeof(ca_buffer))) != 0)
+ 	{
+ 		printf("ERROR: mbedtls_x509write_crt_pem (CA) returned %d\n", ret);
+ 		return false;
+@@ -287,7 +295,7 @@ bool generate_certificate(const char *certfile)
+ 		printf("mbedtls_x509write_crt_set_subject_alternative_name returned %d\n", ret);
+ 
+ 	// Export certificate in PEM format
+-	if((ret = mbedtls_x509write_crt_pem(&server_cert, cert_buffer, sizeof(cert_buffer))) != 0)
++	if((ret = MBEDTLS_X509WRITE_CRT_PEM(&server_cert, cert_buffer, sizeof(cert_buffer))) != 0)
+ 	{
+ 		printf("ERROR: mbedtls_x509write_crt_pem returned %d\n", ret);
+ 		return false;
+@@ -438,7 +446,7 @@ enum cert_check read_certificate(const char* certfile, const char *domain, cons
+ 	mbedtls_pk_init(&key);
+ 	bool has_key = true;
+-	int rc = mbedtls_pk_parse_keyfile(&key, certfile, NULL);
++	int rc = MBEDTLS_PK_PARSE_KEYFILE(&key, certfile, NULL);
+ 	if (rc != 0)
+ 	{
+ 		log_info("No key found");

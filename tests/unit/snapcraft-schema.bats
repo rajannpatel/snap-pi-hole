@@ -584,6 +584,7 @@ expected = {
     "FTL-h-strstr.patch",
     "dnsmasq-no-setgroups.patch",
     "files-chown-pihole-root-snap.patch",
+    "mbedtls-3.6-compatibility.patch",
 }
 assert {path.name for path in patches} == expected, [path.name for path in patches]
 
@@ -594,6 +595,7 @@ assert "mbedtls_psa_get_random" not in script + patch_text, "retired MbedTLS RNG
 assert "#undef strstr" in patch_text, "strstr patch missing"
 assert "setgroups(0, &dummy) == -1" in patch_text, "dnsmasq patch context missing"
 assert "return true;" in patch_text, "chown_pihole patch missing"
+assert "MBEDTLS_X509WRITE_CRT_PEM" in patch_text, "mbedtls 3.6 compatibility patch missing"
 
 for forbidden in (
     r"sed -i 's/mbedtls_x509write_crt_pem",
