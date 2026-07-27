@@ -1,5 +1,5 @@
 diff --git a/src/webserver/x509.c b/src/webserver/x509.c
-index 7520ff7..b8aa662 100644
+index 7520ff7..478360a 100644
 --- a/src/webserver/x509.c
 +++ b/src/webserver/x509.c
 @@ -225,7 +225,7 @@ bool generate_certificate(const char* certfile, bool rsa, const char *domain, co
@@ -7,7 +7,7 @@ index 7520ff7..b8aa662 100644
  
  	// Export CA in PEM format
 -	if((ret = mbedtls_x509write_crt_pem(&ca_cert, ca_buffer, sizeof(ca_buffer))) != 0)
-+	if((ret = MBEDTLS_X509WRITE_CRT_PEM(&ca_cert, ca_buffer, sizeof(ca_buffer))) != 0)
++	if((ret = mbedtls_x509write_crt_pem(&ca_cert, ca_buffer, sizeof(ca_buffer), mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE)) != 0)
  	{
  		printf("ERROR: mbedtls_x509write_crt_pem (CA) returned %d\n", ret);
  		return false;
@@ -16,7 +16,7 @@ index 7520ff7..b8aa662 100644
  
  	// Export certificate in PEM format
 -	if((ret = mbedtls_x509write_crt_pem(&server_cert, cert_buffer, sizeof(cert_buffer))) != 0)
-+	if((ret = MBEDTLS_X509WRITE_CRT_PEM(&server_cert, cert_buffer, sizeof(cert_buffer))) != 0)
++	if((ret = mbedtls_x509write_crt_pem(&server_cert, cert_buffer, sizeof(cert_buffer), mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE)) != 0)
  	{
  		printf("ERROR: mbedtls_x509write_crt_pem returned %d\n", ret);
  		return false;
@@ -25,7 +25,7 @@ index 7520ff7..b8aa662 100644
  	mbedtls_pk_init(&key);
  	bool has_key = true;
 -	int rc = mbedtls_pk_parse_keyfile(&key, certfile, NULL);
-+	int rc = MBEDTLS_PK_PARSE_KEYFILE(&key, certfile, NULL);
++	int rc = mbedtls_pk_parse_keyfile(&key, certfile, NULL, mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE);
  	if (rc != 0)
  	{
  		log_info("No key found");
