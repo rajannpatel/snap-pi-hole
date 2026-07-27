@@ -1276,9 +1276,9 @@ assert not any("rather than hitting AppArmor" in s for s in sort_sites), sort_si
 # A linked library that the snap patches into FTL surfaces via its #include
 # directives (preprocessor lines are code, not comments), and patch metadata or
 # removed lines never leak in.
-mbedtls_sites = summary.snap_usage_sites("mbedtls")
-assert any("x509-mbedtls-rng.patch" in s for s in mbedtls_sites), mbedtls_sites
-assert not any(s.split(":", 2)[2].strip().startswith(("@@", "+++", "---")) for s in mbedtls_sites), mbedtls_sites
+strstr_sites = summary.snap_usage_sites("strstr")
+assert any("FTL-h-strstr.patch" in s for s in strstr_sites), strstr_sites
+assert not any(s.split(":", 2)[2].strip().startswith(("@@", "+++", "---")) for s in strstr_sites), strstr_sites
 
 # The grounding rides along in the batch payload and the assembled prompt for a
 # used component, and is omitted for one with no shipped invocation.

@@ -149,7 +149,9 @@ def main():
     versions = upstream_ref_versions(ref, token=token)
     manifest = selection_manifest(args.channel, ref, versions, stable_versions)
     update_source_commits(snapcraft_path, versions)
-    if args.manifest:
+    default_manifest = snapcraft_path.parent / "local" / "build" / "selected-upstream.json"
+    write_manifest(default_manifest, manifest)
+    if args.manifest and args.manifest.resolve() != default_manifest.resolve():
         write_manifest(args.manifest, manifest)
     print(f"Selected upstream {ref} commits for {args.channel} builds:")
     for key in ("ftl", "pi_hole", "web"):

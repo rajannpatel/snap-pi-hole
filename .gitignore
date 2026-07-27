@@ -6,6 +6,7 @@ stage/
 .craft/
 .snapcraft/
 snap/.snapcraft/
+snap/local/build/selected-upstream.json
 .tmp*
 
 # editor

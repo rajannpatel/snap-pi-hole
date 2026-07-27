@@ -33,7 +33,7 @@ with open("${REPO_ROOT}/workshop.yaml") as f:
     doc = yaml.safe_load(f)
 
 names = [sdk.get("name") for sdk in doc["sdks"]]
-assert names == ["node", "uv", "project-tools", "agy", "codex", "system"], names
+assert names == ["node", "uv", "project-tools", "agy", "codex", "opencode", "system"], names
 assert "copilot" not in names
 assert "claude-code" not in names
 assert "gemini" not in names
