@@ -593,7 +593,7 @@ assert "snap/local/patches/ftl" in script, "FTL patch directory is not reference
 assert "#undef strstr" in patch_text, "strstr patch missing"
 assert "setgroups(0, &dummy) == -1" in patch_text, "dnsmasq patch context missing"
 assert "return true;" in patch_text, "chown_pihole patch missing"
-assert "mbedtls_psa_get_random" in patch_text, "mbedtls 3.6 compatibility patch missing"
+assert "mbedtls_x509write_crt_pem" in patch_text, "mbedtls 3.6 compatibility patch missing"
 
 for forbidden in (
     r"sed -i 's/mbedtls_x509write_crt_pem",
