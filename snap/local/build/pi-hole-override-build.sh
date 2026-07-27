@@ -15,7 +15,11 @@ WEB_TAG=$(cat "${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag")
 CORE_COMMIT=$(git -C "${CRAFT_PART_SRC}" rev-parse --short HEAD)
 STABLE_CORE=$(python3 "${CRAFT_PROJECT_DIR}/snap/local/build/resolve_upstream_version.py" pi_hole --source-dir "${CRAFT_PART_SRC}")
 
-CORE_TAG="${STABLE_CORE}+git.${CORE_COMMIT}"
+if [[ "$STABLE_CORE" == *"+git."* ]]; then
+    CORE_TAG="${STABLE_CORE}"
+else
+    CORE_TAG="${STABLE_CORE}+git.${CORE_COMMIT}"
+fi
 SNAP_VERSION="${CORE_TAG}"
 
 # Snap version mirrors the fetched upstream pi-hole/pi-hole source commit,

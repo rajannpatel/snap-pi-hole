@@ -7,7 +7,11 @@ set -e
 FTL_TAG=$(git -C "${CRAFT_PART_SRC}" describe --tags --always)
 if [[ ! "$FTL_TAG" =~ ^v ]]; then
     STABLE_FTL=$(python3 "${CRAFT_PROJECT_DIR}/snap/local/build/resolve_upstream_version.py" ftl --source-dir "${CRAFT_PART_SRC}")
-    FTL_TAG="${STABLE_FTL}+git.${FTL_TAG}"
+    if [[ "$STABLE_FTL" == *"+git."* ]]; then
+        FTL_TAG="${STABLE_FTL}"
+    else
+        FTL_TAG="${STABLE_FTL}+git.${FTL_TAG}"
+    fi
 fi
 export GIT_VERSION="${FTL_TAG}"
 export GIT_TAG="${FTL_TAG}"

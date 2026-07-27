@@ -9,7 +9,11 @@ set -e
 WEB_TAG=$(git -C "${CRAFT_PART_SRC}" describe --tags --always)
 if [[ ! "$WEB_TAG" =~ ^v ]]; then
     STABLE_WEB=$(python3 "${CRAFT_PROJECT_DIR}/snap/local/build/resolve_upstream_version.py" web --source-dir "${CRAFT_PART_SRC}")
-    WEB_TAG="${STABLE_WEB}+git.${WEB_TAG}"
+    if [[ "$STABLE_WEB" == *"+git."* ]]; then
+        WEB_TAG="${STABLE_WEB}"
+    else
+        WEB_TAG="${STABLE_WEB}+git.${WEB_TAG}"
+    fi
 fi
 craftctl default
 mkdir -p "${CRAFT_PART_INSTALL}/snap-meta"

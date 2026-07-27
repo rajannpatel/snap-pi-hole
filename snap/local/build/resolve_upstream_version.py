@@ -94,10 +94,10 @@ def resolve_manifest_tag(component: str, project_dir: str = "") -> str:
                     manifest = json.load(f)
                 channel = manifest.get("channel", "stable")
                 comp = manifest.get("components", {}).get(component)
-                if comp and "stable_version" in comp and "commit" in comp:
+                if comp and "stable_version" in comp:
                     stable_ver = comp["stable_version"]
-                    short_sha = comp["commit"][:7]
-                    if component == "pi_hole" or channel == "edge":
+                    if channel == "edge" and "commit" in comp:
+                        short_sha = comp["commit"][:7]
                         return f"{stable_ver}+git.{short_sha}"
                     return stable_ver
             except Exception:
