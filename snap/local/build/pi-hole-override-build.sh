@@ -12,13 +12,14 @@ fi
 
 FTL_TAG=$(cat "${CRAFT_STAGE}/snap-meta/ftl-tag")
 WEB_TAG=$(cat "${CRAFT_STAGE}/var/www/html/admin/snap-meta/web-tag")
-CORE_COMMIT=$(git -C "${CRAFT_PART_SRC}" rev-parse --short HEAD)
-STABLE_CORE=$(python3 "${CRAFT_PROJECT_DIR}/snap/local/build/resolve_upstream_version.py" pi_hole --source-dir "${CRAFT_PART_SRC}")
-
-if [[ "$STABLE_CORE" == *"+git."* ]]; then
-    CORE_TAG="${STABLE_CORE}"
-else
-    CORE_TAG="${STABLE_CORE}+git.${CORE_COMMIT}"
+CORE_TAG=$(git -C "${CRAFT_PART_SRC}" describe --tags --always)
+if [[ ! "$CORE_TAG" =~ ^v ]]; then
+    STABLE_CORE=$(python3 "${CRAFT_PROJECT_DIR}/snap/local/build/resolve_upstream_version.py" pi_hole --source-dir "${CRAFT_PART_SRC}")
+    if [[ "$STABLE_CORE" == *"+git."* ]]; then
+        CORE_TAG="${STABLE_CORE}"
+    else
+        CORE_TAG="${STABLE_CORE}+git.${CORE_TAG}"
+    fi
 fi
 SNAP_VERSION="${CORE_TAG}"
 

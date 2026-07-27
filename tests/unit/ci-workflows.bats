@@ -860,6 +860,8 @@ PYEOF
         git() {
             if [[ "$*" == *"rev-parse --short HEAD"* ]]; then
                 echo "$core_commit_mock"
+            elif [[ "$*" == *"describe --tags --always"* ]]; then
+                echo "$core_commit_mock"
             else
                 command git "$@"
             fi
