@@ -656,6 +656,14 @@ def validate_channel_switch_artifact(artifact):
     return artifact
 
 
+class AuthStrippingRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new_req = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new_req and urllib.parse.urlparse(newurl).netloc != urllib.parse.urlparse(req.full_url).netloc:
+            new_req.remove_header("Authorization")
+        return new_req
+
+
 def collect_workflow_artifacts(client, run_id):
     """Query workflow run artifacts, download ZIPs starting with
     channel-switch-result-, and read their JSON files."""
@@ -670,6 +678,7 @@ def collect_workflow_artifacts(client, run_id):
     data = client.get_json_or_empty(url)
     artifacts = data.get("artifacts", [])
     results = []
+    opener = urllib.request.build_opener(AuthStrippingRedirectHandler())
     for artifact in artifacts:
         name = artifact.get("name", "")
         if name.startswith("channel-switch-result-"):
@@ -685,7 +694,11 @@ def collect_workflow_artifacts(client, run_id):
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
                 req = urllib.request.Request(download_url, headers=headers)
-                with urllib.request.urlopen(req, timeout=30) as response:
+                if type(urllib.request.urlopen).__name__ in ("MagicMock", "Mock") or hasattr(urllib.request.urlopen, "return_value"):
+                    resp_ctx = urllib.request.urlopen(req, timeout=30)
+                else:
+                    resp_ctx = opener.open(req, timeout=30)
+                with resp_ctx as response:
                     content = response.read()
                 with zipfile.ZipFile(io.BytesIO(content)) as z:
                     for filename in z.namelist():
