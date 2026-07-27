@@ -1056,9 +1056,51 @@ function renderFailedLogs(testMatrix, channel) {
   links.forEach((item) => {
     const li = document.createElement("li");
     li.className = "p-list__item";
-    li.innerHTML = `<a href="${item.url}" target="_blank" rel="noopener noreferrer">${item.distro} · ${item.job_name}</a>`;
+    const stepInfo = item.failed_step
+      ? `<br><small class="u-text--muted">Failed Step: <code>${item.failed_step}</code></small>`
+      : "";
+    li.innerHTML = `<a href="${item.url}" target="_blank" rel="noopener noreferrer">${item.distro} · ${item.job_name}</a>${stepInfo}`;
     list.appendChild(li);
   });
+}
+
+// Displays or hides the Edge failure diagnostic banner
+function updateEdgeFailureBanner(state) {
+  const banner = document.getElementById("edge-failure-banner");
+  if (!banner) return;
+
+  if (!state || (!state.has_failure && !state.failed_job)) {
+    banner.hidden = true;
+    return;
+  }
+
+  banner.hidden = false;
+
+  const titleEl = document.getElementById("edge-banner-title");
+  if (titleEl) {
+    if (state.fallback_active) {
+      titleEl.textContent = "⚠️ Edge Build Failed — Serving Stable Fallback";
+    } else {
+      titleEl.textContent = "⚠️ Edge Build Failed";
+    }
+  }
+
+  const jobEl = document.getElementById("edge-banner-job");
+  if (jobEl) {
+    jobEl.textContent = state.failed_job || "build github (edge, amd64)";
+  }
+
+  const stepEl = document.getElementById("edge-banner-step");
+  if (stepEl) {
+    stepEl.textContent = state.failed_step || "Unknown Step";
+  }
+
+  const linkEl = document.getElementById("edge-banner-link");
+  if (linkEl) {
+    const edgeBuildStatus = globalDashboardData?.build_status?.edge || {};
+    const latestUrl = edgeBuildStatus.latest_run?.url || "#";
+    linkEl.href = latestUrl;
+  }
 }
 
 // Generates rows for the distribution OS compatibility matrix table
@@ -2671,6 +2713,7 @@ async function refreshLiveData() {
     renderBakedSections(snapshot, {
       renderChannelSwitchSection: false,
     });
+    updateEdgeFailureBanner(snapshot.activity_state?.edge);
   } catch (error) {
     // Fallback to screen state if offline
   }
@@ -3112,6 +3155,7 @@ function renderBranchData() {
   renderBuildStatus(edgeBuildStatus, "edge");
   renderFailedLogs(stableTestMatrix, "stable");
   renderFailedLogs(edgeTestMatrix, "edge");
+  updateEdgeFailureBanner(globalDashboardData.activity_state?.edge);
 
   renderMatrixRows();
   renderDependencies();

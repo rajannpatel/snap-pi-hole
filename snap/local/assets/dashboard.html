@@ -177,6 +177,15 @@
             </div>
             <div class="row">
               <div class="col-12">
+                <div id="edge-failure-banner" class="p-notification--negative" hidden style="margin-bottom: 1rem;">
+                  <div class="p-notification__content">
+                    <h5 class="p-notification__title" id="edge-banner-title">⚠️ Edge Build Failed — Serving Stable Fallback</h5>
+                    <p class="p-notification__message">
+                      The Edge pipeline failed in <strong id="edge-banner-job">build github (edge, amd64)</strong> at step <code id="edge-banner-step">Apply FTL patches</code>.
+                      <a id="edge-banner-link" href="#" target="_blank" rel="noopener noreferrer" class="p-link--external">View failure log →</a>
+                    </p>
+                  </div>
+                </div>
                 <h4 class="p-heading--4">Edge channel activity</h4>
                 <div class="activity-strip" id="current-activity-edge" aria-label="Edge channel current activity" style="margin-top: 0.5rem !important;">
                   <div class="activity-item"><span class="activity-item__label">Upstream</span><span
