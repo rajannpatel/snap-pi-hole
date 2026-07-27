@@ -46,7 +46,7 @@ jobs:
           mkdir -p channel-switch-artifacts
           gh run download "${{ github.event.workflow_run.id }}" \
             --pattern "channel-switch-result-*" \
-            --dir channel-switch-artifacts
+            --dir channel-switch-artifacts || true
 
       - name: Generate gist payload
         env:
@@ -130,9 +130,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p coverage-report sbom-artifacts vulnerability-reports
-          gh run download "${{ steps.cicd.outputs.run_id }}" --name code-coverage-report --dir coverage-report
-          gh run download "${{ steps.cicd.outputs.run_id }}" --pattern "sbom-*" --dir sbom-artifacts
-          gh run download "${{ steps.cicd.outputs.run_id }}" --name vulnerability-reports --dir vulnerability-reports
+          gh run download "${{ steps.cicd.outputs.run_id }}" --name code-coverage-report --dir coverage-report || true
+          gh run download "${{ steps.cicd.outputs.run_id }}" --pattern "sbom-*" --dir sbom-artifacts || true
+          gh run download "${{ steps.cicd.outputs.run_id }}" --name vulnerability-reports --dir vulnerability-reports || true
 
       - name: Download channel switch result artifact
         if: ${{ github.event_name == 'workflow_run' }}
@@ -142,7 +142,7 @@ jobs:
           mkdir -p channel-switch-artifacts
           gh run download "${{ github.event.workflow_run.id }}" \
             --pattern "channel-switch-result-*" \
-            --dir channel-switch-artifacts
+            --dir channel-switch-artifacts || true
 
       - name: Fetch Snapcraft revisions
         env:
