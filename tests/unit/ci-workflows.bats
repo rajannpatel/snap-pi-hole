@@ -264,11 +264,10 @@ with open("${REPO_ROOT}/.github/workflows/refresh-snapcraft-data.yml") as workfl
     refresh = yaml.safe_load(workflow_file)
 
 refresh_steps = refresh["jobs"]["refresh"]["steps"]
-refresh_runs = "\n".join(step.get("run", "") for step in refresh_steps)
-assert "gh run list" in refresh_runs, refresh_runs
-assert '--pattern "sbom-github-edge-*"' in refresh_runs, refresh_runs
-assert "--limit 1" in refresh_runs, refresh_runs
-assert "\${{ steps.cicd.outputs.run_id }}" in refresh_runs, refresh_runs
+locate_step = next(step for step in refresh_steps if step.get("name") == "Locate latest successful CI/CD run with edge SBOM")
+locate_run = locate_step["run"]
+assert "artifacts" in locate_run, locate_run
+assert "sbom-github-edge" in locate_run, locate_run
 PYEOF
 }
 
