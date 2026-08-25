@@ -37,9 +37,10 @@ exit 0
 EOF
     chmod +x "${MOCK_BIN}/snapctl"
 
-    # Default mock env vars
+    # Default mock env vars. 127.0.0.1:80 in use simulates a healthy FTL
+    # webserver for the liveness check when FTL is active.
     export MOCK_TCP_CHECK="true"
-    export MOCK_TCP_PORTS_IN_USE=""
+    export MOCK_TCP_PORTS_IN_USE="127.0.0.1:80"
     export MOCK_UDP_PORTS_IN_USE=""
     export MOCK_FTL_ACTIVE="true"
 
@@ -105,6 +106,7 @@ teardown() {
 
 @test "snap-check exits 0 when DHCP port is in use (only prints WARN)" {
     export MOCK_FTL_ACTIVE="false"
+    export MOCK_TCP_PORTS_IN_USE=""
     export MOCK_UDP_PORTS_IN_USE="0043"
     run "${CHECK_SCRIPT}"
     [ "$status" -eq 0 ]
@@ -138,4 +140,41 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" == *"[WARN] AppArmor denials detected in dmesg."* ]]
     [[ "$output" != *"[OK] No recent AppArmor denials detected."* ]]
+}
+
+# Webserver liveness (issue #13)
+
+@test "snap-check reports the webserver as healthy when a configured port answers" {
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    cat > "${SNAP_DATA}/etc/pihole/pihole.toml" <<'EOF'
+[webserver]
+  port = "8080o,8443os"
+EOF
+    export MOCK_TCP_PORTS_IN_USE="127.0.0.1:8080"
+
+    run "${CHECK_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[OK] Webserver is listening on port(s): 8080"* ]]
+}
+
+@test "snap-check webserver liveness parses TLS and IPv6 port entries" {
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    cat > "${SNAP_DATA}/etc/pihole/pihole.toml" <<'EOF'
+[webserver]
+  port = "80o,443os,[::]:80o,[::]:443os"
+EOF
+    export MOCK_TCP_PORTS_IN_USE="0.0.0.0:443"
+
+    run "${CHECK_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[OK] Webserver is listening on port(s): 443"* ]]
+}
+
+@test "snap-check exits 2 when FTL is active but the webserver is unreachable" {
+    export MOCK_TCP_PORTS_IN_USE=""
+
+    run "${CHECK_SCRIPT}"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"[FAIL] pihole-FTL is active but the webserver is not listening"* ]]
+    [[ "$output" == *"sudo snap set pihole ftl.webserver.port=\"80o,[::]:80o\""* ]]
 }
