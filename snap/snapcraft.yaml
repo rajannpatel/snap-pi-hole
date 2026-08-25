@@ -154,6 +154,12 @@ parts:
       # Listed explicitly so the link line is reproducible from this file alone.
       - libmbedcrypto16
       - libmbedx509-7
+      # --- Self-signed TLS bootstrap ---
+      # pihole-FTL's mbedTLS-based certificate generator fails inside the
+      # sandbox (issue #13); bin/launcher-ftl falls back to staged OpenSSL
+      # to emit the combined self-signed tls.pem itself. libssl3t64 and
+      # libcrypto3t64 are pulled in automatically as dependencies.
+      - openssl
   # pi-hole core: the `pihole` CLI and supporting shell scripts.
   # Patched in-place to swap out `service`/`systemctl` calls for snapctl
   #  -  the rest of the path remapping is handled by the layout block.

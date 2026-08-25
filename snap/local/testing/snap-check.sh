@@ -118,6 +118,43 @@ else
     fi
 fi
 
+# --- WEBSERVER LIVENESS ---
+# A running FTL process is not enough: when TLS certificate handling fails,
+# FTL aborts its whole webserver (including plain-HTTP listeners) while DNS
+# keeps working silently - see issue #13. Verify that at least one of the
+# configured webserver ports actually accepts connections.
+if [ "$FTL_RUNNING" = "true" ]; then
+    echo "--- WEBSERVER ---"
+    echo ""
+    webserver_port="$(pihole_webserver_port "$(pihole_toml_file)")"
+    webserver_port="$(pihole_normalize_config_value "${webserver_port:-}")"
+    if [ -z "$webserver_port" ]; then
+        webserver_port='80o,443os,[::]:80o,[::]:443os'
+    fi
+    web_ports="$(pihole_webserver_ports "$webserver_port")"
+    web_listening=""
+    # shellcheck disable=SC2086 # Intentionally word-split port list.
+    for web_port in $web_ports; do
+        if check_tcp "127.0.0.1" "$web_port" || check_tcp "0.0.0.0" "$web_port"; then
+            if [ -n "$web_listening" ]; then
+                web_listening="${web_listening}, "
+            fi
+            web_listening="${web_listening}${web_port}"
+        fi
+    done
+    if [ -n "$web_listening" ]; then
+        printf "%b[OK]%b Webserver is listening on port(s): %s\n\n" "${GREEN}" "${NC}" "${web_listening}"
+    else
+        printf "%b[FAIL]%b pihole-FTL is active but the webserver is not listening on any configured port (%s)\n" "${RED}" "${NC}" "${webserver_port}"
+        printf "The admin UI and HTTP API are unreachable.\n"
+        printf "Remediation: Inspect the FTL log for webserver errors, or restrict\n"
+        printf "the webserver to plain HTTP:\n\n"
+        printf "%b%bsudo snap set %s ftl.webserver.port=\"80o,[::]:80o\"%b\n" "${BOLD}" "${CYAN}" "${SNAP_INSTANCE}" "${NC}"
+        printf "%b%bsudo snap restart %s.pihole-ftl%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_INSTANCE}" "${NC}"
+        [ "$exit_code" -eq 0 ] && exit_code=2
+    fi
+fi
+
 # --- CONFINEMENT FAILURES ---
 echo "--- CONFINEMENT ---"
 echo ""

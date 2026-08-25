@@ -33,6 +33,99 @@ pihole_seed_versions_file "$(pihole_versions_template_file "${SNAP:-}")" "$(piho
 # in order to resolve adlist domains during the initial background gravity sync.
 pihole_seed_default_toml "$(pihole_toml_file)"
 
+# TLS bootstrap: pihole-FTL refuses to start its webserver at all when a
+# configured HTTPS port cannot be served because the TLS certificate is
+# missing or cannot be generated, which took down the plain-HTTP admin UI
+# and API on fresh installs (issue #13). While the port configuration is
+# still the unmodified FTL default and no certificate exists, try to
+# generate the self-signed certificate once per boot: first through FTL's
+# native --gen-x509, then through staged OpenSSL. Only when both fail are
+# the TLS entries dropped so the webserver comes up HTTP-only.
+# Operator-configured webserver.port values are never touched - supplying
+# your own certificate and TLS ports keeps working as before.
+#
+# Note: pihole-FTL --config stores the value verbatim, so the replacement
+# port list must be passed WITHOUT surrounding quote characters.
+_ftl_default_webserver_port='80o,443os,[::]:80o,[::]:443os'
+_http_only_webserver_port='80o,[::]:80o'
+_webserver_port="$(pihole_toml_flat "$(pihole_toml_file)" 2>/dev/null | pihole_flat_value webserver.port)"
+_webserver_port="$(pihole_normalize_config_value "${_webserver_port:-}")"
+# An empty value means FTL will apply its built-in default (which requests
+# TLS), so it is treated the same way. A stale artifact of an older fallback
+# that embedded literal quote characters is also ours to repair; FTL cannot
+# parse such a value and would leave the webserver down. Anything else was
+# customized by the operator and is left strictly alone.
+_webserver_managed=""
+if [ -z "${_webserver_port}" ] || [ "${_webserver_port}" = "${_ftl_default_webserver_port}" ]; then
+    _webserver_managed="${_ftl_default_webserver_port}"
+elif printf '%s' "${_webserver_port}" | grep -qF -- '"'"${_http_only_webserver_port}"; then
+    _webserver_managed="stale"
+fi
+
+# Emit a self-signed certificate with the staged OpenSSL. Used as a fallback
+# when pihole-FTL's own generator fails inside the sandbox (its bundled
+# mbedTLS build cannot write certificates - issue #13). Produces a single
+# combined PEM (certificate followed by key), the layout the embedded
+# webserver expects.
+launcher_generate_tls_certificate() {
+    tls_pem="${1:?target PEM path required}"
+    tls_key_tmp="${tls_pem}.key.$$"
+    tls_crt_tmp="${tls_pem}.crt.$$"
+    if ! "${SNAP}/usr/bin/openssl" req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
+            -sha256 -nodes -days 3650 -subj "/CN=pi.hole" \
+            -addext "subjectAltName=DNS:pi.hole,DNS:localhost,IP:127.0.0.1" \
+            -keyout "${tls_key_tmp}" -out "${tls_crt_tmp}" >/dev/null 2>&1 \
+            || [ ! -s "${tls_key_tmp}" ] || [ ! -s "${tls_crt_tmp}" ]; then
+        rm -f "${tls_key_tmp}" "${tls_crt_tmp}"
+        return 1
+    fi
+    cat "${tls_crt_tmp}" "${tls_key_tmp}" > "${tls_pem}"
+    chmod 600 "${tls_pem}"
+    rm -f "${tls_key_tmp}" "${tls_crt_tmp}"
+}
+
+# Guarantee a usable certificate at the given path: keep an existing one,
+# otherwise try pihole-FTL's native generator first and fall back to
+# OpenSSL. Returns non-zero when no certificate could be produced.
+launcher_ensure_tls_certificate() {
+    tls_pem="${1:?target PEM path required}"
+    [ -s "${tls_pem}" ] && return 0
+    if "${SNAP}/usr/bin/pihole-FTL" --gen-x509 "${tls_pem}" pi.hole >/dev/null 2>&1 && [ -s "${tls_pem}" ]; then
+        echo "Generated self-signed TLS certificate for the webserver."
+        return 0
+    fi
+    rm -f "${tls_pem}"
+    if launcher_generate_tls_certificate "${tls_pem}"; then
+        echo "Generated self-signed TLS certificate for the webserver (OpenSSL fallback)."
+        return 0
+    fi
+    rm -f "${tls_pem}"
+    return 1
+}
+
+_tls_pem="${SNAP_DATA}/etc/pihole/tls.pem"
+if [ "${_webserver_managed}" = "stale" ]; then
+    # Repair the mis-quoted artifact. Keep serving TLS when a working
+    # certificate exists (or can be generated); otherwise go HTTP-only.
+    if launcher_ensure_tls_certificate "${_tls_pem}"; then
+        _repair_port="${_ftl_default_webserver_port}"
+    else
+        _repair_port="${_http_only_webserver_port}"
+        echo "Warning: no TLS certificate could be generated; webserver restricted to plain HTTP (${_http_only_webserver_port})." >&2
+    fi
+    "${SNAP}/usr/bin/pihole-FTL" --config webserver.port "${_repair_port}"
+    echo "Repaired webserver.port (was stored with invalid quoting); set to '${_repair_port}'."
+elif [ -n "${_webserver_managed}" ] && [ ! -s "${_tls_pem}" ]; then
+    case "${_webserver_managed}" in
+        *s*)
+            if ! launcher_ensure_tls_certificate "${_tls_pem}"; then
+                "${SNAP}/usr/bin/pihole-FTL" --config webserver.port "${_http_only_webserver_port}"
+                echo "Warning: TLS certificate generation failed; webserver restricted to plain HTTP (${_http_only_webserver_port})." >&2
+            fi
+            ;;
+    esac
+fi
+
 # Sync local configuration back to snapctl database to treat it as the single source of truth
 if [ -x "${SNAP}/bin/config-sync" ]; then
     "${SNAP}/bin/config-sync" || echo "Warning: configuration sync failed" >&2

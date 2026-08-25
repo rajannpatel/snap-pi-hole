@@ -157,6 +157,43 @@ index($0, "=") {
 '
 }
 
+# Read the raw webserver.port value from pihole.toml. Prints nothing when
+# the file or the key is missing (FTL then falls back to its built-in
+# default "80o,443os,[::]:80o,[::]:443os").
+pihole_webserver_port() {
+    pihole_toml="${1:-$(pihole_toml_file)}"
+
+    [ -f "$pihole_toml" ] || return 0
+
+    pihole_toml_flat "$pihole_toml" | pihole_flat_value "webserver.port"
+}
+
+# Extract the unique numeric TCP ports from a webserver.port value, one per
+# line. Handles entries such as "80o", "443os", "[::]:80o" and
+# "127.0.0.1:8080". TLS-only entries are included because liveness is checked
+# at the TCP layer, before any TLS handshake happens.
+pihole_webserver_ports() {
+    printf '%s\n' "${1:-}" | awk '
+function trim(value) {
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", value);
+    return value;
+}
+{
+    count = split($0, entries, ",");
+    for (i = 1; i <= count; i++) {
+        entry = trim(entries[i]);
+        if (entry == "") {
+            continue;
+        }
+        sub(/.*:/, "", entry);
+        gsub(/[[:alpha:]]/, "", entry);
+        if (entry ~ /^[0-9]+$/ && (entry + 0) > 0 && (entry + 0) < 65536 && !seen[entry]++) {
+            print entry;
+        }
+    }
+}'
+}
+
 pihole_apply_flat_config() {
     pihole_ftl_bin="$1"
     pihole_flat_config="$2"
