@@ -452,3 +452,17 @@ EOF
     [[ "$output" != *"SECURITY NOTICE"* ]]
     [[ "$output" != *"WARNING: the web interface password is disabled"* ]]
 }
+
+@test "enforces mode 0600 on generated web_pw file even if file existed with loose permissions" {
+    rm -f "${SNAP_DATA}/etc/pihole/pihole.toml"
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    printf 'cert' > "${SNAP_DATA}/etc/pihole/tls.pem"
+
+    run bash "${LAUNCHER}"
+    [ "$status" -eq 0 ]
+
+    [ -f "${SNAP_DATA}/etc/pihole/web_pw" ]
+    local perms
+    perms="$(stat -c '%a' "${SNAP_DATA}/etc/pihole/web_pw" 2>/dev/null || stat -f '%A' "${SNAP_DATA}/etc/pihole/web_pw")"
+    [ "$perms" = "600" ]
+}

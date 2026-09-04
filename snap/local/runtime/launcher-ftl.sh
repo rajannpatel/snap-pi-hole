@@ -190,7 +190,8 @@ else
             elif "${SNAP}/usr/bin/pihole-FTL" --config webserver.api.password "$pihole_web_password" >/dev/null 2>&1; then
                 # Root-only plaintext next to the other pihole secrets, mirroring
                 # FTL's own /etc/pihole/cli_pw handling.
-                (umask 077 && printf '%s\n' "$pihole_web_password" > "$pihole_web_password_file")
+                (umask 077 && printf '%s\n' "$pihole_web_password" > "$pihole_web_password_file" && chmod 0600 "$pihole_web_password_file") || \
+                    echo "Warning: failed to save web_pw file at ${pihole_web_password_file}" >&2
                 cat <<EOF
 
 SECURITY NOTICE (web interface password)
