@@ -307,3 +307,148 @@ EOF
         false
     fi
 }
+
+# Web password bootstrap (GitHub issue #14)
+
+_write_web_toml() {
+    local port_line="$1"
+    local pwhash_line="$2"
+
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    {
+        echo '[dns]'
+        echo '  upstreams = ["8.8.8.8"]'
+        echo '[webserver]'
+        if [ "$port_line" = "OMIT" ]; then
+            :
+        else
+            echo "  port = \"${port_line}\""
+        fi
+        echo '[webserver.api]'
+        if [ -n "$pwhash_line" ]; then
+            echo "  pwhash = \"${pwhash_line}\""
+        else
+            echo '  pwhash = ""'
+        fi
+    } > "${SNAP_DATA}/etc/pihole/pihole.toml"
+}
+
+@test "generates and announces a web password on first boot when the API is network-reachable" {
+    # No pihole.toml: the launcher seeds the minimal [dns] config, which has
+    # no webserver keys, i.e. FTL's all-interfaces default applies.
+    rm -f "${SNAP_DATA}/etc/pihole/pihole.toml"
+
+    # The launcher redirects the password config call's output, so record
+    # invocations in a log file to verify the exact call and argument.
+    cat > "${SNAP}/usr/bin/pihole-FTL" <<EOF
+#!/bin/sh
+echo "FTL:\$*" >> "${TEST_TMPDIR}/ftl-config.log"
+echo "STUB:pihole-FTL \$*"
+EOF
+    chmod +x "${SNAP}/usr/bin/pihole-FTL"
+
+    run bash "${LAUNCHER}"
+    [ "$status" -eq 0 ]
+
+    # Password applied through the same FTL config call upstream setpassword uses
+    grep -q -- '--config webserver.api.password ' "${TEST_TMPDIR}/ftl-config.log"
+
+    # Root-only password file with a 20-char alphanumeric secret
+    [ -f "${SNAP_DATA}/etc/pihole/web_pw" ]
+    [ "$(stat -c '%a' "${SNAP_DATA}/etc/pihole/web_pw")" = "600" ]
+    grep -Eq '^[A-Za-z0-9]{20}$' "${SNAP_DATA}/etc/pihole/web_pw"
+
+    # The secret applied to FTL must be the same one stored on disk
+    stored_pw="$(cat "${SNAP_DATA}/etc/pihole/web_pw")"
+    applied_pw="$(awk '$2 == "webserver.api.password" { print $3 }' "${TEST_TMPDIR}/ftl-config.log")"
+    [ "${applied_pw}" = "${stored_pw}" ]
+
+    # Prominent banner: the secret, its on-disk location, and how to replace it
+    [[ "$output" == *"SECURITY NOTICE (web interface password)"* ]]
+    [[ "$output" == *"/var/snap/${SNAP_NAME}/current/etc/pihole/web_pw"* ]]
+    [[ "$output" == *"sudo pihole setpassword"* ]]
+    [[ "$output" == *"    ${stored_pw}"* ]]
+}
+
+@test "does not regenerate or re-announce when a password hash already exists" {
+    _write_web_toml "80o,443os,[::]:80o,[::]:443os" '$argon2id$v=19$m=1048576,t=1,p=8$c2FsdA$aGFzaA'
+
+    run bash "${LAUNCHER}"
+    [ "$status" -eq 0 ]
+
+    [ ! -f "${SNAP_DATA}/etc/pihole/web_pw" ]
+    [[ "$output" != *"SECURITY NOTICE"* ]]
+    [[ "$output" != *"--config webserver.api.password"* ]]
+}
+
+@test "does not generate a password when the webserver is loopback-only" {
+    _write_web_toml "127.0.0.1:8080s,[::1]:8080s" ""
+
+    run bash "${LAUNCHER}"
+    [ "$status" -eq 0 ]
+
+    [ ! -f "${SNAP_DATA}/etc/pihole/web_pw" ]
+    [[ "$output" == *"loopback only; no password was generated"* ]]
+    [[ "$output" != *"SECURITY NOTICE"* ]]
+}
+
+@test "does not generate a password when the webserver is disabled" {
+    _write_web_toml "" ""
+
+    run bash "${LAUNCHER}"
+    [ "$status" -eq 0 ]
+
+    [ ! -f "${SNAP_DATA}/etc/pihole/web_pw" ]
+    [[ "$output" == *"webserver/API is disabled (webserver.port is empty)"* ]]
+}
+
+@test "warns instead of regenerating after a deliberate password removal" {
+    _write_web_toml "80o,[::]:80o" ""
+    echo "previously-generated-password" > "${SNAP_DATA}/etc/pihole/web_pw"
+
+    run bash "${LAUNCHER}"
+    [ "$status" -eq 0 ]
+
+    [[ "$output" == *"WARNING: the web interface password is disabled"* ]]
+    [[ "$output" == *"sudo pihole setpassword"* ]]
+    # The stored marker must be left untouched and no new password applied
+    [ "$(cat "${SNAP_DATA}/etc/pihole/web_pw")" = "previously-generated-password" ]
+    [[ "$output" != *"--config webserver.api.password"* ]]
+}
+
+@test "keeps starting the daemon when the generated password cannot be applied" {
+    rm -f "${SNAP_DATA}/etc/pihole/pihole.toml"
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    printf 'cert' > "${SNAP_DATA}/etc/pihole/tls.pem"
+
+    # FTL stub that fails only for the password config call but still
+    # succeeds for the final exec and the gravity sqlite3 call.
+    cat > "${SNAP}/usr/bin/pihole-FTL" <<'EOF'
+#!/bin/sh
+case "$*" in
+    *"webserver.api.password"*) exit 1 ;;
+    *) exit 0 ;;
+esac
+EOF
+    chmod +x "${SNAP}/usr/bin/pihole-FTL"
+
+    run bash "${LAUNCHER}"
+    [ "$status" -eq 0 ]
+
+    [[ "$output" == *"generated web interface password could not be applied"* ]]
+    [ ! -f "${SNAP_DATA}/etc/pihole/web_pw" ]
+}
+
+@test "skips the web password check when a non-empty pihole.toml cannot be parsed" {
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    printf '# a future FTL config syntax the flat parser cannot read\n' > "${SNAP_DATA}/etc/pihole/pihole.toml"
+
+    run bash "${LAUNCHER}"
+    [ "$status" -eq 0 ]
+
+    [ ! -f "${SNAP_DATA}/etc/pihole/web_pw" ]
+    [[ "$output" == *"could not read key/value pairs"* ]]
+    [[ "$output" == *"skipping the web password check"* ]]
+    [[ "$output" != *"SECURITY NOTICE"* ]]
+    [[ "$output" != *"WARNING: the web interface password is disabled"* ]]
+}

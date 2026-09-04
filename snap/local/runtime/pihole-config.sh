@@ -142,7 +142,7 @@ pihole_flat_to_json() {
 }
 
 pihole_normalize_config_value() {
-    printf '%s' "$1" | tr -d '[:space:]' | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
+    printf '%s' "${1:-}" | tr -d '[:space:]' | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
 }
 
 pihole_flat_value() {
@@ -192,6 +192,64 @@ function trim(value) {
         }
     }
 }'
+}
+
+# Classify how far the embedded webserver/API can be reached, based on the
+# raw `webserver.port` value exactly as produced by pihole_flat_value:
+#   reachable  at least one listening entry binds a non-loopback address
+#              (or the key is missing, which is FTL's all-interfaces default)
+#   loopback   every entry binds loopback addresses only
+#   disabled   webserver.port is an explicit empty string (web/API is off)
+# The trailing o/s/r letters are civetweb option flags (optional, TLS,
+# redirect), not binding scopes: the scope comes from the address prefix.
+# Entries without an address prefix (e.g. "80" or "+80") bind all interfaces.
+pihole_webserver_exposure() {
+    ws_raw="${1:-}"
+
+    # A missing key (empty raw value) means FTL's default: all interfaces.
+    if [ -z "$ws_raw" ]; then
+        printf 'reachable\n'
+        return 0
+    fi
+
+    ws_spec="$(pihole_normalize_config_value "$ws_raw")"
+    if [ -z "$ws_spec" ]; then
+        printf 'disabled\n'
+        return 0
+    fi
+
+    printf '%s\n' "$ws_spec" | awk -F, '
+    {
+        reachable = 0
+        for (i = 1; i <= NF; i++) {
+            entry = $i
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", entry)
+            sub(/[osrOSR]+$/, "", entry)
+            if (entry == "") {
+                continue
+            }
+            if (substr(entry, 1, 1) == "[") {
+                # Bracketed IPv6 literal, e.g. [::1]:8080s or [::]:80o
+                addr = entry
+                sub(/^\[/, "", addr)
+                sub(/\].*$/, "", addr)
+                if (addr != "::1") {
+                    reachable = 1
+                }
+            } else if (index(entry, ":") > 0) {
+                # Address-prefixed entry, e.g. 127.0.0.1:80 or 10.0.0.5:80
+                addr = substr(entry, 1, index(entry, ":") - 1)
+                if (addr !~ /^127\./ && addr != "localhost" && addr != "::1") {
+                    reachable = 1
+                }
+            } else {
+                # Bare or "+"-prefixed port: binds all interfaces
+                reachable = 1
+            }
+        }
+        print (reachable ? "reachable" : "loopback")
+    }
+    '
 }
 
 pihole_apply_flat_config() {

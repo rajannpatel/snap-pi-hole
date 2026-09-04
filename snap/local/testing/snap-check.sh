@@ -155,6 +155,51 @@ if [ "$FTL_RUNNING" = "true" ]; then
     fi
 fi
 
+# --- WEB API SECURITY ---
+echo "--- WEB API ---"
+echo ""
+# Pi-hole v6 serves its API unauthenticated when no password is set, so an
+# empty webserver.api.pwhash combined with a non-loopback webserver.port
+# leaves the whole configuration (including dns.upstreams) writable by any
+# host on the network (GitHub issue #14).
+WEB_TOML="$(pihole_toml_file)"
+if [ ! -f "$WEB_TOML" ]; then
+    printf "%b[INFO]%b pihole.toml not found (FTL has not initialized yet).\n" "${BLUE}" "${NC}"
+    printf "The first daemon start will generate a web password automatically.\n\n"
+else
+    WEB_FLAT="$(pihole_toml_flat "$WEB_TOML")"
+    if [ -s "$WEB_TOML" ] && [ -z "$WEB_FLAT" ]; then
+        # A non-empty file with no extractable key/value lines means the flat
+        # parser could not read the config (e.g. a future FTL syntax); the
+        # authentication state is then unknowable, so do not FAIL on it.
+        printf "%b[INFO]%b pihole.toml could not be parsed to verify the web API authentication state.\n\n" "${BLUE}" "${NC}"
+    else
+        WEB_PWHASH_RAW="$(printf '%s\n' "$WEB_FLAT" | pihole_flat_value webserver.api.pwhash)"
+        WEB_PWHASH="$(pihole_normalize_config_value "${WEB_PWHASH_RAW:-}")"
+        WEB_EXPOSURE="$(pihole_webserver_exposure "$(printf '%s\n' "$WEB_FLAT" | pihole_flat_value webserver.port)")"
+
+        if [ -n "$WEB_PWHASH" ]; then
+            printf "%b[OK]%b Web interface password is set.\n\n" "${GREEN}" "${NC}"
+        elif [ "$WEB_EXPOSURE" = "reachable" ]; then
+            printf "%b[FAIL]%b Web API is unauthenticated and reachable from the network\n" "${RED}" "${NC}"
+            printf "(listening addresses only; webserver.acl is not evaluated by this check)\n"
+            printf "Anyone on your network can rewrite the Pi-hole configuration (e.g. DNS upstreams).\n"
+            printf "Remediation: Run the following command to set an admin password:\n\n"
+            printf "%b%bsudo pihole setpassword%b\n\n" "${BOLD}" "${CYAN}" "${NC}"
+            printf "Alternatively, restrict the web interface to loopback only:\n\n"
+            printf "%b%bsudo snap set %s ftl.webserver.port=127.0.0.1:8080%b\n" "${BOLD}" "${CYAN}" "${SNAP_INSTANCE}" "${NC}"
+            printf "%b%bsudo snap set %s 'ftl.webserver.acl=+127.0.0.1,+[::1]'%b\n\n" "${BOLD}" "${CYAN}" "${SNAP_INSTANCE}" "${NC}"
+            exit_code=1
+        elif [ "$WEB_EXPOSURE" = "loopback" ]; then
+            printf "%b[WARN]%b Web API has no password but listens on loopback only.\n" "${YELLOW}" "${NC}"
+            printf "Remediation: consider setting a password:\n\n"
+            printf "%b%bsudo pihole setpassword%b\n\n" "${BOLD}" "${CYAN}" "${NC}"
+        else
+            printf "%b[OK]%b Web server is disabled (webserver.port is empty).\n\n" "${GREEN}" "${NC}"
+        fi
+    fi
+fi
+
 # --- CONFINEMENT FAILURES ---
 echo "--- CONFINEMENT ---"
 echo ""

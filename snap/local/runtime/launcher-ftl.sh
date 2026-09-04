@@ -133,6 +133,93 @@ else
     echo "Warning: config-sync not found or not executable at ${SNAP}/bin/config-sync" >&2
 fi
 
+# Security: never serve the web UI/API unauthenticated on a network-reachable
+# address (GitHub issue #14). Pi-hole v6 allows unauthenticated API access
+# when no password is set, so `pwhash = ""` plus a non-loopback
+# webserver.port lets any LAN host rewrite the whole configuration (including
+# dns.upstreams). When that combination is detected:
+#   * first boot: generate a random admin password (the pattern FTL itself
+#     uses for /etc/pihole/cli_pw), apply it via the same config call the
+#     upstream `pihole setpassword` uses, store it root-only, and announce
+#     it here so `snap logs` shows it;
+#   * password deliberately removed afterwards: do not fight the operator by
+#     regenerating it, but make the exposure impossible to miss.
+# This check runs after config-sync so snap-set port/acl overrides are
+# already reflected in pihole.toml.
+pihole_toml_path="$(pihole_toml_file)"
+pihole_web_password_file="${SNAP_DATA}/etc/pihole/web_pw"
+pihole_toml_flat_cache="$(pihole_toml_flat "$pihole_toml_path" 2>/dev/null || true)"
+
+if [ -s "$pihole_toml_path" ] && [ -z "$pihole_toml_flat_cache" ]; then
+    # A non-empty pihole.toml that yields no key/value lines means the flat
+    # parser could not read the file (e.g. a future FTL config syntax). The
+    # pwhash/exposure read is then meaningless: do not generate a password
+    # (we cannot tell whether one exists) and do not warn about a disabled
+    # one; report the skip and let the daemon come up. An empty or missing
+    # pihole.toml is a legitimate state (FTL then uses its defaults), and
+    # the seeded minimal toml always parses to at least one key.
+    echo "Note: could not read key/value pairs from ${pihole_toml_path} to verify web API authentication; skipping the web password check."
+else
+    pihole_pwhash_raw="$(printf '%s\n' "$pihole_toml_flat_cache" | pihole_flat_value webserver.api.pwhash)"
+    pihole_pwhash="$(pihole_normalize_config_value "${pihole_pwhash_raw:-}")"
+    pihole_exposure="$(pihole_webserver_exposure \
+        "$(printf '%s\n' "$pihole_toml_flat_cache" | pihole_flat_value webserver.port)")"
+
+    if [ -z "$pihole_pwhash" ] && [ "$pihole_exposure" = "reachable" ]; then
+        if [ -e "$pihole_web_password_file" ]; then
+            echo "WARNING: the web interface password is disabled while the API listens" >&2
+            echo "on non-loopback addresses: any host on the network can change this" >&2
+            echo "Pi-hole's configuration. Restore a password with 'sudo pihole setpassword'" >&2
+            echo "or restrict access with:" >&2
+            echo "  sudo snap set $(pihole_snap_name) ftl.webserver.port=127.0.0.1:8080" >&2
+            echo "  sudo snap set $(pihole_snap_name) 'ftl.webserver.acl=+127.0.0.1,+[::1]'" >&2
+        else
+            # Random 20-char alphanumeric password from the staged coreutils.
+            # 256 input bytes make it vanishingly unlikely to see fewer than
+            # 20 usable characters (~62 expected); the length guard below
+            # guarantees exactly 20 characters are applied. A deterministic
+            # fallback would weaken the password, so a short read is retried
+            # on the next start instead.
+            pihole_web_password=""
+            for _pw_attempt in 1 2 3; do
+                pihole_web_password="$(head -c 256 /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 20)"
+                [ "${#pihole_web_password}" -eq 20 ] && break
+            done
+            if [ "${#pihole_web_password}" -ne 20 ]; then
+                echo "Warning: failed to generate a web interface password; the API stays unauthenticated. Retrying on next start." >&2
+            elif "${SNAP}/usr/bin/pihole-FTL" --config webserver.api.password "$pihole_web_password" >/dev/null 2>&1; then
+                # Root-only plaintext next to the other pihole secrets, mirroring
+                # FTL's own /etc/pihole/cli_pw handling.
+                (umask 077 && printf '%s\n' "$pihole_web_password" > "$pihole_web_password_file")
+                cat <<EOF
+
+SECURITY NOTICE (web interface password)
+
+No web password was configured and the web UI/API listens on all
+interfaces. A random administrator password has been generated:
+
+    ${pihole_web_password}
+
+It is stored root-only (mode 0600) at:
+    /var/snap/$(pihole_snap_name)/current/etc/pihole/web_pw
+
+Use it to sign in to the web UI, then replace it with your own:
+    sudo pihole setpassword
+
+EOF
+            else
+                echo "Warning: the generated web interface password could not be applied (pihole-FTL --config failed); the API stays unauthenticated. Retrying on next start." >&2
+            fi
+        fi
+    elif [ -z "$pihole_pwhash" ]; then
+        if [ "$pihole_exposure" = "disabled" ]; then
+            echo "Note: the embedded webserver/API is disabled (webserver.port is empty); no password is configured."
+        else
+            echo "Note: the web interface has no password, but it listens on loopback only; no password was generated."
+        fi
+    fi
+fi
+
 # Some scripts (and a few FTL code paths) assume $HOME is writable.
 export HOME="${SNAP_DATA}"
 

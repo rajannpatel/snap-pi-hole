@@ -149,6 +149,8 @@ EOF
     cat > "${SNAP_DATA}/etc/pihole/pihole.toml" <<'EOF'
 [webserver]
   port = "8080o,8443os"
+[webserver.api]
+  pwhash = "$argon2id$v=19$m=1048576,t=1,p=8$c2FsdA$aGFzaA"
 EOF
     export MOCK_TCP_PORTS_IN_USE="127.0.0.1:8080"
 
@@ -162,6 +164,8 @@ EOF
     cat > "${SNAP_DATA}/etc/pihole/pihole.toml" <<'EOF'
 [webserver]
   port = "80o,443os,[::]:80o,[::]:443os"
+[webserver.api]
+  pwhash = "$argon2id$v=19$m=1048576,t=1,p=8$c2FsdA$aGFzaA"
 EOF
     export MOCK_TCP_PORTS_IN_USE="0.0.0.0:443"
 
@@ -177,4 +181,84 @@ EOF
     [ "$status" -eq 2 ]
     [[ "$output" == *"[FAIL] pihole-FTL is active but the webserver is not listening"* ]]
     [[ "$output" == *"sudo snap set pihole ftl.webserver.port=\"80o,[::]:80o\""* ]]
+}
+
+# Web API security checks (GitHub issue #14)
+
+_write_check_toml() {
+    local port_line="$1"
+    local pwhash_line="$2"
+
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    {
+        echo '[webserver]'
+        if [ "$port_line" = "OMIT" ]; then
+            :
+        else
+            echo "  port = \"${port_line}\""
+        fi
+        echo '[webserver.api]'
+        if [ -n "$pwhash_line" ]; then
+            echo "  pwhash = \"${pwhash_line}\""
+        else
+            echo '  pwhash = ""'
+        fi
+    } > "${SNAP_DATA}/etc/pihole/pihole.toml"
+}
+
+@test "snap-check exits 1 and prints FAIL when the API is unauthenticated and network-reachable" {
+    _write_check_toml "80o,443os,[::]:80o,[::]:443os" ""
+    run "${CHECK_SCRIPT}"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"[FAIL] Web API is unauthenticated and reachable from the network"* ]]
+    [[ "$output" == *"webserver.acl is not evaluated by this check"* ]]
+    [[ "$output" == *"sudo pihole setpassword"* ]]
+    [[ "$output" == *"ftl.webserver.port=127.0.0.1:8080"* ]]
+    [[ "$output" == *"ftl.webserver.acl=+127.0.0.1,+[::1]"* ]]
+}
+
+@test "snap-check treats a missing webserver.port key as network-reachable" {
+    # A freshly seeded minimal pihole.toml has no webserver section at all;
+    # FTL's all-interfaces default then applies.
+    _write_check_toml "OMIT" ""
+    run "${CHECK_SCRIPT}"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"[FAIL] Web API is unauthenticated and reachable from the network"* ]]
+}
+
+@test "snap-check reports OK when a web password hash is set" {
+    _write_check_toml "80o,[::]:80o" '$argon2id$v=19$m=1048576,t=1,p=8$c2FsdA$aGFzaA'
+    run "${CHECK_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[OK] Web interface password is set."* ]]
+}
+
+@test "snap-check reports WARN without failing when unauthenticated but loopback-only" {
+    _write_check_toml "127.0.0.1:8080,[::1]:8080s" ""
+    export MOCK_TCP_PORTS_IN_USE="127.0.0.1:8080"
+    run "${CHECK_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[WARN] Web API has no password but listens on loopback only."* ]]
+}
+
+@test "snap-check reports OK when the web server is disabled" {
+    _write_check_toml "" ""
+    run "${CHECK_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[OK] Web server is disabled (webserver.port is empty)."* ]]
+}
+
+@test "snap-check reports INFO when pihole.toml does not exist yet" {
+    run "${CHECK_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[INFO] pihole.toml not found (FTL has not initialized yet)."* ]]
+}
+
+@test "snap-check reports INFO when a non-empty pihole.toml cannot be parsed" {
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    printf '# a future FTL config syntax the flat parser cannot read\n' > "${SNAP_DATA}/etc/pihole/pihole.toml"
+    run "${CHECK_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[INFO] pihole.toml could not be parsed to verify the web API authentication state."* ]]
+    [[ "$output" != *"[FAIL] Web API is unauthenticated"* ]]
 }
