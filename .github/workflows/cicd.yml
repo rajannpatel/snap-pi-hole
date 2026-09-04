@@ -443,7 +443,8 @@ jobs:
           echo "Testing embedded Civetweb HTTP server on port 8123..."
           # Fetch the dashboard and assert HTTP 200 OK.
           # The dashboard redirects /admin to /admin/, so we request /admin/ directly.
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8123/admin/")
+          # Use -L to follow redirects (e.g., 302 redirect to /admin/login.php when password is set).
+          HTTP_STATUS=$(curl -s -L -o /dev/null -w "%{http_code}" "http://127.0.0.1:8123/admin/")
           if [ "$HTTP_STATUS" -ne 200 ]; then
               echo "::error::Web UI health check failed! HTTP status: $HTTP_STATUS" >&2
               exit 1
