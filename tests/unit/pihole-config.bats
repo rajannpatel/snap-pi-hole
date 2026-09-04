@@ -35,12 +35,16 @@ setup() {
 "80O,443OS"|reachable
 # Address-prefixed entries
 "127.0.0.1:80"|loopback
+"+127.0.0.1:80"|loopback
 "127.0.0.1:8080s"|loopback
 "localhost:80"|loopback
 "10.0.0.5:443os"|reachable
 "0.0.0.0:80"|reachable
 # Bracketed IPv6 entries
 "[::1]:8080s"|loopback
+"+[::1]:8080s"|loopback
+"[0:0:0:0:0:0:0:1]:80"|loopback
+"[0::1]:8080s"|loopback
 "[::]:80o"|reachable
 "[fe80::1]:80"|reachable
 # Mixed specs: any non-loopback entry wins

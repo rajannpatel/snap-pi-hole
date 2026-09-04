@@ -224,6 +224,7 @@ pihole_webserver_exposure() {
         for (i = 1; i <= NF; i++) {
             entry = $i
             gsub(/^[[:space:]]+|[[:space:]]+$/, "", entry)
+            sub(/^\+/, "", entry)
             sub(/[osrOSR]+$/, "", entry)
             if (entry == "") {
                 continue
@@ -233,13 +234,13 @@ pihole_webserver_exposure() {
                 addr = entry
                 sub(/^\[/, "", addr)
                 sub(/\].*$/, "", addr)
-                if (addr != "::1") {
+                if (addr != "::1" && addr != "0:0:0:0:0:0:0:1" && addr != "0::1") {
                     reachable = 1
                 }
             } else if (index(entry, ":") > 0) {
                 # Address-prefixed entry, e.g. 127.0.0.1:80 or 10.0.0.5:80
                 addr = substr(entry, 1, index(entry, ":") - 1)
-                if (addr !~ /^127\./ && addr != "localhost" && addr != "::1") {
+                if (addr !~ /^127\./ && addr != "localhost" && addr != "::1" && addr != "0:0:0:0:0:0:0:1" && addr != "0::1") {
                     reachable = 1
                 }
             } else {
