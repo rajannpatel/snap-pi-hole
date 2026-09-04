@@ -1,5 +1,10 @@
 # Generated and vendored build outputs
+.agents/local/
 .claude/
+.codegraph/
+.gemini/
+.omo/
+.opencode/
 .github/
 .vale/
 .workshop/
