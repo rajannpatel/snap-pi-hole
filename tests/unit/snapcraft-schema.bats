@@ -111,6 +111,25 @@ for path in required:
 PYEOF
 }
 
+@test "snapcraft.yaml logs content slot exposes the log directory read-only" {
+    python3 - <<PYEOF
+import yaml
+with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+    doc = yaml.safe_load(f)
+slots = doc.get("slots", {})
+assert "logs" in slots, "slots.logs missing from snapcraft.yaml"
+logs = slots["logs"]
+assert logs.get("interface") == "content", \
+    f"slots.logs interface wrong: {logs.get('interface')}"
+source = logs.get("source", {})
+reads = source.get("read") or []
+assert reads == ["\$SNAP_COMMON/var/log/pihole"], \
+    f"slots.logs source.read wrong: {reads}"
+assert "write" not in source, \
+    "slots.logs must be read-only; no source.write allowed"
+PYEOF
+}
+
 # 3. Daemon: apps.pihole-ftl
 
 @test "snapcraft.yaml pihole-ftl has refresh-mode endure (DNS stays up across refresh)" {

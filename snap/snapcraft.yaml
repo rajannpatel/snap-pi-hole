@@ -347,3 +347,15 @@ plugs:
   # paths "just work" without patching.
   shared-memory:
     private: true
+# Expose the log directory read-only to other snaps (e.g. an
+# opentelemetry-collector log forwarder) via the content interface.
+# The `content` attribute defaults to the slot name (`logs`), matching a
+# plug declared with the same name and no explicit `content` attribute.
+# Inert until connected: unconnected slots change nothing for existing
+# installs. Read-only (`source.read` only, no `write:`) so a consumer can
+# never modify or truncate the logs it tails.
+slots:
+  logs:
+    interface: content
+    source:
+      read: ["$SNAP_COMMON/var/log/pihole"]
