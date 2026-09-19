@@ -80,7 +80,7 @@ parts:
     plugin: cmake
     source: https://github.com/pi-hole/FTL.git
     source-type: git
-    source-commit: "fa65a88f8cdef1013594d4de14108077954faea4"
+    source-commit: "0bf029baf174f65852a0e598bf4efa436e5cda9c"
     source-depth: 1
     override-pull: $CRAFT_PROJECT_DIR/snap/local/build/ftl-override-pull.sh
     cmake-parameters:
