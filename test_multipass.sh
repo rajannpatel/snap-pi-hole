@@ -428,7 +428,7 @@ log_success "VM successfully launched! Name: $VM_NAME"
 # Configure systemd-resolved to free port 53 (required on both Classic and Core Ubuntu platforms)
 log "Configuring systemd-resolved to free port 53..."
 multipass exec "$VM_NAME" -- sudo mkdir -p /etc/systemd/resolved.conf.d
-multipass exec "$VM_NAME" -- sh -c 'printf "[Resolve]\nDNS=127.0.0.1\nDNSStubListener=no\n" | sudo tee /etc/systemd/resolved.conf.d/pihole.conf'
+multipass exec "$VM_NAME" -- sh -c 'printf "[Resolve]\nDNSStubListener=no\n" | sudo tee /etc/systemd/resolved.conf.d/pihole.conf'
 multipass exec "$VM_NAME" -- sudo systemctl restart systemd-resolved
 
 if [ "$IS_CORE" = "true" ]; then

@@ -320,7 +320,7 @@ jobs:
         run: |
           # Free port 53 inside the Ubuntu Core VM by disabling DNSStubListener
           sudo multipass exec test-instance -- sudo mkdir -p /etc/systemd/resolved.conf.d
-          sudo multipass exec test-instance -- bash -c "printf '[Resolve]\nDNS=127.0.0.1\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf"
+          sudo multipass exec test-instance -- bash -c "printf '[Resolve]\nDNSStubListener=no\n' | sudo tee /etc/systemd/resolved.conf.d/pihole.conf"
           sudo multipass exec test-instance -- sudo systemctl restart systemd-resolved
 
           # Transfer and install the snap
