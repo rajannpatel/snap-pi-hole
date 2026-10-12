@@ -166,6 +166,8 @@ WEB_TOML="$(pihole_toml_file)"
 if [ ! -f "$WEB_TOML" ]; then
     printf "%b[INFO]%b pihole.toml not found (FTL has not initialized yet).\n" "${BLUE}" "${NC}"
     printf "The first daemon start will generate a web password automatically.\n\n"
+elif [ ! -r "$WEB_TOML" ]; then
+    printf "%b[INFO]%b pihole.toml is not readable (run with sudo to check web API state).\n\n" "${BLUE}" "${NC}"
 else
     WEB_FLAT="$(pihole_toml_flat "$WEB_TOML")"
     if [ -s "$WEB_TOML" ] && [ -z "$WEB_FLAT" ]; then

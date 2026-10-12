@@ -501,7 +501,7 @@ for _ in {1..30}; do
     fi
     sleep 1
 done
-multipass exec "$VM_NAME" -- pihole snap-check
+multipass exec "$VM_NAME" -- sudo pihole snap-check
 
 # Get VM IP address and display verification
 sleep 5

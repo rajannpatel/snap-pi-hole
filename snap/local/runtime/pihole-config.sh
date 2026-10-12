@@ -85,6 +85,10 @@ END {
 # NOTE: uses only POSIX awk features (no gawk-only 3-arg match()) so it
 # behaves identically under the base snap's mawk and under gawk in CI.
 pihole_toml_flat() {
+    file="${1:-}"
+    if [ -z "$file" ] || [ ! -r "$file" ]; then
+        return 0
+    fi
     awk '
 function clean_comments(s) {
     clean = "";

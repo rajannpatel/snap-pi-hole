@@ -351,7 +351,7 @@ jobs:
             fi
             sleep 1
           done
-          sudo multipass exec test-instance -- pihole snap-check
+          sudo multipass exec test-instance -- sudo pihole snap-check
 
       - name: Cleanup VM (Multipass)
         if: always() && inputs.distro == 'ubuntu-core'

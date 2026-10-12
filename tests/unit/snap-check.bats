@@ -262,3 +262,14 @@ _write_check_toml() {
     [[ "$output" == *"[INFO] pihole.toml could not be parsed to verify the web API authentication state."* ]]
     [[ "$output" != *"[FAIL] Web API is unauthenticated"* ]]
 }
+
+@test "snap-check reports INFO when pihole.toml is not readable" {
+    mkdir -p "${SNAP_DATA}/etc/pihole"
+    echo '[webserver]' > "${SNAP_DATA}/etc/pihole/pihole.toml"
+    chmod 000 "${SNAP_DATA}/etc/pihole/pihole.toml"
+    run "${CHECK_SCRIPT}"
+    chmod 644 "${SNAP_DATA}/etc/pihole/pihole.toml" # Restore permissions so cleanup works
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[INFO] pihole.toml is not readable (run with sudo to check web API state)."* ]]
+    [[ "$output" != *"Permission denied"* ]]
+}
