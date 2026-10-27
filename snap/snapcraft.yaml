@@ -80,7 +80,7 @@ parts:
     plugin: cmake
     source: https://github.com/pi-hole/FTL.git
     source-type: git
-    source-commit: "0bf029baf174f65852a0e598bf4efa436e5cda9c"
+    source-commit: "29c8b13f4bba0c4f4f47598e45a65cbf1cedac88"
     source-depth: 1
     override-pull: $CRAFT_PROJECT_DIR/snap/local/build/ftl-override-pull.sh
     cmake-parameters:
@@ -167,7 +167,7 @@ parts:
     plugin: dump
     source: https://github.com/pi-hole/pi-hole.git
     source-type: git
-    source-commit: "f47b8ede5a8e38f9c703202d324a074dbdba4ca9"
+    source-commit: "f503a65d3a07cb71fd931389f1d3babf718249aa"
     source-depth: 1
     after: [ftl, web]
     override-pull: $CRAFT_PROJECT_DIR/snap/local/build/pi-hole-override-pull.sh
@@ -185,7 +185,7 @@ parts:
     plugin: dump
     source: https://github.com/pi-hole/web.git
     source-type: git
-    source-commit: "b2a4078446519c58d84f199663ca9326d5d311f0"
+    source-commit: "fb699c4e3fd6965d1c9a5253250d8a9b3c6f7a0e"
     source-depth: 1
     override-build: $CRAFT_PROJECT_DIR/snap/local/build/web-override-build.sh
     organize:
