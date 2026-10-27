@@ -143,7 +143,7 @@ Then install the produced snap into a host-managed Ubuntu Core VM:
 
 ```bash
 SNAP_FILE="$(ls -t ./*.snap | head -n 1)"
-multipass launch core26 --name pihole-core-test --cpus 2 --memory 4G --disk 10G
+multipass launch core:core26 --name pihole-core-test --cpus 2 --memory 4G --disk 10G
 tests/scripts/multipass-wait-snapd-stable.sh pihole-core-test
 multipass exec pihole-core-test -- sudo mkdir -p /etc/systemd/resolved.conf.d
 multipass exec pihole-core-test -- bash -c \

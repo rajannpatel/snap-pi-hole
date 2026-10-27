@@ -757,6 +757,7 @@ PYEOF
     local workflow="${REPO_ROOT}/.github/workflows/reusable-distro-test.yml"
     local helper="tests/scripts/multipass-wait-snapd-stable.sh test-instance"
 
+    grep -q "sudo multipass launch core:core26 " "$workflow"
     grep -q "sudo ${helper}" "$workflow"
     [ "$(grep -c "sudo ${helper}" "$workflow")" -eq 3 ]
     ! grep -q "wait_for_snapd_stability()" "$workflow"

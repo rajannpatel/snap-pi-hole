@@ -307,8 +307,8 @@ jobs:
       - name: Launch VM (Multipass)
         if: inputs.distro == 'ubuntu-core'
         run: |
-          echo "Launching Ubuntu Core VM using image: core26"
-          sudo multipass launch core26 --name test-instance --cpus 2 --memory 4G --disk 10G
+          echo "Launching Ubuntu Core VM using image: core:core26"
+          sudo multipass launch core:core26 --name test-instance --cpus 2 --memory 4G --disk 10G
 
       - name: Wait for VM to Boot (Multipass)
         if: inputs.distro == 'ubuntu-core'

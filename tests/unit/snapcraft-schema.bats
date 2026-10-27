@@ -553,20 +553,30 @@ PYEOF
 @test "snapcraft.yaml pi_hole override-pull includes sandboxing patches and patch-rot guards" {
     python3 - <<PYEOF
 import yaml, sys, glob
-with open("${REPO_ROOT}/snap/snapcraft.yaml") as f:
+from pathlib import Path
+
+root = Path("${REPO_ROOT}")
+with open(root / "snap/snapcraft.yaml") as f:
     doc = yaml.safe_load(f)
 
 pull_script = doc["parts"]["pi_hole"].get("override-pull", "").replace("\$CRAFT_PROJECT_DIR", "${REPO_ROOT}")
 with open(pull_script) as sf:
     pull = sf.read()
 
-for patch_path in glob.glob("${REPO_ROOT}/snap/local/patches/*.patch"):
+patch_paths = sorted((root / "snap/local/patches").glob("*.patch"))
+assert not (root / "snap/local/patches/piholeLogFlush.patch").exists(), "obsolete piholeLogFlush.patch should be retired after upstream FTL API log flush migration"
+assert [p.name for p in patch_paths] == [
+    "piholeDebug.patch",
+    "updatecheck.patch",
+], [p.name for p in patch_paths]
+
+for patch_path in patch_paths:
     with open(patch_path) as pf:
         pull += "\n" + pf.read()
 
-# Verify that service stops/starts are routed to snapctl
-assert "snapctl stop pihole-ftl" in pull, "missing snapctl stop diversion"
-assert "snapctl restart pihole-ftl" in pull, "missing snapctl restart diversion"
+# Verify that service status checks are routed to snapctl
+assert "snapctl is-active pihole-ftl" in pull, "missing snapctl is-active diversion"
+assert "snapctl services pihole-ftl" in pull, "missing snapctl services diversion"
 
 # Verify that PID files are redirected
 assert "/etc/pihole/pihole-FTL.pid" in pull, "missing PID file redirection to /etc/pihole/"
@@ -577,15 +587,20 @@ assert "readonly FTL_PID_FILE" in pull and "FTL_PID_FILE" in pull, "missing FTL_
 # Verify updatecheck git neutralization
 assert "/opt/pihole/templates/versions" in pull, "missing git neutralization in updatecheck.sh"
 
-# Verify chown neutralization
+# Verify chown and root -> pihole privilege-drop neutralization
 assert "chown pihole:pihole" in pull and "true # chown pihole:pihole" in pull, "missing chown neutralization"
 assert 'chown "\$USER":"\${username}"' in pull and "true # chown disabled inside snap" in pull, "missing piholeDebug.sh chown neutralization"
+assert "sudo -u pihole" in pull, "missing sudo -u pihole neutralization"
+assert "su -s /bin/sh pihole" in pull, "missing su -s /bin/sh pihole neutralization"
 
 # Verify patch-rot guards are present
 assert "service pihole-FTL" in pull, "missing patch-rot guard for service pihole-FTL"
+assert "action/flush/logs" in pull, "missing patch-rot guard for piholeLogFlush FTL REST API"
 assert "/run/pihole-FTL.pid" in pull, "missing patch-rot guard for FTL_PID"
 assert 'systemctl is-active "\${i}"' in pull, "missing patch-rot guard for systemctl is-active FTL status check"
 assert "systemctl status --full --no-pager" in pull, "missing patch-rot guard for FTL systemctl full status check"
+assert "un-neutralized 'sudo -u pihole'" in pull, "missing patch-rot guard for sudo -u pihole"
+assert "un-neutralized 'su -s /bin/sh pihole'" in pull, "missing patch-rot guard for su -s /bin/sh pihole"
 PYEOF
 }
 

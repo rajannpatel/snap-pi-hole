@@ -16,7 +16,7 @@ PATCHES_DIR="${CRAFT_PROJECT_DIR}/snap/local/patches"
 # patch --strip=1 strips the a/ b/ prefix from the unified diff paths.
 for patch_file in "${PATCHES_DIR}"/*.patch; do
     echo "Applying patch: ${patch_file}"
-    patch --forward --strip=1 --input="${patch_file}"
+    patch --forward --no-backup-if-mismatch --strip=1 --input="${patch_file}"
 done
 
 # 1. Redirect PID file paths to /etc/pihole/ (layout-mounted to $SNAP_DATA/etc/pihole/).
@@ -30,9 +30,20 @@ grep --exclude-dir=.git -rlZ '/run/pihole-FTL.pid' . | xargs -0 -r sed -i \
 # scope collisions inside subshells. Operates across all files in the tree.
 grep --exclude-dir=.git -rlZ 'readonly FTL_PID_FILE' . | xargs -0 -r sed -i 's/readonly FTL_PID_FILE/FTL_PID_FILE/g'
 
-# 3. Neuter chown pihole:pihole commands since snap daemon runs as root and
-# pihole user does not exist. Operates across all files in the tree.
+# 3. Neuter chown pihole:pihole and root -> pihole privilege-drop commands
+# (GHSA-xch2-4qxw-g5vj) since snap daemon and CLI run as root inside the snap
+# mount namespace and the pihole user does not exist.
 grep --exclude-dir=.git -rlZ 'chown pihole:pihole' . | xargs -0 -r sed -i 's|chown pihole:pihole|true # chown pihole:pihole|g'
+sed -i \
+  -e 's|exec sudo -u pihole bash "$0" "$@" </dev/null|true # exec sudo-u-pihole disabled inside snap|g' \
+  -e 's|sudo -u pihole ||g' \
+  gravity.sh
+sed -i 's|sudo -u pihole ||g' advanced/Scripts/piholeLogFlush.sh
+sed -i \
+  -e 's|su -s /bin/sh pihole -c "/opt/pihole/updatecheck.sh ${reboot_arg}"|true # su-pihole disabled inside snap|' \
+  -e '/su-pihole disabled inside snap/{n;s/exit "$?"/true # exit disabled inside snap/}' \
+  advanced/Scripts/updatecheck.sh
+sed -i 's|su -s /bin/sh pihole -c|sh -c|g' advanced/Templates/pihole-FTL-prestart.sh
 
 # 4. Force the use of snap-staged GNU coreutils.
 # Upstream scripts sanitize $PATH (e.g., piholeDebug.sh sets it to /usr/bin:/bin:...),
@@ -60,6 +71,18 @@ find . -type f \( -name '*.sh' -o -name 'pihole' \) -exec sed -i -E 's|PATH=(["'
 # silently shipping a broken snap.
 if grep -nF 'service pihole-FTL' advanced/Scripts/piholeLogFlush.sh; then
   echo "ERROR: piholeLogFlush.sh still references 'service pihole-FTL' after patch" >&2
+  exit 1
+fi
+if ! grep -qF 'action/flush/logs' advanced/Scripts/piholeLogFlush.sh; then
+  echo "ERROR: piholeLogFlush.sh no longer uses FTL REST API 'action/flush/logs'" >&2
+  exit 1
+fi
+if grep -rnF 'sudo -u pihole' pihole gravity.sh advanced/; then
+  echo "ERROR: un-neutralized 'sudo -u pihole' remains in staged pi-hole scripts" >&2
+  exit 1
+fi
+if grep -rnF 'su -s /bin/sh pihole' pihole gravity.sh advanced/; then
+  echo "ERROR: un-neutralized 'su -s /bin/sh pihole' remains in staged pi-hole scripts" >&2
   exit 1
 fi
 if grep --exclude-dir=.git -rnF '/run/pihole-FTL.pid' .; then

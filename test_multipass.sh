@@ -65,7 +65,7 @@ Usage: $0 [options]
 Developer utility script for interactive testing and debugging of the snap on Multipass.
 
 Options:
-  -p, --platform PLATFORM   Target platform image name (e.g., lts, core24, core22, 24.04)
+  -p, --platform PLATFORM   Target platform image name (e.g., lts, core:core26, core24, 24.04)
   -c, --cpus NUM            Number of CPUs for VM (default: 4)
   -m, --memory SIZE         Memory for VM (default: 8G)
   -d, --disk SIZE           Disk size for VM (default: 15G)
@@ -227,7 +227,7 @@ if [ -z "$PLATFORM" ]; then
     # Find the index of core26 to make it the default choice if available
     default_choice=1
     for ((i=0; i<num_images; i++)); do
-        if [ "${image_keys[i]}" = "core26" ]; then
+        if [ "${image_keys[i]}" = "core:core26" ] || [ "${image_keys[i]}" = "core26" ]; then
             default_choice=$((i+1))
             break
         fi
@@ -252,6 +252,9 @@ fi
 IS_CORE=false
 if [[ "$PLATFORM" =~ ^core ]]; then
     IS_CORE=true
+fi
+if [ "$PLATFORM" = "core26" ]; then
+    PLATFORM="core:core26"
 fi
 
 
