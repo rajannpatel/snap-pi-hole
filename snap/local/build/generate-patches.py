@@ -23,7 +23,7 @@ def _read_ref_from_snapcraft() -> str:
     m = re.search(r"pi_hole:.*?source-(?:commit|tag|branch):\s*(\S+)", text, re.DOTALL)
     if not m:
         raise RuntimeError("Could not find pi_hole source ref in snap/snapcraft.yaml")
-    return m.group(1)
+    return m.group(1).strip("\"'")
 
 
 REF = sys.argv[1] if len(sys.argv) > 1 else _read_ref_from_snapcraft()
@@ -55,14 +55,11 @@ def write_patch(filename, original, modified):
     print(f"  Written  {patch_path}  ({len(diff)} diff lines)")
 
 
-# piholeLogFlush.sh
-print("\n=== piholeLogFlush.sh ===")
-src = fetch("piholeLogFlush.sh")
-mod = src
-mod = mod.replace("service pihole-FTL stop",    "snapctl stop pihole-ftl")
-mod = mod.replace("service pihole-FTL restart", "snapctl restart pihole-ftl")
-mod = mod.replace("service pihole-FTL start",   "snapctl start pihole-ftl")
-write_patch("piholeLogFlush.sh", src, mod)
+# piholeLogFlush.patch was retired after upstream migrated piholeLogFlush.sh
+# from `service pihole-FTL stop/restart` to the FTL REST API (`action/flush/logs`).
+# Its `as_pihole()` privilege drop (`sudo -u pihole`) is neutralized via stream
+# edit in pi-hole-override-pull.sh.
+(PATCHES_DIR / "piholeLogFlush.patch").unlink(missing_ok=True)
 
 # piholeDebug.sh
 print("\n=== piholeDebug.sh ===")
