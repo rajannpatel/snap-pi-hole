@@ -4,6 +4,7 @@ setup() {
     REPO_ROOT="$(git rev-parse --show-toplevel)"
     TEST_TMPDIR="$(mktemp -d)"
     REPORT_DIR="${TEST_TMPDIR}/vulnerability-reports"
+    export LLM_CACHE_PATH="${TEST_TMPDIR}/llm-cache.json"
     mkdir -p "$REPORT_DIR"
 }
 
@@ -256,7 +257,7 @@ assert "font-size: 12px;" in css, css
 PYEOF
 }
 
-@test "LLM query uses header auth with configurable endpoint and default model" {
+@test "local agy CLI query invokes agy --print and supports optional model override" {
     python3 - <<PYEOF
 import json
 import os
@@ -266,135 +267,91 @@ from unittest import mock
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
 import summarize_osv_reports as summary
 
-class DummyResponse:
-    def __init__(self, payload):
-        self._payload = payload
-
-    def read(self):
-        return json.dumps(self._payload).encode("utf-8")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
 captured = {}
 
-def fake_urlopen(req, timeout=0):
-    captured["url"] = req.full_url
-    captured["api_key"] = req.get_header("Authorization")
-    captured["body"] = json.loads(req.data.decode("utf-8"))
-    payload = {
-        "choices": [
-            {
-                "message": {
-                    "content": json.dumps({"appropriate": "A", "not_appropriate": "B"})
-                }
-            }
-        ]
-    }
-    return DummyResponse(payload)
+def fake_run(cmd, **kwargs):
+    captured["cmd"] = cmd
+    res = mock.Mock()
+    res.returncode = 0
+    res.stdout = json.dumps({"appropriate": "A", "not_appropriate": "B"})
+    res.stderr = ""
+    return res
 
 with mock.patch.dict(
     os.environ,
     {
-        "LLM_API_KEY": "test-key",
-        "LLM_API_BASE_URL": "https://example.test",
+        "LLM_USE_AGY": "1",
+        "LLM_AGY_MODEL": "gemini-3.5-flash",
         "LLM_MAX_ATTEMPTS": "1",
     },
     clear=False,
 ):
-    with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
-        result = summary.query_vulnerability_info("CVE-2026-1000", "curl", "1.0")
-        assert result == {"appropriate": "A", "not_appropriate": "B"}, result
-        assert "https://example.test/chat/completions" == captured["url"], captured
-        assert "Bearer test-key" == captured["api_key"], captured
-        assert captured["body"]["model"] == summary.DEFAULT_MODEL, captured
+    with mock.patch("summarize_osv_reports.shutil.which", return_value="/usr/bin/agy"):
+        with mock.patch("summarize_osv_reports.subprocess.run", side_effect=fake_run):
+            result = summary.query_vulnerability_info("CVE-2026-1000", "curl", "1.0", access_vector="Network")
+            assert result == {"appropriate": "A", "not_appropriate": "B"}, result
+            assert captured["cmd"][:3] == ["agy", "--model", "gemini-3.5-flash"], captured["cmd"]
+            assert captured["cmd"][3] == "--print", captured["cmd"]
+            assert '"access_vector": "Network"' in captured["cmd"][4], captured["cmd"][4]
 PYEOF
 }
 
-@test "LLM query retries rate-limits and falls back on auth errors" {
+@test "local agy CLI query retries transient failures and falls back on persistent errors" {
     python3 - <<PYEOF
-import io
 import json
 import os
 import sys
-import urllib.error
 from unittest import mock
 
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
 import summarize_osv_reports as summary
 
-class DummyResponse:
-    def __init__(self, payload):
-        self._payload = payload
-
-    def read(self):
-        return json.dumps(self._payload).encode("utf-8")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
 retry_state = {"count": 0}
 
-def flaky_then_success(req, timeout=0):
+def flaky_then_success(cmd, **kwargs):
     retry_state["count"] += 1
+    res = mock.Mock()
     if retry_state["count"] == 1:
-        raise urllib.error.HTTPError(
-            req.full_url,
-            429,
-            "rate-limited",
-            hdrs=None,
-            fp=io.BytesIO(b'{"error":"too many requests"}'),
-        )
-    payload = {
-        "choices": [
-            {
-                "message": {
-                    "content": json.dumps({"appropriate": "retry-ok", "not_appropriate": "retry-risk"})
-                }
-            }
-        ]
-    }
-    return DummyResponse(payload)
+        res.returncode = 1
+        res.stdout = ""
+        res.stderr = "temporary agy error"
+        return res
+    res.returncode = 0
+    res.stdout = json.dumps({"appropriate": "retry-ok", "not_appropriate": "retry-risk"})
+    res.stderr = ""
+    return res
 
 with mock.patch.dict(
     os.environ,
     {
-        "LLM_API_KEY": "test-key",
         "LLM_MAX_ATTEMPTS": "2",
         "LLM_RETRY_BASE_DELAY_SECONDS": "0",
     },
     clear=False,
 ):
-    with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=flaky_then_success):
+    with mock.patch("summarize_osv_reports.subprocess.run", side_effect=flaky_then_success):
         with mock.patch("summarize_osv_reports.time.sleep", return_value=None):
-            result = summary.query_vulnerability_info("CVE-2026-1001", "curl", "1.0")
+            result = summary.query_vulnerability_info("CVE-2026-1001", "curl", "1.0", use_agy=True)
             assert result["appropriate"] == "retry-ok", result
             assert retry_state["count"] == 2, retry_state
 
-auth_error = urllib.error.HTTPError(
-    "https://example.test",
-    401,
-    "unauthorized",
-    hdrs=None,
-    fp=io.BytesIO(b'{"error":"invalid key"}'),
-)
-with mock.patch.dict(os.environ, {"LLM_API_KEY": "bad-key", "LLM_MAX_ATTEMPTS": "1"}, clear=False):
-    with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=auth_error):
-        result = summary.query_vulnerability_info("CVE-2026-1002", "curl", "1.0")
+def always_fail(cmd, **kwargs):
+    res = mock.Mock()
+    res.returncode = 1
+    res.stdout = ""
+    res.stderr = "failed"
+    return res
+
+with mock.patch.dict(os.environ, {"LLM_MAX_ATTEMPTS": "1"}, clear=False):
+    with mock.patch("summarize_osv_reports.subprocess.run", side_effect=always_fail):
+        result = summary.query_vulnerability_info("CVE-2026-1002", "curl", "1.0", use_agy=True)
         assert "error during LLM lookup" in result["appropriate"], result
         assert "error during LLM lookup" in result["not_appropriate"], result
 PYEOF
 }
 
-@test "LLM query falls back after malformed responses" {
+@test "local agy CLI query falls back after malformed responses" {
     python3 - <<PYEOF
-import json
 import os
 import sys
 from unittest import mock
@@ -402,225 +359,30 @@ from unittest import mock
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
 import summarize_osv_reports as summary
 
-class DummyResponse:
-    def __init__(self, payload):
-        self._payload = payload
-
-    def read(self):
-        return json.dumps(self._payload).encode("utf-8")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
-payload = {"choices": [{"message": {"content": "not valid json"}}]}
+def malformed_run(cmd, **kwargs):
+    res = mock.Mock()
+    res.returncode = 0
+    res.stdout = "not valid json"
+    res.stderr = ""
+    return res
 
 with mock.patch.dict(
     os.environ,
     {
-        "LLM_API_KEY": "test-key",
         "LLM_MAX_ATTEMPTS": "2",
         "LLM_RETRY_BASE_DELAY_SECONDS": "0",
     },
     clear=False,
 ):
-    with mock.patch("summarize_osv_reports.urllib.request.urlopen", return_value=DummyResponse(payload)):
+    with mock.patch("summarize_osv_reports.subprocess.run", side_effect=malformed_run):
         with mock.patch("summarize_osv_reports.time.sleep", return_value=None):
-            result = summary.query_vulnerability_info("CVE-2026-1003", "curl", "1.0")
+            result = summary.query_vulnerability_info("CVE-2026-1003", "curl", "1.0", use_agy=True)
             assert "error during LLM lookup" in result["appropriate"], result
             assert "error during LLM lookup" in result["not_appropriate"], result
 PYEOF
 }
 
-@test "validate_llm_key prints notice and exits 0 when key is absent" {
-    python3 - <<PYEOF
-import os
-import sys
-from unittest import mock
-from io import StringIO
-
-sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import validate_llm_key
-
-env = {k: v for k, v in os.environ.items() if k != "LLM_API_KEY"}
-with mock.patch.dict(os.environ, env, clear=True):
-    out = StringIO()
-    with mock.patch("sys.stdout", out):
-        rc = validate_llm_key.main()
-assert rc == 0, f"expected 0, got {rc}"
-assert "LLM_API_KEY is unavailable" in out.getvalue(), out.getvalue()
-PYEOF
-}
-
-@test "validate_llm_key returns 0 on a successful API response" {
-    python3 - <<PYEOF
-import json
-import os
-import sys
-from unittest import mock
-
-sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import validate_llm_key
-
-captured = {}
-
-class DummyResponse:
-    def __init__(self):
-        self._data = {
-            "choices": [
-                {"message": {"content": "ok"}}
-            ]
-        }
-    def read(self):
-        return json.dumps(self._data).encode("utf-8")
-    def __enter__(self):
-        return self
-    def __exit__(self, *a):
-        return False
-
-def fake_urlopen(req, timeout=0):
-    captured["url"] = req.full_url
-    captured["api_key"] = req.get_header("Authorization")
-    return DummyResponse()
-
-with mock.patch.dict(os.environ, {"LLM_API_KEY": "test-key"}, clear=False):
-    with mock.patch("validate_llm_key.select_best_model", return_value="openai/gpt-4.1"):
-        with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
-            rc = validate_llm_key.main()
-assert rc == 0, f"expected 0, got {rc}"
-assert captured["url"] == "https://models.github.ai/inference/chat/completions", captured
-assert captured["api_key"] == "Bearer test-key", captured
-PYEOF
-}
-
-@test "validate_llm_key returns 1 and emits error annotation on HTTP failure" {
-    python3 - <<PYEOF
-import io
-import os
-import sys
-import urllib.error
-from unittest import mock
-
-sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import validate_llm_key
-
-auth_error = urllib.error.HTTPError(
-    "https://example.test",
-    401,
-    "unauthorized",
-    hdrs=None,
-    fp=io.BytesIO(b'{"error":"invalid key"}'),
-)
-err_buf = io.StringIO()
-with mock.patch.dict(os.environ, {"LLM_API_KEY": "bad-key"}, clear=False):
-    with mock.patch("validate_llm_key.select_best_model", return_value="openai/gpt-4.1"):
-        with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=auth_error):
-            with mock.patch("sys.stderr", err_buf):
-                rc = validate_llm_key.main()
-assert rc == 1, f"expected 1, got {rc}"
-assert "::error title=LLM key validation::" in err_buf.getvalue(), err_buf.getvalue()
-assert "401" in err_buf.getvalue(), err_buf.getvalue()
-PYEOF
-}
-
-@test "validate_llm_key retries 503 and degrades gracefully returning 0" {
-    python3 - <<PYEOF
-import io
-import os
-import sys
-import urllib.error
-from unittest import mock
-
-sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import validate_llm_key
-
-auth_error = urllib.error.HTTPError(
-    "https://example.test",
-    503,
-    "service unavailable",
-    hdrs=None,
-    fp=io.BytesIO(b'{"error":"overloaded"}'),
-)
-err_buf = io.StringIO()
-calls = []
-def fake_urlopen(*args, **kwargs):
-    calls.append(args)
-    raise auth_error
-
-with mock.patch.dict(
-    os.environ,
-    {
-        "LLM_API_KEY": "test-key",
-        "LLM_MAX_ATTEMPTS": "2",
-        "LLM_RETRY_BASE_DELAY_SECONDS": "0",
-    },
-    clear=False,
-):
-    with mock.patch("validate_llm_key.select_best_model", return_value="openai/gpt-4.1"):
-        with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
-            with mock.patch("validate_llm_key.time.sleep", return_value=None):
-                with mock.patch("sys.stderr", err_buf):
-                    rc = validate_llm_key.main()
-assert rc == 0, f"expected 0, got {rc}"
-assert len(calls) == 2, f"expected 2 attempts, got {len(calls)}"
-assert "::warning title=LLM key validation::" in err_buf.getvalue(), err_buf.getvalue()
-assert "503" in err_buf.getvalue(), err_buf.getvalue()
-PYEOF
-}
-
-@test "validate_llm_key extracts rate limit delay from 429 response body" {
-    python3 - <<PYEOF
-import io
-import os
-import sys
-import urllib.error
-from unittest import mock
-
-sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import validate_llm_key
-
-rate_limit_error = urllib.error.HTTPError(
-    "https://example.test",
-    429,
-    "Too Many Requests",
-    hdrs=None,
-    fp=io.BytesIO(b'{"message": "Please retry in 50.72s."}'),
-)
-err_buf = io.StringIO()
-calls = []
-def fake_urlopen(*args, **kwargs):
-    calls.append(args)
-    raise rate_limit_error
-
-slept_durations = []
-def fake_sleep(seconds):
-    slept_durations.append(seconds)
-
-with mock.patch.dict(
-    os.environ,
-    {
-        "LLM_API_KEY": "test-key",
-        "LLM_MAX_ATTEMPTS": "2",
-        "LLM_RETRY_BASE_DELAY_SECONDS": "1.0",
-    },
-    clear=False,
-):
-    with mock.patch("validate_llm_key.select_best_model", return_value="openai/gpt-4.1"):
-        with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
-            with mock.patch("validate_llm_key.time.sleep", side_effect=fake_sleep):
-                with mock.patch("sys.stderr", err_buf):
-                    rc = validate_llm_key.main()
-assert rc == 0, f"expected 0, got {rc}"
-assert len(calls) == 2, f"expected 2 attempts, got {len(calls)}"
-assert len(slept_durations) == 1, slept_durations
-assert 51.21 <= slept_durations[0] <= 51.23, slept_durations
-assert "Rate limit detected. Sleeping for 51.22s" in err_buf.getvalue(), err_buf.getvalue()
-PYEOF
-}
-
-@test "LLM query processes batch requests and populates cache correctly" {
+@test "local agy CLI query processes batch requests and populates cache correctly" {
     python3 - <<PYEOF
 import json
 import os
@@ -630,20 +392,6 @@ from unittest import mock
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
 import summarize_osv_reports as summary
 
-class DummyResponse:
-    def __init__(self, payload):
-        self._payload = payload
-
-    def read(self):
-        return json.dumps(self._payload).encode("utf-8")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
-# Mock payload returning a single JSON response containing entries for both CVEs
 mock_json_content = json.dumps({
     "CVE-2026-9999": {
         "appropriate": "Confinement restricts access.",
@@ -655,105 +403,28 @@ mock_json_content = json.dumps({
     }
 })
 
-payload = {
-    "choices": [
-        {
-            "message": {
-                "content": mock_json_content
-            }
-        }
-    ]
-}
+def fake_run(cmd, **kwargs):
+    res = mock.Mock()
+    res.returncode = 0
+    res.stdout = mock_json_content
+    res.stderr = ""
+    return res
 
 vulns = [
     {"cve_id": "CVE-2026-9999", "package_name": "curl", "version": "1.0"},
     {"cve_id": "CVE-2026-8888", "package_name": "git", "version": "2.0"}
 ]
 
-with mock.patch.dict(
-    os.environ,
-    {
-        "LLM_API_KEY": "test-key",
-        "LLM_MAX_ATTEMPTS": "1",
-    },
-    clear=False,
-):
-    with mock.patch("summarize_osv_reports.urllib.request.urlopen", return_value=DummyResponse(payload)):
-        res = summary.query_llm_vulnerabilities_batch(vulns)
+with mock.patch.dict(os.environ, {"LLM_MAX_ATTEMPTS": "1"}, clear=False):
+    with mock.patch("summarize_osv_reports.subprocess.run", side_effect=fake_run):
+        res = summary.query_llm_vulnerabilities_batch(vulns, use_agy=True)
         assert len(res) == 2, res
         assert res["CVE-2026-9999"]["appropriate"] == "Confinement restricts access.", res
         assert res["CVE-2026-8888"]["appropriate"] == "Sandbox mitigates risk.", res
 PYEOF
 }
 
-@test "select_best_model picks the newest free-tier OpenAI text model" {
-    python3 - <<PYEOF
-import json
-import sys
-from unittest import mock
-
-sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import llm_model
-
-class DummyResponse:
-    def __init__(self, payload):
-        self._payload = payload
-
-    def read(self):
-        return json.dumps(self._payload).encode("utf-8")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
-catalog = [
-    {"id": "openai/gpt-4o", "publisher": "OpenAI", "rate_limit_tier": "high",
-     "version": "2024-11-20", "supported_input_modalities": ["text"],
-     "supported_output_modalities": ["text"]},
-    {"id": "openai/gpt-4.1", "publisher": "OpenAI", "rate_limit_tier": "high",
-     "version": "2025-04-14", "supported_input_modalities": ["text"],
-     "supported_output_modalities": ["text"]},
-    {"id": "openai/gpt-4.1-mini", "publisher": "OpenAI", "rate_limit_tier": "low",
-     "version": "2025-04-14", "supported_input_modalities": ["text"],
-     "supported_output_modalities": ["text"]},
-    {"id": "openai/gpt-5", "publisher": "OpenAI", "rate_limit_tier": "custom",
-     "version": "2025-08-07", "supported_input_modalities": ["text"],
-     "supported_output_modalities": ["text"]},
-    {"id": "other/flagship", "publisher": "NotOpenAI", "rate_limit_tier": "high",
-     "version": "2026-01-01", "supported_input_modalities": ["text"],
-     "supported_output_modalities": ["text"]},
-    {"id": "openai/text-embedding-3-large", "publisher": "OpenAI",
-     "rate_limit_tier": "embeddings", "version": "2024-01-25",
-     "supported_input_modalities": ["text"], "supported_output_modalities": ["embeddings"]},
-]
-
-with mock.patch("llm_model.urllib.request.urlopen", return_value=DummyResponse(catalog)):
-    selected = llm_model.select_best_model("test-key")
-    assert selected == "openai/gpt-4.1", selected
-PYEOF
-}
-
-@test "select_best_model falls back to the default model on catalog failure" {
-    python3 - <<PYEOF
-import sys
-import urllib.error
-from unittest import mock
-
-sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import llm_model
-
-with mock.patch(
-    "llm_model.urllib.request.urlopen",
-    side_effect=urllib.error.URLError("network down"),
-):
-    selected = llm_model.select_best_model("test-key")
-    assert selected == llm_model.DEFAULT_MODEL, selected
-PYEOF
-}
-
-@test "LLM query splits large vulnerability sets into token-limited batches" {
+@test "local agy CLI query splits large vulnerability sets into token-limited batches" {
     python3 - <<PYEOF
 import json
 import os
@@ -764,29 +435,18 @@ from unittest import mock
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
 import summarize_osv_reports as summary
 
-class DummyResponse:
-    def __init__(self, payload):
-        self._payload = payload
-
-    def read(self):
-        return json.dumps(self._payload).encode("utf-8")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
 call_sizes = []
 
-def fake_urlopen(req, timeout=0):
-    content = json.loads(req.data.decode("utf-8"))["messages"][0]["content"]
-    # Batch entries use the lowercase "cve" key; the prompt's example output
-    # keys CVEs differently, so this counts only the data actually sent.
+def fake_run(cmd, **kwargs):
+    content = cmd[-1]
     batch_ids = re.findall(r'"cve":\s*"([^"]+)"', content)
     call_sizes.append(len(batch_ids))
     answer = {cid: {"appropriate": f"a-{cid}", "not_appropriate": f"n-{cid}"} for cid in batch_ids}
-    return DummyResponse({"choices": [{"message": {"content": json.dumps(answer)}}]})
+    res = mock.Mock()
+    res.returncode = 0
+    res.stdout = json.dumps(answer)
+    res.stderr = ""
+    return res
 
 vulns = [
     {"cve_id": f"CVE-3001-{i:04d}", "package_name": "jq", "version": "1.0", "details": "short"}
@@ -795,19 +455,17 @@ vulns = [
 
 with mock.patch.dict(
     os.environ,
-    {"LLM_API_KEY": "test-key", "LLM_MAX_ATTEMPTS": "1"},
+    {"LLM_MAX_ATTEMPTS": "1"},
     clear=False,
 ):
     with mock.patch("summarize_osv_reports.time.sleep"):
-        with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
-            res = summary.query_llm_vulnerabilities_batch(vulns)
+        with mock.patch("summarize_osv_reports.subprocess.run", side_effect=fake_run):
+            res = summary.query_llm_vulnerabilities_batch(vulns, use_agy=True)
 
 import math
 
 assert len(res) == 25, len(res)
 assert all(v["cve_id"] in res for v in vulns), res.keys()
-# Count-bounded chunking: 25 vulns split into ceil(25 / MAX_VULNS_PER_BATCH)
-# requests, each no larger than the cap, covering every finding exactly once.
 expected_batches = math.ceil(25 / summary.MAX_VULNS_PER_BATCH)
 assert len(call_sizes) == expected_batches, (call_sizes, summary.MAX_VULNS_PER_BATCH)
 assert max(call_sizes) <= summary.MAX_VULNS_PER_BATCH, call_sizes
@@ -843,34 +501,27 @@ from unittest import mock
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
 import summarize_osv_reports as summary
 
-class DummyResponse:
-    def __init__(self, payload):
-        self._payload = payload
-
-    def read(self):
-        return json.dumps(self._payload).encode("utf-8")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
 # Second finding omits not_appropriate entirely (no plausible residual risk).
 content = json.dumps({
     "CVE-2026-7001": {"appropriate": "Sandbox contains the crash.", "not_appropriate": "DNS outage is a real DoS."},
     "CVE-2026-7002": {"appropriate": "Only affects non-shipped test code."},
 })
-payload = {"choices": [{"message": {"content": content}}]}
+
+def fake_run(cmd, **kwargs):
+    res = mock.Mock()
+    res.returncode = 0
+    res.stdout = content
+    res.stderr = ""
+    return res
 
 vulns = [
     {"cve_id": "CVE-2026-7001", "package_name": "jq", "version": "1.0"},
     {"cve_id": "CVE-2026-7002", "package_name": "jq", "version": "1.0"},
 ]
 
-with mock.patch.dict(os.environ, {"LLM_API_KEY": "test-key", "LLM_MAX_ATTEMPTS": "1"}, clear=False):
-    with mock.patch("summarize_osv_reports.urllib.request.urlopen", return_value=DummyResponse(payload)):
-        res = summary.query_llm_vulnerabilities_batch(vulns)
+with mock.patch.dict(os.environ, {"LLM_MAX_ATTEMPTS": "1"}, clear=False):
+    with mock.patch("summarize_osv_reports.subprocess.run", side_effect=fake_run):
+        res = summary.query_llm_vulnerabilities_batch(vulns, use_agy=True)
 
 assert res["CVE-2026-7001"]["not_appropriate"] == "DNS outage is a real DoS.", res
 # Omitted risk is normalized to an empty string, and the finding is still valid.
@@ -1006,17 +657,26 @@ osv_record = {
 assert summary._extract_references(osv_record) == ["https://example/adv", "https://example/bug"], summary._extract_references(osv_record)
 assert summary._extract_fixed_versions(osv_record) == ["2.1.0"], summary._extract_fixed_versions(osv_record)
 
-# A fully grounded vuln dict surfaces every field in the model payload.
+# A fully grounded vuln dict surfaces every field in the model payload, including Access Vector.
 rich = summary._batch_entry({
     "cve_id": "UBUNTU-CVE-2026-5555", "package_name": "mbedtls", "version": "3.6.0",
     "details": "x509 parsing flaw", "aliases": ["CVE-2026-5555"], "severity": "9.8 · CRITICAL",
+    "access_vector": "Network", "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
     "references": ["https://example/adv"], "fixed_versions": ["2.1.0"],
 })
 assert rich["aliases"] == ["CVE-2026-5555"], rich
 assert rich["severity"] == "9.8 · CRITICAL", rich
+assert rich["access_vector"] == "Network", rich
+assert rich["cvss_vector"] == "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", rich
 assert rich["fix_available"] is True, rich
 assert rich["fixed_versions"] == ["2.1.0"], rich
 assert rich["references"] == ["https://example/adv"], rich
+
+# Also verify cvss3_access_vector extraction across AV values.
+assert summary.cvss3_access_vector({"severity": [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"}]}) == "Local"
+assert summary.cvss3_access_vector({"severity": [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"}]}) == "Adjacent"
+assert summary.cvss3_access_vector({"severity": [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:P/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"}]}) == "Physical"
+assert summary.cvss3_access_vector({"severity": [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}]}) == "Network"
 
 # A minimal vuln dict stays lean: optional keys (including snap_invocations, which
 # only appears when the snap's own code invokes the component) are omitted entirely.
@@ -1025,7 +685,7 @@ assert set(lean.keys()) == {"cve", "package", "version", "details"}, lean
 PYEOF
 }
 
-@test "no-API-key fallback states containment without inventing residual risk" {
+@test "offline default fallback incorporates Access Vector and states containment without inventing residual risk" {
     python3 - <<PYEOF
 import os
 import sys
@@ -1034,18 +694,22 @@ from unittest import mock
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
 import summarize_osv_reports as summary
 
-vulns = [{"cve_id": "CVE-2026-9001", "package_name": "jq", "version": "1.0"}]
+vulns = [
+    {"cve_id": "CVE-2026-9001", "package_name": "jq", "version": "1.0", "access_vector": "Local"},
+    {"cve_id": "CVE-2026-9002", "package_name": "curl", "version": "1.0", "access_vector": "Network"},
+]
 
-env = {k: v for k, v in os.environ.items() if k != "LLM_API_KEY"}
-with mock.patch.dict(os.environ, env, clear=True):
-    res = summary.query_llm_vulnerabilities_batch(vulns)
+res = summary.query_llm_vulnerabilities_batch(vulns, use_agy=False)
 
-entry = res["CVE-2026-9001"]
-# The offline fallback reassures (appropriate present) and does NOT fabricate a
-# speculative residual-risk section, so the report won't over-report risk.
-assert entry.get("appropriate"), entry
-assert "not_appropriate" not in entry, entry
-assert not summary.is_failed_explanation(entry), entry
+entry_local = res["CVE-2026-9001"]
+assert "Local (AV:L)" in entry_local.get("appropriate", ""), entry_local
+assert "not_appropriate" not in entry_local, entry_local
+assert not summary.is_failed_explanation(entry_local), entry_local
+
+entry_net = res["CVE-2026-9002"]
+assert "Network (AV:N)" in entry_net.get("appropriate", ""), entry_net
+assert "not_appropriate" not in entry_net, entry_net
+assert not summary.is_failed_explanation(entry_net), entry_net
 PYEOF
 }
 
@@ -1161,28 +825,19 @@ from unittest import mock
 sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
 import summarize_osv_reports as summary
 
-class DummyResponse:
-    def __init__(self, payload):
-        self._payload = payload
-
-    def read(self):
-        return json.dumps(self._payload).encode("utf-8")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
 calls = []
 
-def fake_urlopen(req, timeout=0):
-    ids = re.findall(r'"cve":\s*"([^"]+)"', json.loads(req.data.decode("utf-8"))["messages"][0]["content"])
+def fake_run(cmd, **kwargs):
+    ids = re.findall(r'"cve":\s*"([^"]+)"', cmd[-1])
     calls.append(tuple(ids))
     # The multi-finding batch drops CVE-B (truncation/omission); the individual
     # salvage call for CVE-B answers cleanly.
     answer = {cid: {"appropriate": f"contained-{cid}"} for cid in ids if not (cid == "CVE-B" and len(ids) > 1)}
-    return DummyResponse({"choices": [{"message": {"content": json.dumps(answer)}}]})
+    res = mock.Mock()
+    res.returncode = 0
+    res.stdout = json.dumps(answer)
+    res.stderr = ""
+    return res
 
 vulns = [
     {"cve_id": "CVE-A", "package_name": "p", "version": "1", "details": "d"},
@@ -1190,12 +845,12 @@ vulns = [
 ]
 with mock.patch.dict(
     os.environ,
-    {"LLM_API_KEY": "k", "LLM_MAX_ATTEMPTS": "1", "LLM_MAX_VULNS_PER_BATCH": "2"},
+    {"LLM_MAX_ATTEMPTS": "1", "LLM_MAX_VULNS_PER_BATCH": "2"},
     clear=False,
 ):
     with mock.patch("summarize_osv_reports.time.sleep"):
-        with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
-            res = summary.query_llm_vulnerabilities_batch(vulns)
+        with mock.patch("summarize_osv_reports.subprocess.run", side_effect=fake_run):
+            res = summary.query_llm_vulnerabilities_batch(vulns, use_agy=True)
 
 assert not summary.is_failed_explanation(res["CVE-A"]), res
 assert not summary.is_failed_explanation(res["CVE-B"]), res
@@ -1567,13 +1222,11 @@ summary.load_cache = lambda: dict(cached_data)
 saved_cache = {}
 summary.save_cache = lambda c: saved_cache.update(c)
 
-# Mock providers to ensure has_llm is True
-dummy_provider = mock.Mock()
-dummy_provider.name = "Dummy"
-summary.init_providers = lambda: [dummy_provider]
+# Mock local agy enabled to ensure has_llm is True
+summary._is_agy_enabled = lambda use_agy=None: True
 
 queries_made = []
-def fake_query_batch(vulns, model=None):
+def fake_query_batch(vulns, model=None, use_agy=None):
     queries_made.append(vulns)
     return {v["cve_id"]: {"appropriate": "new"} for v in vulns}
 summary.query_llm_vulnerabilities_batch = fake_query_batch
@@ -1620,213 +1273,5 @@ assert len(queries_made) == 1, queries_made
 assert queries_made[0][0]["cve_id"] == "CVE-2023-38545"
 assert saved_cache["CVE-2023-38545"]["modified"] == "2024-01-01T12:00:00Z"
 print("Date-based caching unit test passed successfully.")
-PYEOF
-}
-
-@test "summarize_osv_reports alternates providers on rate limiting and temporary errors" {
-    python3 - <<PYEOF
-import json
-import os
-import sys
-import urllib.error
-from unittest import mock
-
-sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import summarize_osv_reports as summary
-from llm_model import LLMProvider
-
-calls = []
-def fake_urlopen(req, timeout=0):
-    auth = req.get_header("Authorization")
-    url = req.full_url
-    calls.append((url, auth))
-    if "gemini-key" in auth:
-        raise urllib.error.HTTPError(
-            url, 429, "Rate limited", None, mock.Mock(read=lambda: b"rate limit details")
-        )
-    payload = {
-        "choices": [{"message": {"content": json.dumps({"appropriate": "github-confinement"})}}]
-    }
-    return mock.Mock(read=lambda: json.dumps(payload).encode("utf-8"), __enter__=lambda s: s, __exit__=lambda *a: False)
-
-gemini = LLMProvider("Gemini", "gemini-key", "https://gemini.googleapis.com", "gemini-model")
-github = LLMProvider("GitHub", "github-key", "https://github.ai", "github-model")
-summary.init_providers = lambda: [gemini, github]
-summary.select_candidate_models = lambda api, base: ["model-x"]
-
-with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
-    with mock.patch("summarize_osv_reports.time.sleep") as mock_sleep:
-        vulns = [{"cve_id": "CVE-2026-1000", "package_name": "curl", "version": "1.0"}]
-        res = summary.query_llm_vulnerabilities_batch(vulns)
-        
-        assert len(calls) == 2, calls
-        assert "gemini-key" in calls[0][1]
-        assert "github-key" in calls[1][1]
-        assert res["CVE-2026-1000"]["appropriate"] == "github-confinement"
-        
-        sleep_args = [arg[0][0] for arg in mock_sleep.call_args_list]
-        assert len(sleep_args) == 0 or max(sleep_args) < 2.0, sleep_args
-print("Provider alternation unit test passed successfully.")
-PYEOF
-}
-
-@test "summarize_osv_reports handles GitHub Models cooldowns exceeding 10 minutes without sleeping" {
-    python3 - <<PYEOF
-import json
-import os
-import sys
-import urllib.error
-from unittest import mock
-
-sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import summarize_osv_reports as summary
-from llm_model import LLMProvider
-
-calls = []
-def fake_urlopen(req, timeout=0):
-    auth = req.get_header("Authorization")
-    url = req.full_url
-    calls.append((url, auth))
-    if "github-key" in auth:
-        headers = {"Retry-After": "900"}
-        raise urllib.error.HTTPError(
-            url, 429, "Rate limited", headers, mock.Mock(read=lambda: b"rate limit details")
-        )
-    payload = {
-        "choices": [{"message": {"content": json.dumps({"appropriate": "gemini-confinement"})}}]
-    }
-    return mock.Mock(read=lambda: json.dumps(payload).encode("utf-8"), __enter__=lambda s: s, __exit__=lambda *a: False)
-
-gemini = LLMProvider("Gemini", "gemini-key", "https://gemini.googleapis.com", "gemini-model")
-github = LLMProvider("GitHub", "github-key", "https://github.ai", "github-model")
-summary.init_providers = lambda: [github, gemini]
-summary.select_candidate_models = lambda api, base: ["model-x"]
-
-with mock.patch("summarize_osv_reports.urllib.request.urlopen", side_effect=fake_urlopen):
-    with mock.patch("summarize_osv_reports.time.sleep") as mock_sleep:
-        vulns = [{"cve_id": "CVE-2026-2000", "package_name": "curl", "version": "1.0"}]
-        res = summary.query_llm_vulnerabilities_batch(vulns)
-        
-        assert len(calls) == 2, calls
-        assert "github-key" in calls[0][1]
-        assert "gemini-key" in calls[1][1]
-        assert res["CVE-2026-2000"]["appropriate"] == "gemini-confinement"
-        
-        sleep_args = [arg[0][0] for arg in mock_sleep.call_args_list]
-        assert all(s < 600 for s in sleep_args), sleep_args
-print("Absurd cooldown bypass unit test passed successfully.")
-PYEOF
-}
-
-@test "validate_llm_key validates multiple providers and switches on 429 if alternatives exist" {
-    python3 - <<PYEOF
-import json
-import os
-import sys
-import urllib.error
-from unittest import mock
-
-sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import validate_llm_key
-from llm_model import LLMProvider
-
-calls = []
-def fake_urlopen(req, timeout=0):
-    auth = req.get_header("Authorization")
-    url = req.full_url
-    calls.append((url, auth))
-    if "gemini-key" in auth:
-        raise urllib.error.HTTPError(
-            url, 429, "Rate limited", None, mock.Mock(read=lambda: b"rate limit details")
-        )
-    payload = {"choices": [{"message": {"content": "ok"}}]}
-    return mock.Mock(read=lambda: json.dumps(payload).encode("utf-8"), __enter__=lambda s: s, __exit__=lambda *a: False)
-
-gemini = LLMProvider("Gemini", "gemini-key", "https://gemini.googleapis.com", "gemini-model")
-github = LLMProvider("GitHub", "github-key", "https://github.ai", "github-model")
-validate_llm_key.init_providers = lambda: [gemini, github]
-validate_llm_key.select_best_model = lambda api, base: "model-x"
-
-with mock.patch("validate_llm_key.urllib.request.urlopen", side_effect=fake_urlopen):
-    with mock.patch("validate_llm_key.time.sleep") as mock_sleep:
-        rc = validate_llm_key.main()
-        assert rc == 0
-        assert len(calls) == 2, calls
-        assert "gemini-key" in calls[0][1]
-        assert "github-key" in calls[1][1]
-        assert mock_sleep.call_count == 0
-print("validate_llm_key multi-provider validation unit test passed successfully.")
-PYEOF
-}
-
-@test "summarize_osv_reports handles start-of-loop absurd cooldowns on subsequent queries without sleeping" {
-    python3 - <<PYEOF
-import json
-import os
-import sys
-import time
-from unittest import mock
-
-sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import summarize_osv_reports as summary
-from llm_model import LLMProvider
-
-gemini = LLMProvider("Gemini", "gemini-key", "https://gemini.googleapis.com", "gemini-model")
-github = LLMProvider("GitHub", "github-key", "https://github.ai", "github-model")
-
-# Set both providers to an absurd cooldown
-gemini.cooldown_until = time.time() + 86400.0
-github.cooldown_until = time.time() + 68400.0
-
-summary.init_providers = lambda: [gemini, github]
-summary.select_candidate_models = lambda api, base: ["model-x"]
-
-with mock.patch("summarize_osv_reports.time.sleep") as mock_sleep:
-    vulns = [{"cve_id": "CVE-2026-3000", "package_name": "curl", "version": "1.0"}]
-    res = summary.query_llm_vulnerabilities_batch(vulns)
-    
-    # Assert it returned the fallback immediately without attempting API calls or sleeping
-    assert res["CVE-2026-3000"]["appropriate"] == summary.LLM_LOOKUP_ERROR_TEXT
-    assert mock_sleep.call_count == 0
-print("Start-of-loop absurd cooldown bypass unit test passed successfully.")
-PYEOF
-}
-
-@test "summarize_osv_reports skips all remaining batch and individual queries when absurd cooldown is active" {
-    python3 - <<PYEOF
-import json
-import os
-import sys
-import time
-from unittest import mock
-
-sys.path.insert(0, "${REPO_ROOT}/snap/local/build")
-import summarize_osv_reports as summary
-from llm_model import LLMProvider
-
-gemini = LLMProvider("Gemini", "gemini-key", "https://gemini.googleapis.com", "gemini-model")
-github = LLMProvider("GitHub", "github-key", "https://github.ai", "github-model")
-
-# Set both providers to an absurd cooldown
-gemini.cooldown_until = time.time() + 86400.0
-github.cooldown_until = time.time() + 68400.0
-
-summary.init_providers = lambda: [gemini, github]
-summary.select_candidate_models = lambda api, base: ["model-x"]
-
-with mock.patch("summarize_osv_reports.time.sleep") as mock_sleep:
-    # 2 batches worth of vulnerabilities
-    vulns = [
-        {"cve_id": "CVE-2026-4001", "package_name": "curl", "version": "1.0"},
-        {"cve_id": "CVE-2026-4002", "package_name": "curl", "version": "1.0"}
-    ]
-    with mock.patch("summarize_osv_reports.iter_vuln_batches", return_value=[[vulns[0]], [vulns[1]]]):
-        res = summary.query_llm_vulnerabilities_batch(vulns)
-        
-        # Verify it skipped calling _query_vuln_batch_once for subsequent batches and individual queries
-        assert res["CVE-2026-4001"]["appropriate"] == summary.LLM_LOOKUP_ERROR_TEXT
-        assert res["CVE-2026-4002"]["appropriate"] == summary.LLM_LOOKUP_ERROR_TEXT
-        assert mock_sleep.call_count == 0
-print("Batch and individual skip on absurd cooldown unit test passed successfully.")
 PYEOF
 }

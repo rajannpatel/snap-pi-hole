@@ -103,7 +103,10 @@ run_vuln() {
         find local-vulnerabilities -mindepth 1 -maxdepth 1 ! -name 'llm-cache.json' -exec rm -rf {} +
     }
 
-    if command -v osv-scanner &>/dev/null && [ -f "local-sbom.json" ]; then
+    if compgen -G "local-vulnerabilities/osv-*.json" > /dev/null; then
+        echo "Found existing OSV JSON reports in local-vulnerabilities/."
+        use_mock=false
+    elif command -v osv-scanner &>/dev/null && [ -f "local-sbom.json" ]; then
         echo "Found local-sbom.json and osv-scanner. Running real scan..."
         reset_vuln_dir
         
@@ -269,7 +272,12 @@ EOF
 EOF
     fi
 
-    python3 snap/local/build/summarize_osv_reports.py local-vulnerabilities
+    local agy_args=()
+    if command -v agy &>/dev/null; then
+        echo "Using local agy CLI for confinement analysis (updating snap/local/assets/llm-cache.json)..."
+        agy_args=(--use-agy)
+    fi
+    python3 snap/local/build/summarize_osv_reports.py "${agy_args[@]}" local-vulnerabilities
     cp snap/gui/pihole.png local-vulnerabilities/pihole.png
     python3 -c "import pathlib; p = pathlib.Path('local-vulnerabilities/index.html'); p.write_text(p.read_text().replace('../pihole.png', 'pihole.png'))"
     

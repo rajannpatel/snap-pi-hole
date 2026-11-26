@@ -73,7 +73,9 @@ a bug is fully contained when it runs in an app that may hold them.
 Work every CVE in the batch through this filter before writing the output. Each
 batch entry carries the `cve` id, the affected `package` and installed `version`,
 a `details` description, and — when the scanner supplies them — `aliases`,
-`severity`, a `fix_available` flag with `fixed_versions`, and `references` URLs.
+`severity`, `access_vector` (derived from the CVSS 3 Attack Vector metric `AV`:
+`Network`, `Adjacent`, `Local`, or `Physical`), `cvss_vector`, a `fix_available`
+flag with `fixed_versions`, and `references` URLs.
 When this project's own code invokes the affected component, the entry also
 carries `snap_invocations`: a list of real `path:line: code` call sites grepped
 from the snap's shipped patches, snapd hooks, and runtime wrapper scripts.
@@ -82,8 +84,22 @@ newer than your training data. Do not pad the answer with generic textbook
 definitions; reason about the execution mechanics of the specific bug against the
 realities of a network-adjacent, strictly confined DNS service.
 
-1. Attack vector and goal. How is the bug triggered? What input is manipulated,
-   over which interface, and what is the structural failure in the code?
+1. Access vector (`access_vector` / CVSS `AV`) and attack goal. Use the finding's
+   Access Vector (`Network`, `Adjacent`, `Local`, or `Physical`) as a primary
+   component of your analysis:
+   - `Local` (`AV:L`) or `Physical` (`AV:P`): requires local host execution, shell
+     access, local IPC, or physical console access. Because the snap is strictly
+     confined and exposes only network services (DNS port 53, HTTP/HTTPS ports 80/443,
+     and optional DHCP/NTP), a purely local or physical access vector cannot be
+     triggered by remote network clients unless the snap's own network-facing code
+     pipes untrusted network data into that local interface. State the `Local` or
+     `Physical` access vector explicitly when explaining why confinement and service
+     boundaries contain the finding.
+   - `Adjacent` (`AV:A`) or `Network` (`AV:N`): reachable from the local broadcast
+     domain / LAN (`AV:A`, such as DHCP, ARP, or link-local traffic) or across
+     routed networks (`AV:N`, such as DNS queries or web requests). Evaluate how
+     the bug is triggered, what input is manipulated over which interface, and what
+     the structural failure in the code is.
 2. Build applicability. Cross-check the finding against the build-and-runtime
    provenance above. Does the bug require a compiler, build option, or toolchain
    this snap does not use (for example an LLVM/Clang codegen flaw, when `pihole-FTL`
