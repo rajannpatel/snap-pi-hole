@@ -1,6 +1,6 @@
 --- a/advanced/Scripts/updatecheck.sh
 +++ b/advanced/Scripts/updatecheck.sh
-@@ -25,25 +25,30 @@
+@@ -31,25 +31,30 @@
  fi
  
  function get_local_branch() {
@@ -40,7 +40,7 @@
          curl -s "https://api.github.com/repos/pi-hole/${1}/releases/latest" 2>/dev/null | jq --raw-output .tag_name || echo "null"
      else
          echo "null"
-@@ -51,7 +56,7 @@
+@@ -57,7 +62,7 @@
  }
  
  function get_remote_hash() {

@@ -98,23 +98,26 @@ PYEOF
     [ "$output" = $'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\tbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\tcccccccccccccccccccccccccccccccccccccccc' ]
 }
 
-@test "vulnerability scan initializes llm cache file after cache restore" {
+@test "vulnerability scan runs offline without external LLM API keys or runner cache" {
     python3 - <<PYEOF
 import yaml
 
 with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
     doc = yaml.safe_load(f)
 
-steps = doc["jobs"]["vulnerability-scan"]["steps"]
-cache_idx = next(i for i, step in enumerate(steps) if step.get("uses", "").startswith("actions/cache@"))
-init_idx = next(i for i, step in enumerate(steps) if step.get("name") == "Initialize LLM cache file")
-scan_idx = next(i for i, step in enumerate(steps) if step.get("name") == "Scan SBOMs with OSV-Scanner")
-
-assert cache_idx < init_idx < scan_idx, (cache_idx, init_idx, scan_idx)
-run = steps[init_idx]["run"]
-assert "mkdir -p local-vulnerabilities" in run, run
-assert "local-vulnerabilities/llm-cache.json" in run, run
-assert "printf '{}\\\\n'" in run, run
+vs = doc["jobs"]["vulnerability-scan"]
+assert "models" not in (vs.get("permissions") or {}), vs.get("permissions")
+assert "env" not in vs or "LLM_API_BASE_URL" not in vs.get("env", {}), vs.get("env")
+steps = vs["steps"]
+names = [s.get("name", "") for s in steps]
+assert "Validate LLM API key" not in names, names
+assert "Restore/Save LLM Cache" not in names, names
+assert "Initialize LLM cache file" not in names, names
+for step in steps:
+    env = step.get("env") or {}
+    assert "LLM_GEMINI_KEY" not in env, step
+    assert "LLM_GITHUB_KEY" not in env, step
+    assert "validate_llm_key.py" not in step.get("run", ""), step
 PYEOF
 }
 
@@ -415,25 +418,26 @@ PYEOF
 @test "cicd workflow scans SBOM artifacts with OSV-Scanner" {
     local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
     grep -q "vulnerability-scan:" "$workflow"
-    grep -q "github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.3.8" "$workflow"
+    grep -q "github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.7.1" "$workflow"
     grep -q "osv-scanner scan --format json -L" "$workflow"
 }
 
-@test "cicd vulnerability-scan job validates LLM API key before scanning" {
+@test "cicd vulnerability-scan job uses committed llm-cache.json and retires runner LLM scripts" {
     python3 - <<PYEOF
+from pathlib import Path
 import yaml
-with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+
+root = Path("${REPO_ROOT}")
+assert (root / "snap/local/assets/llm-cache.json").exists(), "committed llm-cache.json missing"
+assert not (root / "snap/local/build/llm_model.py").exists(), "obsolete llm_model.py should be retired"
+assert not (root / "snap/local/build/validate_llm_key.py").exists(), "obsolete validate_llm_key.py should be retired"
+
+with open(root / ".github/workflows/cicd.yml") as f:
     doc = yaml.safe_load(f)
 steps = doc["jobs"]["vulnerability-scan"]["steps"]
-names = [s.get("name", "") for s in steps]
-validate_idx = next((i for i, n in enumerate(names) if "Validate LLM API key" in n), None)
-scan_idx     = next((i for i, n in enumerate(names) if "Scan SBOMs with OSV-Scanner" in n), None)
-assert validate_idx is not None, f"'Validate LLM API key' step not found: {names}"
-assert scan_idx is not None, f"'Scan SBOMs with OSV-Scanner' step not found: {names}"
-assert validate_idx < scan_idx, f"Validate step ({validate_idx}) must come before Scan step ({scan_idx})"
-validate_step = steps[validate_idx]
-assert validate_step.get("env", {}).get("LLM_GEMINI_KEY") is not None or validate_step.get("env", {}).get("LLM_GITHUB_KEY") is not None, validate_step
-assert "validate_llm_key.py" in validate_step.get("run", ""), validate_step
+scan_step = next((s for s in steps if "Scan SBOMs with OSV-Scanner" in s.get("name", "")), None)
+assert scan_step is not None, steps
+assert "summarize_osv_reports.py vulnerability-reports" in scan_step.get("run", ""), scan_step
 PYEOF
 }
 

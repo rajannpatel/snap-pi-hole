@@ -4,22 +4,31 @@ import json
 import math
 import pathlib
 import re
+import shutil
+import subprocess
 import sys
 import os
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 import uuid
 from datetime import datetime, timezone
 
 from report_assets import vanilla_framework_css_link
-from llm_model import select_best_model, select_candidate_models, DEFAULT_MODEL, init_providers
+
+DEFAULT_CACHE_PATH = (
+    pathlib.Path(__file__).resolve().parent.parent / "assets" / "llm-cache.json"
+)
+
+
+def _cache_file_path():
+    override = os.environ.get("LLM_CACHE_PATH")
+    if override:
+        return pathlib.Path(override)
+    return DEFAULT_CACHE_PATH
 
 
 def load_cache():
-    repo_root = pathlib.Path(__file__).resolve().parent.parent.parent.parent
-    cache_file = repo_root / "local-vulnerabilities" / "llm-cache.json"
+    cache_file = _cache_file_path()
     if cache_file.exists():
         try:
             return json.loads(cache_file.read_text(encoding="utf-8"))
@@ -29,8 +38,7 @@ def load_cache():
 
 
 def save_cache(cache):
-    repo_root = pathlib.Path(__file__).resolve().parent.parent.parent.parent
-    cache_file = repo_root / "local-vulnerabilities" / "llm-cache.json"
+    cache_file = _cache_file_path()
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     try:
         cache_file.write_text(json.dumps(cache, indent=2) + "\n", encoding="utf-8")
@@ -92,7 +100,7 @@ Build provenance (verifiable from the public GitHub Actions build; treat as grou
 Confinement capabilities (the exact snapd interfaces this snap declares; strict confinement is not a uniform sandbox, so bound each finding's blast radius by the interfaces declared for the app the vulnerable code actually runs in. Interfaces marked * reach beyond the snap's own data to the host when connected; distinguish declared capability from proven active connection unless the input proves the plug is connected):
 {{CONFINEMENT_CAPABILITIES}}
 
-Each finding carries cve, package, version, details, and when available aliases, severity, a fix_available flag with fixed_versions, reference URLs, and a snap_invocations list of real `path:line: code` call sites grepped from the snap's own shipped patches, hooks, and runtime scripts; treat that as the source of truth. For each finding reason about the real attack vector, then whether the vulnerable code is reachable from the snap's services with attacker-influenced input — grounded in snap_invocations when present, and remembering that untrusted input can arrive indirectly. Use explicit reachability confidence: confirmed reachable only when evidence shows a relevant call path receiving untrusted or operator-supplied input; plausibly reachable when the affected code is shipped and linked into a network-facing component but the exact path is not proven; not evident from audited evidence when no path is visible. This audit does not enumerate the full upstream Pi-hole/FTL tree, so never assert that no code path passes attacker-influenced data to a component. Honor the finding's official impact fields and CVSS vector: if the advisory is availability-only (for example C:N/I:N/A:H), keep residual risk focused on service availability unless supplied evidence independently proves confidentiality loss, integrity impact, or arbitrary code execution. AppArmor/seccomp/read-only SquashFS block classic escapes (host filesystem writes, kernel modules, ptrace) so host takeover is normally out of reach. Host-reaching interfaces declared by pihole-FTL (network-control, firewall-control, process-control, time-control) are blast-radius context; mention abuse of them as residual risk only when the advisory or evidence supports code execution or integrity impact. A remotely triggerable crash of the running resolver, DNS cache poisoning, unbounded data growth, or supported interface abuse can be residual risk; compounding hypotheticals are not.
+Each finding carries cve, package, version, details, and when available aliases, severity, access_vector (derived from CVSS 3 AV: Network, Adjacent, Local, or Physical), cvss_vector, a fix_available flag with fixed_versions, reference URLs, and a snap_invocations list of real `path:line: code` call sites grepped from the snap's own shipped patches, hooks, and runtime scripts; treat that as the source of truth. Use the Access Vector (`access_vector` / CVSS `AV`) as a primary component of your analysis: Local (`AV:L`) or Physical (`AV:P`) vectors require host/local execution and cannot be triggered remotely over DNS/HTTP unless the snap's own network-facing code pipes untrusted network input into that local component; Adjacent (`AV:A`) or Network (`AV:N`) vectors can reach network-facing services. For each finding reason about the Access Vector and real attack vector, then whether the vulnerable code is reachable from the snap's services with attacker-influenced input — grounded in snap_invocations when present, and remembering that untrusted input can arrive indirectly. Use explicit reachability confidence: confirmed reachable only when evidence shows a relevant call path receiving untrusted or operator-supplied input; plausibly reachable when the affected code is shipped and linked into a network-facing component but the exact path is not proven; not evident from audited evidence when no path is visible. This audit does not enumerate the full upstream Pi-hole/FTL tree, so never assert that no code path passes attacker-influenced data to a component. Honor the finding's official impact fields and CVSS vector: if the advisory is availability-only (for example C:N/I:N/A:H), keep residual risk focused on service availability unless supplied evidence independently proves confidentiality loss, integrity impact, or arbitrary code execution. AppArmor/seccomp/read-only SquashFS block classic escapes (host filesystem writes, kernel modules, ptrace) so host takeover is normally out of reach. Host-reaching interfaces declared by pihole-FTL (network-control, firewall-control, process-control, time-control) are blast-radius context; mention abuse of them as residual risk only when the advisory or evidence supports code execution or integrity impact. A remotely triggerable crash of the running resolver, DNS cache poisoning, unbounded data growth, or supported interface abuse can be residual risk; compounding hypotheticals are not.
 
 Return a single JSON object and nothing else: keys are the exact vulnerability identifiers (every id in the batch must appear as a key — never drop a finding, even one you judge contained or inapplicable), and each value is an object with either or both of two string keys. Always include "appropriate": a thorough, specific case for how snap confinement mitigates the risk, including attack vector, applicability, reachability confidence, official impact calibration, and how AppArmor/seccomp/read-only SquashFS cap the blast radius and block host compromise. Include "not_appropriate" only when a concrete, reachable, material residual risk genuinely remains and keep it aligned with official CVSS/vendor impact and supplied evidence. Do not claim host-control, firewall/network reconfiguration, confidentiality loss, integrity impact, or arbitrary code execution unless the advisory or project evidence supports it. Omit not_appropriate for speculative, hypothetical, negligible, or non-shipped-code risks, and never fill it with a no-risk disclaimer such as "No residual risk", "None", or "N/A" (its absence already signals containment). At least one key must be present per finding. Be specific and evidence-based; no filler, no Markdown, no text outside the JSON object.
 
@@ -559,6 +567,12 @@ def _batch_entry(vuln):
     severity = (vuln.get("severity") or "").strip()
     if severity:
         entry["severity"] = severity
+    access_vector = (vuln.get("access_vector") or "").strip()
+    if access_vector and access_vector.lower() != "unknown":
+        entry["access_vector"] = access_vector
+    cvss_vector = (vuln.get("cvss_vector") or "").strip()
+    if cvss_vector:
+        entry["cvss_vector"] = cvss_vector
     fixed_versions = [f for f in (vuln.get("fixed_versions") or []) if f]
     if fixed_versions:
         entry["fix_available"] = True
@@ -698,113 +712,115 @@ def confinement_recommendation(appropriate_text, not_appropriate_text):
     return None
 
 
-def query_llm_vulnerabilities_batch(vulns_to_query, model=None):
+def _default_confinement_explanation(vuln):
+    """Build a deterministic confinement explanation incorporating Access Vector."""
+    cve_id = vuln.get("cve_id", "this finding")
+    access_vector = (vuln.get("access_vector") or "").strip()
+    av_lower = access_vector.lower()
+    if av_lower == "local":
+        av_clause = (
+            "Its CVSS Access Vector is Local (AV:L), requiring local host execution "
+            "or shell access rather than remote network traffic, and "
+        )
+    elif av_lower == "physical":
+        av_clause = (
+            "Its CVSS Access Vector is Physical (AV:P), requiring direct physical "
+            "access to the host rather than network access, and "
+        )
+    elif av_lower == "adjacent":
+        av_clause = (
+            "Its CVSS Access Vector is Adjacent Network (AV:A); while reachable on "
+            "the local broadcast domain, "
+        )
+    elif av_lower == "network":
+        av_clause = (
+            "Its CVSS Access Vector is Network (AV:N); even if reached over a "
+            "network interface, "
+        )
+    else:
+        av_clause = ""
+    return {
+        "appropriate": (
+            f"{av_clause}Snap confinement (AppArmor, seccomp, and a read-only "
+            f"SquashFS root) restricts process capabilities and host access, "
+            f"containing {cve_id} within the sandbox so it cannot compromise the host."
+        ),
+    }
+
+
+def _is_agy_enabled(use_agy=None):
+    if use_agy is not None:
+        return bool(use_agy)
+    env_flag = os.environ.get("LLM_USE_AGY", "").strip().lower()
+    if env_flag in {"1", "true", "yes"}:
+        return shutil.which("agy") is not None
+    return False
+
+
+def _run_agy_prompt(prompt, model=None):
+    """Invoke the local agy CLI in non-interactive print mode."""
+    cmd = ["agy"]
+    selected_model = model or os.environ.get("LLM_AGY_MODEL", "").strip()
+    if selected_model:
+        cmd.extend(["--model", selected_model])
+    cmd.extend(["--print", prompt])
+    timeout_sec = max(30, int(os.environ.get("LLM_AGY_TIMEOUT_SECONDS") or "300"))
+    proc = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=timeout_sec,
+        check=False,
+    )
+    if proc.returncode != 0:
+        err = (proc.stderr or proc.stdout or "").strip()
+        raise RuntimeError(f"agy exited with status {proc.returncode}: {err}")
+    return proc.stdout
+
+
+def query_llm_vulnerabilities_batch(vulns_to_query, model=None, use_agy=None):
     if not vulns_to_query:
         return {}
 
-    providers = init_providers()
-    if not providers:
-        print("No LLM providers configured. Using fallback placeholders for batch vulnerabilities.", file=sys.stderr)
+    if not _is_agy_enabled(use_agy):
         return {
-            v["cve_id"]: {
-                "appropriate": (
-                    "Snap confinement (AppArmor, seccomp, and a read-only SquashFS root) "
-                    f"restricts process capabilities and host access, containing {v['cve_id']} "
-                    "within the sandbox so it cannot compromise the host."
-                ),
-            }
+            v["cve_id"]: _default_confinement_explanation(v)
             for v in vulns_to_query
         }
-
-    global _active_provider_idx
-    if '_active_provider_idx' not in globals():
-        globals()['_active_provider_idx'] = 0
-    
-    _active_provider_idx = _active_provider_idx % len(providers)
 
     batches = list(iter_vuln_batches(vulns_to_query))
     results = {}
     for index, batch in enumerate(batches):
-        current_time = time.time()
-        all_cooldown = True
-        min_cooldown = None
-        for p in providers:
-            if p.cooldown_until <= current_time:
-                all_cooldown = False
-                break
-            if min_cooldown is None or p.cooldown_until < min_cooldown:
-                min_cooldown = p.cooldown_until
-                
-        if all_cooldown and min_cooldown is not None and (min_cooldown - current_time) > 600:
-            print("All LLM providers are in absurd cooldown. Skipping all remaining query batches and using fallbacks.", file=sys.stderr)
-            for remaining_batch in batches[index:]:
-                for v in remaining_batch:
-                    results[v["cve_id"]] = {
-                        "appropriate": LLM_LOOKUP_ERROR_TEXT,
-                        "not_appropriate": LLM_LOOKUP_ERROR_TEXT
-                    }
-            break
-
         if index > 0 and BATCH_PACING_SECONDS > 0:
             time.sleep(BATCH_PACING_SECONDS)
         if len(batches) > 1:
             print(
-                f"Querying LLM batch {index + 1}/{len(batches)} ({len(batch)} vulnerabilities)...",
+                f"Querying local agy CLI batch {index + 1}/{len(batches)} ({len(batch)} vulnerabilities)...",
                 file=sys.stderr,
             )
-        results.update(_query_vuln_batch_once(batch, providers, model_override=model))
+        results.update(_query_vuln_batch_once(batch, model_override=model))
 
     if len(vulns_to_query) > 1:
         by_id = {v["cve_id"]: v for v in vulns_to_query}
         failed_ids = [
             cid for cid in by_id if is_failed_explanation(results.get(cid))
         ]
-        
-        current_time = time.time()
-        all_cooldown = True
-        min_cooldown = None
-        for p in providers:
-            if p.cooldown_until <= current_time:
-                all_cooldown = False
-                break
-            if min_cooldown is None or p.cooldown_until < min_cooldown:
-                min_cooldown = p.cooldown_until
-                
-        if not (all_cooldown and min_cooldown is not None and (min_cooldown - current_time) > 600):
-            for cid in failed_ids:
-                if BATCH_PACING_SECONDS > 0:
-                    time.sleep(BATCH_PACING_SECONDS)
-                
-                # Check again before each individual query in case it just hit absurd cooldown
-                current_time = time.time()
-                all_cooldown = True
-                min_cooldown = None
-                for p in providers:
-                    if p.cooldown_until <= current_time:
-                        all_cooldown = False
-                        break
-                    if min_cooldown is None or p.cooldown_until < min_cooldown:
-                        min_cooldown = p.cooldown_until
-                if all_cooldown and min_cooldown is not None and (min_cooldown - current_time) > 600:
-                    print("All LLM providers entered absurd cooldown. Skipping individual re-queries.", file=sys.stderr)
-                    break
-
-                print(
-                    f"Re-querying {cid} individually after a batch miss...",
-                    file=sys.stderr,
-                )
-                providers = init_providers()
-                _active_provider_idx = _active_provider_idx % len(providers)
-                salvaged = _query_vuln_batch_once([by_id[cid]], providers, model_override=model)
-                if not is_failed_explanation(salvaged.get(cid)):
-                    results[cid] = salvaged[cid]
+        for cid in failed_ids:
+            if BATCH_PACING_SECONDS > 0:
+                time.sleep(BATCH_PACING_SECONDS)
+            print(
+                f"Re-querying {cid} individually via agy after a batch miss...",
+                file=sys.stderr,
+            )
+            salvaged = _query_vuln_batch_once([by_id[cid]], model_override=model)
+            if not is_failed_explanation(salvaged.get(cid)):
+                results[cid] = salvaged[cid]
     return results
 
 
-def _query_vuln_batch_once(vulns_to_query, providers, model_override=None):
-    global _active_provider_idx
-    max_attempts = max(1, int(os.environ.get("LLM_MAX_ATTEMPTS") or "3"))
-    retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or "2.0"))
+def _query_vuln_batch_once(vulns_to_query, model_override=None):
+    max_attempts = max(1, int(os.environ.get("LLM_MAX_ATTEMPTS") or "2"))
+    retry_base_delay = max(0.0, float(os.environ.get("LLM_RETRY_BASE_DELAY_SECONDS") or "1.0"))
 
     prompt = build_analysis_prompt(vulns_to_query)
 
@@ -855,231 +871,29 @@ def _query_vuln_batch_once(vulns_to_query, providers, model_override=None):
             return normalize_explanations(json.loads(candidate))
         raise ValueError("Unable to parse LLM JSON payload")
 
-    def parse_llm_response(raw_payload):
-        choices = raw_payload.get("choices", []) if isinstance(raw_payload, dict) else []
-        if choices:
-            text = choices[0].get("message", {}).get("content", "")
-            return parse_text_payload(text)
-        raise ValueError("No parseable LLM response content")
-
-    max_total_tries = max_attempts * len(providers)
-    attempt = 0
-    provider_models = {p.name: list(p.models) for p in providers}
-
-    while attempt < max_total_tries:
-        attempt += 1
-        _active_provider_idx = _active_provider_idx % len(providers)
-        provider = providers[_active_provider_idx]
-        
-        current_time = time.time()
-        if provider.cooldown_until > current_time:
-            if len(providers) > 1:
-                other_idx = (_active_provider_idx + 1) % len(providers)
-                other_provider = providers[other_idx]
-                if other_provider.cooldown_until <= current_time:
-                    _active_provider_idx = other_idx
-                    provider = other_provider
-                else:
-                    sleep_time = min(provider.cooldown_until, other_provider.cooldown_until) - current_time
-                    if sleep_time > 600:
-                        print(f"All providers in cooldown with minimum wait {sleep_time:.2f}s > 600s (absurd). Aborting LLM query and returning cache/fallbacks.", file=sys.stderr)
-                        break
-                    print(f"All providers in cooldown. Waiting for {sleep_time:.2f}s...", file=sys.stderr)
-                    time.sleep(max(0.1, sleep_time))
-                    current_time = time.time()
-            else:
-                sleep_time = provider.cooldown_until - current_time
-                if sleep_time > 600:
-                    print(f"Provider {provider.name} in cooldown with wait {sleep_time:.2f}s > 600s (absurd). Aborting LLM query and returning cache/fallbacks.", file=sys.stderr)
-                    break
-                print(f"Provider {provider.name} in cooldown. Waiting for {sleep_time:.2f}s...", file=sys.stderr)
-                time.sleep(max(0.1, sleep_time))
-                current_time = time.time()
-
-        if not provider.discovered:
-            if model_override:
-                if isinstance(model_override, str):
-                    provider.models = [model_override]
-                else:
-                    provider.models = list(model_override)
-            else:
-                try:
-                    provider.models = select_candidate_models(provider.api_key, provider.base_url)
-                except Exception as exc:
-                    print(f"Model discovery failed for {provider.name} ({exc}); using default model {provider.default_model}.", file=sys.stderr)
-                    provider.models = [provider.default_model]
-            provider.discovered = True
-            provider_models[provider.name] = list(provider.models)
-
-        models_list = provider_models.get(provider.name) or [provider.default_model]
-        if not models_list:
-            models_list = list(provider.models)
-            provider_models[provider.name] = models_list
-        model = models_list[0]
-
-        body = {
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "response_format": {"type": "json_object"},
-            "max_tokens": max(256, int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or "4000")),
-        }
-        
-        url = f"{provider.base_url.rstrip('/')}/chat/completions"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {provider.api_key}",
-        }
-
+    for attempt in range(1, max_attempts + 1):
         try:
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(body).encode("utf-8"),
-                headers=headers,
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=90) as response:
-                resp_data = json.loads(response.read().decode("utf-8"))
-                return parse_llm_response(resp_data)
-        except urllib.error.HTTPError as exc:
-            response_body = ""
-            try:
-                response_body = exc.read().decode("utf-8", errors="replace").strip()
-            except Exception:
-                pass
+            raw_text = _run_agy_prompt(prompt, model=model_override)
+            return parse_text_payload(raw_text)
+        except Exception as exc:
             print(
-                f"{provider.name} LLM API HTTP error for batch query (model: {model}, attempt {attempt}/{max_total_tries}): status {exc.code}. "
-                f"Response body: {response_body or '<empty>'}",
+                f"Local agy CLI error for batch query (attempt {attempt}/{max_attempts}): {exc}",
                 file=sys.stderr,
             )
-            
-            if exc.code == 429:
-                sleep_delay = None
-                resp_headers = exc.headers or {}
-                retry_after = resp_headers.get("Retry-After")
-                if retry_after:
-                    try:
-                        sleep_delay = max(2.0, float(retry_after) + 0.5)
-                        print(f"Rate limit detected. Retry-After header: sleep {sleep_delay:.2f}s.", file=sys.stderr)
-                    except ValueError:
-                        pass
-                if sleep_delay is None:
-                    reset_time = resp_headers.get("x-ratelimit-reset") or resp_headers.get("X-RateLimit-Reset")
-                    if reset_time:
-                        try:
-                            sleep_delay = max(2.0, float(reset_time) - time.time() + 1.0)
-                            print(f"Rate limit detected. x-ratelimit-reset header: sleep {sleep_delay:.2f}s.", file=sys.stderr)
-                        except ValueError:
-                            pass
-                if sleep_delay is None and response_body:
-                    match = re.search(r"(?:retry in|try again in|retry after) (\d+\.?\d*)(?:\s*s|\s*second)", response_body, re.IGNORECASE)
-                    if match:
-                        try:
-                            sleep_delay = max(2.0, float(match.group(1)) + 0.5)
-                            print(f"Rate limit detected. Response body: sleep {sleep_delay:.2f}s.", file=sys.stderr)
-                        except ValueError:
-                            pass
-
-                # Check for daily/permanent quota exhaustion
-                if response_body and ("quota exceeded" in response_body.lower() or "exceeded your current quota" in response_body.lower()):
-                    sleep_delay = 86400.0  # 1 day
-                    print(f"{provider.name} daily/monthly quota exhausted. Setting 24h cooldown.", file=sys.stderr)
-
-                if sleep_delay is None:
-                    sleep_delay = max(2.0, min(retry_base_delay * (2 ** (attempt - 1)), 30.0))
-
-                provider.cooldown_until = time.time() + sleep_delay
-
-                # Find if any provider is ready (not in cooldown)
-                current_time = time.time()
-                ready_provider = None
-                for p in providers:
-                    if p.cooldown_until <= current_time:
-                        ready_provider = p
-                        break
-
-                if ready_provider:
-                    print(f"Rate limit hit on {provider.name}. Alternating to ready provider {ready_provider.name} immediately.", file=sys.stderr)
-                    _active_provider_idx = providers.index(ready_provider)
-                    continue
-
-                # If no provider is ready, calculate wait time
-                sleep_time = min(p.cooldown_until for p in providers) - current_time
-                if sleep_time > 600:
-                    print(f"All providers in cooldown with minimum wait {sleep_time:.2f}s > 600s (absurd). Aborting LLM query and returning cache/fallbacks.", file=sys.stderr)
-                    break
-
-                # Sleep for the minimum wait time, then run again with the provider that becomes ready
-                next_ready_provider = min(providers, key=lambda p: p.cooldown_until)
-                print(f"All providers in cooldown. Sleeping for {sleep_time:.2f}s to wait for {next_ready_provider.name}...", file=sys.stderr)
-                time.sleep(max(0.1, sleep_time))
-                _active_provider_idx = providers.index(next_ready_provider)
-                continue
-            
-            elif exc.code in {500, 502, 503, 504}:
-                if len(providers) > 1:
-                    print(f"{provider.name} server error (HTTP {exc.code}). Alternating provider...", file=sys.stderr)
-                    _active_provider_idx = (_active_provider_idx + 1) % len(providers)
-                    continue
-                else:
-                    time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
-                    continue
-            else:
-                if len(models_list) > 1:
-                    print(f"Model {model} failed with HTTP {exc.code}. Rotating model...", file=sys.stderr)
-                    models_list.pop(0)
-                    continue
-                if len(providers) > 1:
-                    print(f"{provider.name} failed with HTTP {exc.code}. Alternating provider...", file=sys.stderr)
-                    _active_provider_idx = (_active_provider_idx + 1) % len(providers)
-                    continue
-                break
-                
-        except (urllib.error.URLError, TimeoutError) as exc:
-            print(f"{provider.name} API connection or timeout error for batch query (model: {model}): {exc}.", file=sys.stderr)
-            if len(providers) > 1:
-                print("Alternating provider due to connection error...", file=sys.stderr)
-                _active_provider_idx = (_active_provider_idx + 1) % len(providers)
-                continue
-            else:
+            if attempt < max_attempts:
                 time.sleep(min(retry_base_delay * (2 ** (attempt - 1)), 8.0))
-                continue
-                
-        except (json.JSONDecodeError, KeyError, IndexError, ValueError) as exc:
-            print(f"{provider.name} API response parsing error for batch query (model: {model}): {exc}.", file=sys.stderr)
-            if len(models_list) > 1:
-                print("Rotating model due to parsing error...", file=sys.stderr)
-                models_list.pop(0)
-                continue
-            if len(providers) > 1:
-                print("Alternating provider due to parsing error...", file=sys.stderr)
-                _active_provider_idx = (_active_provider_idx + 1) % len(providers)
-                continue
-            break
-            
-        except Exception as exc:
-            print(f"Unexpected LLM lookup error for batch query (model: {model}): {type(exc).__name__}: {exc}.", file=sys.stderr)
-            break
-            
+
     return fallback_map
 
 
-def query_vulnerability_info(cve_id, package_name, version, details="", model=None):
+def query_vulnerability_info(cve_id, package_name, version, details="", model=None, access_vector="", use_agy=None):
     res = query_llm_vulnerabilities_batch([{
         "cve_id": cve_id,
         "package_name": package_name,
         "version": version,
         "details": details,
-    }], model=model)
-    return res.get(cve_id, {
-        "appropriate": LLM_LOOKUP_ERROR_TEXT,
-        "not_appropriate": LLM_LOOKUP_ERROR_TEXT
-    })
-    res = query_llm_vulnerabilities_batch([{
-        "cve_id": cve_id,
-        "package_name": package_name,
-        "version": version,
-        "details": details,
-    }], model=model)
+        "access_vector": access_vector,
+    }], model=model, use_agy=use_agy)
     return res.get(cve_id, {
         "appropriate": LLM_LOOKUP_ERROR_TEXT,
         "not_appropriate": LLM_LOOKUP_ERROR_TEXT
@@ -1192,7 +1006,15 @@ def cvss3_rating(score):
     return "Critical"
 
 
-def cvss3_severity_text(vulnerability):
+CVSS3_ACCESS_VECTOR_LABELS = {
+    "N": "Network",
+    "A": "Adjacent",
+    "L": "Local",
+    "P": "Physical",
+}
+
+
+def cvss3_best_vector(vulnerability):
     scored_vectors = []
     for severity in vulnerability.get("severity", []):
         if severity.get("type") != "CVSS_V3":
@@ -1203,10 +1025,30 @@ def cvss3_severity_text(vulnerability):
             scored_vectors.append((score, vector))
 
     if not scored_vectors:
-        return "Unknown"
+        return None, ""
 
-    score, _vector = max(scored_vectors)
+    return max(scored_vectors)
+
+
+def cvss3_severity_text(vulnerability):
+    score, _vector = cvss3_best_vector(vulnerability)
+    if score is None:
+        return "Unknown"
     return f"{score:.1f} · {cvss3_rating(score)}"
+
+
+def cvss3_access_vector(vulnerability):
+    _score, vector = cvss3_best_vector(vulnerability)
+    if not vector:
+        for severity in vulnerability.get("severity", []):
+            if severity.get("type") == "CVSS_V3" and severity.get("score"):
+                vector = severity.get("score", "")
+                break
+    for part in str(vector or "").split("/"):
+        if part.startswith("AV:"):
+            code = part.split(":", 1)[1].strip().upper()
+            return CVSS3_ACCESS_VECTOR_LABELS.get(code, "Unknown")
+    return "Unknown"
 
 
 def ubuntu_priority(vulnerability):
@@ -1351,12 +1193,15 @@ def report_breakdowns(packages):
 
 def vulnerability_entry(vulnerability, patchable):
     aliases = vulnerability.get("aliases", [])
+    _score, vector = cvss3_best_vector(vulnerability)
     return {
         "id": vulnerability.get("id", "unknown"),
         "aliases": aliases,
         "summary": vulnerability.get("summary", ""),
         "details": vulnerability.get("details", ""),
         "severity": cvss3_severity_text(vulnerability),
+        "accessVector": cvss3_access_vector(vulnerability),
+        "cvssVector": vector,
         "priority": ubuntu_priority(vulnerability),
         "published": vulnerability.get("published", ""),
         "modified": vulnerability.get("modified", ""),
@@ -1377,7 +1222,7 @@ def generated_time(report_path):
     }
 
 
-def collect_reports(reports_dir):
+def collect_reports(reports_dir, use_agy=None):
     summary = {
         "reports": [],
         "totalVulnerabilities": 0,
@@ -1390,7 +1235,7 @@ def collect_reports(reports_dir):
     cache = load_cache()
     cache_updated = False
     runtime_explanations = {}
-    has_llm = len(init_providers()) > 0
+    has_llm = _is_agy_enabled(use_agy)
 
     uncached_vulns_to_query = []
     seen_uncached = set()
@@ -1430,6 +1275,7 @@ def collect_reports(reports_dir):
 
                     if needs_query and vuln_id not in seen_uncached:
                         vuln_id_to_modified[vuln_id] = report_modified
+                        _score, vector = cvss3_best_vector(v)
                         uncached_vulns_to_query.append({
                             "cve_id": vuln_id,
                             "package_name": package_name,
@@ -1437,14 +1283,17 @@ def collect_reports(reports_dir):
                             "details": (v.get("details") or v.get("summary") or "").strip(),
                             "aliases": v.get("aliases", []),
                             "severity": cvss3_severity_text(v),
+                            "access_vector": cvss3_access_vector(v),
+                            "cvss_vector": vector,
                             "references": _extract_references(v),
                             "fixed_versions": _extract_fixed_versions(v),
                         })
                         seen_uncached.add(vuln_id)
 
     if uncached_vulns_to_query:
-        print(f"Querying LLM in batch for {len(uncached_vulns_to_query)} uncached vulnerabilities...", file=sys.stderr)
-        batch_results = query_llm_vulnerabilities_batch(uncached_vulns_to_query)
+        if has_llm:
+            print(f"Querying local agy CLI in batch for {len(uncached_vulns_to_query)} uncached vulnerabilities...", file=sys.stderr)
+        batch_results = query_llm_vulnerabilities_batch(uncached_vulns_to_query, use_agy=has_llm)
         for vuln_id, explanations in batch_results.items():
             runtime_explanations[vuln_id] = explanations
             if has_llm and not is_failed_explanation(explanations):
@@ -1502,6 +1351,8 @@ def collect_reports(reports_dir):
                             package_name,
                             package_version,
                             (v.get("summary") or v.get("details") or "").strip(),
+                            access_vector=cvss3_access_vector(v),
+                            use_agy=has_llm,
                         )
                         runtime_explanations[vuln_id] = explanations
                         if has_llm and not is_failed_explanation(explanations):
@@ -2460,9 +2311,11 @@ def write_html(summary, output_path):
 
 
 def main():
-    reports_dir = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "vulnerability-reports")
+    args = [a for a in sys.argv[1:] if a != "--use-agy"]
+    use_agy = "--use-agy" in sys.argv[1:] or None
+    reports_dir = pathlib.Path(args[0] if args else "vulnerability-reports")
     reports_dir.mkdir(parents=True, exist_ok=True)
-    summary = collect_reports(reports_dir)
+    summary = collect_reports(reports_dir, use_agy=use_agy)
     (reports_dir / "osv-summary.json").write_text(
         json.dumps(summary, indent=2) + "\n",
         encoding="utf-8",
