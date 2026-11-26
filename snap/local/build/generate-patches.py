@@ -57,8 +57,8 @@ def write_patch(filename, original, modified):
 
 # piholeLogFlush.patch was retired after upstream migrated piholeLogFlush.sh
 # from `service pihole-FTL stop/restart` to the FTL REST API (`action/flush/logs`).
-# Its `as_pihole()` privilege drop (`sudo -u pihole`) is neutralized via stream
-# edit in pi-hole-override-pull.sh.
+# Its `as_pihole()` privilege drop (`setpriv` / `sudo -u pihole`) is neutralized
+# via stream edit in pi-hole-override-pull.sh.
 (PATCHES_DIR / "piholeLogFlush.patch").unlink(missing_ok=True)
 
 # piholeDebug.sh
@@ -82,10 +82,6 @@ mod = mod.replace(
     'log_write "${INFO} systemctl:  command not found"',
     'FTL_status=$(snapctl services pihole-ftl); log_write "   ${FTL_status}"',
 )
-mod = mod.replace(
-    'chown "$USER":"${username}" ${PIHOLE_DEBUG_LOG}',
-    'true # chown disabled inside snap',
-)
 
 # Verify all replacements landed
 checks = [
@@ -93,7 +89,6 @@ checks = [
     ("service \"${i}\" status",                 "service status | grep check"),
     ("systemctl status --full --no-pager",      "FTL systemctl status check"),
     ('systemctl:  command not found',           "systemctl not found log"),
-    ('chown "$USER":"${username}"',             "chown in upload_to_tricorder"),
 ]
 for needle, label in checks:
     if needle in mod:

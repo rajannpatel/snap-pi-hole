@@ -1,6 +1,6 @@
 --- a/advanced/Scripts/piholeDebug.sh
 +++ b/advanced/Scripts/piholeDebug.sh
-@@ -756,7 +756,7 @@
+@@ -791,7 +791,7 @@
          # If systemd
          if command -v systemctl &> /dev/null; then
              # get its status via systemctl
@@ -9,7 +9,7 @@
          else
              # Otherwise, use the service command and mock the output of `systemctl is-active`
  
-@@ -765,7 +765,7 @@
+@@ -800,7 +800,7 @@
                  :
              else
              # non-Docker system
@@ -18,7 +18,7 @@
                      status_of_process="active"
                  else
                      status_of_process="inactive"
-@@ -792,12 +792,12 @@
+@@ -827,12 +827,12 @@
      echo_current_diagnostic "Pi-hole-FTL full status"
      local FTL_status
      if command -v systemctl &> /dev/null; then
@@ -33,12 +33,3 @@
      fi
  }
  
-@@ -1242,7 +1242,7 @@
-     local username="pihole"
-     # Set the permissions and owner
-     chmod 640 ${PIHOLE_DEBUG_LOG}
--    chown "$USER":"${username}" ${PIHOLE_DEBUG_LOG}
-+    true # chown disabled inside snap
- 
-     # Let the user know debugging is complete with something strikingly visual
-     log_write ""

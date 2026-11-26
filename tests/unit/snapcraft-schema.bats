@@ -589,9 +589,9 @@ assert "/opt/pihole/templates/versions" in pull, "missing git neutralization in 
 
 # Verify chown and root -> pihole privilege-drop neutralization
 assert "chown pihole:pihole" in pull and "true # chown pihole:pihole" in pull, "missing chown neutralization"
-assert 'chown "\$USER":"\${username}"' in pull and "true # chown disabled inside snap" in pull, "missing piholeDebug.sh chown neutralization"
 assert "sudo -u pihole" in pull, "missing sudo -u pihole neutralization"
 assert "su -s /bin/sh pihole" in pull, "missing su -s /bin/sh pihole neutralization"
+assert "setpriv --reuid=pihole --regid=pihole --init-groups --" in pull, "missing setpriv pihole neutralization"
 
 # Verify patch-rot guards are present
 assert "service pihole-FTL" in pull, "missing patch-rot guard for service pihole-FTL"
@@ -601,6 +601,7 @@ assert 'systemctl is-active "\${i}"' in pull, "missing patch-rot guard for syste
 assert "systemctl status --full --no-pager" in pull, "missing patch-rot guard for FTL systemctl full status check"
 assert "un-neutralized 'sudo -u pihole'" in pull, "missing patch-rot guard for sudo -u pihole"
 assert "un-neutralized 'su -s /bin/sh pihole'" in pull, "missing patch-rot guard for su -s /bin/sh pihole"
+assert "un-neutralized 'setpriv --reuid=pihole'" in pull, "missing patch-rot guard for setpriv --reuid=pihole"
 PYEOF
 }
 
