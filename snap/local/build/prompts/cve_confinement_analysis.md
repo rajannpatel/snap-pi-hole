@@ -73,7 +73,7 @@ a bug is fully contained when it runs in an app that may hold them.
 Work every CVE in the batch through this filter before writing the output. Each
 batch entry carries the `cve` id, the affected `package` and installed `version`,
 a `details` description, and — when the scanner supplies them — `aliases`,
-`severity`, `access_vector` (derived from the CVSS 3 Attack Vector metric `AV`:
+`severity`, `access_vector` (derived from the `CVSS v3` Attack Vector metric `AV`:
 `Network`, `Adjacent`, `Local`, or `Physical`), `cvss_vector`, a `fix_available`
 flag with `fixed_versions`, and `references` URLs.
 When this project's own code invokes the affected component, the entry also
@@ -84,7 +84,7 @@ newer than your training data. Do not pad the answer with generic textbook
 definitions; reason about the execution mechanics of the specific bug against the
 realities of a network-adjacent, strictly confined DNS service.
 
-1. Access vector (`access_vector` / CVSS `AV`) and attack goal. Use the finding's
+1. Access vector (`access_vector` / `CVSS` `AV`) and attack goal. Use the finding's
    Access Vector (`Network`, `Adjacent`, `Local`, or `Physical`) as a primary
    component of your analysis:
    - `Local` (`AV:L`) or `Physical` (`AV:P`): requires local host execution, shell
@@ -92,7 +92,7 @@ realities of a network-adjacent, strictly confined DNS service.
      confined and exposes only network services (DNS port 53, HTTP/HTTPS ports 80/443,
      and optional DHCP/NTP), a purely local or physical access vector cannot be
      triggered by remote network clients unless the snap's own network-facing code
-     pipes untrusted network data into that local interface. State the `Local` or
+     pipes external network data into that local interface. State the `Local` or
      `Physical` access vector explicitly when explaining why confinement and service
      boundaries contain the finding.
    - `Adjacent` (`AV:A`) or `Network` (`AV:N`): reachable from the local broadcast
