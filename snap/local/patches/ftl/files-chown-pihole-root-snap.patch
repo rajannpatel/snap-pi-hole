@@ -1,7 +1,8 @@
 --- a/src/files.c
 +++ b/src/files.c
 @@ -477,9 +477,7 @@
- 		const int ret = getpwnam_r("pihole", &pwstore, pwbuf, sizeof(pwbuf), &pwd);
+-		const int ret = getpwnam_r("pihole", &pwstore, pwbuf, sizeof(pwbuf), &pwd);
++		(void)getpwnam_r("pihole", &pwstore, pwbuf, sizeof(pwbuf), &pwd);
  		if(pwd == NULL)
  		{
 -			log_warn("chown_pihole(): Failed to get pihole user's UID/GID: %s",
