@@ -418,7 +418,7 @@ PYEOF
 @test "cicd workflow scans SBOM artifacts with OSV-Scanner" {
     local workflow="${REPO_ROOT}/.github/workflows/cicd.yml"
     grep -q "vulnerability-scan:" "$workflow"
-    grep -q "github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.3.8" "$workflow"
+    grep -q "github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.7.1" "$workflow"
     grep -q "osv-scanner scan --format json -L" "$workflow"
 }
 

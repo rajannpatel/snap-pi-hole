@@ -224,7 +224,7 @@ jobs:
 
       - name: Install OSV-Scanner
         run: |
-          go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.3.8
+          go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.7.1
           echo "${HOME}/go/bin" >> "$GITHUB_PATH"
 
       - name: Scan SBOMs with OSV-Scanner
