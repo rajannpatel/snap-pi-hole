@@ -28,7 +28,7 @@ pihole_cli_ready() {
 pihole_dns_ready() {
   command -v dig >/dev/null 2>&1 || return 0
   dig +short +time=1 +tries=1 @127.0.0.1 pi.hole >/dev/null 2>&1 ||
-    dig +short +time=1 +tries=1 @127.0.0.1 . NS 2>/dev/null | grep -q '.'
+    dig +short +time=1 +tries=1 @127.0.0.1 . NS >/dev/null 2>&1
 }
 
 pihole_service_available() {

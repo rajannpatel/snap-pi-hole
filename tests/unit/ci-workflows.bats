@@ -334,6 +334,22 @@ BASH
     [[ "$output" == *"::error::"* ]]
 }
 
+@test "smoke test port-53 readiness check requires pihole-FTL socket and dig zero exit status" {
+    python3 - <<PYEOF
+import yaml
+
+with open("${REPO_ROOT}/.github/workflows/cicd.yml") as f:
+    doc = yaml.safe_load(f)
+
+steps = doc["jobs"]["smoke"]["steps"]
+wait_step = next(s for s in steps if s.get("name") == "Start daemon and wait for DNS")
+run_script = wait_step["run"]
+assert "grep ':53 ' | grep -q 'pihole-FTL'" in run_script, run_script
+assert "dig +short +time=1 +tries=1 @127.0.0.1 . NS >/dev/null 2>&1" in run_script, run_script
+assert "| grep -q '.'" not in run_script, run_script
+PYEOF
+}
+
 @test "cicd workflow only runs on the snap-pi-hole main branch" {
     python3 - <<PYEOF
 import yaml
